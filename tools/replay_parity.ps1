@@ -67,7 +67,10 @@ Write-Host "== present stream: $n frames compared, $diff differing"
 $bad = $diff
 if ($Dumps) {
     & (Join-Path $PSScriptRoot 'dump_compare.py') "build\dumps-$Tag-aot" "build\dumps-$Tag-floor"
-    if ($LASTEXITCODE -ne 0) { $bad += 1 }
+    # 0 = identical, 1 = something differs, 3 = this route has no `dump` lines
+    # at all, which is a note about the script, not a failed check.
+    if ($LASTEXITCODE -eq 1) { $bad += 1 }
+    elseif ($LASTEXITCODE -eq 3) { Write-Host '== no framedumps on this route (add `dump <tag>` lines to the script)' }
 }
 if ($bad -eq 0) {
     Write-Host "== PARITY: the ahead-of-time build replays the route exactly like the floor"

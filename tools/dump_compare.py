@@ -33,7 +33,11 @@ def main(argv):
     left, right = tags(argv[0]), tags(argv[1])
     shared = sorted(set(left) & set(right))
     if not shared:
-        sys.exit("no dump tags in common")
+        # A route whose script has no `dump` lines is not a failed comparison;
+        # report it that way so a parity run does not read as a regression.
+        print(f"no framedumps to compare: {argv[0]} and {argv[1]} share no dump "
+              f"tags (pass a pad script with `dump <tag>` lines to get any)")
+        return 3
     bad = 0
     for t in shared:
         rows = []

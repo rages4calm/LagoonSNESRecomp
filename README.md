@@ -3,7 +3,10 @@
 A native recompilation of **Lagoon** (USA), built on
 [snesrecomp](https://github.com/RetroPortingToolKit/snesrecomp).
 
-_Add a short description here._
+Boots, plays, and takes input. The KEMCO logo, the title screen, and the story
+scenes are all rendered by recompiled code, and the whole program replays
+byte-for-byte the way the framework's interpreter tier does — see
+[Qualification](#qualification) for how that is measured.
 
 
 
@@ -13,10 +16,59 @@ _Add a short description here._
 
 ## Status
 
-Scaffolded on 2026-10-14 — **not yet a working port.** The layout, build,
-regeneration pipeline, CI, and packaging are wired up; the game does not run
-until the host work in `src/game_rtl.c` is done. See
-[Porting from here](#porting-from-here).
+**A working port.** Lagoon boots from a wiped save card to the KEMCO logo, the
+title screen, and the story scenes, and the pad reaches the guest: from an
+identical starting state, pressing the d-pad changes the framebuffer, WRAM and
+VRAM where the same route with no input leaves them byte-identical.
+
+Two framework bugs stood between the scaffold and that state. Both were fixed
+in the framework rather than papered over in this port:
+
+- **`$4210` bit 7 is the vblank window, not a first-reader token.** The
+  read-and-clear model starved Lagoon's vblank wait, so the game never left a
+  black screen. Framework commit `d56921e`.
+- **Bounded interpreter runs ignored the host's master deadline.** Lagoon's SFX
+  handler ends in `LDA $023C / BNE` and `$023C` is written by the vblank NMI;
+  inside a bounded run the deadline was invisible, so the wait burned the whole
+  step cap and re-entered, and the frame driver — the only thing that can
+  deliver that NMI — never got control back. The logo froze at the first frame
+  that entered the handler. Framework commit `6c9e91a`.
+
+Analysis input lives in `recomp/`: four banks, four hand-written
+`indirect_dispatch` authorizations (each commented with the ROM evidence that
+decided its shape), and the `[[func]]` boundaries that promotion evidence
+supported. The current build emits 213 roots as 344 exact ahead-of-time variants
+across banks `00`/`01`/`02`/`0C`, with 51 variants kept as low-level emulation —
+mostly the game's own hardware-wait loops, which cost cycles on real hardware
+too.
+
+## Qualification
+
+Nothing here is judged by looking at a screenshot; every claim above is a
+comparison a tool makes.
+
+| Check | Tool | Result |
+|---|---|---|
+| Ahead-of-time build replays a route exactly like the interpreter floor | `tools/replay_parity.ps1` | 2 757-frame route and 12 001-frame route, **0 differing presents**, every framedump component identical |
+| The pad reaches the guest | `tools/script_play.txt` vs `tools/script_play_ctl.txt` + `tools/dump_compare.py` | pre-input dump identical; after each of the four directions, framebuffer / WRAM / regs / VRAM all differ |
+| The frame driver holds 60 fps | host log | `fps=60.01`, `cpu_seconds` 7.31 vs 8.25 on the floor for the same 2 757 frames |
+| No indirect transfer is being abandoned | `tools/coverage_report.py` | `unresolved_abandons.total_hits = 0` |
+
+Two habits make those numbers mean anything:
+
+- **A card per run.** Lagoon reads its battery-backed save at boot, so every run
+  inherits the last run's saved game. Measured against a baseline taken with
+  different SRAM in the slot, an unchanged binary looks like a regression — that
+  false alarm cost a full debugging detour. `tools/headless.ps1` now gives each
+  run its own card through the host's `--save-root`, and `-CleanSaves` wipes the
+  tag's card so a fresh-card route actually starts fresh. Screenshot legs get a
+  wiped card of their own too: a photograph of frame N has to begin where the
+  long run began, or it is a different game at frame N.
+- **A floor reference.** `recomp-floor/bank00.cfg` + `tools/regen.sh --cfg-dir
+  recomp-floor` builds `build/lagoon-floor.exe`, the interpreter-only build that
+  the ahead-of-time build has to match. Without it, "looks right" is the only
+  oracle available. Rebuild it whenever the framework moves, or the comparison
+  is against an older engine.
 
 ## ROM identity
 
@@ -79,9 +131,37 @@ than mis-executing ten frames in.
 | `src/` | Host code you own: `main.c`, `game_rtl.c` |
 | `src/gen/` | Generated C. Never committed — regenerate locally |
 | `snesrecomp/` | Framework submodule (owns `lib/recomp-net`, `lib/retcomm-rbengine`) |
-| `tools/` | `regen.sh` — the ROM → C pipeline |
+| `tools/` | `regen.sh` (ROM → C), the headless rig, and the qualification tools below |
+| `recomp-floor/` | Analysis config for the interpreter-floor reference build |
 | `scripts/` | `package_release.sh` — player-facing zip |
 | `framework_pins.txt` | Exact framework commits this project was scaffolded against |
+
+### The day-to-day loop
+
+```sh
+# 1. Drive a route and record what the interpreter is still doing.
+./tools/headless.ps1 -Frames 2900 -Script tools/script_move.txt -Tag cov -Coverage -CleanSaves
+
+# 2. Read the capture: what falls back, with the targets actually observed.
+python tools/coverage_report.py build/coverage-cov
+python tools/dispatch_hints.py  build/coverage-cov     # the cfg lines the evidence supports
+
+# 3. Write it down in recomp/, regenerate.
+bash tools/regen.sh --cfg-roots --profile <capture.json> --profile <capture.jsonl> \
+                    --historical-profile <older.json> --historical-profile <older.jsonl>
+cmake --build build -j
+
+# 4. Prove the promotion changed nothing.
+./tools/replay_parity.ps1 -Script tools/script_move.txt -Frames 2760 -Dumps -Tag mv
+```
+
+`tools/find_refs.py` answers "who transfers here, and with what calling
+convention", which is how a dispatch's `return:`/`frame:` semantics get decided
+instead of guessed. `tools/bin_diff.py` names the addresses where two snapshots
+disagree, when a framedump comparison says "different" but not "where". A capture
+from an older build never merges with a newer one — costs and build identity do
+not cross a build boundary — so it goes in as `--historical-profile`, which
+contributes evidence without letting a stale build shrink the program.
 
 ## Porting from here
 

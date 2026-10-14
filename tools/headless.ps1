@@ -14,13 +14,16 @@ Pass a -Script to drive the pad (see the host's script contract: wait /
 press / poke / until / dump / quit). Pass -DumpDir with -Script to get
 scene-state dumps (wram/vram/cgram/oam/ppu regs) instead of pictures.
 
--CleanSaves wipes the battery-backed card (build\saves\save.srm) before the
-run. Lagoon reads its save at boot, so every run inherits whatever the last run
-saved; a "regression" measured against a baseline taken with different SRAM in
-the slot is usually just a different saved game. -Exe points the same route at a
-different binary — the ahead-of-time build against build\lagoon-floor.exe, the
-interpreter floor reference. Two builds that disagree on a replay are not the
-same port; two builds that agree to the byte are.
+Every run gets its own battery-backed card (build\saves\<tag>, handed to the
+host as --save-root) because the card is part of the starting state: a run that
+inherits another run's saved game measures that run, not the build. -CleanSaves
+wipes this tag's cards first, so a fresh-card route really starts fresh; leave
+it out and the tag resumes its own last session, which is its own useful test.
+Screenshot legs always start from a wiped card of their own — a photograph of
+frame N has to begin where the long run began, or it is a different game at
+frame N. -Exe points the same route at a different binary, which is how the
+ahead-of-time build is checked against build\lagoon-floor.exe, the interpreter
+floor reference: two builds that disagree on a replay are not the same port.
 
 .EXAMPLE
 .\tools\headless.ps1 -Frames 1800 -Shots 60,300,900 -Tag boot
@@ -68,10 +71,18 @@ if ($Exe) { $exe = Resolve-RepoPath $Exe }
 
 Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
+# Each run gets its own battery-backed card. The card is part of the starting
+# state: a run that inherits another run's saved game is measuring that run, not
+# the build. Paths here are relative because the host's working directory is
+# build\, which is where the host looks for a relative --save-root.
+$saveRoot = 'saves\{0}' -f $Tag
 if ($CleanSaves) {
-    # The save card is part of the starting state, so it belongs to the run.
-    Get-ChildItem (Join-Path $build 'saves') -Filter '*.sr*' -ErrorAction SilentlyContinue |
-        Remove-Item -Force
+    $saves = Join-Path $build 'saves'
+    $mine = @($Tag) + @($Shots | ForEach-Object { "{0}-shot{1}" -f $Tag, $_ })
+    if (Test-Path $saves) {
+        Get-ChildItem $saves -Directory | Where-Object { $mine -contains $_.Name } |
+            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 
 $env:SDL_VIDEODRIVER = 'dummy'
@@ -101,10 +112,10 @@ if ($Coverage) {
     Write-Host "== coverage capture -> $cov"
 }
 
-function Invoke-Host([string]$log) {
+function Invoke-Host([string]$log, [string]$saveRoot) {
     # Start-Process needs the inner quotes spelled out -- a ROM path with a
     # space otherwise arrives as two arguments and the host opens "Lagoon".
-    $argv = @('--no-launcher', '--rom', ('"{0}"' -f $rom)) + @($ExeArg | ForEach-Object { '"{0}"' -f $_ })
+    $argv = @('--no-launcher', '--rom', ('"{0}"' -f $rom), '--save-root', ('"{0}"' -f $saveRoot)) + @($ExeArg | ForEach-Object { '"{0}"' -f $_ })
     if ($Script) { $argv += @('--script', ('"{0}"' -f $Script)) }
     $p = Start-Process -FilePath $exe -ArgumentList $argv -WorkingDirectory $build `
         -NoNewWindow -Wait -PassThru `
@@ -115,17 +126,22 @@ function Invoke-Host([string]$log) {
 # 1) One long run that logs every present: the luma curve of the session.
 $env:SNESRECOMP_RUN_FRAMES = "$Frames"
 $env:SNESRECOMP_PRESENT_LOG = (Join-Path $dir 'presents.csv')
-Invoke-Host (Join-Path $dir ("run_{0}.log" -f $Frames)) | Out-Null
+Invoke-Host (Join-Path $dir ("run_{0}.log" -f $Frames)) $saveRoot | Out-Null
 Write-Host '== present-luma curve:'
 python (Join-Path $PSScriptRoot 'present_curve.py') (Join-Path $dir 'presents.csv')
 
 # 2) One short run per requested frame, so each becomes a PNG.
 foreach ($n in $Shots) {
+    # A screenshot of frame N has to start from the same card the long run
+    # started from, so each leg gets a card of its own, wiped. Inherit the long
+    # run's and you can photograph a different game at frame N.
+    $shotRoot = 'saves\{0}-shot{1}' -f $Tag, $n
+    Remove-Item -Recurse -Force (Join-Path $build ($shotRoot -replace '/', '\')) -ErrorAction SilentlyContinue
     $env:SNESRECOMP_RUN_FRAMES = "$($n + 1)"
     $env:SNESRECOMP_PRESENT_LOG = $null
     $env:SNESRECOMP_SCREENSHOT_FRAME = "$n"
     $env:SNESRECOMP_SCREENSHOT = Join-Path $dir ('present_{0:d6}.ppm' -f $n)
-    Invoke-Host (Join-Path $dir ("shot_{0}.log" -f $n)) | Out-Null
+    Invoke-Host (Join-Path $dir ("shot_{0}.log" -f $n)) $shotRoot | Out-Null
 }
 if ($Shots.Count) {
     Write-Host '== screenshots:'

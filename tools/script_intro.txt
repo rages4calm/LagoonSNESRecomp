@@ -33,10 +33,33 @@ press a 6
 wait 100
 press a 6
 wait 100
+dump sc-dialogue
 press a 6
 wait 100
 press a 6
 wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+press start 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+dump sc-village
 press a 6
 wait 100
 press a 6
@@ -96,6 +119,7 @@ press a 6
 wait 100
 press a 6
 wait 100
+dump sc-overworld
 press a 6
 wait 100
 press a 6
@@ -155,27 +179,7 @@ press a 6
 wait 100
 press a 6
 wait 100
-press a 6
-wait 100
-press a 6
-wait 100
-press a 6
-wait 100
-press a 6
-wait 100
-press a 6
-wait 100
-press a 6
-wait 100
-press a 6
-press start 6
-wait 100
-press a 6
-wait 100
-press a 6
-wait 100
-press a 6
-wait 100
+dump sc-late
 press a 6
 wait 100
 press a 6

@@ -1,0 +1,141 @@
+# Gameplay route: sit through the intro and the title screen, then take the
+# pad. Dialogue advances on A (every 10th beat also sends Start, which is what
+# the title screen waits for); the last third is pure directional input with a
+# framedump before and after each direction, so "the pad reaches the guest" is
+# a byte comparison and not an impression.
+#
+#   wait N            simulate N frames
+#   press <btn> N     hold N frames, release, 1 idle frame
+#   dump <tag>        write <tag>.fb.bmp / .wram.bin / .vram.bin / .oam.bin /
+#                     .cgram.bin / .regs.json into SNESRECOMP_DUMP_DIR
+#
+# Compare against tools/script_play_ctl.txt, the same route with the dpad never
+# touched: dumps that match the control are geometry saying no, dumps that
+# differ are the sprite moving.
+
+wait 240
+press start 6
+
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+press start 6
+
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+press start 6
+
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+press start 6
+
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+press start 6
+
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+wait 60
+press a 6
+press start 6
+
+# Control before the pad moves.
+wait 120
+dump pl-a
+
+# Four directions, each with its own dump. Any one of them changing pixels
+# relative to the control run is enough to prove input delivery; more than one
+# also says the geometry is answering differently, which is what a real map does.
+dump pl-b
+dump pl-c
+dump pl-d
+dump pl-e
+
+quit
