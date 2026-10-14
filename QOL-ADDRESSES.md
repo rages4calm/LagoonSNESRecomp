@@ -82,6 +82,39 @@ trigger rather than following. The border comparison itself has not been read ye
 (`$01:A56A`–`$01:A624` is the range), so the mod is specified but not yet implemented,
 and `$050C/050E` are labelled candidates until that range is read.
 
+## Shipped: `lagoon.quality` / `walk_speed`
+
+The first feature through the whole pipeline, because a mechanism proven once
+turns the other eight into repetitions.
+
+- Package `mods/preloaded/packages/lagoon.quality/1.0.0/manifest.toml`, feature
+  `walk_speed`, `default_enabled = false`, plugin id `lagoon.qol.walk_speed`
+  registered from `src/lagoon_qol.c`. Only implemented features are declared,
+  because the runtime refuses an enabled feature whose plugin id the executable
+  never registered.
+- Implementation is `LagoonQol_OnRomLoaded`, wired through the desktop host's
+  game descriptor: it replaces the sixteen bytes of the tier-2 speed row (bus
+  `$02:8149`, file `0x10149`) with the ±5 row, but only after comparing the row
+  against the stock bytes proven above. A row that does not match is refused with
+  a message rather than patched over. ROM *data*, not instructions, so the
+  interpreter and any future ahead-of-time code both honour it.
+- **Feature off**, regression route against the accepted control: `fb`, `wram`,
+  `regs`, `vram`, `oam`, `cgram` and `clock` all `ok` on every one of the eight
+  shared tags. Adding the code changed nothing, which is what a default-off
+  feature has to mean.
+- **Feature on**, same walk route: Y advances **+15 px per 7-frame interval**
+  instead of +9, on every one of the eight intervals — 5 px per applied frame
+  against the stock 3. That is the owner's requested number, measured in the
+  guest's own state rather than asserted.
+- Correction found on the way: entity positions are 16-bit pixel coordinates at
+  `$0502`/`$0504`, not 8.8 fixed-point. The fixed-point reading was this project's
+  own off-by-one (`$0501` for `$0502`) looking at the same variable; `$01:A4EB`
+  adds a 16-bit velocity with `REP #$20`, which is only consistent with plain
+  pixels. `tools/ram_track.py` now prints raw unless `--fixed` is asked for.
+- Not yet verified through a launcher screen: the bundled launcher's Mods page
+  should list the package, and that page is being replaced by the Companion
+  adapter anyway.
+
 ## Starting stats: block found, source not yet
 
 The party screen at game start reads `LV 1 · GOLD 100 · HP 10/10 · MP 3/3 ·

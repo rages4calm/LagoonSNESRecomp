@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """Print chosen WRAM addresses for every dump matching a pattern, in frame order.
 
-  python tools/ram_track.py build/dumps-walke 'e0*' 4ff,501,503,50b,50d
-  python tools/ram_track.py build/dumps-qreg-aot 'town' 503 --width 1
+  python tools/ram_track.py build/dumps-walke 'e0*' 502,504
+  python tools/ram_track.py build/dumps-qreg-aot 'town' 502,504 --fixed
 
 dump_series.py finds candidates by their behaviour; this reads them directly,
 which is the check that turns a candidate into a known variable: does the value
 move when it should, hold when it should, and agree with what the screen shows.
-Addresses are given as WRAM offsets and printed both raw and as 8.8 fixed-point,
-because Lagoon's positions are fixed-point and a raw 30978 means nothing until
-somebody divides it by 256.
+Values print raw by default; `--fixed` adds an 8.8 fixed-point reading for
+variables that really are sub-pixel. Lagoon's entity positions are not: $0502 and
+$0504 are 16-bit pixel coordinates and the engine adds a 16-bit velocity to them,
+so an earlier "8.8" guess here was an off-by-one read of the same variable
+($0501 instead of $0502) and is recorded here so it does not get re-derived.
 """
 import glob
 import json
@@ -22,7 +24,7 @@ def main(argv):
         sys.exit(__doc__)
     root, pattern = argv[0], argv[1]
     addrs = [int(a, 16) for a in argv[2].split(",")]
-    fixed = "--raw" not in argv
+    fixed = "--fixed" in argv
     rows = []
     for path in sorted(glob.glob(os.path.join(root, pattern + ".wram.bin"))):
         tag = os.path.basename(path)[:-len(".wram.bin")]

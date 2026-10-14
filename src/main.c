@@ -28,6 +28,7 @@
 #include "host_main.h"
 #include "game_rtl.h"
 #include "snesrecomp_rom_identity.h"  /* generated from rom_identity.txt */
+#include "lagoon_qol.h"               /* opt-in quality-of-life plugins */
 
 #ifndef __ANDROID__
 #define SDL_MAIN_HANDLED 1
@@ -56,6 +57,10 @@ static const SnesDesktopHostGame kGameHost = {
     /* Battery-backed SRAM shows the launcher's SAVES panel. Leave NULL for a
      * title without one. The path is exe-relative. */
     .sram_path           = "saves/save.srm",
+    /* Runs on the loaded image before the machine exists, which is where the
+     * quality-of-life features patch ROM data. Nothing happens unless the
+     * player has enabled a feature: the faithful game is the default. */
+    .on_rom_loaded       = LagoonQol_OnRomLoaded,
 };
 
 #ifndef __ANDROID__

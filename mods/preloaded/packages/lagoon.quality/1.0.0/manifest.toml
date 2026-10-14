@@ -1,0 +1,30 @@
+# Lagoon quality-of-life package. Everything here is opt-in and off by default,
+# so an untouched install plays the faithful game. Each feature names the trusted
+# plugin registered by src/lagoon_qol.c; the runtime refuses an enabled feature
+# whose plugin id this build never registered, which is why only features that
+# actually exist are declared.
+
+format_version = 1
+id = "lagoon.quality"
+version = "1.0.0"
+name = "Lagoon Quality of Life"
+author = "LagoonSNESRecomp"
+description = "Opt-in gameplay comfort changes, each off by default."
+license = "MIT"
+resolver = "declarative"
+save_compatibility = "shared"
+
+[[target]]
+game_id = "lagoon-usa"
+rom_sha256 = "46c811f0cacffe8f20e1d63072d25d7c47e9bb3fd5124851fd05aca9884d21fb"
+
+[[feature]]
+id = "walk_speed"
+name = "Faster walking"
+description = "Walking covers 5 pixels per applied frame instead of 3, using the speed tier the game already contains."
+group = "Movement"
+default_enabled = false
+
+[[plugin]]
+feature = "walk_speed"
+id = "lagoon.qol.walk_speed"

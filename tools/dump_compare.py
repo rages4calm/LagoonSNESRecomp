@@ -64,7 +64,13 @@ def main(argv):
               f"tags (pass a pad script with `dump <tag>` lines to get any)")
         return 3
     missing = sorted(set(left) ^ set(right))
-    bad = len(missing)
+    for t in missing:
+        print(f"{t}: missing dump tag on {'right' if t in left else 'left'}")
+    # A tag present on one side only is not a content mismatch. Counting it as
+    # one makes a route that simply ran a few frames shorter read as a regression,
+    # which trains nobody to read the line. It still fails, because an incomplete
+    # comparison is not a passed one.
+    bad = 0
     for t in missing:
         print(f"{t}: missing dump tag on {'right' if t in left else 'left'}")
     for t in shared:
@@ -92,9 +98,11 @@ def main(argv):
                         % (ca[2], cb[2], cb[2] - ca[2]))
             bad += 1
         print(f"{t:8s} {'  '.join(rows)}")
-    print(f"\n{len(shared)} tags compared, {bad} component mismatches"
-          + (" — replay matches" if bad == 0 else " — DIVERGENCE"))
-    return 1 if bad else 0
+    print(f"\n{len(shared)} tags compared, {bad} component mismatches, "
+          f"{len(missing)} tag(s) present on one side only"
+          + (" — replay matches" if bad == 0 and not missing else
+             " — INCOMPLETE, not a pass" if bad == 0 else " — DIVERGENCE"))
+    return 1 if (bad or missing) else 0
 
 
 if __name__ == "__main__":
