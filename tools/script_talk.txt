@@ -1,0 +1,87 @@
+# Talk hunt: walk to entity $0540 at world (320,428) via the clear column at x~605,
+# then press A facing each way. Fast walk + centred camera on, to cover ground.
+# Track: 500 player state, 502/504 position, 492/494 room bounds (transition detector).
+# Patient intro route: let scripted sequences finish, then take the pad.
+# Opening reset regression: reach Atland, move down, open Start menu, close with B.
+
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+press start 6
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+dump c-3000
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-4000
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-4500
+press a 4
+wait 240
+press a 4
+press start 6
+wait 240
+dump n-5000
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-5500
+press a 4
+wait 240
+press a 4
+wait 240
+dump town
+dump s01
+dump s02
+dump s03
+press a 8
+dump s04
+press a 8
+dump s05
+press up 6
+press up 6
+press a 8
+dump s06
+press down 6
+press down 6
+press a 8
+dump s07
+press right 6
+press right 6
+press a 8
+dump s08
+press left 6
+press left 6
+press a 8
+dump s09
+quit

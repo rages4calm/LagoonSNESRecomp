@@ -1,0 +1,164 @@
+# Teleport to (352,60), one tile below the NPC at (352,44), then press A.
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+press up 12
+press up 12
+press up 12
+press up 12
+wait 260
+wait 100
+dump t00
+press a 8
+wait 30
+dump u01
+press a 8
+wait 30
+dump u02
+press a 8
+wait 30
+dump u03
+press a 8
+wait 30
+dump u04
+press a 8
+wait 30
+dump u05
+quit

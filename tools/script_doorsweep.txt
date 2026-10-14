@@ -1,0 +1,264 @@
+# Fast head: the intro is press-gated, Atland live ~f1500 (60 press-cycles), not f6134.
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+dump h00
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+dump h01
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+dump h02
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+dump h03
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+dump h04
+press down 6
+press down 6
+press up 10
+press up 4
+dump k01
+press left 2
+press up 10
+press up 4
+dump k02
+press left 2
+press up 10
+press up 4
+dump k03
+press left 2
+press up 10
+press up 4
+dump k04
+press left 2
+press up 10
+press up 4
+dump k05
+press left 2
+press up 10
+press up 4
+dump k06
+press left 2
+press up 10
+press up 4
+dump k07
+press left 2
+press up 10
+press up 4
+dump k08
+press left 2
+press up 10
+press up 4
+dump k09
+press left 2
+press up 10
+press up 4
+dump k10
+press left 2
+press up 10
+press up 4
+dump k11
+press left 2
+press up 10
+press up 4
+dump k12
+press left 2
+press up 10
+press up 4
+dump k13
+press left 2
+press up 10
+press up 4
+dump k14
+press left 2
+quit

@@ -1,0 +1,244 @@
+# Exit hunt: walk a long way in each direction from Atland, dumping as it goes.
+# Features on (fast walk + centred camera) purely to cover ground faster.
+# Detector: room bounds $0492/$0494 change when a room transition fires.
+# Patient intro route: let scripted sequences finish, then take the pad.
+# Opening reset regression: reach Atland, move down, open Start menu, close with B.
+
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+press start 6
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+dump c-3000
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-4000
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-4500
+press a 4
+wait 240
+press a 4
+press start 6
+wait 240
+dump n-5000
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-5500
+press a 4
+wait 240
+press a 4
+wait 240
+dump town
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+dump er01
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+dump er02
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+dump er03
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+dump er04
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+dump er05
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+dump el06
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+dump el07
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+dump el08
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+dump el09
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+dump el10
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+dump eu11
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+dump eu12
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+dump eu13
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+dump eu14
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+press up 6
+dump eu15
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+dump ed16
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+dump ed17
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+dump ed18
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+dump ed19
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+dump ed20
+quit

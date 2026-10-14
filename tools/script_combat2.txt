@@ -1,0 +1,200 @@
+# Combat probe: swing in all four facings so one connects; track the enemy record.
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+press up 12
+press up 12
+press up 12
+press up 12
+wait 260
+wait 100
+press up 8
+press up 8
+press up 8
+press up 8
+press up 8
+press up 8
+press up 8
+press up 8
+wait 300
+press up 12
+press up 12
+press up 12
+press up 12
+press up 12
+press right 12
+press right 12
+press right 12
+press right 12
+press right 12
+dump h00
+press left 4
+press a 10
+wait 14
+dump h01
+press left 4
+press a 10
+wait 14
+dump h02
+press up 4
+press a 10
+wait 14
+dump h03
+press up 4
+press a 10
+wait 14
+dump h04
+press right 4
+press a 10
+wait 14
+dump h05
+press right 4
+press a 10
+wait 14
+dump h06
+press down 4
+press a 10
+wait 14
+dump h07
+press down 4
+press a 10
+wait 14
+dump h08
+quit

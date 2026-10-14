@@ -1,0 +1,204 @@
+# Adjacent to the figure standing in the gap: press A, dump each step, diff WRAM.
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+press up 12
+press up 12
+press up 12
+press up 12
+wait 260
+press up 12
+press up 12
+press up 12
+press up 12
+press up 12
+press up 12
+press right 6
+press up 12
+press right 6
+press up 12
+press right 6
+press up 12
+press right 6
+press up 12
+press right 6
+press up 12
+press right 6
+press up 12
+press right 6
+press up 12
+press right 6
+press up 12
+press right 6
+press up 12
+press right 6
+press up 12
+press right 6
+press up 12
+press right 6
+press up 12
+press right 6
+press up 12
+press right 6
+press up 12
+press right 6
+press up 12
+press right 6
+press up 12
+dump pre
+press a 8
+wait 30
+dump f01
+press a 8
+wait 30
+dump f02
+press a 8
+wait 30
+dump f03
+press a 8
+wait 30
+dump f04
+press a 8
+wait 30
+dump f05
+press a 8
+wait 30
+dump f06
+quit

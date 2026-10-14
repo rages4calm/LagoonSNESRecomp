@@ -1,0 +1,206 @@
+# In Gold Cave: walk to the enemy seen at (1498,1474), attack with A, diff WRAM.
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+press up 12
+press up 12
+press up 12
+press up 12
+wait 260
+wait 100
+press up 8
+press up 8
+press up 8
+press up 8
+press up 8
+press up 8
+press up 8
+press up 8
+wait 300
+press up 12
+press up 12
+press up 12
+press up 12
+press up 12
+press right 12
+press right 12
+press right 12
+press right 12
+press right 12
+dump e00
+press a 6
+wait 8
+dump e01
+press a 6
+wait 8
+dump e02
+press a 6
+wait 8
+dump e03
+press a 6
+wait 8
+dump e04
+press a 6
+wait 8
+dump e05
+press a 6
+wait 8
+dump e06
+press right 4
+press right 4
+press a 6
+wait 8
+dump d01
+press a 6
+wait 8
+dump d02
+press a 6
+wait 8
+dump d03
+press a 6
+wait 8
+dump d04
+press a 6
+wait 8
+dump d05
+press a 6
+wait 8
+dump d06
+quit

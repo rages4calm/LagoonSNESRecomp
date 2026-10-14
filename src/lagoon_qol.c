@@ -35,6 +35,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h> /* getenv: the development hook reads its target from here */
 #include <string.h>
 
 #define QOL_PACKAGE_ID "lagoon.quality"
@@ -223,6 +224,105 @@ static void qol_camera_activated(void) {
   fprintf(stderr, "lagoon.qol: camera_center active, view centred on Nasir\n");
 }
 
+/* Development hook: put Nasir on a chosen tile.
+ *
+ * This exists because route work is a positioning problem. Standing one tile off
+ * from a door or an NPC changes the outcome completely -- a warp fires or it does
+ * not, a dialogue opens or the button does nothing -- and walking him there with
+ * scripted presses costs about 45 s a try and lands on whatever the collision
+ * grid allows, not on the square being asked about. One write of $0502/$0504 at a
+ * chosen frame makes the question "what happens on tile (352,60)?" a single run.
+ *
+ * It is a harness hook, not a feature: off by default, and the position comes
+ * from the environment (LAGOON_DEBUG_AT="x,y[,frame]") rather than a player-facing
+ * setting, so nothing about the shipped game depends on it. A player who has
+ * never set that variable gets the faithful game even with the feature switched
+ * on, which is the safe direction for a mistake.
+ *
+ * Velocity at $0506/$0508 is zeroed with the position, otherwise the momentum
+ * from the walk that got him there carries on applying and the measured position
+ * is a frame or two away from the one asked for.
+ */
+#define QOL_WRAM_ENTITY_VX 0x0506u /* the velocity $02:80EA fills from the tier table */
+#define QOL_WRAM_ENTITY_VY 0x0508u
+#define QOL_DEBUG_ENV "LAGOON_DEBUG_AT"
+#define QOL_DEBUG_MAX 8 /* a route is a handful of moves, not a stream */
+
+typedef struct {
+  uint16_t x, y;
+  long frame; /* run frame to fire on, counted from plugin activation */
+  int fired;
+} qol_debug_move_t;
+
+static qol_debug_move_t g_debug_moves[QOL_DEBUG_MAX];
+static int g_debug_move_count;
+static long g_debug_tick; /* frames since activation, so the hook is self-timed */
+
+static void qol_debug_frame(void) {
+  g_debug_tick++;
+  for (int i = 0; i < g_debug_move_count; i++) {
+    qol_debug_move_t *m = &g_debug_moves[i];
+    if (m->fired || g_debug_tick < m->frame) {
+      continue;
+    }
+    m->fired = 1;
+    qol_wram_write16(QOL_WRAM_ENTITY_X, m->x);
+    qol_wram_write16(QOL_WRAM_ENTITY_Y, m->y);
+    qol_wram_write16(QOL_WRAM_ENTITY_VX, 0);
+    qol_wram_write16(QOL_WRAM_ENTITY_VY, 0);
+    fprintf(stderr, "lagoon.qol: debug_position frame %ld moved Nasir to (%u,%u)\n",
+            g_debug_tick, (unsigned)m->x, (unsigned)m->y);
+  }
+}
+
+/* Parse "x,y[,frame]" entries separated by ';'. More than one is needed because
+ * a route is not one jump: getting to the fight means landing in the town band
+ * first, crossing the gate, and only then standing next to the enemy. The frame
+ * a move fires on defaults to 1 so a single-position spec still behaves. */
+static void qol_debug_position_activated(void) {
+  const char *spec = getenv(QOL_DEBUG_ENV);
+  if (!spec || !*spec) {
+    fprintf(stderr, "lagoon.qol: debug_position enabled but %s is unset, nothing moved\n",
+            QOL_DEBUG_ENV);
+    return;
+  }
+  g_debug_move_count = 0;
+  g_debug_tick = 0;
+  const char *p = spec;
+  while (p && *p && g_debug_move_count < QOL_DEBUG_MAX) {
+    long x = -1, y = -1, frame = 1;
+    int used = 0;
+    while (*p == ';') {
+      p++; /* the separator is not part of the next entry, and %ld will not skip it */
+    }
+    if (sscanf(p, " %ld,%ld,%ld%n", &x, &y, &frame, &used) < 2) {
+      used = 0;
+      x = y = -1;
+      frame = 1;
+      if (sscanf(p, " %ld,%ld%n", &x, &y, &used) < 2) {
+        fprintf(stderr,
+                "lagoon.qol: debug_position refused, %s=\"%s\" is not "
+                "\"x,y[,frame][;...]\"\n",
+                QOL_DEBUG_ENV, spec);
+        return;
+      }
+    }
+    if (x < 0 || x > 65535 || y < 0 || y > 65535 || frame < 1) {
+      fprintf(stderr, "lagoon.qol: debug_position refused, bad entry in \"%s\"\n", spec);
+      return;
+    }
+    g_debug_moves[g_debug_move_count].x = (uint16_t)x;
+    g_debug_moves[g_debug_move_count].y = (uint16_t)y;
+    g_debug_moves[g_debug_move_count].frame = frame;
+    g_debug_moves[g_debug_move_count].fired = 0;
+    g_debug_move_count++;
+    p = strchr(p, ';');
+  }
+  snes_mod_register_frame_callback(qol_debug_frame);
+  fprintf(stderr, "lagoon.qol: debug_position armed with %d move(s) from %s\n",
+          g_debug_move_count, QOL_DEBUG_ENV);
+}
+
 SNES_MOD_CONSTRUCTOR(lagoon_qol_register) {
   /* Only the plugin identities are declared at load time, since the activation
    * plugin table is not cleared. Anything per-frame belongs in the activation
@@ -231,4 +331,6 @@ SNES_MOD_CONSTRUCTOR(lagoon_qol_register) {
                                       qol_walk_speed_activated);
   snes_mod_register_activation_plugin("lagoon.qol.camera_center",
                                       qol_camera_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.debug_position",
+                                      qol_debug_position_activated);
 }

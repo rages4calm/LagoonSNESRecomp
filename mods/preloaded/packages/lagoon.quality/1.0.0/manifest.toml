@@ -47,3 +47,14 @@ id = "lagoon.qol.camera_center"
 # is gone before the first frame, while registration still reports success. The
 # activation callback is both the place the registration survives and the place the
 # feature's on/off state is known.
+
+[[feature]]
+id = "debug_position"
+name = "Development: start on a chosen tile"
+description = "Harness hook, not a player feature. With the environment variable LAGOON_DEBUG_AT=x,y[,frame] set, Nasir is moved to that world position once, at that frame. Unset means no change at all. Used to probe doors, warps and dialogue squares exactly, and to build campaign checkpoints."
+group = "Development"
+default_enabled = false
+
+[[plugin]]
+feature = "debug_position"
+id = "lagoon.qol.debug_position"

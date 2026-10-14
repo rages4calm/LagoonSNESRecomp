@@ -1,0 +1,11 @@
+dump q01
+press a 6
+wait 10
+dump q02
+press select 6
+wait 20
+dump q03
+press b 6
+wait 40
+dump q04
+quit

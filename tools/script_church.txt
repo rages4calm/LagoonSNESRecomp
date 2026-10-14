@@ -1,0 +1,146 @@
+# Route to the church door (walkthrough step 2): right onto the north road, down,
+# left to the door at world ~(681,673), then press A. 1 press ~= 15 px with fast walk.
+# Patient intro route: let scripted sequences finish, then take the pad.
+# Opening reset regression: reach Atland, move down, open Start menu, close with B.
+
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+press start 6
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+dump c-3000
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-4000
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-4500
+press a 4
+wait 240
+press a 4
+press start 6
+wait 240
+dump n-5000
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-5500
+press a 4
+wait 240
+press a 4
+wait 240
+dump town
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+press right 6
+dump t01
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+dump t02
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+dump t03
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+dump t04
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+dump t05
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+press down 6
+dump t06
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+press left 6
+dump t07
+press down 6
+press down 6
+press down 6
+press down 6
+dump t08
+press a 8
+dump t09
+press a 8
+dump t10
+press a 8
+wait 20
+press a 8
+wait 20
+press a 8
+wait 20
+press a 8
+wait 20
+press a 8
+wait 20
+press a 8
+wait 20
+dump t11
+quit

@@ -141,6 +141,14 @@ To turn a feature on in a built tree: set `enabled = true` for it in
 be the player-facing route for this, and has not been qualified yet, so the file is the
 documented method for now.
 
+**Development hook, not a player feature.** `debug_position` (off by default) moves Nasir to a
+world position at a chosen frame when `LAGOON_DEBUG_AT="x,y[,frame];..."` is set, and writes
+nothing at all when it is not. It exists because route work is a positioning problem: one
+tile off from a door or an NPC changes the outcome, and scripted presses land on whatever the
+collision grid allows. With the rebuilt port it took the route from Atland to a fight in Gold
+Cave down to about 45 seconds per experiment. `CAMPAIGN-ROUTE.md` documents how to use it and
+what it cannot do.
+
 ## Layout
 
 | Path | What lives there |

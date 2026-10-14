@@ -1,0 +1,12 @@
+dump r01
+press right 6
+press right 6
+press right 6
+press right 6
+dump r02
+press down 6
+press down 6
+press down 6
+press down 6
+dump r03
+quit

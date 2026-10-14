@@ -233,3 +233,20 @@ the store and name the PC — a framework addition, not a patch).
 Route files: `tools/script_walkhunt.txt` (down), `_R` (right), `_L` (left then up),
 `_D` and `_E` (clear the corridor, then right) — the spawn sits in a vertical
 corridor, which is why the first right-walk attempt showed no movement at all.
+
+## Reached by the campaign route (2026-10-14, after Gold Cave was opened)
+
+The north corridor of Atland's second band, at x=352, crosses into a 1776x1618 area that
+contains ordinary enemies. That makes three previously blocked addresses measurable; the
+readings and the exact dumps are in `CAMPAIGN-ROUTE.md`, and only the first is confirmed
+enough to patch against today:
+
+| feature | address | state of the evidence |
+|---|---|---|
+| Nasir starts with 18 HP | `$7E:0520`, and its ROM-side initialiser | **confirmed as current HP**: 10 at start matching the menu, 10/6/2/0 as three enemy touches killed him. Still to find: the code that writes the starting 10. |
+| +8 protection frames | `$7E:0501` bit `$20` with the timer at `$0516/$0517`, set by `$02:81CB` | the engine's own "start a protection period" decision, gated on `($0501 & $30) == 0`. Which of these the extra eight frames should length is not yet proved. |
+| sword reach `28,17,28,27` | unresolved | a `1E FE` pair appeared at entity `+0x15/+0x17` during a swing, but `$02:81D5` writes `$0517` as a **timer**, so that pair may not be a hitbox at all. The four numbers are absent from the ROM as u8 and u16. Needs a landed hit and the enemy HP byte first. |
+
+Enemy stat words at entity `+0x20..+0x2A` (`0C 00 0F 00 0A 00 02 00`) did not change across a
+fight in which the player died, so they are stats rather than current HP; the enemy's HP byte
+has not been identified and no feature depends on it yet.

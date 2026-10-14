@@ -12,7 +12,17 @@ import sys
 
 
 def load(dirpath, frame):
-    p = os.path.join(dirpath, "frame_%06d_wram.bin" % frame)
+    """Accept a framedump frame number or a `dump <tag>` name.
+
+    Route work names its scene states with tags (`press a 8; dump talked`), so
+    the same diff has to work on `<tag>.wram.bin` as well as framedump's
+    `frame_%06d_wram.bin`; guessing which scheme a name belongs to is what makes
+    a dialogue-flag comparison fail silently.
+    """
+    if isinstance(frame, str) and not frame.lstrip("-").isdigit():
+        p = os.path.join(dirpath, "%s.wram.bin" % frame)
+    else:
+        p = os.path.join(dirpath, "frame_%06d_wram.bin" % int(frame))
     with open(p, "rb") as f:
         return f.read()
 
@@ -40,12 +50,12 @@ def main(argv):
     if len(argv) < 3:
         print(__doc__)
         return 2
-    d, fa, fb = argv[0], int(argv[1]), int(argv[2])
+    d, fa, fb = argv[0], argv[1], argv[2]
     a = load(d, fa)
     b = load(d, fb)
     r = runs(a, b)
     nbytes = sum(hi - lo + 1 for lo, hi in r)
-    print("frame %d -> %d: %d changed bytes in %d run(s)" % (fa, fb, nbytes, len(r)))
+    print("%s -> %s: %d changed bytes in %d run(s)" % (fa, fb, nbytes, len(r)))
     limit = 200 if "--full" not in argv else 100000
     for lo, hi in r[:limit]:
         vals = " ".join("%02X>%02X" % (a[lo + k], b[lo + k]) for k in range(min(hi - lo + 1, 8)))

@@ -1,0 +1,202 @@
+# Campaign route: what the guide says, what the port has measured
+
+Five of the owner's QoL features (sword reach, +8 recovery frames, EXP +50%, follower
+speed, magic power) are blocked on reaching ordinary combat, and ordinary combat is
+blocked on leaving the starting town, and leaving the starting town is **not** a matter of
+walking to a map edge. This file records what is known about that route, and keeps the
+three kinds of knowledge apart, because they fail differently:
+
+- **GUIDE** — from an external walkthrough, reliable as intent, not verified here.
+- **MEASURED** — read out of this port's own runtime dumps or the ROM bytes.
+- **INFERRED** — arithmetic or reasoning on top of the two, with the arithmetic shown.
+
+## GUIDE: the chain that opens the north exit
+
+Source: <https://mikesrpgcenter.com/lagoon/walkthrough.html> (fetched 2026-10-14), with
+the town layout from <https://mikesrpgcenter.com/lagoon/maps/atland.html>.
+
+Atland, in order:
+
+1. Go to the **mayor's house** in the southwest corner; learn the mayor has gone to the
+   church.
+2. Enter the **church** near the centre of town and speak to the mayor. A man rushes in
+   announcing a problem at the cave.
+3. Speak to the **hurt man**: demons in the cave, Giles still inside. The mayor asks for
+   news to be brought to the cleric.
+4. Re-enter the town and speak to the **cleric** in the church, then speak to the **mayor
+   in his house**: he asks you to enter the cave and gives **300 gold**.
+5. Buy gear in the **armour shop** to the north (Short Sword 150, Bandit Armor 100, Iron
+   Shield 150).
+6. Leave through the **north exit** into **Gold Cave** — the first ordinary enemies, and
+   therefore the first place the combat-dependent QoL features can be measured at all.
+
+Later milestones the same page gives, kept here so route work has a target: Giles rescued
+and escorted back, Samson's Key from the woman in the southeast ("Place of Faith"), Samson
+behind the locked door, then Elf Field, Voloh, and Thor joining as a **follower** (the
+follower-speed feature needs exactly that), Philips Castle, Dwarf Desert, and on to Lagoon
+Castle.
+
+The guide's ordering matters for the QoL work more than for play: the Short Sword is
+bought *before* the first fight, so the sword-reach numbers the owner gave
+(`28,17,28,27` → `38,38,38,38`) are most likely a weapon table entry rather than a
+constant — a reason to look for a per-weapon table instead of four immediates.
+
+## MEASURED: the entity record layout, from a town dump
+
+`build/dumps-qreg-aot/town.wram.bin`, window `$7E:0500..$0600`, read with
+`tools/wram_peek.py`. Records are **0x40 bytes apart** — the three after the player's all
+begin with the same `C1 00` state pair at `$0540`, `$0580`, `$05C0`:
+
+| offset in record | field | how it is known |
+|---|---|---|
+| `+00` | state/flags (`0xD8` player, `0xC1` the three others) | dump; `AND #$E7` at `$01:A4DE` |
+| `+02` | world X, 16-bit px | `$01:A5AA` (`LDA $0502,x; SEC; SBC $0480`) |
+| `+04` | world Y, 16-bit px | same routine |
+| `+0C` | screen X = world X − `$0480` | same routine; dump agrees |
+| `+0E` | screen Y = world Y − `$0482` | same |
+| `+1A` | speed-tier selector | read at `$02:80EF`, `<<4` as a table stride |
+| `+20`…`+28` | **party stats live inside entity 0's record** | `$0520=HP $0522=MP $0524=STR $0526=DEF $0528=GOLD`, matching the menu's `LV 1 HP 10/10 MP 3/3 STR 10 DEF 5 GOLD 100` |
+
+That last row settles an open question that had been blocking "start at 18 HP / 11
+defence": the party block is not a separate structure, it is entity 0 at `+0x20`, so the
+same init that spawns Nasir writes it.
+
+Contents of the town dump at the frame the route reaches Atland:
+
+| record | state | world X,Y | on screen? |
+|---|---|---|---|
+| `$0500` Nasir | `D8` | 640, 112 | yes |
+| `$0540` | `C1` | 320, 428 | left of and below the view |
+| `$0580` | `C1` | 1136, 1116 | off-screen |
+| `$05C0` | `C1` | 240, 1084 | off-screen |
+
+## INFERRED: where the guide's buildings are in world coordinates
+
+The published Atland map (`maps/atland.png`) is 640×768 for a world the engine clamps to
+`$0492 = 1520` by `$0494 = 1522`, so the scale is 2.375× horizontally and 1.981×
+vertically. Multiplying the pixel positions of the numbered doors:
+
+| guide label | image px | world px (×2.375, ×1.981) | cross-check |
+|---|---|---|---|
+| 1 north exit to Gold Cave | ~325, 25 | ~772, 50 | gap in the top wall, right of the water channel |
+| 2 armour shop | ~118, 205 | ~280, 406 | entity `$0540` at 320,428 stands beside this door |
+| 4 church door | ~287, 340 | ~681, 673 | the central building |
+| 6 mayor's house door | ~118, 545 | ~280, 1080 | entity `$05C0` at 240,1084 stands beside this door |
+| 5 weapon shop | ~540, 355 | ~1282, 703 | |
+| 7 Place of Faith | ~580, 520 | ~1378, 1030 | |
+
+Two of them land within a few tens of pixels of an entity the dump shows standing there,
+which is the cross-check that the scale is right. These are still **estimates read off an
+image**: the route is built by walking to them and confirming the position in a dump, not
+by trusting the multiplication.
+
+## MEASURED: leaving the town, and why my first conclusion was wrong
+
+`tools/script_exithunt.txt` (fast walk on) walked from spawn in all four directions and
+every dump showed `$0492/$0494` fixed at **1520 / 1522**, which I read as "walking does not
+leave the town". **That reading was wrong**, and the correction is the single most useful
+thing on this page:
+
+`$0492/$0494` are not the bounds of the world, they are the bounds of the **current band** --
+the region the engine has loaded. Atland's town band is 1520x1522; the area north of the wall
+is **496x498**; the area beyond that is **1776x1618**. Crossing a band edge changes those two
+words, and that is the transition detector.
+
+The crossing itself is a scripted sequence, which is what made it look like a wall:
+
+- input is ignored for roughly **200 frames** (measured: locked from f1789 to f1985 in
+  `dumps-barrier`; A does not dismiss it);
+- position reads as frozen and `$0500` sits on one value the whole time;
+- then control returns by itself and walking is normal again.
+
+A route therefore has to `wait 260` after any band crossing and cannot treat a frozen
+position as a blocked tile. Two earlier notes of mine -- "pinned between rooftops" and
+"walking alone does not leave the town" -- were both artifacts of not waiting.
+
+**The way out is up the corridor at x=352.** Walking north from spawn leads into the 496x498
+band (the northern wall of Atland, with a waterfall and a painted figure at 352,44), and its
+wall stops him at y=131 across most of its width -- trees, as the published map draws them.
+At x=352 exactly, walking up fires the crossing into the 1776x1618 area, which is **Gold
+Cave**: stone-walled rooms and ordinary enemies. `tools/script_combat3.txt` plus
+`LAGOON_DEBUG_AT="352,120,2100;1456,1440,2670"` reaches a fight in about 45 seconds.
+
+Two consequences for the QoL backlog, both now measurable instead of blocked: combat
+features (sword reach, recovery frames, EXP, magic power) have a reachable target, and the
+route to it is short enough to iterate on.
+
+## MEASURED: what a fight looks like in WRAM
+
+From `dumps-combat2` / `dumps-combat5` (Gold Cave, one blue flying enemy):
+
+| address | meaning | how it is known |
+|---|---|---|
+| `$0520` | **Nasir's current HP** | 10 at town start (matches the menu's `HP 10/10`); 10 to 6 to 2 to 0 across three enemy touches, ending in death; once rose 5 to 7 |
+| `$0501` bit `$10` | a status flag, set with `$0510/$0511` zeroed | `$02:81AA`: if `$053F,x` is negative and the bit is clear, set it and clear that timer |
+| `$0501` bit `$20` | a second status flag, set with `$0516=$80, $0517=$05` | `$02:81CB`: needs `$053E,x` negative **and** `($0501 & $30) == 0`, i.e. nothing else of this kind is already active |
+| entity `+0x20..+0x2A` | an enemy's stat block, e.g. `0C 00 0F 00 0A 00 02 00` | constant across the whole fight, so these are the stats and not the current HP |
+
+The second row matters directly: the owner's *"eight extra frames of protection after an
+ordinary hit"* is a timer of exactly this shape, and `$02:81CB` is the engine deciding to
+start one. The first row is the number the "start with 18 HP" feature changes.
+
+What is still **not** proved, and is deliberately not claimed anywhere: which byte is the
+enemy's current HP (nothing in its record decreased monotonically), and whether the
+`+0x15/+0x17` pair that read `1E FE` during a swing is a hitbox offset or the low half of the
+`$0516/$0517` timer above -- `$02:81D5` writes `$0517` as a timer, so the hitbox reading is
+now in doubt and the sword-reach address is still open.
+
+Entity records in the cave run: 31 live records, stride `0x40` again, with the enemies being
+the records that carry a velocity and an actor state (`$0BC0`, state `C8`/`D8`, `vx=-1`,
+closing on Nasir) while state `C0` records sit on 32-pixel grid positions and are map
+furniture. `tools/entities.py` prints all of this per dump.
+
+## MEASURED: the intro is press-gated, not a fixed movie
+
+The patient route waited 240 frames between presses and reached Atland at f6134. Repeating
+the same presses with `wait 20` reaches it at about **f1500**, at the identical spawn
+(640,112) with the same party block. Route experiments are therefore ~4x cheaper, which is
+what made the cave reachable in an afternoon. The gated regression route keeps its patient
+head -- the accepted dumps were made with it, and changing them would invalidate the
+comparisons already on file.
+
+## HOW: the development position hook
+
+`debug_position` (in `lagoon.quality`, default off) moves Nasir to a chosen world position at
+a chosen frame: `LAGOON_DEBUG_AT="x,y[,frame];x,y[,frame]"`, frames counted from plugin
+activation. It exists because route work is a positioning problem -- one tile off from a door
+or an NPC changes the outcome entirely, and walking him there lands on whatever the collision
+grid allows rather than the square being asked about. It is a harness hook, not a player
+feature: with the variable unset nothing is written at all, even when the feature is on.
+
+Measured caveats worth knowing before using it:
+
+- Landing **on** a warp tile starts the warp and leaves it hanging (`$0500` = `C0`, the value
+  the engine uses while entering a room). Write him *below* the edge and walk up onto it.
+- More than one move per run is necessary in practice, because a route is a sequence: band
+  first, then the far side of the gate. The hook takes a list for that reason.
+- It does not change the room. Position is within the band the engine has loaded, so the
+  band crossings still have to be walked.
+
+## Route scripts
+
+| script | what it does | status |
+|---|---|---|
+| `tools/script_gameplay_regression.txt` | patient intro → Atland → move → Start menu → close | the gated route, AOT ≡ floor, do not re-time its head |
+| `tools/script_walkhunt.txt` | town, eight measured walk steps | proves walk speed +15 vs +9 |
+| `tools/script_exithunt.txt` | four long directional walks | its conclusion was wrong (no wait after a band crossing); kept as the trail |
+| `tools/script_intro_fast2.txt` | the same presses with `wait 20` | proves Atland at f1500, so route heads are 4x cheaper |
+| `tools/script_barrier.txt` | walks into the crossing and holds A through it | dates the scripted lock at ~200 frames |
+| `tools/script_gapetop.txt`, `script_edgesweep.txt` | push the far wall and sweep it | locates the crossing at x=352 |
+| `tools/script_combat3.txt` | fast head → gate → Gold Cave → swing at the enemy | **the combat route**, used with `LAGOON_DEBUG_AT="352,120,2100;1456,1440,2670"` |
+| `tools/script_talk.txt` | first attempt to reach an NPC | broken: a PowerShell function ate the presses (`+=` inside a function binds locally) |
+
+## Tools built for this
+
+| tool | what it answers |
+|---|---|
+| `tools/entities.py` | who is in a scene dump: state, world and screen position, velocity, per record |
+| `tools/wram_diff.py` | what a button press changed; now accepts `dump <tag>` names, not just framedump frame numbers |
+| `tools/ram_track.py` | one address across a run's tags, with deltas -- the position/HP/bounds trace |
+| `tools/tag_sheet.py` | the pictures, so a claim about a doorway can be looked at instead of argued about |
+| `tools/wram_peek.py` | a hex window of any dump, for reading a record directly |
+

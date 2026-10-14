@@ -1,0 +1,16 @@
+dump p01
+wait 2
+dump p02
+wait 4
+dump p03
+wait 8
+dump p04
+wait 16
+dump p05
+wait 32
+dump p06
+wait 64
+dump p07
+wait 128
+dump p08
+quit
