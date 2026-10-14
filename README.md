@@ -223,3 +223,38 @@ This project's own source is under the license in `LICENSE`. The framework
 carries its own terms — see `snesrecomp/LICENSE` and
 `snesrecomp/THIRD_PARTY_ATTRIBUTION.md`. Neither covers the game data, which
 is not distributed here.
+
+## Four separate claims, stated separately
+
+These are deliberately not merged, because they are different kinds of promise and each fails
+differently.
+
+**What is compiled.** A static 65816-to-C recompiler plus an interpreter floor in one
+executable, an SDL runner, and the `lagoon.quality` plugin compiled in as a static package. The
+shipping configuration emits 10 ahead-of-time declarations for the opening route; everything
+else, including the `$80E6` dispatcher, runs interpreted (`force_lle 0080e6`). The plugin
+catalog declares four features -- `walk_speed`, `camera_center`, `start_hp` (which carries both
+the HP and the defence change) and the development-only `debug_position` -- all default off.
+
+**What is correct, and on which route.** One route: the 6 245-frame opening run
+(`tools/script_gameplay_regression.txt`), from title through Atland, a walk, the field menu and
+its close. On it the ahead-of-time build and a genuine `recomp-floor` build are bit-identical
+across 9 checkpoints in framebuffer, WRAM, registers, VRAM, OAM, CGRAM **and `master_clock`**
+(`build/dumps-qol9-off` against `build/dumps-qreg-floor4`, and also against the earlier
+`build/dumps-qreg-floor2`). Correctness does not extend past the last frame of that route, and
+no amount of passing it says anything about combat, dialogue or a dungeon, because that route
+touches none of them.
+
+**What is campaign-complete.** Nothing. The route reaches Atland and, separately, Gold Cave; a
+fight, damage and death have been reached and measured; the field menu opens. No checkpoint
+exists yet for room transitions as a gate, item use, equipment, dialogue, save/load, existing
+save entry or reset. Reaching a place is not the same as a gated checkpoint through it.
+
+**What is not.** Six of the nine requested changes are unshipped: sword reach, follower speed,
++8 recovery frames, EXP +50%, the jump-peak hold and magic power. Ahead-of-time coverage is
+where the evidence put it, no further: the cost-model mismatch is diagnosed (interpreter prices
+internal cycles at 6, translated blocks at 8, because Lagoon never writes `$2181`) and is
+unobservable on the only gated route, so fixing it and promoting gameplay routines are one task
+gated together. The CompanionLauncher adapter, `-AudioDriver directsound` pacing and widescreen
+are untouched. The starting-defence initialiser is still unidentified, so that number is
+delivered by a field write rather than by the game's own path.
