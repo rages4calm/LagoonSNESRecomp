@@ -1,0 +1,201 @@
+# Overlap the enemy (1472,1440 at f2664) and swing in every facing so one connects.
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+press up 12
+press up 12
+press up 12
+press up 12
+wait 260
+wait 100
+press up 8
+press up 8
+press up 8
+press up 8
+press up 8
+press up 8
+press up 8
+press up 8
+wait 300
+press up 12
+press up 12
+press up 12
+press up 12
+press up 12
+press right 12
+press right 12
+press right 12
+press right 12
+press right 12
+dump k00
+wait 8
+press right 2
+press a 10
+wait 12
+dump k01
+press right 2
+press a 10
+wait 12
+dump k02
+press left 2
+press a 10
+wait 12
+dump k03
+press left 2
+press a 10
+wait 12
+dump k04
+press up 2
+press a 10
+wait 12
+dump k05
+press up 2
+press a 10
+wait 12
+dump k06
+press down 2
+press a 10
+wait 12
+dump k07
+press down 2
+press a 10
+wait 12
+dump k08
+quit

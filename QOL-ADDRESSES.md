@@ -250,3 +250,58 @@ enough to patch against today:
 Enemy stat words at entity `+0x20..+0x2A` (`0C 00 0F 00 0A 00 02 00`) did not change across a
 fight in which the player died, so they are stats rather than current HP; the enemy's HP byte
 has not been identified and no feature depends on it yet.
+
+## The level curve, found while working on the 18 HP feature
+
+`STA $0520,x` appears at three addresses, all inside a few instructions of each other, and
+disassembling that region explains the number that had been a mystery all along:
+
+| address | instruction sequence | what it does |
+|---|---|---|
+| `$01:91EA` | `STA $1011` / `LDA $0520,x` / `ADC $1011` / `STA $0520,x` | HP plus an amount, which is why the cave run showed 5 rising back to 7 with no item used |
+| `$01:9208` | `LDA $0520,x` / `SBC $E140,y` / `BMI` / `LDA $E140,y` / `STA $0520,x` / `STZ $0521,x` | clamps HP down to `$E140,y`, so **`$01:E140` is a maximum-HP table** indexed by a per-entity level term |
+| `$01:9226` | `SBC $1011` then `STZ $0520,x` when the result is not positive | HP minus an amount, and death at zero |
+
+`$01:E140` read out of the ROM is a 36-entry byte curve:
+
+    0 10 17 23 28 36 43 54 63 68 75 89 96 119 126 142 148 153 160 169 174 180 184 187
+    192 201 208 210 213 219 221 228 231 239 248 255
+
+Entry 1 is the 10 the Start menu shows for level 1, so entry 0 is unused and levels start at
+index 1. The block immediately after, at `$01:E164`, has the same shape (`0 3 8 10 12 19 22
+27 30 34 38 46 57 63 76 81 93...`) and its entry 1 is the MP of 3 the menu shows, which is
+what confirms the indexing rather than a coincidence of layout.
+
+Two things follow. Starting at 18 is entry 1 plus eight. And because entry 2 is 17, raising
+only entry 1 would make level 2 *smaller* than level 1 -- the shipped patch moves the whole
+curve by eight, which is the "adjusted level 2 growth" in the request: level 2 becomes 25,
+level 3 becomes 31, and the delta between consecutive levels is exactly what it was. The top
+entries saturate at 255.
+
+What is still not found: where **defence** 5 comes from. No table near the HP and MP curves
+begins `00 05`, so base defence is not in this shape, and the feature therefore ships as HP
+only rather than half-guessing a defence address.
+
+### What indexes the curve, and the receipts for the shipped patch
+
+`$01:957F` is the routine that fills the maxima: `PHY / LDA $052C / TAY / LDA $E140,y /
+STA $0370 / LDA $E164,y / STA $0371 / PLY / RTS`, so the index is the entity field `$052C`
+and `$0370/$0371` hold the maximum HP and MP. `INC $052C` exists at `$01:94E5`, inside the
+cluster of `$052C` readers at `$01:94CD/$01:94F8/$01:9530/$01:9580`, which is the level-up
+path: `$052C` is Nasir's level, not a character id. Enemies do not use the table at all --
+the Gold Cave enemy's own `$0BEC` is `00`, which would be a maximum of zero.
+
+The patch therefore moves the whole curve and preserves every level-to-level delta.
+
+    feature off   $7E:0520 = 0A 00   (10, as before)      build/dumps-qol4-off\town.wram.bin
+    feature on    $7E:0520 = 12 00   (18)                 build/dumps-hp-on\town.wram.bin
+                                                         build/dumps-hp-on\menu.wram.bin
+
+MP 3, STR 10, DEF 5 and GOLD 100 are unchanged in the same dumps, so the patch touches HP
+and nothing else. With every feature off, the rebuilt executable replays the 6 245-frame
+route bit-identically to the previous one -- 9 tags, 0 component mismatches, `clock=ok`
+(`build/dumps-qol5-off` against `build/dumps-qol4-off`) -- so the faithful default is still
+the default.
+
+Scope note: one curve is shared by the party, so the eight also applies to party members
+recruited later. Splitting it per character would need a table the ROM does not have.

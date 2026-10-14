@@ -30,6 +30,17 @@ feature = "walk_speed"
 id = "lagoon.qol.walk_speed"
 
 [[feature]]
+id = "start_hp"
+name = "Start with 18 HP"
+description = "Nasir's level curve begins at 18 maximum HP instead of 10, and every later level moves by the same eight so the growth between levels is unchanged -- level 2 becomes 25 where it was 17."
+group = "Stats"
+default_enabled = false
+
+[[plugin]]
+feature = "start_hp"
+id = "lagoon.qol.start_hp"
+
+[[feature]]
 id = "camera_center"
 name = "Immediate camera following"
 description = "The view stays centred on Nasir instead of only scrolling once he reaches the edge of the screen. Kept inside the room, so no outside-map is shown."

@@ -86,8 +86,43 @@ static int g_camera_center;
  * feature resolved, and is the place a RAM-writing feature would set its flag. */
 static void qol_walk_speed_activated(void) { g_walk_speed_applied = 1; }
 
+/* Starting and per-level maximum HP.
+ *
+ * $01:9208 clamps an entity's HP with `LDA $0520,x; SBC $E140,y; ...; LDA $E140,y;
+ * STA $0520,x`, so $01:E140 is a maximum-HP table indexed by a per-entity level
+ * term. Read out of the ROM it is a 36-entry byte curve --
+ *   0, 10, 17, 23, 28, 36, 43, 54, 63, 68, 75, 89, ... 228, 231, 239, 248, 255
+ * whose second entry is exactly the 10 the Start menu shows at level 1, and the
+ * next block at $01:E164 (`0, 3, 8, 10, 12, ...`) is the same shape for MP, whose
+ * second entry is the 3 the menu shows. So level 1 is entry 1, entry 0 is unused,
+ * and the owner's "Nasir starts with 18 HP" is entry 1 plus eight.
+ *
+ * Raising only entry 1 would leave level 2 at 17, *below* the new level 1, which
+ * is why the request says "with adjusted level 2 growth": the whole curve moves by
+ * eight, so every level keeps its original delta and level 2 becomes 25. The top
+ * entries saturate at 255 rather than wrapping.
+ *
+ * File offset: bank $01 at 1 << 15, so bus $01:E140 is file 0xE140 -- the same
+ * mapping tools/dis.py uses, and confirmed by the curve and by both menus.
+ */
+#define QOL_HPTABLE_OFFSET 0xE140u
+#define QOL_HPTABLE_LEN 36u
+#define QOL_HP_BONUS 8u
+
+static const uint8_t kHpTableStock[QOL_HPTABLE_LEN] = {
+    0x00, 0x0A, 0x11, 0x17, 0x1C, 0x24, 0x2B, 0x36, 0x3F, 0x44,
+    0x4B, 0x59, 0x60, 0x77, 0x7E, 0x8E, 0x94, 0x99, 0xA0, 0xA9,
+    0xAE, 0xB4, 0xB8, 0xBB, 0xC0, 0xC9, 0xD0, 0xD2, 0xD5, 0xDB,
+    0xDD, 0xE4, 0xE7, 0xEF, 0xF8, 0xFF,
+};
+
+static int g_start_hp_applied;
+
+static void qol_start_hp_activated(void) { g_start_hp_applied = 1; }
+
 void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
   g_walk_speed_applied = 0;
+  g_start_hp_applied = 0;
   g_camera_center = 0;
   /* Nothing camera-related is decided here. Its activation callback sets the flag
    * and registers the frame callback, and that runs after this hook (ROM is read
@@ -98,24 +133,43 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
   if (!rom) {
     return;
   }
-  if (size <= QOL_WALK_TIER2_OFFSET + sizeof(kWalkTier2Stock)) {
-    fprintf(stderr, "lagoon.qol: walk_speed refused, rom is %u bytes\n",
-            (unsigned)size);
-    return;
+  /* Each data patch is guarded on its own, so one refused patch cannot silence
+   * another. With every feature off neither branch runs and the ROM image the
+   * guest sees is byte-for-byte the one on disk. */
+  if (size > QOL_WALK_TIER2_OFFSET + sizeof(kWalkTier2Stock) &&
+      snes_mod_runtime_feature_enabled_c(QOL_PACKAGE_ID, "walk_speed")) {
+    uint8_t *row = (uint8_t *)(uintptr_t)(rom + QOL_WALK_TIER2_OFFSET);
+    if (memcmp(row, kWalkTier2Stock, sizeof(kWalkTier2Stock)) != 0) {
+      fprintf(stderr,
+              "lagoon.qol: walk_speed refused, $02:8149 does not hold the proven "
+              "stock row\n");
+    } else {
+      memcpy(row, kWalkTier2Faster, sizeof(kWalkTier2Faster));
+      g_walk_speed_applied = 1;
+      fprintf(stderr, "lagoon.qol: walk_speed applied, tier 2 is now +-5 px (was +-3)\n");
+    }
   }
-  if (!snes_mod_runtime_feature_enabled_c(QOL_PACKAGE_ID, "walk_speed")) {
-    return; /* the faithful default: nothing is touched */
+  if (size > QOL_HPTABLE_OFFSET + sizeof(kHpTableStock) &&
+      snes_mod_runtime_feature_enabled_c(QOL_PACKAGE_ID, "start_hp")) {
+    uint8_t *table = (uint8_t *)(uintptr_t)(rom + QOL_HPTABLE_OFFSET);
+    if (memcmp(table, kHpTableStock, sizeof(kHpTableStock)) != 0) {
+      fprintf(stderr,
+              "lagoon.qol: start_hp refused, $01:E140 does not hold the proven "
+              "stock level curve\n");
+    } else {
+      /* Entry 0 is unused (the curve starts at level 1) and stays 0. */
+      for (unsigned i = 1; i < QOL_HPTABLE_LEN; i++) {
+        unsigned v = (unsigned)kHpTableStock[i] + QOL_HP_BONUS;
+        table[i] = (uint8_t)(v > 255u ? 255u : v);
+      }
+      g_start_hp_applied = 1;
+      fprintf(stderr,
+              "lagoon.qol: start_hp applied, level curve is now %u at level 1 and "
+              "%u at level 2 (was %u and %u)\n",
+              (unsigned)table[1], (unsigned)table[2],
+              (unsigned)kHpTableStock[1], (unsigned)kHpTableStock[2]);
+    }
   }
-  uint8_t *row = (uint8_t *)(uintptr_t)(rom + QOL_WALK_TIER2_OFFSET);
-  if (memcmp(row, kWalkTier2Stock, sizeof(kWalkTier2Stock)) != 0) {
-    fprintf(stderr,
-            "lagoon.qol: walk_speed refused, $02:8149 does not hold the proven "
-            "stock row\n");
-    return;
-  }
-  memcpy(row, kWalkTier2Faster, sizeof(kWalkTier2Faster));
-  g_walk_speed_applied = 1;
-  fprintf(stderr, "lagoon.qol: walk_speed applied, tier 2 is now +-5 px (was +-3)\n");
 }
 
 /* Immediate camera following.
@@ -329,6 +383,8 @@ SNES_MOD_CONSTRUCTOR(lagoon_qol_register) {
    * callback above. */
   snes_mod_register_activation_plugin("lagoon.qol.walk_speed",
                                       qol_walk_speed_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.start_hp",
+                                      qol_start_hp_activated);
   snes_mod_register_activation_plugin("lagoon.qol.camera_center",
                                       qol_camera_activated);
   snes_mod_register_activation_plugin("lagoon.qol.debug_position",
