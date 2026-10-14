@@ -74,6 +74,7 @@ static const uint8_t kWalkTier2Faster[16] = {
 };
 
 static int g_walk_speed_applied;
+
 /* Both feature flags live here because LagoonQol_OnRomLoaded, which runs first,
  * reads them for every feature; the camera one is set there from the runtime
  * query rather than from its activation callback. */
@@ -86,14 +87,13 @@ static void qol_walk_speed_activated(void) { g_walk_speed_applied = 1; }
 
 void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
   g_walk_speed_applied = 0;
-  /* A RAM-writing feature is meant to switch on in its activation callback, and
-   * that callback is still registered for the launcher path. It did not fire on
-   * the headless path -- measured: with the feature enabled in state.toml the
-   * camera stayed exactly where the stock game put it -- while the runtime query
-   * below is the same call the ROM patch uses and does return the player's
-   * choice, so the flag is taken from it here. */
-  g_camera_center =
-      snes_mod_runtime_feature_enabled_c(QOL_PACKAGE_ID, "camera_center") ? 1 : 0;
+  g_camera_center = 0;
+  /* Nothing camera-related is decided here. Its activation callback sets the flag
+   * and registers the frame callback, and that runs after this hook (ROM is read
+   * at host_main.c:3496, plugins are activated at 3522), so clearing here cannot
+   * undo it. Reading the feature state at ROM load was a workaround for a callback
+   * that never ran; the reason it never ran was the wiped callback list, not this
+   * hook. */
   if (!rom) {
     return;
   }
@@ -207,12 +207,28 @@ static void qol_frame(void) {
   qol_wram_write16(QOL_WRAM_VIEW_Y + 4, view_y);
 }
 
-static void qol_camera_activated(void) { g_camera_center = 1; }
+/* The frame callback is registered here, not from the constructor, and that is
+ * the whole reason this feature took three attempts: mod_runtime_activate_plugins
+ * (mod_runtime.cpp:2959) clears the frame and APU callback lists and then invokes
+ * reset and activation callbacks, at every session start. A static constructor
+ * runs before main, so a callback registered there is wiped before the first
+ * frame -- registration returns success, nothing ever calls it, and no diagnostic
+ * complains. This function is also the only place the feature's state is known
+ * for certain: the runtime calls it exactly when the player has enabled it. */
+static void qol_camera_activated(void) {
+  g_camera_center = 1;
+  snes_mod_register_frame_callback(qol_frame);
+  /* One line, once per session: a plugin that changes the game should say so
+   * where a player or a receipt will see it. */
+  fprintf(stderr, "lagoon.qol: camera_center active, view centred on Nasir\n");
+}
 
 SNES_MOD_CONSTRUCTOR(lagoon_qol_register) {
+  /* Only the plugin identities are declared at load time, since the activation
+   * plugin table is not cleared. Anything per-frame belongs in the activation
+   * callback above. */
   snes_mod_register_activation_plugin("lagoon.qol.walk_speed",
                                       qol_walk_speed_activated);
   snes_mod_register_activation_plugin("lagoon.qol.camera_center",
                                       qol_camera_activated);
-  snes_mod_register_frame_callback(qol_frame);
 }

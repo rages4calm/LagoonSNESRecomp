@@ -29,8 +29,21 @@ default_enabled = false
 feature = "walk_speed"
 id = "lagoon.qol.walk_speed"
 
-# "Immediate camera following" is written and compiles, but it does not yet move
-# the view (measured three ways: the frame-boundary write to $0480/$0482 does not
-# survive to the rendered frame), so it is not offered here. A feature a player
-# can switch on and see nothing happen is worse than one that is not listed; the
-# entry goes back when it demonstrably centres the view.
+[[feature]]
+id = "camera_center"
+name = "Immediate camera following"
+description = "The view stays centred on Nasir instead of only scrolling once he reaches the edge of the screen. Kept inside the room, so no outside-map is shown."
+group = "Camera"
+default_enabled = false
+
+[[plugin]]
+feature = "camera_center"
+id = "lagoon.qol.camera_center"
+
+# Historical note: this was briefly pulled because switching it on did nothing. The
+# cause was here, not in the runtime: mod_runtime_activate_plugins() clears the
+# frame-callback list and then re-runs activation callbacks at every session start,
+# so a callback registered from the static constructor -- which runs before main --
+# is gone before the first frame, while registration still reports success. The
+# activation callback is both the place the registration survives and the place the
+# feature's on/off state is known.

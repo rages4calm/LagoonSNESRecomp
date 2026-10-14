@@ -92,23 +92,35 @@ trace of 25 frames of held-right walking: nothing at all writes `$0480`, `$0482`
 this time — the town camera pinned at X 528 while Nasir walked from screen y 112 down
 to 157 — which is the behaviour the owner described.
 
-**Status: understood, not yet working.** The feature is written and compiles, and with
-it off the replay is still bit-identical to the control, but enabling it has not moved
-the view. Three readings, all from headless runs of the same walk route:
+**Status: shipped as `lagoon.quality` / `camera_center`, default off.** Measured on the
+same walk route, feature on:
 
-| what was written | result |
-| --- | --- |
-| `$0200/$0202` (the derived copy) | screen position unchanged, 112/121 exactly as stock |
-| `$0480/$0482` (the engine's own camera) | `$0480` still read 528 and `$0482` 0 at every dump |
-| same, with the feature flag taken from the runtime query instead of the activation callback | identical to the row above |
+| frame | `$0480` camera X | Nasir world X | screen X `$050C` | screen Y `$050E` |
+| --- | --- | --- | --- | --- |
+| 6141 | **512** (stock 528) | 640 | **128** | 105 |
+| 6162 | 512 | 640 | **128** | 115 |
+| 6190 | 512 | 640 | **128** | 115 |
 
-The middle row is the interesting one: the engine leaves `$0480` alone unless a border
-scroll fires, so a frame-boundary write there *should* have survived. That it did not
-means either the frame callback is not being called at all, or it runs before the
-engine's own update rather than after it. The next test separates those without
-depending on ordering at all — write a value somewhere inert and see whether the dump
-shows it. The activation callback not firing on the headless path is itself a finding
-worth keeping: the query works, the callback does not.
+Stock put him at screen x 112 and let him drift down to y 179. Centred, he holds x 128 —
+the middle of a 256-pixel field — and y stays in 105…115, because while his world y is
+still under one screen tall the view is pinned to the room's 16-pixel near margin. The
+±3 wobble on y is the engine's own movement granularity (9 px per 7 frames), not the mod.
+
+The three failures above were honest measurements of a mod that never ran, and the cause
+was mine: `mod_runtime_activate_plugins()` (runner/src/mod_runtime.cpp:2959) clears the
+frame and APU callback lists and *then* invokes reset callbacks and the activation
+callbacks of the enabled features, at every session start. A `SNES_MOD_CONSTRUCTOR` runs
+before `main`, so a frame callback registered there is wiped before frame 1 — and
+`snes_mod_register_frame_callback` still returns 1, so nothing complained. The test that
+settled it logged from three places: the constructor wrote, the activation callback wrote
+with the feature flag set, the frame callback never wrote at all. Registering from the
+activation callback is the designed place: it survives the clear, and it is the only place
+that knows for certain the player enabled the feature — which is why the earlier note
+saying "the activation callback does not fire on the headless path" was wrong. It fired;
+the callback it was meant to arm had been discarded. `RtlRunFrame`
+(runner/src/common_rtl.c:859) already ticks frame callbacks on this host, so the
+framework needed no change; a framework edit that added a second tick was built, measured
+as no different, and reverted.
 
 ## The owner's QoL ROM hack (`Lagoon QoL.bps`)
 

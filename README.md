@@ -104,6 +104,43 @@ Either way the ROM is checked against the digests above before anything boots
 — a dump that could not have produced this build is refused at the door rather
 than mis-executing ten frames in.
 
+## Quality-of-life options
+
+The nine changes the owner asked for are tracked in
+[QOL-ADDRESSES.md](QOL-ADDRESSES.md), which records for each one the address it lives at
+and how that address was proved. They ship through the framework's mod catalog as the
+built-in package `lagoon.quality`
+(`mods/preloaded/packages/lagoon.quality/1.0.0/manifest.toml`), every one of them
+**default off**, so the faithful game remains the default. A feature is a static plugin
+compiled into the executable plus data in the manifest — behaviour cannot live in the
+`.snesmod` archive — and it must be a RAM write or a ROM *data* patch, because an
+*instruction* patch would be silently undone by a later ahead-of-time promotion of the
+routine that holds it.
+
+Two of the nine are shipped and measured; seven are not shipped yet.
+
+| feature | state |
+|---|---|
+| Walk speed 3 → 5 px/frame | **shipped** — replaces the 16-byte tier-2 movement row at `$02:8149`. Off: +9 px per 7-frame interval. On: +15, on all eight intervals of the walk route. |
+| Immediate camera following | **shipped** — writes the engine's own camera `$0480/$0482` at the frame boundary, clamped to the room. Off: screen x 112 while the player drifts to screen y 179. On: screen x 128, the field centre, y held at 105–115. |
+| Sword reach 28,17,28,27 → 38,38,38,38 | not shipped — those four values are not present in the ROM as bytes or words; the hitbox table needs a combat route to identify |
+| Follower speed 1 → 3 px/frame | not shipped — needs a route that puts a follower on the overworld |
+| +8 recovery frames after an ordinary hit | not shipped — needs a damage route |
+| Start at 18 HP / 11 base defense | not shipped — the party block `$0520…$0526` is found (10/3/10/5 = HP/MP/STR/DEF) but the routine that initialises it is not traced |
+| Enemy and boss EXP +50%, rounded down | not shipped — needs a victory route |
+| 8-frame hold at the original jump peak | not shipped |
+| Raise all magic power for the end game | not shipped |
+
+With both shipped features off, a 6 245-frame route replays bit-identically to the
+interpreter-floor build on every captured component *including* `master_clock` — the gate
+under Qualification — so "the unmodified game is unchanged" is a measurement, not an
+assumption.
+
+To turn a feature on in a built tree: set `enabled = true` for it in
+`build/mods/preloaded/state.toml` and start the game. The launcher's mod list is meant to
+be the player-facing route for this, and has not been qualified yet, so the file is the
+documented method for now.
+
 ## Layout
 
 | Path | What lives there |
