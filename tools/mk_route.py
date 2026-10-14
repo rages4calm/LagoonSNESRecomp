@@ -25,10 +25,45 @@ def main(argv):
     for i in range(beats):
         lines.append(f'wait {wait}')
         lines.append(f'press a {hold}')
+        if '--title-tail' in argv and i == 0:
+            lines.append('dump t-logo')   # what a reset looks like, same run
         if (i + 1) % 10 == 0:
             lines.append('press start 6')
     lines += ['', 'dump wk-a', '', 'press right 40', 'dump wk-b',
               '', 'press down 40', 'dump wk-c', '', 'quit', '']
+    if '--title-tail' in argv:
+        # The reported bug: past the old man, at the Lagoon title, pressing A
+        # throws the game back to the KEMCO logo. So dump the title, press A,
+        # dump again, and dump the boot logo earlier in the same run -- three
+        # bytes files decide whether that is a reset instead of an argument.
+        lines = lines[:len(lines) - 10] + ['', 'dump t-title', '', 'press a 6',
+                                           '', 'wait 90', 'dump t-after-a', '',
+                                           'wait 120', 'dump t-after-a2', '',
+                                           'press start 6', '', 'wait 90',
+                                           'dump t-after-start', '', 'quit', '']
+    if '--menu-tail' in argv:
+        # Pressing A at the castle screen reboots to the KEMCO logo (proven:
+        # dumps-title-aot, and the interpreter floor agrees). So probe the
+        # other buttons here, and move a cursor BEFORE committing with A --
+        # if there is a menu, its default entry may be the reboot path.
+        lines = lines[:len(lines) - 10] + ['', 'dump m-title', '',
+                                           'press start 6', '', 'wait 90', 'dump m-start',
+                                           '', 'press down 6', '', 'wait 60', 'dump m-down',
+                                           '', 'press a 6', '', 'wait 180', 'dump m-pick1',
+                                           '', 'wait 240', 'dump m-pick2',
+                                           '', 'press b 6', '', 'wait 60', 'dump m-back',
+                                           '', 'quit', '']
+    if '--gate-tail' in argv:
+        # Every press so far -- A, Start, the d-pad -- landed during a scene the
+        # game still owns and restarted the boot sequence. So hold the pad
+        # entirely and watch: if the logo screen becomes a menu by itself, the
+        # interactive moment has simply not arrived yet, and pressing early is
+        # the game's own "skip", not a dropped input.
+        lines = lines[:len(lines) - 10] + ['', 'dump g-title']
+        for i in range(1, 7):
+            lines += ['', 'wait 300', f'dump g-{i * 300}']
+        lines += ['', 'press start 6', '', 'wait 120', 'dump g-start', '',
+                  'press a 6', '', 'wait 240', 'dump g-play', '', 'quit', '']
     open(out, 'w', encoding='utf-8', newline='\n').write('\n'.join(lines) + '\n')
     frames = beats * (wait + hold + 1) + (beats // 10) * 7 + 2 * 41
     print(f'{out}: {beats} beats of wait {wait} + press a {hold}, ends near frame {frames}')
