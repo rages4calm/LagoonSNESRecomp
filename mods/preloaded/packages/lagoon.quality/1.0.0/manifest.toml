@@ -28,3 +28,9 @@ default_enabled = false
 [[plugin]]
 feature = "walk_speed"
 id = "lagoon.qol.walk_speed"
+
+# "Immediate camera following" is written and compiles, but it does not yet move
+# the view (measured three ways: the frame-boundary write to $0480/$0482 does not
+# survive to the rendered frame), so it is not offered here. A feature a player
+# can switch on and see nothing happen is worse than one that is not listed; the
+# entry goes back when it demonstrably centres the view.

@@ -45,7 +45,8 @@ Entity records start at `$7E:0500` and are indexed by an entity number in X:
 | `$0506,x` / `$0508,x` | velocity X / Y, signed 16-bit | written by `$02:8106` / `$02:8112`, zeroed by `$02:811C` / `$02:8122` |
 | `$050B,x` | direction index | read by `$02:80EA`, `BMI $811C` sends it to "no velocity" |
 | `$051A,x` | speed-tier selector | read at `$02:80EF`, shifted `<<4`, used as a table stride |
-| `$050C,x`, `$050E,x` | camera X / Y (candidates) | stored by the same routine at `$01:A5B3`, `$01:A5BE`; see the caveat below |
+| `$050C,x`, `$050E,x` | entity's **screen** X / Y | `$01:A5AA`: `LDA $0502,x; SEC; SBC $0480; STA $050C,x` — world minus scroll, so on-screen coordinates, not the camera |
+| `$0200`, `$0202` | camera (BG1 scroll X / Y) | 10-bit each, high 2 bits in `$0201`/`$0203`; `$00:871C` writes `$210D/$210E` from them; `$0204/$0206` mirror them for BG2 |
 
 Velocity is not an immediate. `$02:80EA` computes `direction*4 + tier*16` and reads
 a four-byte `(vx_lo, vx_hi, vy_lo, vy_hi)` record from the table at `$02:8129`
@@ -75,12 +76,60 @@ follower entity's index — there is no follower entity moving at 1 px/frame in 
 town dumps, because the party does not walk through town, so this needs an
 overworld route.
 
-**Camera centring.** `$050C/050E` are written by the routine around `$01:A5B3`, and
-the dumps show the behaviour the owner described: while X went 137→149 px the camera
-only crept 122→130 and then dithered ±1 px around 133.5, i.e. it scrolls on a border
-trigger rather than following. The border comparison itself has not been read yet
-(`$01:A56A`–`$01:A624` is the range), so the mod is specified but not yet implemented,
-and `$050C/050E` are labelled candidates until that range is read.
+**Camera centring — mechanism now read, and one of my earlier readings was wrong.**
+`$050C/050E` are not the camera. `$01:A5AA` computes `world − scroll` into them, so
+they are the entity's *screen* coordinates. The camera is the pair `$0200` (BG1 X: a
+low byte plus two high bits in `$0201`) and `$0202` (BG1 Y), which `$00:871C` pushes
+to `$210D/$210E` every frame; `$0204/$0206` feed `$210F/$2110` for BG2 and hold the
+same numbers, so BG2 copies the view rather than parallaxing it. `$01:A56A` turned out
+to be a position clamp against the room bounds (`CMP #$0010`, `CMP $0492`), and the
+border comparisons at `$01:A5C2`–`$01:A5EA` — 288, 176, −32 and 80 against the screen
+position — feed a per-frame mask at `$A4/$A5` (cleared at `$01:A4E1`, bits set by
+`TSB`) whose consumer at `$01:A624` tests `CMP #$0F` and writes an HDMA table through
+`$4202/$4216`, not the view. My claim that the camera "crept 122→130" is refuted by a
+trace of 25 frames of held-right walking: nothing at all writes `$0480`, `$0482` or
+`$0484` during it. What the dumps do show is the lag itself, on the right variables
+this time — the town camera pinned at X 528 while Nasir walked from screen y 112 down
+to 157 — which is the behaviour the owner described.
+
+**Status: understood, not yet working.** The feature is written and compiles, and with
+it off the replay is still bit-identical to the control, but enabling it has not moved
+the view. Three readings, all from headless runs of the same walk route:
+
+| what was written | result |
+| --- | --- |
+| `$0200/$0202` (the derived copy) | screen position unchanged, 112/121 exactly as stock |
+| `$0480/$0482` (the engine's own camera) | `$0480` still read 528 and `$0482` 0 at every dump |
+| same, with the feature flag taken from the runtime query instead of the activation callback | identical to the row above |
+
+The middle row is the interesting one: the engine leaves `$0480` alone unless a border
+scroll fires, so a frame-boundary write there *should* have survived. That it did not
+means either the frame callback is not being called at all, or it runs before the
+engine's own update rather than after it. The next test separates those without
+depending on ordering at all — write a value somewhere inert and see whether the dump
+shows it. The activation callback not firing on the headless path is itself a finding
+worth keeping: the query works, the callback does not.
+
+## The owner's QoL ROM hack (`Lagoon QoL.bps`)
+
+Worth recording because one part of it is settled and another is not:
+
+- **The patch is for this exact ROM.** Its footer CRC-32 `D2554270` appears at offset
+  3253 of the 3 265-byte patch, little-endian, and equals the CRC of `Lagoon (USA).sfc`,
+  which is also the 1 MiB length the header declares. So the hack's base revision
+  matches what the port verifies by SHA-256, and a diff of patched against original
+  would be a legitimate source of addresses.
+- **`tools/bps_apply.py` does not yet parse this writer's action stream.** It gets the
+  header, the signed relative offsets and the 12-byte footer right — the source length
+  decodes to exactly 1 MiB, which pins the variable-length integer convention — then
+  desyncs at patch offset 34 on a "same copy" of 8 809 bytes. `--solve` searches the
+  readings the format could plausibly mean (deltas on the same-copy modes or not,
+  cursors advancing or not, signed or unsigned, four sequential mode codes or flag-bit
+  packing, same-copies relative to their cursor or to the output position) and keeps
+  only what reproduces the patch's own CRCs; nothing does. PyPI was unreachable from
+  here, so there was no independent applier to compare against.
+- What would settle it in a minute: the patched ROM itself, or the name of the tool
+  that made the patch.
 
 ## Shipped: `lagoon.quality` / `walk_speed`
 
