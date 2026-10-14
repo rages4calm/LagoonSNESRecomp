@@ -32,7 +32,7 @@ id = "lagoon.qol.walk_speed"
 [[feature]]
 id = "start_hp"
 name = "Start with 18 HP"
-description = "Nasir's level curve begins at 18 maximum HP instead of 10, and every later level moves by the same eight so the growth between levels is unchanged -- level 2 becomes 25 where it was 17."
+description = "Nasir's level curve begins at 18 maximum HP instead of 10, and every later level moves by the same eight so the growth between levels is unchanged -- level 2 becomes 25 where it was 17. The same shift is applied to the defence curve at $01:E0F8, which the level-up path uses; the starting defence value is not read from there, so 11 defence is not yet delivered."
 group = "Stats"
 default_enabled = false
 

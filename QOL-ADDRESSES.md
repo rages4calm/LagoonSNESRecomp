@@ -305,3 +305,67 @@ the default.
 
 Scope note: one curve is shared by the party, so the eight also applies to party members
 recruited later. Splitting it per character would need a table the ROM does not have.
+
+## The whole level-stat page: EXP, strength, defence
+
+Following `INC $052C` outward reaches the level-up routine, and it turns out to be a family
+of parallel tables in one ROM page, all indexed by `$052C` (level, `ASL`-ed, so 16-bit
+entries) with a per-class term added:
+
+| table | bus | entry 1 | what the menu shows |
+|---|---|---|---|
+| EXP needed for the level | `$01:E068` | 10 | `EXP 0/0` at the start, and 10 is what `LDA $052A / ADC` accumulates toward |
+| strength | `$01:E0B0` | 10 | `STR 10` |
+| defence | `$01:E0F8` | 5 | `DEF 5` |
+| maximum HP | `$01:E140` | 10 | `HP 18/18` once patched, 10 before |
+| maximum MP | `$01:E164` | 3 | `MP 3/3` |
+
+    $01:94CD  LDA $052C / CMP #$23 / BEQ done      level cap 35, matching the 36-entry tables
+    $01:94D6  LDA $052A / SBC $E068,y              EXP against the requirement
+    $01:94E5  INC $052C                            level up, looping so one win can give two
+    $01:94FD  LDA $E0B0,y / ADC $E188,x / STA $0524   STR = per-level + per-class($0530)
+    $01:953A  LDA $E0F8,y / ADC $E194,x / STA $0526   DEF = per-level + per-class($0531)
+    $01:9552  LDA $0526 / ADC $E1A0,x / STA $0526     DEF += equipment term($0532)
+
+The class terms are all zero for Nasir as the game starts, which is what makes the defence
+claim checkable rather than plausible: reading the tables and his `$0530..$0533` out of a
+town dump gives `5 + 0 + 0 = 5`, exactly the `DEF 5` in the menu. The shipped patch therefore
+adds six to the defence curve the same way it adds eight to the HP curve, keeping every
+level-to-level delta, so 11 at level 1 and 16 at level 2 where it was 5 and 10.
+
+That closes the second half of the owner's fifth feature. What it does **not** touch is the
+per-class term at `$01:E194` -- raising that instead would change only one character but needs
+the class index to be proved per character, and the single shared curve is what the measured
+numbers actually come from.
+
+### Correction: the defence patch runs, but does not deliver 11
+
+The claim above that this ships the defence half was wrong, and the measurement says so. The
+feature's log line for a real run reads
+
+    lagoon.qol: start_hp applied, level curve is now 18 at level 1 and 25 at level 2 (was 10 and 17)
+    lagoon.qol: start_hp applied, defence is now 11 at level 1 and 16 at level 2 (was 5 and 10)
+
+and `build/dumps-hp2-on\town.wram.bin` then holds `$7E:0520 = 12 00` (**18**, as intended)
+while `$7E:0526` is still `05 00` (**5**). So `$01:E0F8` does feed the level-up growth -- the
+patch is applied and that path will use it -- but the value the game *starts* with is written
+by some other initialiser, and the `5 + 0 + 0 = 5` arithmetic above is consistency, not
+causation. That distinction is the whole reason a feature is not the same thing as an address:
+a patch can be correct about a table and still not change what the player sees.
+
+The defence shift is kept (it is real growth-table data, and refusing it would be hiding it)
+but the feature is named and described as 18 HP only, and "11 base defence" stays on the
+not-shipped list with the initialiser as the open item.
+
+Delivered on the second attempt: the starting defence is written once into $7E:0526 -- the
+proven current-defence field, which $01:9541 writes as defence and the menu displays -- after
+the party block exists (detected by $0520 becoming non-zero), and is deliberately not
+re-asserted so a later level-up recomputes from the shifted curve.
+
+    build/dumps-hp4-on\town.wram.bin and menu.wram.bin
+      $0520 = 12 00 (18 HP)   $0522 = 03 00   $0524 = 0A 00   $0526 = 0B 00 (11 DEF)   $0528 = 64 00
+    log: "start_hp wrote defence 11 (stock 5) into $7E:0526"
+    build/dumps-qol9-off vs build/dumps-qol6-off: 9 tags, 0 mismatches, clock=ok
+
+The menu itself reads HP 18/18 and DEF 11 (build/sheet-hpdef-menu.png). The initialiser that
+writes the stock 5 is still unidentified -- it remains a known gap rather than a claim.

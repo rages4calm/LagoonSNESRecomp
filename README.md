@@ -117,14 +117,16 @@ compiled into the executable plus data in the manifest — behaviour cannot live
 *instruction* patch would be silently undone by a later ahead-of-time promotion of the
 routine that holds it.
 
-Three of the nine are shipped and measured; six are not shipped yet.
+Five of the nine are shipped and measured — walk speed, camera centring, and 18 HP with
+11 defence — counted here as three rows because HP and defence are one feature. Four are not
+shipped yet.
 
 | feature | state |
 |---|---|
 | Walk speed 3 → 5 px/frame | **shipped** — replaces the 16-byte tier-2 movement row at `$02:8149`. Off: +9 px per 7-frame interval. On: +15, on all eight intervals of the walk route. |
 | Immediate camera following | **shipped** — writes the engine's own camera `$0480/$0482` at the frame boundary, clamped to the room. Off: screen x 112 while the player drifts to screen y 179. On: screen x 128, the field centre, y held at 105–115. |
 | Start at 18 HP | **shipped** — adds eight to the per-level maximum-HP curve at `$01:E140`, which `$01:957F` loads into `$0370` using Nasir's level `$052C`. Off: `$7E:0520 = 10`. On: `18`, MP/STR/DEF/GOLD untouched. Level 2 becomes 25 where it was 17, so every delta is preserved. |
-| 11 base defence | not shipped — the curve covers HP and MP only, and no `00 05 …` defence curve exists near it, so the source of the starting 5 is still untraced |
+| 11 base defence | **shipped** (same feature as 18 HP) — the starting value is not read from the `$01:E0F8` curve, so it is written once into the proven current-defence field `$7E:0526` after the party block exists; the curve is also shifted by six so level-ups keep their growth. Off: `DEF 5`. On: `11`, MP/STR/GOLD untouched |
 | Sword reach 28,17,28,27 → 38,38,38,38 | not shipped — those four values are not present in the ROM as bytes or words; combat is now reachable, but a landed hit is still needed to identify the reach |
 | Follower speed 1 → 3 px/frame | not shipped — needs a route that puts a follower on the overworld |
 | +8 recovery frames after an ordinary hit | not shipped — `$02:81CB` is the engine's own "start a protection period" decision (`$0501` bit `$20`, timer `$0516/$0517`); which field carries the length is not yet proved |

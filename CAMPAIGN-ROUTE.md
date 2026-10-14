@@ -200,3 +200,94 @@ Measured caveats worth knowing before using it:
 | `tools/tag_sheet.py` | the pictures, so a claim about a doorway can be looked at instead of argued about |
 | `tools/wram_peek.py` | a hex window of any dump, for reading a record directly |
 
+
+## MEASURED: the first fight cannot be won, because Nasir has no sword
+
+`tools/script_combat7.txt` stands Nasir on top of the Gold Cave enemy (teleported onto its
+position every 30 frames so he cannot walk out of range) and mashes A through eight swings.
+The enemy's block never moved:
+
+    p00  player HP 10   enemy ($0BC2,$0BC4) = (1472,1440)   $0BE0=12 $0BE2=0 $0BE4=15 $0BE6=10
+    p02  player HP  5   enemy = (1480,1456)                 12      0      15      10
+    p04  player HP  1   enemy = (1488,1444)                 12      0      15      10
+    p06  player HP  0   enemy = (1488,1424)                 12      0      15      10
+    p08  player HP  0   enemy = (1468,1424)                 12      0      15      10
+
+Nasir took 10 to 5 to 1 to 0 while the enemy's four stat words did not change at all, so the
+swings were not grazing -- nothing connected, at point-blank range, eight times.
+
+The published walkthrough explains why: the Short Sword is **bought** in Atland for 150 gold
+and Nasir starts with 100 (`$0528 = 64 00`, measured). The event chain in Atland pays 300
+gold, which is what makes the shop reachable, and the guide's ordering -- do the chain, buy
+the sword, then go north -- is not a suggestion but a requirement of the economy. So
+"sword reach" and "enemy EXP" are gated behind *dialogue and a purchase*, not behind finding
+an address: the reach number probably belongs to a per-weapon table, and punching is not a
+substitute for measuring it.
+
+Consequence for the route: the campaign path for the combat features now runs through the
+Atland event chain (mayor's house, church, the hurt man, the cleric, mayor pays 300) and the
+shop, which is a dialogue problem rather than a walking problem. The position hook makes the
+dialogue squares reachable; what is still needed is reliably *initiating* them.
+
+## Gotcha: a teleport run needs debug_position switched on
+
+The position hook is a feature like any other, and the parity gate flips **every** feature
+off, including it. Two combat experiments were wasted reading a silent teleport before this
+was noticed: `LAGOON_DEBUG_AT` being set does nothing while `debug_position` is
+`enabled = false` in `build/mods/preloaded/state.toml`. Check the state file before any run
+that depends on placement.
+
+## Pick-up point for the next session (written when the working context ran out)
+
+State of the gates, all reproducible: `ninja -C build`; `tools/regen.sh --cfg-dir recomp-floor`
+and `tools/regen.sh` must be run through `C:\Program Files\Git\bin\bash.exe` (the `bash.exe` on
+PATH is the WSL stub, which silently does nothing). Wrap native commands as
+`cmd /c "tool ... > log 2>&1"` because `env.ps1` sets `$ErrorActionPreference = Stop`, which
+turns a native stderr line into a terminating error.
+
+Shipped and measured: walk speed, camera centring, 18 HP + 11 defence (`lagoon.quality`,
+default off, faithful default re-gated after each: 9 tags, 0 mismatches, `clock=0k`).
+
+Five things worth doing, in the order that buys the most:
+
+1. **The Atland event chain, then the shop.** Three features (sword reach, EXP +50%, recovery
+   frames) wait behind buying the Short Sword at 150 gold with 100 in pocket. The route is
+   `tools/script_combat3.txt` plus `LAGOON_DEBUG_AT` for standing on a dialogue square; what is
+   missing is only reliably *initiating* dialogue. Useful fields: `$0528` gold, `$0536` compared
+   with `#$25` in `$01:9250` (some special id), `$053E/$053F` status-inflict flags.
+2. **AOT cost model.** Lagoon never writes `$2181`, so `g_memsel` stays 0 and every AOT block
+   charges 8 cycles per internal cycle while the interpreter charges `internal * 6` plus
+   transit -- a systematic +2 per internal cycle. Find that expression in the runtime, mirror
+   the interpreter, and re-gate; the gate is what proves the fix rather than a benchmark.
+3. **`$80E6` target set.** 12 targets observed on the regression route; `tools/dispatch_hints.py`
+   emits the `indirect_dispatch` lines the evidence supports. Until the set is proved complete,
+   `force_lle 0080e6` stays.
+4. **CompanionLauncher adapter** at `..\CompanionLauncher`, untouched so far.
+5. **`-AudioDriver directsound` pacing**, the only check that needs a real window and sound.
+
+Known stale-binary trap: a build that fails to compile leaves the previous executable in place,
+and runs then look green. Check the ninja exit code before believing any measurement.
+
+## Dialogue probe: what A does NOT do (two runs, dumps on disk)
+
+The northern band (496x498) holds three immobile records: `$0540` at (352,44) -- the painted
+figure at the gate -- and `$0640`/`$0680` at (368,144)/(336,144), which render as two standing
+figures in blue and grey. Their state is `C1` in an early pass and `C9` once Nasir is close, so
+they do respond to proximity; they are not scenery.
+
+`tools/script_dialog2.txt` puts Nasir at (336,154), the same column as `$0680` at (336,144) --
+ten pixels directly below, facing up -- and presses A four times with 40 frames between.
+Nothing happened that any instrument can see: position frozen at (336,154), HP still 10, player
+state still `C8`, the NPC state still `C9`, and `build/sheet-dialog2.png` shows no text window.
+The earlier `tools/script_dialog1.txt` walked him north *past* both figures with A held between
+steps and also produced no window.
+
+So the open question is narrowed to two candidates, both cheap to test and neither of them an
+address: the interact key is not A (X, Y or Start are untested), or these two figures are
+event-gated and answer only after something in Atland has happened. The published walkthrough
+has Atland as the place where the story starts, so the second candidate is at least as likely
+as the first -- these may simply be the travellers you cannot recruit yet.
+
+Harness note that cost two dead runs today: `cmd /c` cannot execute a `.ps1`, so a probe
+launched that way produces no dumps at all and no obvious error. `headless.ps1` must be called
+directly; only the `bash tools/regen.sh` step needs `cmd /c`.

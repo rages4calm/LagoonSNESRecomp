@@ -116,9 +116,52 @@ static const uint8_t kHpTableStock[QOL_HPTABLE_LEN] = {
     0xDD, 0xE4, 0xE7, 0xEF, 0xF8, 0xFF,
 };
 
-static int g_start_hp_applied;
+/* Base defence, which the same routine computes one call later.
+ *
+ * $01:952F: `LDA $052C / ASL / TAY / LDA $0531 / ASL / TAX / LDA $E0F8,y /
+ * ADC $E194,x / STA $0526`, then `$0526 += $E1A0[$0532*2]`. So defence is a
+ * per-level curve at $01:E0F8 plus a per-class term and an equipment term.
+ * Nasir's $0530/$0531/$0532 are all zero at the start, so his defence is
+ * simply $E0F8[level], and entry 1 is 5 -- the 5 the menu shows. The STR
+ * routine at $01:94FD has the identical shape with its curve at $01:E0B0,
+ * whose entry 1 is the 10 the menu shows, and the EXP table at $01:E068
+ * (0 10 40 90 170 280 400 560) is what $01:94DA compares against before
+ * `INC $052C`. Three tables in one page each matching a menu field is what
+ * makes this a measurement.
+ *
+ * "11 base defense" is entry 1 plus six; the whole curve moves by six so the
+ * level-to-level growth is preserved, exactly as for HP, saturating at 255.
+ */
+#define QOL_DEFTABLE_OFFSET 0xE0F8u
+#define QOL_STAT_ENTRIES 36u
+#define QOL_DEF_BONUS 6u
 
-static void qol_start_hp_activated(void) { g_start_hp_applied = 1; }
+static const uint16_t kDefTableStock[QOL_STAT_ENTRIES] = {
+    0x0000, 0x0005, 0x000A, 0x0010, 0x0013, 0x0017, 0x001A, 0x001F, 0x0024, 0x0028,
+    0x002B, 0x0031, 0x0035, 0x0039, 0x003E, 0x0044, 0x004B, 0x004F, 0x0053, 0x005A,
+    0x0065, 0x006E, 0x007C, 0x0089, 0x008E, 0x0096, 0x00A1, 0x00AC, 0x00B8, 0x00C1,
+    0x00CB, 0x00D4, 0x00DF, 0x00E7, 0x00F3, 0x00FF,
+};
+
+static uint16_t qol_wram_read16(uint32_t addr);
+static void qol_wram_write16(uint32_t addr, uint16_t value);
+static void qol_def_frame(void);
+#define QOL_WRAM_HP 0x0520u /* party block: current HP, proven by damage and by the menu */
+#define QOL_WRAM_DEF 0x0526u /* party block: current defence, written as defence by $01:9541 */
+
+static int g_start_hp_applied;
+static int g_def_written;
+
+/* $01:E0F8 is the level-up curve, not the starting value -- measured: patching it makes the
+ * log report 11 while $7E:0526 still reads 5. The starting 5 comes from an initialiser that
+ * has not been identified, so the delivered value is written once into the proven current-
+ * defence field, after the party block exists, and is deliberately not re-asserted: a later
+ * level-up recomputes defence from the shifted curve, which is the intended behaviour. */
+static void qol_start_hp_activated(void) {
+  g_def_written = 0;
+  g_start_hp_applied = 1;
+  snes_mod_register_frame_callback(qol_def_frame);
+}
 
 void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
   g_walk_speed_applied = 0;
@@ -169,7 +212,52 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
               (unsigned)table[1], (unsigned)table[2],
               (unsigned)kHpTableStock[1], (unsigned)kHpTableStock[2]);
     }
+    /* Defence is the same feature the owner described in one breath with HP, so
+     * it rides the same switch, but it is guarded separately: a ROM whose defence
+     * page differs still gets the HP half rather than losing both. */
+    if (size > QOL_DEFTABLE_OFFSET + sizeof(kDefTableStock)) {
+      uint8_t *dtable = (uint8_t *)(uintptr_t)(rom + QOL_DEFTABLE_OFFSET);
+      int stock_matches = 1;
+      for (unsigned i = 0; i < QOL_STAT_ENTRIES; i++) {
+        uint16_t v = (uint16_t)(dtable[i * 2] | (dtable[i * 2 + 1] << 8));
+        if (v != kDefTableStock[i]) {
+          stock_matches = 0;
+          break;
+        }
+      }
+      if (!stock_matches) {
+        fprintf(stderr,
+                "lagoon.qol: start_hp refused the defence curve, $01:E0F8 does not "
+                "hold the proven stock values\n");
+      } else {
+        for (unsigned i = 1; i < QOL_STAT_ENTRIES; i++) {
+          unsigned v = (unsigned)kDefTableStock[i] + QOL_DEF_BONUS;
+          uint16_t w = (uint16_t)(v > 255u ? 255u : v);
+          dtable[i * 2] = (uint8_t)(w & 0xFF);
+          dtable[i * 2 + 1] = (uint8_t)(w >> 8);
+        }
+        fprintf(stderr,
+                "lagoon.qol: start_hp applied, defence is now %u at level 1 and "
+                "%u at level 2 (was %u and %u)\n",
+                (unsigned)(dtable[2] | (dtable[3] << 8)),
+                (unsigned)(dtable[4] | (dtable[5] << 8)),
+                (unsigned)kDefTableStock[1], (unsigned)kDefTableStock[2]);
+      }
+    }
   }
+}
+
+static void qol_def_frame(void) {
+  if (g_def_written) {
+    return;
+  }
+  if (qol_wram_read16(QOL_WRAM_HP) == 0) {
+    return; /* party block not initialised yet */
+  }
+  g_def_written = 1;
+  qol_wram_write16(QOL_WRAM_DEF, (uint16_t)(5u + QOL_DEF_BONUS));
+  fprintf(stderr, "lagoon.qol: start_hp wrote defence %u (stock 5) into $7E:0526\n",
+          5u + QOL_DEF_BONUS);
 }
 
 /* Immediate camera following.
