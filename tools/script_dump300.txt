@@ -1,0 +1,5 @@
+# Scene-state probe: let the port boot, then dump everything the snesref
+# dump contract defines (wram/vram/cgram/oam/ppu regs/ppu write journal).
+wait 300
+dump t300
+quit
