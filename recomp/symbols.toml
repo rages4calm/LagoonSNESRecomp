@@ -116,3 +116,32 @@ emit = true
 entry_m = 1
 entry_x = 0
 note = "Sound handler, called from $02:D98E"
+
+# First routine attempted from the gameplay route rather than the sound path,
+# and rejected by the replay gate — kept declared so the evidence stays here.
+# Evidence (build/coverage-qreg-cov, exe 3359E55275BE718A): 12 775 interpreter
+# entries from `JSR $C579` at $01:C4DE, arriving M0X0 with a 16-bit accumulator.
+# Body is a leaf: PHY/PHX, scale A and $48 by 5, copy 16 words from $118000,x
+# into page-zero $40,y, PLX/PLY, `RTS` at $01:C59E. No dispatch, no indirect
+# exit, writes confined to page zero.
+#
+# Compiling it (emit = true) reached the routine from the interpreter and cut
+# interpreted work by 2 784 875 instructions on the opening route, with the
+# framebuffer identical for 6 240 frames. It still failed the gate: the guest
+# clock moved by -8 to +24 dots per snapshot (tools/dump_compare.py now prints a
+# clock column, which is how this was caught at a frame where every other
+# component matched), and the 21 121-frame route forked visibly at frame 4320
+# with 16 486 differing presents. AOT blocks carry one static cycle cost
+# (this function: 43 + 16 x 30 + 16) while the interpreter charges long-indexed
+# address-transit penalties as they occur, so the two cores disagree on the dot
+# a frame ends at. The non-monotonic sign proves it is a sporadic penalty, not
+# a wrong constant. Promote gameplay routines only after the cost model matches;
+# a routine that is semantically exact and one dot late still restarts the town.
+[[func]]
+name = "F_01C579"
+addr = "c579"
+bank = 1
+emit = false
+entry_m = 0
+entry_x = 0
+note = "Tile-row staging: copies 16 words from $118000,x to page-zero $40,y, JSR'd from $01:C4DE; rejected on cycle-accounting grounds, see the note above"
