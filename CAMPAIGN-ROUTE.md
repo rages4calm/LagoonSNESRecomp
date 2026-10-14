@@ -315,3 +315,20 @@ No button produced a text window with these two figures, so the remaining explan
 one the walkthrough supports: they are event-gated. Atland's chain -- mayor's house, church, the
 hurt man, the cleric, mayor pays 300 gold -- is the campaign entry point, and buying the Short
 Sword behind it is what unblocks sword reach, EXP and recovery frames.
+
+## AOT cost model: the mismatch is NOT cpu_region_speed
+
+`snesrecomp/runner/src/cpu_state.c:354 cpu_region_speed()` prices **one bus transfer** by
+region, and its comment states the property that matters: the LLE bridge and the AOT paced
+accessors call this same function, so both tiers price transfers identically. That is why the
+gate passes today, and it rules out the theory that the AOT blocks are wrong about region
+speed. The remaining difference is the price of *internal* cycles (no transfer): the
+interpreter charges `bus_master + internal_cycles * 6` while a translated block charges
+`instructions * (g_memsel && (cpu->PB & 0x80) ? 6 : 8)`, and Lagoon never writes `$2181`, so
+`g_memsel` stays 0 and the AOT side charges 8 where the interpreter charges 6.
+
+Measured on the gated route this is invisible, because that route barely executes any promoted
+code (10 AOT declarations). So the cost-model item and the promotion item are the same item:
+changing the internal rate only shows up once gameplay routines are promoted, and any change
+must be re-gated on a route that does execute them -- otherwise a green gate proves nothing
+about a code path that never ran.
