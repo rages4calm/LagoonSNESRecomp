@@ -37,6 +37,12 @@ param(
     [string]$Agent = 'C:\Users\crono\Desktop\Projects\eb\tools\mesen-agent-v0.1.0\mesen-agent.exe',
     # Stop after this many input overrides; 0 uses them all. Lets a short run
     # reproduce the first N seconds of a long route exactly.
+    # Mesen numbers controller ports from 0, so "1:A" presses SNES controller 2.
+    # Getting this wrong is invisible: the agent reports ok and every frame
+    # executed. At frame 21 616 a -Port 1 replay of the prologue route was still
+    # sitting on a portrait while the port had long since reached the castle
+    # scene -- the same one-player/second-slot mistake, this time in the harness.
+    [int]$Port = 0,
     [int]$MaxInputs = 0,
     # The agent's own default is 30 seconds of wall clock, which is about 1 800
     # frames -- it stops early and reports ok:false, reason:timeout rather than
@@ -75,7 +81,7 @@ foreach ($line in Get-Content $scriptPath) {
             $btn = $p[1].ToLower(); $n = [int]$p[2]
             $name = $kMesenName[$btn]
             if (-not $name) { throw "route uses unmapped button '$btn'" }
-            $held.Add("1:$name@$frame-$($frame + $n - 1)")
+            $held.Add("$Port`:$name@$frame-$($frame + $n - 1)")
             $frame += $n + 1
         }
         default { }   # dump / quit: no frame cost, no input

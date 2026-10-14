@@ -40,6 +40,13 @@ param(
     [string]$DumpDir = '',
     [switch]$Coverage,
     [switch]$CleanSaves,
+    # 'dummy' keeps a soak silent and frame-deterministic. 'directsound' opens
+    # the real audio device while video stays headless: the audio callback then
+    # paces the guest, which is what a player's machine does, so it exposes the
+    # timing jitter that makes two untouched runs disagree. Never compare an
+    # audio-paced stream against a dummy-audio stream and call the difference a
+    # code-generation fault.
+    [string]$AudioDriver = 'dummy',
     [string]$Exe = '',
     [string[]]$ExeArg = @()
 )
@@ -86,10 +93,12 @@ if ($CleanSaves) {
 }
 
 $env:SDL_VIDEODRIVER = 'dummy'
-# Nothing here listens to the SPC: the checks are framebuffer checksums and
-# scene-state dumps, and the APU keeps emulating either way. Dummy audio just
-# stops a 20-minute headless soak from playing Lagoon's soundtrack at you.
-$env:SDL_AUDIODRIVER = 'dummy'
+# Nothing here listens to the SPC unless -AudioDriver says otherwise: the checks
+# are framebuffer checksums and scene-state dumps, and the APU keeps emulating
+# either way. Dummy audio keeps a 20-minute soak silent *and* deterministic;
+# -AudioDriver directsound opens the real device, which paces the guest the way
+# a player's machine does.
+$env:SDL_AUDIODRIVER = $AudioDriver
 $env:SNESRECOMP_SCREENSHOT_DIR = $null
 $env:SNESRECOMP_SCREENSHOT = $null
 $env:SNESRECOMP_SCREENSHOT_FRAME = $null

@@ -24,4 +24,16 @@
 /config.ini
 /input.ini
 
+# Written by the host on every exit (post_mortem.c) and by the mod runtime, in
+# whatever directory the game happened to be launched from. A file that every
+# run overwrites is not project state, and committing it makes every run dirty.
+/last_run_report.json
+/crash_report_*.json
+/crash_minidump_*.dmp
+/mods/preloaded/state.toml
+
+# Python bytecode from the tools/ scripts (tools/dis.py shadows stdlib `dis`,
+# so these appear whenever a tool is imported rather than run with -P).
+__pycache__/
+
 .DS_Store
