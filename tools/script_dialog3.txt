@@ -1,0 +1,166 @@
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+press up 12
+press up 12
+press up 12
+press up 12
+wait 260
+press up 12
+wait 24
+press up 12
+wait 24
+dump b00
+press x 12
+wait 45
+dump b01
+press y 12
+wait 45
+dump b02
+press b 12
+wait 45
+dump b03
+press start 12
+wait 45
+dump b04
+press up 12
+wait 45
+dump b05
+quit

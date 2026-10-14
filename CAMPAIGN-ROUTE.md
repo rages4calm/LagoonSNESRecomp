@@ -291,3 +291,27 @@ as the first -- these may simply be the travellers you cannot recruit yet.
 Harness note that cost two dead runs today: `cmd /c` cannot execute a `.ps1`, so a probe
 launched that way produces no dumps at all and no obvious error. `headless.ps1` must be called
 directly; only the `bash tools/regen.sh` step needs `cmd /c`.
+
+## Dialogue probe 3: it is not the button
+
+Same tile as probe 2 (Nasir at (336,171), ten pixels below the figure at (336,144), facing it),
+one button per 45-frame interval, measured instead of looked at. Counting bytes that differ from
+the pre-press dump:
+
+| press | vram | cgram | framebuffer | position |
+|---|---|---|---|---|
+| X | 0 | 5 | 3 165 | unchanged |
+| Y | 338 | 0 | 1 550 | unchanged |
+| B | 314 | 5 | 4 657 | unchanged |
+| **Start** | **782** | **350** | **163 929 of 172 032** | unchanged |
+| up (menu open) | 782 | 350 | 163 883 | unchanged |
+
+X does literally nothing. Y and B each redraw a few hundred VRAM bytes, which is the shape of
+the magic/equipment quick-windows rather than speech. Start replaces almost the entire frame --
+that is the field menu, and the next line shows the cursor moving inside it while the position
+stays frozen, so this is a usable checkpoint for "inventory/menu opened from the field".
+
+No button produced a text window with these two figures, so the remaining explanation is the
+one the walkthrough supports: they are event-gated. Atland's chain -- mayor's house, church, the
+hurt man, the cleric, mayor pays 300 gold -- is the campaign entry point, and buying the Short
+Sword behind it is what unblocks sword reach, EXP and recovery frames.
