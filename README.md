@@ -53,6 +53,8 @@ comparison a tool makes.
 | The pad reaches the guest | `tools/script_play.txt` vs `tools/script_play_ctl.txt` + `tools/dump_compare.py` | pre-input dump identical; after each of the four directions, framebuffer / WRAM / regs / VRAM all differ |
 | The frame driver holds 60 fps | host log | `fps=60.01`, `cpu_seconds` 7.31 vs 8.25 on the floor for the same 2 757 frames |
 | No indirect transfer is being abandoned | `tools/coverage_report.py` | `unresolved_abandons.total_hits = 0` |
+| It runs as a program, not just a harness target | windowed run, real drivers | `video=windows audio=directsound`, device opened, `fps=59.46`, clean exit; the launcher entry point opens and waits |
+| Long soak on a wiped card | `tools/script_walk.txt` | 22 195 frames of prologue to the title logo, dumping along the way; the A-mashing variant (`tools/script_deep.txt`, 24 466 frames) never gets the pad, which is a fact about Lagoon's opening, not about the port |
 
 Two habits make those numbers mean anything:
 
