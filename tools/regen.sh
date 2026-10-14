@@ -88,7 +88,7 @@ else
   echo "== Skipping ROM verification (--no-verify) =="
 fi
 
-GEN_ARGS=(--rom "$ROM" --cfg-dir recomp --out-dir src/gen
+GEN_ARGS=(--rom "$ROM" --cfg-dir "$CFGDIR" --out-dir src/gen
           --funcs-h recomp/funcs.h --project-root "$ROOT")
 if [ "$CFG_ROOTS" -eq 1 ]; then GEN_ARGS+=(--cfg-roots); fi
 if [ "${#PROFILE_ARGS[@]}" -gt 0 ]; then GEN_ARGS+=("${PROFILE_ARGS[@]}"); fi

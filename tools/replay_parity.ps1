@@ -65,11 +65,19 @@ for ($i = 1; $i -lt $n; $i++) {
 }
 Write-Host "== present stream: $n frames compared, $diff differing"
 $bad = $diff
+if ($a.Count -ne $b.Count) {
+    Write-Host "== length mismatch: floor=$($a.Count - 1), aot=$($b.Count - 1) presents"
+    $bad += 1
+}
+if ($n -lt 2) {
+    Write-Host '== no presented frames were compared'
+    $bad += 1
+}
 if ($Dumps) {
-    & (Join-Path $PSScriptRoot 'dump_compare.py') "build\dumps-$Tag-aot" "build\dumps-$Tag-floor"
+    python (Join-Path $PSScriptRoot 'dump_compare.py') (Join-Path $repo "build\dumps-$Tag-aot") (Join-Path $repo "build\dumps-$Tag-floor")
     # 0 = identical, 1 = something differs, 3 = this route has no `dump` lines
     # at all, which is a note about the script, not a failed check.
-    if ($LASTEXITCODE -eq 1) { $bad += 1 }
+    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 3) { $bad += 1 }
     elseif ($LASTEXITCODE -eq 3) { Write-Host '== no framedumps on this route (add `dump <tag>` lines to the script)' }
 }
 if ($bad -eq 0) {

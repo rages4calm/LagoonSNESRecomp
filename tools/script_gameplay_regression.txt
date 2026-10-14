@@ -1,0 +1,69 @@
+# Patient intro route: let scripted sequences finish, then take the pad.
+# Opening reset regression: reach Atland, move down, open Start menu, close with B.
+
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+press start 6
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+dump c-3000
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-4000
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-4500
+press a 4
+wait 240
+press a 4
+press start 6
+wait 240
+dump n-5000
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-5500
+press a 4
+wait 240
+press a 4
+wait 240
+dump town
+press down 30
+dump moved
+press start 6
+wait 30
+dump menu
+press b 6
+wait 30
+dump back
+quit

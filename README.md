@@ -1,77 +1,57 @@
 # Lagoon Recomp
 
-A native recompilation of **Lagoon** (USA), built on
-[snesrecomp](https://github.com/RetroPortingToolKit/snesrecomp).
+A standalone Windows executable built on
+[snesrecomp](https://github.com/RetroPortingToolKit/snesrecomp), using both
+recompiled game routines and the framework's 65816 interpreter fallback.
+It is a work in progress, not a completed or 100% ahead-of-time native port.
+Mesen is used only as an independent development test reference; the Lagoon
+executable does not launch, link, or require Mesen.
 
-Boots, plays, and takes input. The KEMCO logo, the title screen, and the story
-scenes are all rendered by recompiled code, and the whole program replays
-byte-for-byte the way the framework's interpreter tier does — see
-[Qualification](#qualification) for how that is measured.
-
-
-
-> **You must legally own a copy of the game.** No ROM data is distributed with
-> this project, in the repository or in any release. The recompiled C is
-> generated locally from your own copy and is never committed.
+No ROM data is distributed. Generate the game code locally from your own ROM.
 
 ## Status
 
-**A working port.** Lagoon boots from a wiped save card to the KEMCO logo, the
-title screen, and the story scenes, and the pad reaches the guest: from an
-identical starting state, pressing the d-pad changes the framebuffer, WRAM and
-VRAM where the same route with no input leaves them byte-identical.
+The October 14, 2026 build fixes the return to the opening screens after the
+old man's dialogue. The regression route now enters Atland, moves the player,
+opens the status/item menu with Start, and closes it with B.
+Only this opening route has been verified for this fix. The full campaign,
+combat, progression, saving/loading, and ending are not qualified.
+The existing `dist/lagoon-0.1.0-windows-x86_64.zip` predates this fix; use the
+rebuilt `build/LagoonSNESRecomp.exe`.
 
-Two framework bugs stood between the scaffold and that state. Both were fixed
-in the framework rather than papered over in this port:
+The reset was caused by an incomplete authorization at the long-indirect
+routine dispatcher `$00:80E6`. Its two known targets omitted `$01:807A`, the
+main gameplay routine. The generated default case popped the guest call frame
+and skipped the routine, allowing `$00:9366` to restart the opening loop.
+`recomp/bank00.cfg` now keeps this dispatcher on the interpreter tier, which
+executes the live ROM target instead of discarding gameplay calls. Other proven
+routines remain recompiled. A clean default generation currently emits 143
+AOT variants and 18 LLE variants; these counts are not a gameplay-coverage
+percentage, and additional runtime fallback can still occur.
 
-- **`$4210` bit 7 is the vblank window, not a first-reader token.** The
-  read-and-clear model starved Lagoon's vblank wait, so the game never left a
-  black screen. Framework commit `d56921e`.
-- **Bounded interpreter runs ignored the host's master deadline.** Lagoon's SFX
-  handler ends in `LDA $023C / BNE` and `$023C` is written by the vblank NMI;
-  inside a bounded run the deadline was invisible, so the wait burned the whole
-  step cap and re-entered, and the frame driver — the only thing that can
-  deliver that NMI — never got control back. The logo froze at the first frame
-  that entered the handler. Framework commit `6c9e91a`.
-
-Analysis input lives in `recomp/`: four banks, four hand-written
-`indirect_dispatch` authorizations (each commented with the ROM evidence that
-decided its shape), and the `[[func]]` boundaries that promotion evidence
-supported. The current build emits 213 roots as 344 exact ahead-of-time variants
-across banks `00`/`01`/`02`/`0C`, with 51 variants kept as low-level emulation —
-mostly the game's own hardware-wait loops, which cost cycles on real hardware
-too.
+The previously advertised interpreter-floor comparison was not independent:
+`tools/regen.sh --cfg-dir recomp-floor` ignored its argument and generated from
+`recomp/`. That option is now honored, and `build/lagoon-floor.exe` was rebuilt
+from the actual floor configuration.
 
 ## Qualification
 
-Nothing here is judged by looking at a screenshot; every claim above is a
-comparison a tool makes.
+Evidence for this bounded fix is recorded in `FIX-TITLE-LOOP-2026-10-14.md`.
 
-| Check | Tool | Result |
-|---|---|---|
-| Ahead-of-time build replays a route exactly like the interpreter floor | `tools/replay_parity.ps1` | 2 757-frame route and 12 001-frame route, **0 differing presents**, every framedump component identical |
-| The pad reaches the guest | `tools/script_play.txt` vs `tools/script_play_ctl.txt` + `tools/dump_compare.py` | pre-input dump identical; after each of the four directions, framebuffer / WRAM / regs / VRAM all differ |
-| The frame driver holds 60 fps | host log | `fps=60.01`, `cpu_seconds` 7.31 vs 8.25 on the floor for the same 2 757 frames |
-| No indirect transfer is being abandoned | `tools/coverage_report.py` | `unresolved_abandons.total_hits = 0` |
-| It runs as a program, not just a harness target | windowed run, real drivers | `video=windows audio=directsound`, device opened, `fps=59.46`, clean exit; the launcher entry point opens and waits |
-| Long soak on a wiped card | `tools/script_walk.txt` | 22 195 frames of prologue to the title logo, dumping along the way; the A-mashing variant (`tools/script_deep.txt`, 24 466 frames) never gets the pad, which is a fact about Lagoon's opening, not about the port |
+| Check | Result |
+|---|---|
+| Original failure | Reproduced; trace reached `$00:9366` and `$00:9304` at frame 4213 |
+| Corrected opening route | Atland visible by frame 4657; player movement and menu open/close verified |
+| Regression script | `tools/script_gameplay_regression.txt`, 6239 frames, isolated fresh save roots |
+| Genuine interpreter floor | Rebuilt from `recomp-floor`; also reaches town and responds to input |
+| Gameplay snapshots versus floor | Town/moved/menu/back framebuffer, VRAM, OAM and CGRAM match byte for byte |
+| Full route parity | Not exact: 193 differing presentations across 6239 frames; WRAM/register differences remain, including stale stack bytes |
+| Save protection | Existing 36 save files copied and SHA-256 verified before diagnosis; tests used separate save roots |
 
-Two habits make those numbers mean anything:
-
-- **A card per run.** Lagoon reads its battery-backed save at boot, so every run
-  inherits the last run's saved game. Measured against a baseline taken with
-  different SRAM in the slot, an unchanged binary looks like a regression — that
-  false alarm cost a full debugging detour. `tools/headless.ps1` now gives each
-  run its own card through the host's `--save-root`, and `-CleanSaves` wipes the
-  tag's card so a fresh-card route actually starts fresh. Screenshot legs get a
-  wiped card of their own too: a photograph of frame N has to begin where the
-  long run began, or it is a different game at frame N.
-- **A floor reference.** `recomp-floor/bank00.cfg` + `tools/regen.sh --cfg-dir
-  recomp-floor` builds `build/lagoon-floor.exe`, the interpreter-only build that
-  the ahead-of-time build has to match. Without it, "looks right" is the only
-  oracle available. Rebuild it whenever the framework moves, or the comparison
-  is against an older engine.
-
+The former claim of zero differing frames and identical state is withdrawn.
+Agreement between two builds of this framework is useful for finding
+recompilation errors, but does not establish correct SNES behavior. Independent
+emulator comparisons are development evidence, not a dependency of the port.
 ## ROM identity
 
 | | |
