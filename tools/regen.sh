@@ -15,6 +15,13 @@
 #   --no-verify   skip the ROM digest check (for a revision this project has
 #                 not been pinned to yet — expect the generated C to differ)
 #   --cfg-roots   seed analysis from every func declaration in recomp/*.cfg
+#   --profile PATH  seed AOT roots from a coverage capture (tier2 manifest or
+#                 its .jsonl journal). Repeatable. The capture must come from
+#                 this ROM and this build's program manifest, so audit it with
+#                 snesrecomp/tools/tier2_ingest.py first.
+#   --historical-profile PATH
+#                 reconcile an older capture: seeds and exclusions carry
+#                 forward, costs and build identity do not. Repeatable.
 #   -h|--help     this message
 set -euo pipefail
 
@@ -25,11 +32,16 @@ cd "$ROOT"
 VERIFY=1
 CFG_ROOTS=0
 ROM=""
+CFGDIR=recomp
+PROFILE_ARGS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --rom) ROM=$2; shift 2 ;;
     --no-verify) VERIFY=0; shift ;;
     --cfg-roots) CFG_ROOTS=1; shift ;;
+    --cfg-dir) CFGDIR=$2; shift 2 ;;
+    --profile) PROFILE_ARGS+=(--profile-manifest "$2"); shift 2 ;;
+    --historical-profile) PROFILE_ARGS+=(--historical-profile-manifest "$2"); shift 2 ;;
     -h|--help) sed -n '2,/^set -euo/p' "$0" | sed -n '/^# /p' | sed 's/^# //'; exit 0 ;;
     *) echo "regen.sh: unknown flag: $1 (try --help)" >&2; exit 2 ;;
   esac
@@ -79,6 +91,7 @@ fi
 GEN_ARGS=(--rom "$ROM" --cfg-dir recomp --out-dir src/gen
           --funcs-h recomp/funcs.h --project-root "$ROOT")
 if [ "$CFG_ROOTS" -eq 1 ]; then GEN_ARGS+=(--cfg-roots); fi
+if [ "${#PROFILE_ARGS[@]}" -gt 0 ]; then GEN_ARGS+=("${PROFILE_ARGS[@]}"); fi
 if [ "$VERIFY" -eq 1 ]; then GEN_ARGS+=("${VERIFY_ARGS[@]}"); fi
 
 echo "== Generating src/gen =="

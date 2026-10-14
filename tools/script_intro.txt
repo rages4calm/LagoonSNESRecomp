@@ -1,0 +1,256 @@
+# Hold the intro down to the title menu: A advances dialogue, Start
+# is what the title screen itself waits for, and the menu accepts A.
+
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+press start 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+press start 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+press start 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+press start 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+press start 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+press start 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+press start 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+press start 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+press start 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+press start 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+press start 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+press start 6
+quit

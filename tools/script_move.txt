@@ -1,0 +1,65 @@
+# Does the pad reach the guest? Walk the same route script_intro.txt takes to
+# the village (A every 100 frames), then hold LEFT and RIGHT with a scene dump
+# between the holds. Same route to the same frame means the dumps differ only
+# if the D-pad moved the player.
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 30
+dump mv-a
+press left 12
+dump mv-b
+press left 12
+dump mv-c
+press left 12
+dump mv-d
+press right 12
+dump mv-e
+quit

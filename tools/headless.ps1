@@ -14,8 +14,19 @@ Pass a -Script to drive the pad (see the host's script contract: wait /
 press / poke / until / dump / quit). Pass -DumpDir with -Script to get
 scene-state dumps (wram/vram/cgram/oam/ppu regs) instead of pictures.
 
+-CleanSaves wipes the battery-backed card (build\saves\save.srm) before the
+run. Lagoon reads its save at boot, so every run inherits whatever the last run
+saved; a "regression" measured against a baseline taken with different SRAM in
+the slot is usually just a different saved game. -Exe points the same route at a
+different binary — the ahead-of-time build against build\lagoon-floor.exe, the
+interpreter floor reference. Two builds that disagree on a replay are not the
+same port; two builds that agree to the byte are.
+
 .EXAMPLE
 .\tools\headless.ps1 -Frames 1800 -Shots 60,300,900 -Tag boot
+.EXAMPLE
+.\tools\headless.ps1 -Frames 2760 -Script tools\script_move.txt -Tag aot -CleanSaves -DumpDir build\dumps-aot
+.\tools\headless.ps1 -Frames 2760 -Script tools\script_move.txt -Tag floor -CleanSaves -DumpDir build\dumps-floor -Exe build\lagoon-floor.exe
 #>
 [CmdletBinding()]
 param(
@@ -24,6 +35,9 @@ param(
     [string]$Tag = 'run',
     [string]$Script = '',
     [string]$DumpDir = '',
+    [switch]$Coverage,
+    [switch]$CleanSaves,
+    [string]$Exe = '',
     [string[]]$ExeArg = @()
 )
 $ErrorActionPreference = 'Stop'
@@ -36,10 +50,35 @@ $rom = if ($env:SNESRECOMP_ROM) { $env:SNESRECOMP_ROM }
 $exe = Join-Path $build 'LagoonSNESRecomp.exe'
 $dir = Join-Path $build ("shots-{0}" -f $Tag)
 
+function Resolve-RepoPath([string]$p) {
+    # The host runs with -WorkingDirectory build, so a path the caller typed
+    # relative to the repo (tools\script_move.txt, build\dumps-move) would
+    # otherwise resolve against build\ and silently miss: no script means no
+    # `press` lines and no `dump` lines, i.e. a passive player and no dumps,
+    # which looks like a game that simply does not react.
+    if ([IO.Path]::IsPathRooted($p)) { return $p }
+    return (Join-Path $repo $p)
+}
+if ($Script) { $Script = Resolve-RepoPath $Script }
+if ($DumpDir) { $DumpDir = Resolve-RepoPath $DumpDir }
+# -Exe compares two builds on one route: the AOT build and the interpreter
+# floor reference (build\lagoon-floor.exe) must produce byte-identical
+# replays, and a promotion that changes the replay is not a promotion.
+if ($Exe) { $exe = Resolve-RepoPath $Exe }
+
 Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
+if ($CleanSaves) {
+    # The save card is part of the starting state, so it belongs to the run.
+    Get-ChildItem (Join-Path $build 'saves') -Filter '*.sr*' -ErrorAction SilentlyContinue |
+        Remove-Item -Force
+}
 
 $env:SDL_VIDEODRIVER = 'dummy'
+# Nothing here listens to the SPC: the checks are framebuffer checksums and
+# scene-state dumps, and the APU keeps emulating either way. Dummy audio just
+# stops a 20-minute headless soak from playing Lagoon's soundtrack at you.
+$env:SDL_AUDIODRIVER = 'dummy'
 $env:SNESRECOMP_SCREENSHOT_DIR = $null
 $env:SNESRECOMP_SCREENSHOT = $null
 $env:SNESRECOMP_SCREENSHOT_FRAME = $null
@@ -48,6 +87,18 @@ if ($DumpDir) {
     Remove-Item -Recurse -Force $DumpDir -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force -Path $DumpDir | Out-Null
     $env:SNESRECOMP_DUMP_DIR = $DumpDir
+}
+if ($Coverage) {
+    # Where the interpreter actually ran, why a transfer fell back, and which
+    # entry variants are worth analyzing: feed the result to
+    #   tools/regen.sh --cfg-roots --profile <manifest>
+    # to promote it into ahead-of-time code. See snesrecomp/docs/COVERAGE_FEEDBACK.md.
+    $cov = Join-Path $build ("coverage-{0}" -f $Tag)
+    Remove-Item -Recurse -Force $cov -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force -Path $cov | Out-Null
+    $env:SNESRECOMP_TIER2_CAPTURE = '1'
+    $env:SNESRECOMP_COVERAGE_DIR = $cov
+    Write-Host "== coverage capture -> $cov"
 }
 
 function Invoke-Host([string]$log) {

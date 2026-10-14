@@ -1,0 +1,66 @@
+﻿# Does the pad reach the guest? Walk the same route script_intro.txt takes to
+# the village (A every 100 frames), then identical timing but NO dpad input with a scene dump
+# between the holds. Same route to the same frame means the dumps differ only
+# if the D-pad moved the player.
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 100
+press a 6
+wait 30
+dump ctl-a
+wait 13
+dump ctl-b
+wait 13
+dump ctl-c
+wait 13
+dump ctl-d
+wait 13
+dump ctl-e
+quit
+
