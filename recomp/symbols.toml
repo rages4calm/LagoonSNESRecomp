@@ -5,6 +5,13 @@
 # to keep it interpreted. tools/regen.sh syncs labels and tier choices into
 # each recomp/bankNN.cfg; only emit=true adds a func/funcs.h declaration.
 # Do not hand-edit the generated blocks in the bank configs.
+#
+# Everything below the vectors came out of a coverage capture of a real route
+# (tools/headless.ps1 -Coverage with tools/script_intro.txt, read back with
+# tools/dispatch_hints.py): callees the generated code already reached, but not
+# in the register-width variant the caller was using, so the call dropped to the
+# interpreter every single time. entry_m/entry_x record the width the machine
+# actually arrives in — that is evidence, not a guess.
 
 [[func]]
 name = "I_RESET"
@@ -19,3 +26,93 @@ addr = "87b4"
 bank = 0
 emit = false
 note = "Native NMI vector ($FFEA)"
+
+[[func]]
+name = "F_028669"
+addr = "8669"
+bank = 2
+emit = true
+entry_m = 1
+entry_x = 0
+note = "SFX poll body, JSR'd from $02:8664 every frame — 708,839 interpreter entries on one 12,000-frame route, nearly all the remaining interpreted work"
+
+[[func]]
+name = "F_0080B3"
+addr = "80b3"
+bank = 0
+emit = true
+entry_m = 1
+entry_x = 0
+note = "SFX glue, called from $02:EFFA"
+
+[[func]]
+name = "F_0080B9"
+addr = "80b9"
+bank = 0
+emit = true
+entry_m = 1
+entry_x = 0
+note = "SFX glue, called from $00:935C"
+
+[[func]]
+name = "F_028277"
+addr = "8277"
+bank = 2
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Sound channel handler, called from $02:F02B"
+
+[[func]]
+name = "F_0282AC"
+addr = "82ac"
+bank = 2
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Sound handler, called from $02:827C"
+
+[[func]]
+name = "F_0285F0"
+addr = "85f0"
+bank = 2
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Sound handler, called from $02:82C8"
+
+[[func]]
+name = "F_02D907"
+addr = "d907"
+bank = 2
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Sound handler, called from $02:D65C"
+
+[[func]]
+name = "F_02DDD7"
+addr = "ddd7"
+bank = 2
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Sound handler, called from $02:D646"
+
+[[func]]
+name = "F_02DDFA"
+addr = "ddfa"
+bank = 2
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Sound handler, called from $02:D64C"
+
+[[func]]
+name = "F_02EFC3"
+addr = "efc3"
+bank = 2
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Sound handler, called from $02:D98E"
