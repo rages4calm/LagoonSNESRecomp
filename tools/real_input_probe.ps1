@@ -32,10 +32,13 @@ param(
     [string]$Tag = 'keys',
     [string]$Exe = 'build\LagoonSNESRecomp.exe',
     [ValidateSet('send', 'post')] [string]$Via = 'send',
-    # Real drivers are the point of the tool, but being able to swap one out
-    # separates "the window perturbs the guest" from "the audio device does".
+    # A real window is the whole point here: an input script injects pad words
+    # below SDL, so only a real window proves a player's key reaches the guest.
+    # The audio device is a separate variable and the owner's machine should not
+    # start making noise because a harness was verifying keybindings, so audio
+    # stays silent unless someone asks for the device on purpose.
     [string]$VideoDriver = 'windows',
-    [string]$AudioDriver = 'directsound',
+    [string]$AudioDriver = 'dummy',
     [switch]$NoKeys
 )
 $ErrorActionPreference = 'Stop'

@@ -48,6 +48,21 @@ param(
     # frames -- it stops early and reports ok:false, reason:timeout rather than
     # failing, so a long route silently compares two unrelated moments.
     [int]$Timeout = 3600,
+    # Passed straight to the agent: 'cpu:0x7E0520:w' watches writes to a RAM
+    # address from the original ROM's own code. This is how a variable gets
+    # traced to the routine that initialises it without taking this project's
+    # word for anything.
+    [string[]]$Breakpoint = @(),
+    # Debugger Lua scripts, passed with --lua-allow-io so a script can write its
+    # own log (tools/mesen_watch.lua watches RAM and reports the writing PC).
+    [string[]]$Lua = @(),
+    # Memory callbacks never fire in this agent build and --breakpoint never
+    # interrupts it, so the way to look at a small piece of execution is to stop
+    # at a saved state and trace forward from there: -SaveState at the end of a
+    # long route, then -LoadState plus -Trace with a frame count of tens.
+    [string]$SaveState = '',
+    [string]$LoadState = '',
+    [string]$Trace = '',
     [switch]$ButtonProbe
 )
 $ErrorActionPreference = 'Stop'
@@ -87,9 +102,22 @@ foreach ($line in Get-Content $scriptPath) {
         default { }   # dump / quit: no frame cost, no input
     }
 }
-$use = if ($MaxInputs -gt 0) { $held[0..([Math]::Min($MaxInputs, $held.Count) - 1)] } else { $held }
+$use = if ($MaxInputs -gt 0) { $held[0..([Math]::Min($MaxInputs, $held.Count) - 1)] }
+       elseif ($MaxInputs -lt 0) { @() } else { $held }
 $argv = @($rom, '--frames', "$Frames", '--home', $home0, '--timeout', "$Timeout")
 foreach ($h in $use) { $argv += '--input'; $argv += $h }
+foreach ($b in $Breakpoint) { $argv += '--breakpoint'; $argv += $b }
+foreach ($l in $Lua) {
+    $argv += '--lua'
+    $argv += $(if ([IO.Path]::IsPathRooted($l)) { $l } else { Join-Path $repo $l })
+}
+if ($Lua.Count -gt 0) { $argv += '--lua-allow-io' }
+foreach ($p in @(@('--save-state', $SaveState), @('--load-state', $LoadState), @('--trace', $Trace))) {
+    if ($p[1]) {
+        $argv += $p[0]
+        $argv += $(if ([IO.Path]::IsPathRooted($p[1])) { $p[1] } else { Join-Path $repo $p[1] })
+    }
+}
 $shot = Join-Path $outDir 'last.png'
 $argv += @('--screenshot', $shot,
            '--dump-memory', "SnesWorkRam=$outDir\wram.bin",
