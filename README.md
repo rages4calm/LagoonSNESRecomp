@@ -6,6 +6,17 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress — October 15, 2026
 
+The latest tested build includes a live custom renderer for supported stable
+Atland fields, guarded widescreen room fades and native damage/death HUD tails.
+The custom renderer preserves the original appearance: every replacement must
+match the reference renderer pixel for pixel. Caves and unsupported effects
+continue through reference rendering. The interpreter safety net remains active.
+The latest hidden 32:9/Enhanced check averaged 60.10 FPS, with occasional spikes;
+this is not a locked-60 or full-campaign claim.
+
+Development is paused at this verified checkpoint. See
+[current status and next steps](docs/DEVELOPMENT-STATUS.md) before continuing.
+
 Forty-seven gameplay roots have been promoted in the October 15 batches.
 The first eight cover:
 
@@ -126,6 +137,13 @@ settings, all ten QoL toggles and experimental widescreen aspects. Apply/Revert
 preserves unknown settings and controller bindings and detects stale edits.
 Existing native settings remain in `build/config.ini`, input in `build/keybinds.ini`,
 and saves in `build/saves`. The adapter does not migrate them.
+
+For a 1920×1080 monitor, use desktop fullscreen, widescreen 16:9 and optional
+Enhanced original pixels. Keep linear filtering and frame blending off for a
+sharp picture, with VSync on. Window scale controls only windowed size; leaving
+it at 3 is fine in fullscreen. Wider 21:9/32:9 modes reveal more scenery but
+make the picture shorter on a 16:9 monitor. The underlying 4:3 display-aspect
+setting preserves original pixel proportions while widescreen adds scenery.
 
 ## Build from source
 
