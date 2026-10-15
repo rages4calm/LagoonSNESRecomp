@@ -16,16 +16,93 @@ original-art frame compositor; see [menu presentation](MENU-PRESENTATION.md).
 Titles, unsupported intro layouts, other menus, parallax, BG1/BG2 mosaic and
 unknown room resources keep a clean centered native fallback. Matching a PPU
 mode alone is insufficient. Room loading (`$100E`) normally forces fallback;
-the completed-upload authority described below permits the verified Atland
-opening fade. Actual VRAM-write observation catches resource changes within a frame.
+the completed-upload authority described below permits verified Atland and
+cave fades. A successful complete v3-state load has a separate coherence proof. Actual VRAM-write observation catches resource changes within a frame.
 The official presentation compositor also blanks only the margins whenever the
 completed frame selected native fallback, preserving all 256 native columns.
 RAM can name the next room while the completed raster still shows the previous
-room, so expansion requires three consecutive ready resource observations (two
-prior completed boundaries). Loading, resource changes and timeline jumps reset
+room, so ordinary expansion requires three consecutive ready resource observations
+(two prior completed boundaries). The validated-state exception below applies
+only to the first post-load classification. Loading, resource changes and timeline jumps reset
 that settlement. A 391-present cave-entry audit includes the previously corrupt
 single frame and checks clean fallback throughout the unsupported exterior,
 then expansion once the cave raster is settled.
+
+## Batch 8: cave fades and immediate restored-world width
+
+Final binding: `lagoon-batch8-final.exe`, SHA256
+`25b3b33272d74beccc1213423d4379a9ebf1bbe550ed91e32e84f4b275001bda`.
+
+The cave's torches use six real characters outside the base background pack.
+The renderer now observes their actual `00:8F19` DMA: ROM frames
+`10:8900`, `10:89C0` and `10:8A80`, each 192 bytes to VRAM word `3B00`.
+The `01:DFF0` animation descriptor and `01:DA6B` frame table must still match
+that audited layout. Each byte must arrive sequentially and match its ROM source
+before that completed frame becomes a witness. Starting a transfer, naming the
+next frame in `$0410`, or seeing a familiar tile number is insufficient.
+
+The witness is scoped to the current room, background resource and timeline.
+A completed PPU snapshot may still use a previously completed torch phase while
+RAM already queues the next one; the renderer matches the actual character bytes
+against witnessed completed phases. Partial transfers, unknown overwrites,
+changed tables, room changes and resets invalidate the corresponding authority.
+Only the base background characters and these six independently owned torch
+characters can authorize early cave scenery. The native-map equality, original
+resource/geometry, settlement, finite-extent and final compositor guards remain.
+No game simulation or DMA is replayed.
+
+The focused room-4 door/fade fixture used `lagoon-batch8-native.exe` (187 roots),
+SHA256 `2d82f0b3c68d9869e36d044bac49bf68bf18cc4da8da370d506fcafa76194a1a`.
+Its 126 checkpoints match the retained batch-7 control in all guest/framebuffer
+components and guest clocks. All 201
+actual presentation centers match. The first visible cave fade is expanded
+immediately: 44 previously narrow fields now reveal correct scenery. Across
+those fields all **4,198,656 added pixel observations** match independent source
+colors, including **20,944 bat pixel observations** from ROM-decoded cells,
+complete actual OAM witnesses and resident 4bpp tile colors. No foreground pixel
+is excused as an unexplained background mismatch.
+
+A successful validated v3 state load now supplies a separate load event after
+CPU, PPU ports and full raster history have been restored. Only its first field
+classification can bypass the ordinary two-boundary settlement, and only with
+known resources, exact native-map equality, supported geometry and a restored
+character witness. Unsupported/loading classifications consume this event too,
+so an unrelated later room cannot inherit the exception. Ordinary reset receives
+no load exception. Unsupported panels retain their guarded compositor/fallback.
+The final broader cave-door replay matches all 46 checkpoints and preserves
+901 actual native centers across rooms 5/6 and their transitions. All 41,009,472
+required-black margin observations are black; settled room-5 and room-6 texture
+samples match 95,424/95,424 and 57,344/57,344 independent source colors. Completed
+new-world fades in rooms 4/5/6 have no visible narrow fields. The detailed
+201-field room-4 pixel proof used the prior 187-root executable with identical
+presentation source; final 188-root binding separately repeats the broader route.
+
+The cold-load replay preserves all 64 state/framebuffer/clock checkpoints; its
+first two restored fields now retain their full width. An independent offline
+renderer reproduces all 152,768 pixels of the first restored 682x224 field.
+
+Some **outgoing door fades still narrow** when RAM already names the destination
+while the completed raster still shows the previous room. The old-room extent,
+map and actor packet must be independently retained and validated before those
+fields can safely stay wide. This batch fixes destination fades and restored
+worlds, and does not claim universal transition coverage. Unknown layouts and
+unsupported actor families retain conservative fallback.
+
+The dedicated fixture `tools/script_wide_cave_fade.txt` uses the existing declared
+guard bypass and source-derived position staging near the real door, then the
+actual collision/warp/loader. Its 90 consecutive dumps cover the fade; it does
+not manufacture room, graphics, camera or story state. Use private saves/configs:
+
+```
+python -P tools/qualify_native.py --exe <candidate.exe> --manifest <matching-manifest.json> --route tools/script_wide_cave_fade.txt --frames 5500 --features camera_center --config <private-wide.ini> --env LAGOON_WIDE_ASPECT=32:9 --env LAGOON_WIDE_ENTITY_REPORT=entities.txt --screenshot-range 3600 3800 --out <new-private-output>
+python -P tools/verify_wide_cave_fade.py --run <new-output> --baseline <retained-batch7-output> --rom <private.sfc> --out <private-report.json>
+```
+
+The production helper regression additionally checks partial/reordered torch
+bytes, wrong ROM payload/table, unknown overwrites, prior rendered phases,
+wrong room/source/generation and reset. The original renderer and interpreter
+safety net remain the runtime path. The separate [custom renderer experiment](CUSTOM-RENDERER.md)
+is offline and does not introduce a new launcher renderer option.
 
 ## Batch 7: continuous Atland opening fade
 
@@ -66,9 +143,8 @@ subsequent real world, not the title lettering or unsupported intro artwork.
 
 Gold Cave's fresh-load maps reference animated torch characters 944..949 beyond
 the base BG pack. Their real animation upload is `01DF88` through `008F19`,
-ROM `10:8900/89C0/8A80` to VRAM word `3B00`, length `C0`. Until these separate
-completed animation uploads have independent ownership, early cave fades remain
-conservative native fallback. Previously qualified settled cave scenery and
+ROM `10:8900/89C0/8A80` to VRAM word `3B00`, length `C0`. Batch 7 kept early cave fades in conservative native fallback until the
+separate completed-upload ownership added in batch 8 above. Previously qualified settled cave scenery and
 actor rules remain available. This is not universal first-frame expansion.
 
 The per-word graphics observer also checks character address and ownership

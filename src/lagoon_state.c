@@ -22,6 +22,8 @@ typedef struct StateBuffer {
   int error;
 } StateBuffer;
 static int pending_execution;
+static uint64_t load_generation;
+uint64_t LagoonState_LoadGeneration(void) { return load_generation; }
 static StateCursor pending_cursor;
 const char *LagoonState_Identity(void) { return "lagoon-native-state-v3"; }
 static uint32_t checksum(const uint8_t *data, size_t size) {
@@ -119,6 +121,7 @@ void LagoonState_OnLoaded(uint32_t version) {
     RtlApplyExecutionState();
     snes_beam_frame_driver_restore(&pending_cursor.beam);
     ppu_restore_ports(g_ppu,&pending_cursor.ports);
+    ++load_generation;
     pending_execution=0;
   }
   LagoonSoundtrack_OnStateLoaded(version);

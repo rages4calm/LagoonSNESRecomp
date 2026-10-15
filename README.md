@@ -6,7 +6,7 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress — October 15, 2026
 
-Thirty-eight gameplay roots have been promoted in the October 15 batches.
+Forty-five gameplay roots have been promoted in the October 15 batches.
 The first eight cover:
 
 - Entity movement integration (`01:A4EB`).
@@ -47,14 +47,25 @@ interpreted; native callers dispatch using the actual returned CPU widths.
 Two further roots cover HP addition/clamping and the revival healing entry.
 Four targeted combat routes again match at 953 checkpoints and 15,939
 presentations. The cooperative JSL suspension now preserves the live callee
-bank; remaining HP subtraction, death and boss orchestration retain fallback.
+bank; at that stage HP subtraction, death and boss orchestration retained fallback.
 
-Four further roots cover paired actor dispatch, boss phase dispatch, the first
+Four further roots cover paired actor dispatch, boss-type dispatch, the first
 boss phase and player-hit handling. Those four routes still match at 953
 checkpoints and 15,939 presentations. The first boss phase genuinely executes
-natively; other phase handlers and the broad HP/death wrappers retain fallback.
+natively; other boss-type handlers and HP/death tails retain fallback.
 
-The build generates 181 AOT variants and 18 declared LLE variants; additional
+Six further roots cover actor/boss bounds dispatch, first-boss position clamps,
+motion dispatch and landing state. The four combat routes match again at 953
+checkpoints and 15,939 presentations, removing another 348,910 interpreted
+instructions across those captures. See [batch 8 evidence](tools/DAMAGE-BATCH8.md).
+
+The HP-subtraction arithmetic prefix now also runs natively, with explicit
+interpreted exits for the original HUD and death/revival tails. All four routes
+still match at 953 checkpoints and 15,939 presentations; the seven new roots
+remove 349,093 interpreted instructions across these captures. No new CPU-width
+contract is guessed for the complicated tails.
+
+The build generates 188 AOT variants and 18 declared LLE variants; additional
 runtime fallback remains available. The original opening-loop fix stays in place.
 Existing native-versus-pure-interpreter clock/state differences remain unresolved.
 Bounded combat/progression evidence does not certify every encounter or save.
@@ -65,6 +76,9 @@ and turning. Audited town dialogue and Start keep the wider world visible;
 Items and Magic reflow original border art without stretching text. Gold Cave
 rooms 4, 5 and 6 extend the audited scenery set. Unknown scenes retain fallback. The first Atland world now expands from its
 first visible fade field, including while its loader flag remains active.
+Audited cave fades now wait for proven completed torch uploads and can expand
+before the visible fade begins. Supported cold-loaded scenes can restore their
+wide margins immediately after exact restored-map and character checks.
 
 Smooth/bilinear scaling has been removed. Enhanced original pixels remains
 optional. The optional Faster menus toggle trims 60 fade fields (about one
@@ -77,6 +91,11 @@ development states are refused cleanly; start fresh and save with this build. Se
 Sustained Atland checks run at about 60 FPS, with occasional frame-time spikes
 still under investigation. See [timing evidence](docs/PERFORMANCE.md) for
 fullscreen and hidden-GPU measurements, hardware and test limits.
+
+An [experimental custom scene renderer](docs/CUSTOM-RENDERER.md) now draws a
+qualified Atland snapshot from retained world maps and uploaded actor data.
+It is an offline prototype; the live game continues to use the reference PPU
+renderer and interpreter safety net.
 
 ## Fullscreen screenshots
 

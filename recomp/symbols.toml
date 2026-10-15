@@ -538,4 +538,67 @@ bank = 1
 emit = true
 entry_m = 1
 entry_x = 0
-note = "Batch7 candidate: original boss phase table; first phase native, other phases LLE"
+note = "Batch7 qualified: original boss-type table; first-boss handler native, other boss-type handlers LLE"
+
+[[func]]
+name = "Lagoon_Actor_UpdateBoundsDispatch"
+addr = "9bce"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch8 qualified: genuine main-loop bounds dispatch; unaudited actor families remain interpreted"
+
+[[func]]
+name = "Lagoon_Boss_UpdateBoundsDispatch"
+addr = "a01a"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch8 qualified: original sixteen-slot boss-type bounds table; other boss types remain interpreted"
+
+[[func]]
+name = "Lagoon_Boss_ClampFirstPosition"
+addr = "a04e"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch8 qualified: actual first-boss bounds and velocity reset; paired X-bound helper preserves M1/X0"
+
+[[func]]
+name = "Lagoon_Boss_ClampFirstX"
+addr = "a053"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch8 qualified: original first-boss X clamp and shared boundary tail; source-closed M1/X0"
+
+[[func]]
+name = "Lagoon_Boss_UpdateMotionDispatch"
+addr = "9036"
+bank = 2
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch8 qualified: genuine 9029 JSR and sixteen-slot boss-type motion table; unaudited types remain interpreted"
+
+[[func]]
+name = "Lagoon_Boss_UpdateFirstLanding"
+addr = "906a"
+bank = 2
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch8 qualified: observed first-boss airborne countdown, velocity stop and landing flags; source-closed M1/X0"
+
+[[func]]
+name = "Lagoon_HPWrapperBoundary"
+addr = "9226"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch8 qualified: twelve-instruction arithmetic region only; manual end:9245 and named LLE boundaries preserve interpreted death/HUD tails and original nonlocal stack"

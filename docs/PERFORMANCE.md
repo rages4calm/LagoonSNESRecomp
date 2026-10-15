@@ -1,20 +1,20 @@
 # Performance and frame pacing
 
-The current build sustains about 60 simulated/presented frames per second in the bounded Atland checks below. Occasional frame-time spikes remain. These checks cover this machine and these routes; they are not a hard real-time or full-game performance guarantee.
+The final batch 8 build measured 60.10 fps in the settled, bounded Atland check with diagnostic presentation logging disabled. Its p95/p99 intervals were 17.44/17.83 ms, with one interval above 20 ms. Audio safety and guest timing remain unchanged. These measurements cover this machine and route; occasional spikes remain, and this is not a hard real-time or full-game guarantee.
 
 ![Actual 32:9 fullscreen OpenGL output with Enhanced pixels](screenshots/atland-32x9-epx-performance-1920x1080.png)
 
-This is an actual 1920x1080 OpenGL fullscreen readback, with 32:9 scenery letterboxed on a 16:9 monitor and optional EPX enabled. The PNG was converted losslessly from the readback without resizing. Original artwork is retained.
+This batch 7 image is an actual 1920x1080 OpenGL fullscreen readback, with 32:9 scenery letterboxed on a 16:9 monitor and optional EPX enabled. The PNG was converted losslessly from the readback without resizing. Original artwork is retained.
 
-## Measurements
+## Earlier batch 7 measurements
 
 Measured on Windows 11 Home build 26200, Intel Core Ultra 7 265F (20 cores/20 logical processors), NVIDIA GeForce RTX 5070, driver 32.0.16.1664, and a 75 Hz class 1920x1080 display (integer WMI reports 74 Hz). Private settings and a fresh version-3 state were used. The isolated harness uses a dummy audio device, so real audio-device pacing remains outside this measurement.
 
 | Check | Measured interval | Rate | Frame-time p50 / p95 / p99 | Intervals >20 / >25 ms |
 |---|---|---:|---|---:|
 | Controlled prior build, long 21:9 SDL route | 4,673 intervals after field 1750 | 59.86 fps | 16.70 / 18.26 / 19.61 ms | 37 / 14 |
-| Current visible 32:9 OpenGL + EPX | 2,892 intervals after field 150 | 59.79 fps | 16.67 / 18.56 / 23.78 ms | 109 / 13 |
-| Current clean hidden 1920x1080 GPU, 32:9 OpenGL + EPX | 1,640 intervals, fields 150..1790 | 60.12 fps | 16.63 / 17.71 / 21.36 ms | 29 / 1 |
+| Batch 7 visible 32:9 OpenGL + EPX | 2,892 intervals after field 150 | 59.79 fps | 16.67 / 18.56 / 23.78 ms | 109 / 13 |
+| Batch 7 clean hidden 1920x1080 GPU, 32:9 OpenGL + EPX | 1,640 intervals, fields 150..1790 | 60.12 fps | 16.63 / 17.71 / 21.36 ms | 29 / 1 |
 
 An interval above a threshold is not itself proof of a dropped display frame. Percentiles use the sorted lower sample. The native guest rate is approximately 60.1 fields per second; small differences from this rate arise from bounded measurement windows and timing phase.
 
@@ -44,4 +44,38 @@ The private batch directory is `work-native-20261015-154136`, alongside this che
 - `performance-clean-verification.json`: separate clean hidden-GPU timing.
 - `performance-precise-verification.json`: same-route whole-deadline wait trial.
 
-The current measured executable SHA-256 is `03fcc1f6eb0fef35c9a3427bf36d1c6aa36adf8faed9103f465d0f670f35b2c2`. No owner save, settings or mod-state files were changed. Other rooms, later encounters, real audio devices, different drivers and other hardware need their own measurements.
+The batch 7 measured executable SHA-256 is `03fcc1f6eb0fef35c9a3427bf36d1c6aa36adf8faed9103f465d0f670f35b2c2`. No owner save, settings or mod-state files were changed. Other rooms, later encounters, real audio devices, different drivers and other hardware need their own measurements.
+
+## Batch 8: separating work from audio waits
+
+An opt-in diagnostic records raw `QueryThreadCycleTime` counts beside wall time. In the first quiet probe, all 89 guest segments longer than 5 ms used at most 1.5 times their ordinary same-processor cycle count. This supports waiting or descheduling rather than proportionally more executed guest work. All sampled endpoints were on the faster processor class; no E-core-affinity fix was justified. Processor IDs are sampled at presentation end and cannot rule out migration inside a stage. Raw cycles are not converted into milliseconds, as required by [Microsoft's API guidance](https://learn.microsoft.com/en-us/windows/win32/api/realtimeapiset/nf-realtimeapiset-querythreadcycletime).
+
+Narrow audio counters then identified the main wait in the logged check: the existing bounded producer high-water guard deliberately waits for the audio consumer. In this **187-entry diagnostic build**, the same executable, route, fresh state, settings and features produced:
+
+| Hidden 32:9 GL/EPX check | p95 / p99 interval | Intervals >20 ms | Audio high-water entries | Total high-water wait | Mean composition |
+|---|---:|---:|---:|---:|---:|
+| Presentation CRC/luma logging on | 21.88 / 23.88 ms | 117 | 186 | 977.54 ms | 1.084 ms |
+| Presentation logging off | 17.44 / 17.75 ms | 3 | 5, all early | 16.90 ms | 0.084 ms |
+
+In the logged run, 114 of 115 guest segments over 5 ms coincided with more than 1 ms of audio backpressure; mutex acquisition never exceeded 1 ms. After field 200, the no-log run had **zero** high-water entries, ran at 60.10 fps and had one interval above 20 ms. Both runs ended with identical native framebuffer, WRAM, registers, VRAM, OAM, CGRAM and clock information. This is evidence of an interaction between diagnostic logging and audio pacing in this route, not evidence that the original gameplay needed more CPU threads. It does not establish the exact contribution of file flushing versus checksum CPU cost or their effect on audio-callback phase.
+
+No audio-buffer safety, playback policy, guest timing, affinity or process priority was changed. Ordinary play already omits the presentation log. `tools/qualify_native.py --no-present-log` now exposes this performance control and records `present_log_enabled=false` in its receipt; default qualification retains the CRC/luma log. The flag refuses the CPU screenshot-range option because that range independently enables its own per-field CRC log. The original A/B used a private environment override, whose exact removal is recorded separately; later confirmation uses the public flag.
+
+The A/B executable SHA-256 is `dc2f8f5fba1d9f7d742cd1bac15a8e72d2d85fbe6621b77238bd87ad4305a8af`; its manifest is `b5b9cdeaf30067a9bb13c18e0ecb758519c610ccabf4598a4da6a7d5abecd1da`. Evidence is in the private `work-native-20261015-161718/cycle-profile-analysis.json` and `audio-pair-analysis.json`. These diagnostic-build measurements are separate from the final batch 8 build.
+
+Hidden, inaudible Windows 11 applications can receive different timer/QoS treatment from focused or audible ones, so hidden results are not a replacement for fullscreen checks. No such policy was changed here. See [Microsoft's timer-resolution documentation](https://learn.microsoft.com/en-us/windows/win32/api/timeapi/nf-timeapi-timebeginperiod). CSV timestamps end at renderer presentation calls; they do not measure physical scanout or prove which frames were displayed on a 75 Hz monitor. Threshold counts are long CPU presentation intervals, not identified dropped display frames.
+
+## Final batch 8 confirmation
+
+The final executable contains 188 AOT variants, with the interpreter safety net retained. A single quiet, hidden, normal-paced 1920x1080 OpenGL/EPX run used the public `--no-present-log` flag, the same 32:9 route and fresh version-3 state, and all nine original QoL features. There were no screenshots, hardware inventory queries or initiated background tests during the measurement. The final dump interval was excluded.
+
+| Final check | Rate | p50 / p95 / p99 interval | Intervals >20 / >25 ms | Audio high-water entries |
+|---|---:|---:|---:|---:|
+| Fields 150..1790, 1,640 intervals | 60.11 fps | 16.66 / 17.45 / 17.86 ms | 3 / 0 | 5 during settling |
+| Settled fields 200..1790, 1,590 intervals | 60.10 fps | 16.66 / 17.44 / 17.83 ms | 1 / 0 | 0 |
+
+The longest profiled interval was 22.11 ms. Guest periods remained within 1.000000..1.000176 per simulation. Mean composition took 0.082 ms without the diagnostic CRC/luma log. The full 1,792-field process interval, including startup and state loading, took 29.959 seconds and 4.828 CPU seconds. Its final native framebuffer, WRAM, registers, VRAM, OAM, CGRAM and clocks matched the 187-variant no-log control exactly. No audio-buffer safeguard or scheduling policy was removed to obtain this result.
+
+This confirms the settled timing improvement for the tested production-like logging configuration, rather than promising identical timing in every later room, with every audio device or at physical monitor scanout. The full-resolution screenshot above remains accurately labeled as the earlier batch 7 capture; no additional visible window was opened for this final check.
+
+Final executable SHA-256: `25b3b33272d74beccc1213423d4379a9ebf1bbe550ed91e32e84f4b275001bda`. Manifest SHA-256: `ca8099f0601967b4b13614f90fc26a192a2637be15a2fe0bc1d20bed11eac3b7`. The private `work-native-20261015-161718/final188-performance-verification.json` binds the route, settings, seeded-state hashes and explicit disabled-log receipt.

@@ -4,6 +4,7 @@
 #include "lagoon_widescreen.h"
 #include "lagoon_wide_entities.h"
 #include "lagoon_menu_presentation.h"
+#include "lagoon_state.h"
 #include "common_rtl.h"
 #include "config.h"
 #include "widescreen.h"
@@ -34,7 +35,9 @@ static uint8_t s_world_char_used[1024];
 static int s_world_chars_ready;
 static int s_initial_world_authority;
 static LagoonWideBackground s_background;
+static LagoonWideTorches s_torches;
 static uint64_t s_state_generation;
+static uint64_t s_seen_load_generation;
 static const char *s_config_path = "config.ini";
 
 void LagoonWide_SetConfigPath(const char *path) { if (path) s_config_path = path; }
@@ -123,6 +126,7 @@ void LagoonWide_Reset(void) {
   s_was_active = 0;
   s_world_chars_ready=0;
   s_initial_world_authority=0;LagoonWideBackground_Reset(&s_background);
+  LagoonWideTorches_Reset(&s_torches);
   s_outdoor_frame=s_outdoor_present=0;
   memset(s_row_known,0,sizeof(s_row_known));
   memset(&s_scene_gate,0,sizeof(s_scene_gate));
@@ -185,12 +189,36 @@ static int capture_world_characters(const uint8_t *upload) {
     }
     if(upload) {
       for(unsigned tile=kLagoonWideBackgroundBytes/32;tile<1024;++tile)
-        if(s_world_char_used[tile])return 0;
+        if(s_world_char_used[tile] && (tile<944 || tile>949))return 0;
       memset(s_world_chars,0,sizeof(s_world_chars));
       memcpy(s_world_chars,upload,kLagoonWideBackgroundBytes);
+      int torches=0;
+      for(unsigned tile=944;tile<=949;++tile)torches|=s_world_char_used[tile];
+      if(torches) {
+        int frame=LagoonWideTorches_Match(&s_torches,PpuRenderVram(g_ppu),
+            RtlStateGeneration(),word(0x48e),pointer(0x57));
+        if(frame<0)return 0;
+        memcpy(s_world_chars+0x3B00,s_torches.bytes[frame],kLagoonWideTorchBytes);
+      }
     } else memcpy(s_world_chars,PpuRenderVram(g_ppu),sizeof(s_world_chars));
     if(!LagoonWideEntities_WorldCharacters(PpuRenderVram(g_ppu),s_world_chars,s_world_char_used))return 0;
     s_world_char_key=world_resource_key();s_world_chars_ready=1;return 1;
+}
+static void refresh_torches(void) {
+  if(!s_world_chars_ready || s_world_char_key!=world_resource_key())return;
+  int frame=LagoonWideTorches_Match(&s_torches,PpuRenderVram(g_ppu),
+      RtlStateGeneration(),word(0x48e),pointer(0x57));
+  if(frame>=0)memcpy(s_world_chars+0x3B00,s_torches.bytes[frame],kLagoonWideTorchBytes);
+}
+static int upload_characters_owned(void) {
+  for(unsigned tile=0;tile<1024;++tile)if(s_world_char_used[tile]) {
+    if(tile<kLagoonWideBackgroundBytes/32) {
+      if(memcmp(s_world_chars+tile*16,s_background.bytes+tile*32,32))return 0;
+    } else if(tile<944 || tile>949 ||
+        LagoonWideTorches_Match(&s_torches,PpuRenderVram(g_ppu),
+            RtlStateGeneration(),word(0x48e),pointer(0x57))<0)return 0;
+  }
+  return 1;
 }
 static int world_scene_geometry(void) {
   return (g_ram[0x500]&0xC0)==0xC0 && !g_ram[0x50] &&
@@ -221,12 +249,15 @@ static void native_ui_frame(void) {
 void LagoonWide_OnBackgroundDma(unsigned bank,unsigned address,unsigned destination,unsigned length) {
   if(!g_ppu || !g_config.widescreen)return;
   if(s_background.generation!=RtlStateGeneration())LagoonWideBackground_Reset(&s_background);
+  LagoonWideTorches_Begin(&s_torches,RtlStateGeneration(),word(0x48e),pointer(0x57),
+      bank,address,destination,length);
   int begins=bank==0x7F && address==0x7F80 && destination==0 && length==0x1000;
   /* Inventory uploads cannot claim a fresh world through stale room metadata. */
   if(begins && !g_ram[0x100e]) {s_background.left=0;return;}
   LagoonWideBackground_Begin(&s_background,RtlStateGeneration(),word(0x48e),pointer(0x57),
       bank,address,destination,length);
   if(begins) {
+    LagoonWideTorches_Reset(&s_torches);
     s_world_chars_ready=s_initial_world_authority=0;s_scene_gate.fields=0;
     native_ui_frame();
   }
@@ -238,6 +269,10 @@ void LagoonWide_OnVramWrite(unsigned byte_address) {
   if(s_background.left || byte_address<kLagoonWideBackgroundBytes)
     LagoonWideBackground_Write(&s_background,byte_address,
         (uint8_t)(g_ppu->vram[byte_address/2]>>((byte_address&1)*8)));
+  if(s_torches.left || (byte_address>=kLagoonWideTorchAddress &&
+      byte_address<kLagoonWideTorchAddress+kLagoonWideTorchBytes))
+    LagoonWideTorches_Write(&s_torches,byte_address,
+        (uint8_t)(g_ppu->vram[byte_address/2]>>((byte_address&1)*8)),g_rom,0x100000);
   if(g_ram[0x100e] && byte_address>=0xE000 && byte_address<0x10000)
     s_initial_world_authority=0;
   /* Room loading can begin after the frame policy was selected. Catch the
@@ -265,14 +300,28 @@ void LagoonWide_BeginFrame(unsigned number) {
   if(!audited_room_resources() || (s_world_chars_ready && s_world_char_key!=world_resource_key()))
     s_world_chars_ready=0;
   s_initial_world_authority=0;
+  refresh_torches();
   /* $100E spans the final fade, after the full world graphics/map upload.
    * Authorize that first visible world from actual completed bytes, never
    * from the loading flag or a prior quiet/text-free frame alone. */
   if(audited_room_resources() && background_upload_ready() && world_scene_geometry() && native_world_map()) {
     if(!s_world_chars_ready)capture_world_characters(s_background.bytes);
-    if(s_world_chars_ready && s_world_char_key==world_resource_key() &&
+    if(s_world_chars_ready && s_world_char_key==world_resource_key() && upload_characters_owned() &&
         LagoonWideEntities_WorldCharacters(PpuRenderVram(g_ppu),s_world_chars,s_world_char_used))
       s_initial_world_authority=1;
+  }
+  /* A successful full v3 state load restores the completed raster together
+   * with RAM and all PPU state. Its exact native map can prove coherence on
+   * the first field, unlike a room loader whose RAM can run ahead of raster.
+   * Do not carry this exception through an ordinary reset or changed scene. */
+  uint64_t load=LagoonState_LoadGeneration();
+  int fresh_load=load!=s_seen_load_generation;
+  s_seen_load_generation=load; /* One classification attempt; never lend to a later room. */
+  if(fresh_load && !g_ram[0x100e] && audited_room_resources() &&
+      world_scene_geometry() && native_world_map() &&
+      capture_world_characters(NULL)) {
+    s_scene_gate.generation=RtlStateGeneration();s_scene_gate.key=word(0x48e)+1;
+    s_scene_gate.fields=3;s_seen_load_generation=load;
   }
   int modal_ui=unsafe_modal_ui();
   PpuSetWidescreenLineEnhancer(g_ppu,NULL,NULL);
@@ -373,18 +422,21 @@ static void report_scene(unsigned frame) {
   const char *base=getenv("LAGOON_WIDE_ENTITY_REPORT");if(!base)return;
   char path[1200];if(snprintf(path,sizeof(path),"%s.scene.tsv",base)>=(int)sizeof(path))return;
   FILE *f=fopen(path,"ab");if(!f)return;fseek(f,0,SEEK_END);
-  if(!ftell(f))fprintf(f,"frame\troom\tloading\tbg_complete\tbg_ready\tchars_ready\tearly_authority\tmap_ready\tmodal\tactive\tfallback\tbrightness\ttm\n");
+  if(!ftell(f))fprintf(f,"frame\troom\tloading\tbg_complete\tbg_ready\tchars_ready\tearly_authority\tmap_ready\tmodal\tactive\tfallback\tbrightness\ttm\ttorch_seen\ttorch_render\n");
   int map_ready=world_scene_geometry() && native_world_map();
-  fprintf(f,"%u\t%u\t%u\t%u\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%u\t%u\n",frame,
+  fprintf(f,"%u\t%u\t%u\t%u\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%u\t%u\t%u\t%d\n",frame,
       word(0x48e),g_ram[0x100e],s_background.completed,background_upload_ready(),
       s_world_chars_ready,s_initial_world_authority,map_ready,has_modal_ui(),s_was_active,
-      s_present_fallback,g_ppu->inidisp,g_ppu->screenEnabled[0]);fclose(f);
+      s_present_fallback,g_ppu->inidisp,g_ppu->screenEnabled[0],s_torches.seen,
+      LagoonWideTorches_Match(&s_torches,PpuRenderVram(g_ppu),RtlStateGeneration(),
+          word(0x48e),pointer(0x57)));fclose(f);
 }
 
 /* Keep the completed field's policy with the presentation boundary. The
  * source field is const; the official compositor owns mutable destination. */
 void LagoonWide_EndFrame(const uint8_t *field,unsigned number) {
   (void)field;
+  refresh_torches();
   s_present_fallback=s_native_fallback || !audited_room_ready() || unsafe_modal_ui() ||
       (g_ram[0x100e] && (!native_world_map() || !s_world_chars_ready ||
       !LagoonWideEntities_WorldCharacters(PpuRenderVram(g_ppu),s_world_chars,s_world_char_used)));

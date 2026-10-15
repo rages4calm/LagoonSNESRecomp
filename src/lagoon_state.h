@@ -8,3 +8,6 @@ const char *LagoonState_Identity(void);
 void LagoonState_SaveExtra(struct SaveLoadInfo *sli);
 void LagoonState_LoadExtra(struct SaveLoadInfo *sli, uint32_t version);
 void LagoonState_OnLoaded(uint32_t version);
+
+/* Successful validated loads, distinct from a new session/hardware reset. */
+uint64_t LagoonState_LoadGeneration(void);

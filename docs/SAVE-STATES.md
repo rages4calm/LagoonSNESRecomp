@@ -79,3 +79,18 @@ and the same save/load path as the keyboard.
 These checks establish bounded idle-town continuation, not every campaign
 checkpoint. Exact serialization of optional mid-hit recovery/jump-hold timers,
 rollback, all devices and other runtime builds still need separate qualification.
+
+## Batch 8 presentation continuation
+
+The format remains version 3. A successful validated load emits a host-only
+load generation. On the first presentation attempt, supported rooms may seed
+the widescreen settlement gate only after exact restored native-map equality,
+audited resources/geometry and actual character ownership checks. This event
+expires after that attempt, including in unsupported scenes; an ordinary reset
+or subsequent room transition cannot borrow it. Inventory and unsupported
+layouts keep their existing presentation guards.
+
+The final 188-AOT batch-8 native candidate passes both warm reload and fresh-process
+cold reload against its uninterrupted town checkpoint, across all seven dump
+components including guest clock metadata. This does not expand serialization
+coverage for optional mid-hit recovery or jump-hold timers.

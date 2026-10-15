@@ -17,6 +17,7 @@ def main():
     parser.add_argument('--frames',type=int,default=6245)
     parser.add_argument('--out',required=True,type=Path)
     parser.add_argument('--coverage',action='store_true')
+    parser.add_argument('--no-present-log',action='store_true',help='Performance-only: omit per-field CRC/luma logging and fflush; default qualification keeps the log')
     parser.add_argument('--live-input',action='store_true',help='Opt in to merging physical keyboard/gamepads into the script; default uses only scripted guest input')
     parser.add_argument('--input-trace',action='store_true',help='Log actual guest input words for isolation checks')
     parser.add_argument('--visible',action='store_true',help='Use the real SDL display for fullscreen screenshot checks; saves/config remain isolated')
@@ -34,6 +35,8 @@ def main():
     parser.add_argument('--manifest',type=Path,help='Manifest belonging to this executable; required for old retained binaries')
     args=parser.parse_args()
     if args.visible and args.offscreen:parser.error('Choose visible OR offscreen')
+    if args.no_present_log and args.screenshot_range:
+        parser.error('--no-present-log cannot use --screenshot-range, which creates its own per-field CRC log')
     if (args.display_screenshot_frame or args.display_screenshot_range) and not (args.visible or args.offscreen):
         parser.error('Display capture requires --visible or --offscreen')
     repo=Path(__file__).resolve().parents[1];rom=repo.parent/'Lagoon (USA).sfc'
@@ -83,8 +86,9 @@ def main():
     for key in list(env):
         if key.startswith('SNESRECOMP_') or key.startswith('LAGOON_'):env.pop(key)
     env.update(SDL_AUDIODRIVER='dummy',
-               SNESRECOMP_RUN_FRAMES=str(args.frames),SNESRECOMP_DUMP_DIR=str(out/'dumps'),
-               SNESRECOMP_PRESENT_LOG=str(out/'presents.csv'))
+               SNESRECOMP_RUN_FRAMES=str(args.frames),SNESRECOMP_DUMP_DIR=str(out/'dumps'))
+    if not args.no_present_log:
+        env['SNESRECOMP_PRESENT_LOG']=str(out/'presents.csv')
     if args.input_trace:env['SNESRECOMP_INPUT_TRACE']='1'
     if args.visible or args.offscreen:env.pop('SDL_VIDEODRIVER',None)
     else:env['SDL_VIDEODRIVER']='dummy'
@@ -144,6 +148,8 @@ def main():
         (catalog/'state.toml').write_text(state,encoding='utf-8')
     sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
     receipt=dict(exe=str(exe),exe_sha256=sha(exe),rom_sha256=sha(rom),route=str(route),route_sha256=hashlib.sha256(route_bytes).hexdigest(),frozen_route=str(frozen_route),frames=args.frames)
+    receipt['present_log_enabled']=not args.no_present_log
+    receipt['present_log_path']=str(out/'presents.csv') if not args.no_present_log else None
     receipt.update(enabled_features=sorted(enabled),enabled_package_features=sorted(selected),
                    diagnostic_overrides=overrides,private_mod_state=state,private_working_directory=str(host))
     receipt['seeded_save_files']=seeded

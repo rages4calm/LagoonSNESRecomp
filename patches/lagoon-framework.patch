@@ -469,7 +469,7 @@ index f9b1e26..5ddf987 100644
  uint32 interp_bridge_lle_resume_pc(void);
  void interp_bridge_set_lle_bounce_exclusions(const uint32 *targets,
 diff --git a/runner/src/desktop/host_main.c b/runner/src/desktop/host_main.c
-index 3bc3905..be05c34 100644
+index 3bc3905..91e289c 100644
 --- a/runner/src/desktop/host_main.c
 +++ b/runner/src/desktop/host_main.c
 @@ -244,6 +244,29 @@ static const char *HostGetenv(const char *name) {
@@ -502,7 +502,113 @@ index 3bc3905..be05c34 100644
  static uint32 g_win_flags = SDL_WINDOW_RESIZABLE;
  static SDL_Window *g_window;
  
-@@ -354,8 +377,15 @@ static void WaitUntil(double deadline) {
+@@ -309,17 +332,57 @@ enum { kProfileGuest, kProfileRaster, kProfileAcquire,
+        kProfileEvents, kProfileWait, kProfileCount };
+ static bool g_profile;
+ static unsigned g_profile_frame;
+-static struct { double total, maximum; unsigned count, maximum_frame; } g_timings[kProfileCount];
++static struct { double total, maximum; unsigned count, maximum_frame;
++  uint64_t thread_cycles;
++} g_timings[kProfileCount];
++/* Raw scheduled-thread cycles distinguish active work from wall-time stalls.
++ * They are not nanoseconds: CPU frequency and processor choice can vary. */
++static uint64_t ProfileThreadCycles(void) {
++#ifdef _WIN32
++  ULONG64 cycles=0;
++  if (QueryThreadCycleTime(GetCurrentThread(), &cycles)) return cycles;
++#endif
++  return 0;
++}
++static unsigned ProfileProcessor(void) {
++#ifdef _WIN32
++  return GetCurrentProcessorNumber();
++#else
++  return 0;
++#endif
++}
++/* Audio timings are written only by the profiled producer/main thread.
++ * High-water elapsed includes its mutex reacquisitions; these columns overlap. */
++typedef struct ProfileAudio {
++  double highwater_seconds, sleep_seconds, mutex_seconds;
++  uint64_t highwater_waits, highwater_sleeps, mutex_calls;
++} ProfileAudio;
++static ProfileAudio g_profile_audio, g_profile_audio_previous;
++static unsigned g_profile_audio_queue_peak;
++static uint64_t g_profile_owner_thread;
++static uint64_t ProfileCallingThread(void) {
++#if SNESRECOMP_SDL3
++  return (uint64_t)SDL_GetCurrentThreadID();
++#else
++  return (uint64_t)SDL_ThreadID();
++#endif
++}
++typedef struct ProfileStamp { double at; uint64_t cycles; } ProfileStamp;
+ /* Opt-in presentation trace, retained in memory and written only after play.
+  * Per-frame file flushing would itself introduce the stalls this measures. */
+ enum { kFrameTimingCapacity = 36000 };
+ typedef struct FrameTiming {
+   unsigned frame;
+   double at, periods, stages[kProfileCount];
++  uint64_t thread_cycles[kProfileCount];
++  unsigned processor;
++  ProfileAudio audio;
++  unsigned audio_queue_peak;
+ } FrameTiming;
+ static FrameTiming *g_frame_timings;
+ static unsigned g_frame_timing_count;
+ static double g_frame_timing_previous[kProfileCount];
++static uint64_t g_frame_cycles_previous[kProfileCount];
+ 
+ static void RecordFrameTiming(unsigned frame) {
+   if (!g_profile || !g_frame_timings || g_frame_timing_count == kFrameTimingCapacity) return;
+@@ -327,17 +390,33 @@ static void RecordFrameTiming(unsigned frame) {
+   t->frame = frame;
+   t->at = MonotonicSeconds();
+   t->periods = RtlLastFramePeriods();
++  t->processor = ProfileProcessor();
++  t->audio.highwater_seconds = g_profile_audio.highwater_seconds - g_profile_audio_previous.highwater_seconds;
++  t->audio.sleep_seconds = g_profile_audio.sleep_seconds - g_profile_audio_previous.sleep_seconds;
++  t->audio.mutex_seconds = g_profile_audio.mutex_seconds - g_profile_audio_previous.mutex_seconds;
++  t->audio.highwater_waits = g_profile_audio.highwater_waits - g_profile_audio_previous.highwater_waits;
++  t->audio.highwater_sleeps = g_profile_audio.highwater_sleeps - g_profile_audio_previous.highwater_sleeps;
++  t->audio.mutex_calls = g_profile_audio.mutex_calls - g_profile_audio_previous.mutex_calls;
++  t->audio_queue_peak = g_profile_audio_queue_peak;
++  g_profile_audio_queue_peak = 0;
++  g_profile_audio_previous = g_profile_audio;
+   for (unsigned i = 0; i < kProfileCount; ++i) {
+     t->stages[i] = g_timings[i].total - g_frame_timing_previous[i];
+     g_frame_timing_previous[i] = g_timings[i].total;
++    t->thread_cycles[i] = g_timings[i].thread_cycles - g_frame_cycles_previous[i];
++    g_frame_cycles_previous[i] = g_timings[i].thread_cycles;
+   }
+ }
+-static double ProfileStart(void) {
+-  return g_profile ? MonotonicSeconds() : 0;
++static ProfileStamp ProfileStart(void) {
++  return g_profile ? (ProfileStamp){MonotonicSeconds(), ProfileThreadCycles()}
++                   : (ProfileStamp){0,0};
+ }
+-static void ProfileEnd(unsigned stage, double start) {
++static void ProfileEnd(unsigned stage, ProfileStamp start) {
+   if (!g_profile) return;
+-  double elapsed = MonotonicSeconds() - start;
++  double elapsed = MonotonicSeconds() - start.at;
++  uint64_t cycles = ProfileThreadCycles();
++  if (start.cycles && cycles >= start.cycles)
++    g_timings[stage].thread_cycles += cycles - start.cycles;
+   g_timings[stage].total += elapsed;
+   if (elapsed > g_timings[stage].maximum) {
+     g_timings[stage].maximum = elapsed;
+@@ -346,7 +425,7 @@ static void ProfileEnd(unsigned stage, double start) {
+   ++g_timings[stage].count;
+ }
+ static void WaitUntil(double deadline) {
+-  double profile_start = ProfileStart();
++  ProfileStamp profile_start = ProfileStart();
+   /* Short deadline wait: a fixed 1ms sleep on every presentation-only
+    * iteration unnecessarily overshoots near deadlines. */
+   double now = MonotonicSeconds();
+@@ -354,8 +433,15 @@ static void WaitUntil(double deadline) {
      double remaining_ms = (deadline - now) * 1000;
      if (remaining_ms > 1.5)
        SDL_Delay((Uint32)(remaining_ms - 0.5));
@@ -519,7 +625,7 @@ index 3bc3905..be05c34 100644
      now = MonotonicSeconds();
    }
    ProfileEnd(kProfileWait, profile_start);
-@@ -476,6 +506,12 @@ static void GameReset(void) {
+@@ -476,6 +562,12 @@ static void GameReset(void) {
  #endif
    g_reset_clock = true;
  }
@@ -532,7 +638,7 @@ index 3bc3905..be05c34 100644
  
  /* The Reset hotkey, and the script's `reset`: one path, so a test of the
   * script command is a test of what the player presses. */
-@@ -608,7 +644,7 @@ static void PreparePpuFrame(void) {
+@@ -608,7 +700,7 @@ static void PreparePpuFrame(void) {
    if (g_ws_active) flags |= kPpuRenderFlags_NewRenderer;
    PpuBeginDrawing(g_ppu, g_my_pixels,
                    (g_game->native_widescreen ? fw : 256) * 4, flags);
@@ -541,7 +647,7 @@ index 3bc3905..be05c34 100644
  }
  
  // --- Scripted input ---
-@@ -625,6 +661,7 @@ typedef struct {
+@@ -625,6 +717,7 @@ typedef struct {
    uint16 cond_value;
    int cond_timeout;   // frames
    int cond_waited;
@@ -549,7 +655,7 @@ index 3bc3905..be05c34 100644
    char *dump_tag;     // dump <tag>
  } ScriptEntry;
  
-@@ -768,6 +805,7 @@ static ScriptEntry *NewScriptEntry(int *cap) {
+@@ -768,6 +861,7 @@ static ScriptEntry *NewScriptEntry(int *cap) {
   *   press <buttons> [N]     hold a+b+... for N frames (default 1)
   *                           prefix P2 buttons with p2:, e.g. right+p2:right
   *   loadstate N             load save-state slot N
@@ -557,7 +663,7 @@ index 3bc3905..be05c34 100644
   *   reset                   the Reset hotkey's console reset
   *   turbo on|off            change the held-Turbo state at this frame boundary
   *   poke <addr> <hex>       write WRAM bytes for one frame
-@@ -814,11 +852,18 @@ static void LoadScript(const char *path) {
+@@ -814,11 +908,18 @@ static void LoadScript(const char *path) {
        e->mask = kScriptTurbo | (strcmp(arg1, "on") == 0 ? 1u : 0u);
        e->wait_frames = pending_wait;
        pending_wait = 0;
@@ -578,7 +684,7 @@ index 3bc3905..be05c34 100644
        e->hold_frames = 1;
        e->wait_frames = pending_wait;
        pending_wait = 0;
-@@ -990,8 +1035,8 @@ static uint32 TickScript(void) {
+@@ -990,8 +1091,8 @@ static uint32 TickScript(void) {
      if (g_script_counter > 0) {
        g_script_counter--;
        if (e->mask & kScriptLoadState) {
@@ -589,7 +695,7 @@ index 3bc3905..be05c34 100644
          return 0;
        }
        if (e->mask & kScriptReset) {
-@@ -1280,6 +1325,29 @@ static void WritePpm(const char *path, const uint8 *pixel_buffer, int pitch,
+@@ -1280,8 +1381,31 @@ static void WritePpm(const char *path, const uint8 *pixel_buffer, int pitch,
      host_report_breadcrumb("screenshot: wrote %s (%dx%d) at frame %u", path, w, h, frame);
  }
  
@@ -617,9 +723,12 @@ index 3bc3905..be05c34 100644
 +}
 +
  static void DrawPpuFrameWithPerf(void) {
-   double profile_start = ProfileStart();
+-  double profile_start = ProfileStart();
++  ProfileStamp profile_start = ProfileStart();
    PreparePpuFrame();
-@@ -1482,6 +1550,13 @@ static void DrawPpuFrameWithPerf(void) {
+   const int render_scale = 1;
+   uint8 *present_buffer = 0;
+@@ -1482,6 +1606,13 @@ static void DrawPpuFrameWithPerf(void) {
  
    ProfileEnd(kProfileCompose, profile_start);
    profile_start = ProfileStart();
@@ -633,7 +742,70 @@ index 3bc3905..be05c34 100644
    g_renderer_funcs.EndDraw();
    ProfileEnd(kProfilePresent, profile_start);
    RecordFrameTiming(g_present_frame);
-@@ -2288,6 +2363,42 @@ static void SdlRenderer_EndDraw(void) {
+@@ -2069,13 +2200,32 @@ static void ResetAudioTimeline(void) {
+ #endif
+ }
+ 
+-void RtlApuLock(void) {
++static bool ProfileAudioProducer(void) {
++  /* TLS producer guard keeps the consumer from reading main-only profile state. */
++  return g_audio_producer_active && g_profile && g_profile_owner_thread &&
++         ProfileCallingThread() == g_profile_owner_thread;
++}
++static void LockApuMutexProfiled(void) {
++  bool measure = ProfileAudioProducer() && g_apu_lock_depth == 0;
++  double start = measure ? MonotonicSeconds() : 0;
+   SDL_LockMutex(g_audio_mutex);
++  if (measure) {
++    g_profile_audio.mutex_seconds += MonotonicSeconds() - start;
++    ++g_profile_audio.mutex_calls;
++  }
++}
++void RtlApuLock(void) {
++  LockApuMutexProfiled();
+   ++g_apu_lock_depth;
+ }
+ 
+ void RtlApuUnlock(void) {
+   --g_apu_lock_depth;
++  const bool measure_audio = g_apu_lock_depth == 0 && ProfileAudioProducer();
++  if (measure_audio) {
++    unsigned available = dsp_available(g_snes->apu->dsp);
++    if (available > g_profile_audio_queue_peak) g_profile_audio_queue_peak = available;
++  }
+   if (g_apu_lock_depth == 0 && g_audio_producer_active &&
+       g_audio_consumer_stalled &&
+       g_audio_callback_count != g_audio_stalled_callback)
+@@ -2086,11 +2236,18 @@ void RtlApuUnlock(void) {
+     /* Fast hosts can generate a multi-frame loader's PCM in milliseconds.
+      * Let the device drain it before the bounded ring overflows. Always
+      * release the mutex while waiting, and stop waiting if the device stalls. */
++    double audio_wait_start = measure_audio ? MonotonicSeconds() : 0;
++    if (measure_audio) ++g_profile_audio.highwater_waits;
+     double limit = MonotonicSeconds() + 0.25;
+     while (dsp_available(g_snes->apu->dsp) > HOST_AUDIO_HIGH_WATER) {
+       SDL_UnlockMutex(g_audio_mutex);
++      double sleep_start = measure_audio ? MonotonicSeconds() : 0;
+       SDL_Delay(1);
+-      SDL_LockMutex(g_audio_mutex);
++      if (measure_audio) {
++        g_profile_audio.sleep_seconds += MonotonicSeconds() - sleep_start;
++        ++g_profile_audio.highwater_sleeps;
++      }
++      LockApuMutexProfiled();
+       if (MonotonicSeconds() >= limit) {
+         /* A disconnected device must not add this timeout to every frame.
+          * Rearm only after the consumer has actually made progress. */
+@@ -2100,6 +2257,8 @@ void RtlApuUnlock(void) {
+         break;
+       }
+     }
++    if (measure_audio)
++      g_profile_audio.highwater_seconds += MonotonicSeconds() - audio_wait_start;
+   }
+   SDL_UnlockMutex(g_audio_mutex);
+ }
+@@ -2288,6 +2447,42 @@ static void SdlRenderer_EndDraw(void) {
    /* SDL3's SDL_RenderTexture takes SDL_FRect, not SDL_Rect. */
    snesrecomp_sdl_render_texture(g_renderer, g_texture, &g_sdl_renderer_rect,
                                  &g_sdl_present_rect);
@@ -676,7 +848,7 @@ index 3bc3905..be05c34 100644
    SDL_RenderPresent(g_renderer);
  }
  
-@@ -2649,14 +2760,16 @@ static void LauncherSeed(RecompLauncherCSettings *ls, RecompLauncherCGameInfo *g
+@@ -2649,14 +2844,16 @@ static void LauncherSeed(RecompLauncherCSettings *ls, RecompLauncherCGameInfo *g
    ls->enable_audio  = g_config.enable_audio;
    ls->audio_freq    = g_config.audio_freq;
    ls->volume        = g_config.volume;
@@ -697,7 +869,7 @@ index 3bc3905..be05c34 100644
    ls->player_src[1] = ConfigHasPlayerSource(1) ? g_config.player_src[1]
                                                 : (g_config.enable_gamepad[1] ? 2 : 0);
    for (int seat = 2; seat < kSnesHostPadSeats && seat < RECOMP_LAUNCHER_MAX_PLAYERS; ++seat)
-@@ -2796,7 +2909,7 @@ static void LauncherCommit(const RecompLauncherCSettings *ls, const char *config
+@@ -2796,7 +2993,7 @@ static void LauncherCommit(const RecompLauncherCSettings *ls, const char *config
      /* Seats past the game's count are not on the launcher's page; keep them. */
      if (seat >= 2 && seat >= HostConfiguredSeats()) break;
      g_config.player_src[seat]     = ls->player_src[seat];
@@ -706,7 +878,7 @@ index 3bc3905..be05c34 100644
    }
    g_config.gamepad_deadzone    = (ls->deadzone[0] * 32767 + 50) / 100;
    g_config.skip_launcher       = ls->skip_launcher != 0;
-@@ -3458,6 +3571,12 @@ int snesrecomp_desktop_main(const SnesDesktopHostGame *game, int argc, char **ar
+@@ -3458,6 +3655,12 @@ int snesrecomp_desktop_main(const SnesDesktopHostGame *game, int argc, char **ar
    g_ppu_render_flags = g_config.new_renderer * kPpuRenderFlags_NewRenderer |
      g_config.no_sprite_limits * kPpuRenderFlags_NoSpriteLimits;
  
@@ -719,7 +891,7 @@ index 3bc3905..be05c34 100644
    if (g_config.fullscreen == 1)
      g_win_flags ^= SNESRECOMP_SDL_WINDOW_FULLSCREEN_DESKTOP;
    else if (g_config.fullscreen == 2)
-@@ -3714,6 +3833,17 @@ error_reading:;
+@@ -3714,6 +3917,17 @@ error_reading:;
  
    PreparePpuFrame();
  
@@ -737,7 +909,24 @@ index 3bc3905..be05c34 100644
    MkDir("saves");
    if (!g_netplay_session) RtlReadSram();
  
-@@ -3887,8 +4017,7 @@ error_reading:;
+@@ -3763,6 +3977,7 @@ error_reading:;
+   if (frame_timing_path) g_frame_timings = calloc(kFrameTimingCapacity, sizeof(*g_frame_timings));
+   bool profile_requested = g_frame_timings ||
+       (HostGetenv("HOST_PROFILE") && atoi(HostGetenv("HOST_PROFILE")) != 0);
++  if (profile_requested) g_profile_owner_thread = ProfileCallingThread();
+   unsigned profile_first = HostGetenv("HOST_PROFILE_START_FRAME")
+       ? (unsigned)strtoul(HostGetenv("HOST_PROFILE_START_FRAME"), NULL, 10) : 1;
+   if (!profile_first) profile_first = 1;
+@@ -3808,7 +4023,7 @@ error_reading:;
+      * whole crash-capture pipeline (minidump + report + crash copy). */
+     host_report_crash_test_tick();
+ 
+-    double event_profile_start = ProfileStart();
++    ProfileStamp event_profile_start = ProfileStart();
+     while (SDL_PollEvent(&event)) {
+       if (HandleDeviceEvent(&event))
+         continue;
+@@ -3887,8 +4102,7 @@ error_reading:;
      {
        int ls = debug_server_consume_loadstate();
        if (ls >= 0 && !g_netplay_session) {
@@ -747,7 +936,25 @@ index 3bc3905..be05c34 100644
        }
        int ss = debug_server_consume_savestate();
        if (ss >= 0 && !g_netplay_session)
-@@ -4207,6 +4336,14 @@ error_reading:;
+@@ -3953,7 +4167,7 @@ error_reading:;
+         for (;;) {
+           uint32 inputs = snes_netplay_published_inputs() | snes_netplay_active_mask();
+           g_profile_frame = frameCtr + 1;
+-          double profile_start = ProfileStart();
++          ProfileStamp profile_start = ProfileStart();
+           if (game->before_run_frame) game->before_run_frame();
+           RtlRunFrame(inputs);
+           ProfileEnd(kProfileGuest, profile_start);
+@@ -4193,7 +4407,7 @@ error_reading:;
+       break;
+     }
+     inputs |= debug_server_get_controller_inputs();
+-    double profile_start = ProfileStart();
++    ProfileStamp profile_start = ProfileStart();
+     double guest_start = MonotonicSeconds();
+     PushExtraSeats();
+     if (game->before_run_frame) game->before_run_frame();
+@@ -4207,6 +4421,14 @@ error_reading:;
      bool runahead_captured = false;
      {
        const uint32 word = inputs | GetActiveControllers() | debug_server_get_controller_active_mask();
@@ -762,7 +969,29 @@ index 3bc3905..be05c34 100644
        if (g_turbo || !snes_runahead_run_frame(word))
          RtlRunFrame(word);
        else
-@@ -4406,11 +4543,11 @@ error_reading:;
+@@ -4290,12 +4512,19 @@ error_reading:;
+   if (g_frame_timings) {
+     FILE *f = fopen(frame_timing_path, "w");
+     if (f) {
+-      fprintf(f, "frame,present_seconds,guest_periods,guest_ms,raster_ms,acquire_ms,compose_ms,present_ms,trace_ms,hook_ms,events_ms,wait_ms\n");
++      fprintf(f, "frame,present_seconds,guest_periods,guest_ms,raster_ms,acquire_ms,compose_ms,present_ms,trace_ms,hook_ms,events_ms,wait_ms,guest_thread_cycles,raster_thread_cycles,acquire_thread_cycles,compose_thread_cycles,present_thread_cycles,trace_thread_cycles,hook_thread_cycles,events_thread_cycles,wait_thread_cycles,processor,audio_highwater_wait_ms,audio_sleep_ms,audio_mutex_wait_ms,audio_highwater_waits,audio_highwater_sleeps,audio_mutex_calls,audio_queue_peak\n");
+       for (unsigned n = 0; n < g_frame_timing_count; ++n) {
+         const FrameTiming *t = &g_frame_timings[n];
+         fprintf(f, "%u,%.9f,%.6f", t->frame, t->at - profile_window_start, t->periods);
+         for (unsigned i = 0; i < kProfileCount; ++i) fprintf(f, ",%.6f", t->stages[i] * 1000);
+-        fputc('\n', f);
++        for (unsigned i = 0; i < kProfileCount; ++i)
++          fprintf(f, ",%llu", (unsigned long long)t->thread_cycles[i]);
++        fprintf(f, ",%u,%.6f,%.6f,%.6f,%llu,%llu,%llu,%u\n", t->processor,
++            t->audio.highwater_seconds * 1000, t->audio.sleep_seconds * 1000,
++            t->audio.mutex_seconds * 1000,
++            (unsigned long long)t->audio.highwater_waits,
++            (unsigned long long)t->audio.highwater_sleeps,
++            (unsigned long long)t->audio.mutex_calls, t->audio_queue_peak);
+       }
+       fclose(f);
+     } else {
+@@ -4406,11 +4635,11 @@ error_reading:;
  static void PollKeyboardControls(const uint8_t *keys) {
    /* Replace the whole keyboard word so changing a seat to Gamepad/None also
     * releases keys held under its previous assignment. Hotkeys remain separate. */
@@ -777,7 +1006,7 @@ index 3bc3905..be05c34 100644
          ? keybinds_read_player_runner(keys, seat + 1) : 0;
  }
  
-@@ -4465,8 +4602,7 @@ static void HandleCommand(uint32 j, bool pressed) {
+@@ -4465,8 +4694,7 @@ static void HandleCommand(uint32 j, bool pressed) {
    if (!pressed)
      return;
    if (j <= kKeys_Load_Last) {
@@ -787,7 +1016,7 @@ index 3bc3905..be05c34 100644
    } else if (j <= kKeys_Save_Last) {
      RtlSaveLoad(kSaveLoad_Save, j - kKeys_Save);
    } else {
-@@ -4528,6 +4664,9 @@ static void HandleCommand(uint32 j, bool pressed) {
+@@ -4528,6 +4756,9 @@ static void HandleCommand(uint32 j, bool pressed) {
  
  static void HandleInput(int keyCode, int keyMod, bool pressed) {
    int j = FindCmdForSdlKey(keyCode, (SDL_Keymod)keyMod);
@@ -797,7 +1026,7 @@ index 3bc3905..be05c34 100644
    if (j != 0)
      HandleCommand(j, pressed);
  }
-@@ -4553,8 +4692,8 @@ static void RequestScreenshot(void) {
+@@ -4553,8 +4784,8 @@ static void RequestScreenshot(void) {
  
  static uint32 GetActiveControllers(void) {
    uint32 ctrl = g_script_controllers |

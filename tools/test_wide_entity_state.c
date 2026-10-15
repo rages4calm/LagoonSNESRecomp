@@ -162,4 +162,49 @@ static void background_transfer(void) {
   assert(!LagoonWideBackground_Begin(&b,3,5,0x128B77,0x7F,0x7F80,0,0x800));
   LagoonWideBackground_Reset(&b);assert(!b.ready && !b.completed && !b.generation);
 }
-int main(void){background_transfer();world_tilemap();animation();ownership();modal();audited_rooms();field_fallback();scene_settlement();room_bounds();puts("wide actor state: pure post-frame/step, idle/variant/refusal, segmented atlas, partial/wrong-room/overwrite/reset PASS");return 0;}
+static void torch_transfer(void) {
+  LagoonWideTorches t;LagoonWideTorches_Reset(&t);
+  static uint16_t vram[32768];
+  put(0x1DFF0,4);put(0x1DFF1,3);put(0x1DFF2,0x6B);put(0x1DFF3,0xDA);
+  put(0x1DFF4,0);put(0x1DFF5,0x3B);put(0x1DFF6,0xC0);put(0x1DFF7,0);
+  for(unsigned frame=0;frame<3;++frame) {
+    unsigned a=0x8900+frame*0xC0;
+    put(0x1DA6B+frame*3,a);put(0x1DA6C+frame*3,a>>8);put(0x1DA6D+frame*3,0x10);
+    for(unsigned i=0;i<0xC0;++i)put(0x100000+a+i,(i^0x5C)+frame);
+  }
+  assert(LagoonWideTorches_Match(&t,vram,1,4,0x128B77)<0);
+  for(unsigned frame=0;frame<3;++frame) {
+    assert(LagoonWideTorches_Begin(&t,1,4,0x128B77,0x10,0x8900+frame*0xC0,0x3B00,0xC0));
+    for(unsigned i=0;i<0xC0;++i) {
+      assert(LagoonWideTorches_Match(&t,vram,1,4,0x128B77)<0);
+      LagoonWideTorches_Write(&t,0x7600+i,(uint8_t)((i^0x5C)+frame),rom,sizeof(rom));
+    }
+    assert(t.seen==((1u<<(frame+1))-1));
+    memcpy((uint8_t*)vram+0x7600,t.bytes[frame],0xC0);
+    assert(LagoonWideTorches_Match(&t,vram,1,4,0x128B77)==(int)frame);
+  }
+  /* Render snapshot may still name any actually completed prior phase. */
+  memcpy((uint8_t*)vram+0x7600,t.bytes[0],0xC0);
+  assert(LagoonWideTorches_Match(&t,vram,1,4,0x128B77)==0);
+  assert(LagoonWideTorches_Match(&t,vram,2,4,0x128B77)<0);
+  assert(LagoonWideTorches_Match(&t,vram,1,5,0x128B77)<0);
+  assert(LagoonWideTorches_Match(&t,vram,1,4,0x138000)<0);
+  assert(!LagoonWideTorches_Begin(&t,1,4,0x128B77,0x10,0x8900,0x3B00,0xBF));
+  LagoonWideTorches_Write(&t,0x8800,0,rom,sizeof(rom));assert(t.seen==7);
+  LagoonWideTorches_Write(&t,0x7600,0,rom,sizeof(rom));assert(!t.seen);
+  assert(LagoonWideTorches_Begin(&t,1,4,0x128B77,0x10,0x8900,0x3B00,0xC0));
+  LagoonWideTorches_Write(&t,0x7601,0,rom,sizeof(rom));assert(!t.left&&!t.seen);
+  assert(LagoonWideTorches_Begin(&t,1,4,0x128B77,0x10,0x8900,0x3B00,0xC0));
+  for(unsigned i=0;i<0xC0;++i)LagoonWideTorches_Write(&t,0x7600+i,0,rom,sizeof(rom));
+  assert(!t.seen); /* source mismatch cannot authorize an invented frame */
+  assert(LagoonWideTorches_Begin(&t,2,5,0x128B77,0x10,0x8900,0x3B00,0xC0));
+  for(unsigned i=0;i<0xC0;++i)LagoonWideTorches_Write(&t,0x7600+i,(uint8_t)(i^0x5C),rom,sizeof(rom));
+  assert(t.seen==1);
+  put(0x1DA6D,0x11); /* Changed source table cannot borrow audited graphics. */
+  assert(LagoonWideTorches_Begin(&t,2,5,0x128B77,0x10,0x8900,0x3B00,0xC0));
+  for(unsigned i=0;i<0xC0;++i)LagoonWideTorches_Write(&t,0x7600+i,(uint8_t)(i^0x5C),rom,sizeof(rom));
+  assert(!t.seen);put(0x1DA6D,0x10);
+  assert(!LagoonWideTorches_Begin(&t,2,7,0x128B77,0x10,0x8900,0x3B00,0xC0)&&!t.seen);
+  LagoonWideTorches_Reset(&t);assert(!t.seen&&!t.generation);
+}
+int main(void){torch_transfer();background_transfer();world_tilemap();animation();ownership();modal();audited_rooms();field_fallback();scene_settlement();room_bounds();puts("wide actor state: pure post-frame/step, idle/variant/refusal, segmented atlas, partial/wrong-room/overwrite/reset PASS");return 0;}

@@ -25,7 +25,15 @@ def main():
     presents=list(csv.DictReader((a.run/'presents.csv').open()))
     bounds={int(r['frame']):{k:int(v)for k,v in r.items()}for r in csv.DictReader(a.bounds.open(),delimiter='\t')}
     controls=list(csv.DictReader((a.control/'presents.csv').open())) if a.control else None
-    if controls:assert [r['frame']for r in presents]==[r['frame']for r in controls]
+    if controls and [r['frame']for r in presents]!=[r['frame']for r in controls]:
+        # A focused final binding may use a subset of an earlier full capture.
+        # Require unique guest frames; interpolated duplicate-frame sequences
+        # must retain their original exact ordering instead of this shortcut.
+        assert len({r['frame']for r in presents})==len(presents)
+        assert len({r['frame']for r in controls})==len(controls)
+        lookup={r['frame']:r for r in controls}
+        assert all(r['frame']in lookup for r in presents)
+        controls=[lookup[r['frame']]for r in presents]
     result={'presents':len(presents),'masked_frames':0,'fallback_frames':0,'outside_checked':0,'outside_nonblack':0,'inside_nonblack':0,'native_center_mismatches':[],'errors':[],'texture':[]}
     frame_images={}
     for i,r in enumerate(presents):
