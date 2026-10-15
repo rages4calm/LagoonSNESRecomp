@@ -1,7 +1,10 @@
 # QoL implementation and qualification
 
 October 15, 2026. All nine player features are optional and default off. The
-package is `lagoon.quality`, version 1.0.0. No instruction bytes are patched.
+package is `lagoon.quality`, version 1.0.0. Most features alter guarded data or
+shared WRAM writes. Camera centring changes five guarded instruction operands;
+the affected camera paths are explicitly interpreter-only and checked against
+the generated AOT manifest before every build.
 
 | Feature ID | Implementation |
 | --- | --- |
@@ -13,7 +16,7 @@ package is `lagoon.quality`, version 1.0.0. No instruction bytes are patched.
 | `exp_boost` | All39 enemy and16 boss template EXP words become floor(original*1.5). Zero rewards stay zero. Gold, stats and EXP thresholds remain stock. |
 | `jump_hold` | At original apex, intercept velocity0000->FF80 for eight frame ticks, keeping velocity zero and horizontal movement running. One hold per jump. |
 | `magic_power` | All nonzero player projectile powers (IDs1..8) and all16 selected-spell slots become floor(original*1.5); empty slots and enemy projectile tables stay stock. |
-| `camera_center` | Existing room-clamped per-frame camera target at0480/0482. |
+| `camera_center` | Guarded centre thresholds and initial X centre in interpreter-owned camera code; the original loader streams every exposed tile strip. |
 
 The new level-two opening values are explicit project choices: 21HP and13DEF
 sit between the requested level-one values and the stock level-three values.
@@ -91,8 +94,7 @@ states should be selected before starting the game; hot toggling is not provided
 Both interpreter and generated AOT CPU writes use the same generic canonical
 WRAM filter, installed at ROM load through `cpu_set_wram_write_filter_hook`.
 16-bit stores apply the low-byte filter/store before the high-byte filter/store.
-This ordering permits the apex hook to keep both velocity bytes zero. Direct
-camera frame writes intentionally bypass the CPU filter. Runtime snapshot parity
+This ordering permits the apex hook to keep both velocity bytes zero. Camera centring never writes its origin from a host frame callback. Runtime snapshot parity
 for the default-off build and enabled feature routes is recorded separately by
 the integrating agent; this document does not turn synthetic tests into gameplay
 proof.
@@ -109,10 +111,7 @@ then release for several frames before trying again. Add a direction such as dow
 for an airborne-distance test. Record0501 bit20, height0514, velocity0516, and
 position0502/0504 each frame; a snapshot merely named jump is insufficient.
 
-The camera callback additionally requires a live player entity(state&C0==C0),
-nonzero HP and room bounds at least256x224. Title and uninitialised/game-over
-screens therefore retain their original camera state. Menus with a valid live
-party retain the same already-centred map view.
+
 
 ## Measured targeted airborne fixture
 
@@ -152,3 +151,47 @@ tier2 and neither hurt/knockback flagC0 is set. Horizontal walking while airborn
 is eligible; the separately guarded follower feature still produces+/-3 even
 with player faster walking enabled. Tests explicitly cover enemy/NPC exclusion,
 both signs, hurt states, nonwalking tiers and invalid/no-direction state.
+
+## Camera streaming correction
+
+The earlier host callback moved0480/0482 directly. A natural town route (down60,
+left50) exposed missing/stale tiles because the native camera's eight-pixel strip
+upload checks had not run. Short centered snapshots had not qualified streaming.
+The callback and its direct WRAM writes have been removed completely.
+
+The corrected optional feature changes only five verified instruction operands:
+
+| CPU instruction | Stock operand | Centred operand |
+| --- | --- | --- |
+| 01:8407, right threshold | 192 | 128 |
+| 01:8431, left threshold | 64 | 128 |
+| 01:845E, down threshold | 176 | 112 |
+| 01:8488, up threshold | 80 | 112 |
+| 01:87F5, initial X offset | 112 | 128 |
+
+Initial vertical offset at01:8814 already uses112 and stays unchanged. The new
+initial X centre is applied before01:8869/01:88E1 load the full native view, so
+there is no initial origin teleport across an unprimed tile ring. The four
+thresholds then let the original direction-specific camera loops move one pixel
+at a time, invoke strip loaders at every eight-pixel boundary, and maintain the
+original BG2/parallax and room-edge logic. Native camera coordinates retain their
+full world range; no host10-bit mask or guessed room margin is applied.
+
+Both the normal and the safety-floor execution paths interpret these camera
+instructions. Explicit `force_lle` entries cover0183D8,0183FB,018426,018452,
+01847D,0187D0 and0187E9. `tools/check_camera_patch_safety.py` rejects generated AOT
+bodies whose covered range overlaps any modified operand and runs after generation
+and during the build. The runtime also checks affected entry ranges for AOT
+variants and refuses the camera patch if it detects a conflict. All five stock
+instructions are checked before any camera byte changes; one mismatch refuses
+the entire camera change. The original ROM on disk is never modified.
+
+Actual-source tests verify unchanged stock ROM/RAM with features off, all five
+expected operands, the untouched initial vertical centre, zero camera callback
+registrations/WRAM writes, rejection of a compiled camera entry, and atomic
+refusal on one mismatching operand. The integrated natural town route checks
+8,640 native tile descriptors without a mismatch; each of five actual GoldCave
+checkpoints also matches both retained map layers. Normal/wide paired routes
+preserve native pixels, guest state and clock. Transition frames are evaluated
+separately from initialized ordinary rooms. These bounded checks do not qualify
+every room, parallax scene, transition or the full campaign.

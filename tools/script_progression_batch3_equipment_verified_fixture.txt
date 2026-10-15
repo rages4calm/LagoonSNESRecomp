@@ -1,0 +1,170 @@
+# Natural traversal probe; no RAM writes, no debug positioning, all features off.
+# Same prefix as combat2 so the enemy is at (1472,1440) at f2664; then teleport to
+# 16 px left of it and swing right, into it.
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+# Additional controlled equipment setup: grant only the Short Sword ownership bit.
+# Actual equipment UI selects it and computes STR; no direct stat/reward writes.
+poke 04d0 40
+press start 6
+wait 90
+dump equipment-field-menu
+press down 4
+wait 4
+press down 4
+wait 4
+press a 4
+wait 90
+dump equipment-open
+wait 300
+dump equipment-wait300
+wait 600
+dump equipment-wait900
+press right 4
+wait 90
+dump equipment-right
+press a 4
+wait 120
+dump equipment-close-a
+press b 4
+wait 600
+dump equipment-closed600
+quit

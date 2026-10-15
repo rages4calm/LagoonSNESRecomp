@@ -43,7 +43,9 @@ add_executable(LagoonSNESRecomp
     src/game_rtl.c
     src/gen_stubs.c
     src/lagoon_qol.c
+    src/lagoon_soundtrack.c
     src/lagoon_widescreen.c
+    src/lagoon_wide_entities.c
 )
 
 # ROM identity. rom_identity.txt is the one place the digests live: the build
@@ -61,6 +63,14 @@ snesrecomp_rom_identity(LagoonSNESRecomp ${CMAKE_SOURCE_DIR}/rom_identity.txt)
 # playable binary from their own ROM. Without the option an empty src/gen/ is
 # still a hard error (the framework owns the message).
 snesrecomp_target_generated_code(LagoonSNESRecomp ${CMAKE_SOURCE_DIR}/src/gen)
+if(EXISTS "${CMAKE_SOURCE_DIR}/src/gen/program_manifest.json")
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    add_custom_target(lagoon_camera_patch_safety
+        COMMAND "${Python3_EXECUTABLE}" -P "${CMAKE_SOURCE_DIR}/tools/check_camera_patch_safety.py"
+            "${CMAKE_SOURCE_DIR}/src/gen/program_manifest.json"
+        VERBATIM)
+    add_dependencies(LagoonSNESRecomp lagoon_camera_patch_safety)
+endif()
 
 # The mod catalog. This names WHERE the packages are; the framework owns the
 # layout they are staged into beside the executable, and stages them on every

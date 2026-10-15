@@ -6,18 +6,12 @@
  * under the matching plugin id (docs/MOD_PACKAGES.md), and packages themselves
  * carry data only, so the behaviour has to live in the executable.
  *
- * Two mechanisms, chosen deliberately:
- *
- *   ROM data, patched once in LagoonQol_OnRomLoaded. Data reads go through the
- *   memory system at run time, so a patched table is honoured by the interpreter
- *   and by ahead-of-time code alike. An *instruction* patch would not be: a
- *   promoted routine carries the bytes the generator compiled, so a later AOT
- *   promotion would silently undo it. That is why nothing here writes instructions.
- *
- *   Game RAM, written from a frame callback, for features the engine only
- *   expresses as per-frame state (the camera). The frame tick fires at the frame
- *   boundary and skips speculative frames, so a write lands between frames and is
- *   what the next frame renders from.
+ * Data changes and shared CPU write filters affect both execution tiers.
+ * Camera centring is the one guarded instruction-operand change: its two
+ * routines remain explicitly interpreter-only. Runtime AOT conflict probes
+ * refuse the feature if a camera entry is compiled; generation checks also
+ * enforce the corresponding CFG exclusions. The ROM's own incremental camera
+ * and strip upload code then runs unchanged around the new centre thresholds.
  *
  * The const on the ROM pointer is API politeness rather than a promise: the host
  * reads the file into a heap buffer and hands that same buffer to SnesInit after
@@ -78,6 +72,23 @@ static int g_walk_speed_applied;
 
 /* Session flags reset at ROM load and enabled by feature activation. */
 static int g_camera_center;
+
+/* Instruction patches require interpreter-owned camera paths. Refuse if an
+ * entry in either affected range has acquired an AOT variant. The generation
+ * contract separately excludes enclosing bodies that cover these operands. */
+static int qol_camera_has_aot_conflict(void) {
+  static const uint32_t ranges[][2] = {{0x0183D8,0x0184A7},{0x0187D0,0x018834}};
+  for (unsigned range=0; range<2; ++range) {
+    for (uint32_t pc=ranges[range][0]; pc<ranges[range][1]; ++pc) {
+      for (uint8_t mx=0; mx<4; ++mx) {
+        const char *reason=cpu_dispatch_entry_reason(pc,mx);
+        if (reason && !strncmp(reason,"compiled_entry",14)) return 1;
+      }
+    }
+  }
+  return 0;
+}
+
 
 /* Declared by the package manifest, so the runtime requires it to exist. The
  * ROM patch above is the one that changes the game; this records that the
@@ -199,12 +210,7 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
   g_jump_armed = g_jump_holding = g_jump_frames = 0;
   LagoonQol_ResetTransient();
   cpu_set_wram_write_filter_hook(qol_filter_write);
-  /* Nothing camera-related is decided here. Its activation callback sets the flag
-   * and registers the frame callback, and that runs after this hook (ROM is read
-   * at host_main.c:3496, plugins are activated at 3522), so clearing here cannot
-   * undo it. Reading the feature state at ROM load was a workaround for a callback
-   * that never ran; the reason it never ran was the wiped callback list, not this
-   * hook. */
+  /* Per-session feature state and transient timers have been cleared above. */
   if (!rom) {
     return;
   }
@@ -221,6 +227,32 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
     } else {
       g_walk_speed_applied = 1;
       fprintf(stderr, "lagoon.qol: walk_speed active, Nasir walks +-5 px; shared tier 2 remains stock\n");
+    }
+  }
+  if (snes_mod_runtime_feature_enabled_c(QOL_PACKAGE_ID, "camera_center") && size >= 0x87F8) {
+    static const struct { uint32_t offset; uint8_t opcode, stock, center; } changes[] = {
+      {0x8407,0xE9,192,128}, /* right screen-space threshold */
+      {0x8431,0xA9, 64,128}, /* left screen-space threshold */
+      {0x845E,0xE9,176,112}, /* down screen-space threshold */
+      {0x8488,0xA9, 80,112}, /* up screen-space threshold */
+      {0x87F5,0xE9,112,128}, /* initial camera before complete map/VRAM load */
+    };
+    int matches=1;
+    for (unsigned j=0; j<sizeof(changes)/sizeof(changes[0]); ++j) {
+      size_t o=changes[j].offset;
+      if (rom[o]!=changes[j].opcode || rom[o+1]!=changes[j].stock || rom[o+2]!=0)
+        matches=0;
+    }
+    if (!matches) {
+      fprintf(stderr,"lagoon.qol: camera_center refused, camera instruction guards differ\n");
+    } else if (qol_camera_has_aot_conflict()) {
+      fprintf(stderr,"lagoon.qol: camera_center refused, affected camera code has an AOT entry\n");
+    } else {
+      uint8_t *r=(uint8_t *)(uintptr_t)rom;
+      for (unsigned j=0; j<sizeof(changes)/sizeof(changes[0]); ++j)
+        r[changes[j].offset+1]=changes[j].center;
+      g_camera_center=1;
+      fprintf(stderr,"lagoon.qol: camera_center applied, native strip streaming retained\n");
     }
   }
   if (size >= QOL_HPTABLE_OFFSET + sizeof(kHpTableStock) &&
@@ -472,114 +504,19 @@ static void qol_mechanics_frame(void) {
   }
 }
 
-/* Immediate camera following.
- *
- * The engine keeps the view in two 10-bit values: $0200 is BG1's horizontal
- * scroll and $0202 the vertical, each a low byte plus two high bits in the next
- * byte, and $00:871C pushes them to $210D/$210E every frame. $0204/$0206 feed
- * BG2 through $210F/$2110 and, in the town at least, hold the same numbers, so
- * the layer copies the view rather than parallaxing it.
- *
- * The view does not track Nasir. Each frame the engine derives his screen
- * position at $050C/$050E as `world - scroll`, tests it against a soft window
- * ($01:A5C2 onward compares against 288, 176, -32 and 80) and only moves the
- * scroll once he has reached the edge of that window -- measured rather than
- * assumed: in the town the scroll stayed at 528 while he walked from screen
- * y=112 down to y=157, so he drifts toward the bottom of the screen instead of
- * the view following him.
- *
- * Centring is therefore a per-frame write of `position - half field`, 128 and
- * 112 of a 256x224 field, clamped to the room. The room bounds are the ones the
- * engine itself clamps entities to at $01:A56A: at least 16, and no further than
- * the far bound ($0492/$0494) minus one screen. Writing the view rather than the
- * border constants is deliberate: the constants are instruction immediates, and
- * an instruction patch would be silently undone by a later ahead-of-time
- * promotion of the routine that holds them. BG3 is left alone because it holds
- * zero here and is evidently not part of the scrolled field.
- */
-#define QOL_WRAM_ENTITY_X 0x0502u /* entity 0 is Nasir: proven from movement dumps */
-#define QOL_WRAM_ENTITY_Y 0x0504u
-#define QOL_WRAM_ROOM_RIGHT 0x0492u /* the bound $01:A574 clamps entity X to */
-#define QOL_WRAM_ROOM_BOTTOM 0x0494u
-#define QOL_WRAM_VIEW_X 0x0480u /* the camera the engine keeps, not the derived copy */
-#define QOL_WRAM_VIEW_Y 0x0482u
-#define QOL_WRAM_VIEW_X_FRAC 0x0094u /* $01:815A: LDA $0480; ADC $94; STA $0200 */
-#define QOL_WRAM_VIEW_Y_FRAC 0x0096u /* $01:8169 does the same for $0482 and $96 */
-#define QOL_FIELD_HALF_W 128u
-#define QOL_FIELD_HALF_H 112u
-#define QOL_FIELD_W 256u
-#define QOL_FIELD_H 224u
-#define QOL_ROOM_EDGE_MARGIN 16u /* the low bound the engine clamps entities to */
-#define QOL_SCROLL_MASK 0x03FFu  /* the PPU takes 10 bits; $0201/$0203 are masked */
-
+/* The original camera now owns its WRAM position, room limits, BG2 parallax
+ * and eight-pixel tile-strip uploads. Never move its origin from a frame
+ * callback: that bypasses the loader and exposes blank/stale ring-buffer tiles.
+ * The guarded ROM operands above remove the dead zone and centre initial map
+ * loading. Activation does not register a WRAM-writing camera callback. */
 static uint16_t qol_wram_read16(uint32_t addr) {
   return (uint16_t)(g_ram[addr] | ((uint16_t)g_ram[addr + 1] << 8));
 }
-
 static void qol_wram_write16(uint32_t addr, uint16_t value) {
   g_ram[addr] = (uint8_t)(value & 0xFF);
   g_ram[addr + 1] = (uint8_t)(value >> 8);
 }
-
-/* Clamp to the room, and hold the near edge if the room is smaller than a
- * screen: pinning the view beats scrolling into unrawn map. */
-static uint16_t qol_clamp_view(long wanted, long low, long high) {
-  if (high < low) {
-    return (uint16_t)low;
-  }
-  if (wanted < low) {
-    wanted = low;
-  } else if (wanted > high) {
-    wanted = high;
-  }
-  return (uint16_t)(wanted & (long)QOL_SCROLL_MASK);
-}
-
-static void qol_frame(void) {
-  if (!g_camera_center) {
-    return; /* the faithful game, untouched */
-  }
-  uint16_t x = qol_wram_read16(QOL_WRAM_ENTITY_X);
-  uint16_t y = qol_wram_read16(QOL_WRAM_ENTITY_Y);
-  uint16_t right = qol_wram_read16(QOL_WRAM_ROOM_RIGHT);
-  uint16_t bottom = qol_wram_read16(QOL_WRAM_ROOM_BOTTOM);
-  /* Keep title, uninitialised map and defeated-player screens untouched. */
-  if ((g_ram[0x500] & 0xC0) != 0xC0 || !qol_wram_read16(0x520) ||
-      right < QOL_FIELD_W || bottom < QOL_FIELD_H) return;
-  uint16_t view_x = qol_clamp_view((long)x - QOL_FIELD_HALF_W, QOL_ROOM_EDGE_MARGIN,
-                                   (long)right - QOL_FIELD_W);
-  uint16_t view_y = qol_clamp_view((long)y - QOL_FIELD_HALF_H, QOL_ROOM_EDGE_MARGIN,
-                                   (long)bottom - QOL_FIELD_H);
-  /* Write the camera, not the value the PPU is fed from. $01:8158 recomputes
-   * $0200 = $0480 + $94 every frame, so a write to $0200 at the frame boundary is
-   * overwritten before the next frame renders it -- tried and measured, the screen
-   * position stayed exactly where the stock game put it. The engine only rewrites
-   * $0480/$0482 when a border scroll actually fires, which is why writing here
-   * holds. The fractions are cleared so the view is centred rather than centred
-   * plus a sub-pixel remainder the smooth scroller left behind. */
-  qol_wram_write16(QOL_WRAM_VIEW_X, view_x);
-  qol_wram_write16(QOL_WRAM_VIEW_Y, view_y);
-  qol_wram_write16(QOL_WRAM_VIEW_X_FRAC, 0);
-  qol_wram_write16(QOL_WRAM_VIEW_Y_FRAC, 0);
-  qol_wram_write16(QOL_WRAM_VIEW_X + 4, view_x); /* BG2 mirrors the view */
-  qol_wram_write16(QOL_WRAM_VIEW_Y + 4, view_y);
-}
-
-/* The frame callback is registered here, not from the constructor, and that is
- * the whole reason this feature took three attempts: mod_runtime_activate_plugins
- * (mod_runtime.cpp:2959) clears the frame and APU callback lists and then invokes
- * reset and activation callbacks, at every session start. A static constructor
- * runs before main, so a callback registered there is wiped before the first
- * frame -- registration returns success, nothing ever calls it, and no diagnostic
- * complains. This function is also the only place the feature's state is known
- * for certain: the runtime calls it exactly when the player has enabled it. */
-static void qol_camera_activated(void) {
-  g_camera_center = 1;
-  snes_mod_register_frame_callback(qol_frame);
-  /* One line, once per session: a plugin that changes the game should say so
-   * where a player or a receipt will see it. */
-  fprintf(stderr, "lagoon.qol: camera_center active, view centred on Nasir\n");
-}
+static void qol_camera_activated(void) {}
 
 /* Development hook: put Nasir on a chosen tile.
  *
@@ -600,6 +537,8 @@ static void qol_camera_activated(void) {
  * from the walk that got him there carries on applying and the measured position
  * is a frame or two away from the one asked for.
  */
+#define QOL_WRAM_ENTITY_X 0x0502u
+#define QOL_WRAM_ENTITY_Y 0x0504u
 #define QOL_WRAM_ENTITY_VX 0x0506u /* the velocity $02:80EA fills from the tier table */
 #define QOL_WRAM_ENTITY_VY 0x0508u
 #define QOL_DEBUG_ENV "LAGOON_DEBUG_AT"

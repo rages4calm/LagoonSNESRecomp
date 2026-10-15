@@ -18,6 +18,9 @@ def main():
     parser.add_argument('--out',required=True,type=Path)
     parser.add_argument('--coverage',action='store_true')
     parser.add_argument('--features',default='',help='Comma-separated lagoon.quality feature ids; creates a private mod catalog')
+    parser.add_argument('--feature',action='append',default=[],help='Additional package_id:feature_id; repeatable')
+    parser.add_argument('--env',action='append',default=[],help='Allowlisted diagnostic KEY=VALUE; relative output paths stay under --out')
+    parser.add_argument('--msu-prefix',type=Path,help='Read-only private PCM pack prefix; never copies music into the source tree')
     parser.add_argument('--config',type=Path,help='Private input config; never modifies the owner configuration')
     parser.add_argument('--screenshot-frame',type=int,help='Capture the full expanded presentation at this frame')
     parser.add_argument('--manifest',type=Path,help='Manifest belonging to this executable; required for old retained binaries')
@@ -25,6 +28,10 @@ def main():
     repo=Path(__file__).resolve().parents[1];rom=repo.parent/'Lagoon (USA).sfc'
     exe=args.exe.resolve();route=args.route.resolve();out=args.out.resolve()
     out.mkdir(parents=True,exist_ok=False)
+    # Freeze input bytes before launch: another investigation may edit its source
+    # script while the game process is starting. Receipts must describe what ran.
+    route_bytes=route.read_bytes()
+    frozen_route=out/'route.txt';frozen_route.write_bytes(route_bytes)
     for name in ('saves','dumps','coverage'):(out/name).mkdir()
     # Every run gets its own catalog and state. An explicit --config lets the
     # native host keep this CWD instead of anchoring itself beside the executable.
@@ -32,13 +39,21 @@ def main():
     catalog=host/'mods/preloaded'
     shutil.copytree(repo/'mods/preloaded/packages',catalog/'packages')
     import tomllib
-    quality=tomllib.loads((catalog/'packages/lagoon.quality/1.0.0/manifest.toml').read_text(encoding='utf-8'))
-    available={f['id'] for f in quality['feature']}
     enabled=set(filter(None,args.features.split(',')))
-    if enabled-available:raise SystemExit(f'Unknown QoL features: {sorted(enabled-available)}')
-    state='format_version = 1\n\n[[package]]\nid = "lagoon.quality"\nversion = "1.0.0"\n'
-    for feature in sorted(available):
-        state+='\n[[feature]]\npackage_id = "lagoon.quality"\nid = '+json.dumps(feature)+'\nenabled = '+str(feature in enabled).lower()+'\n'
+    selected={('lagoon.quality',feature) for feature in enabled}
+    for spec in args.feature:
+        package,sep,feature=spec.partition(':')
+        if not sep or not package or not feature:raise SystemExit('Expected --feature package_id:feature_id')
+        selected.add((package,feature))
+    state='format_version = 1\n';available=set()
+    for manifest_path in sorted((catalog/'packages').glob('*/*/manifest.toml')):
+        package=tomllib.loads(manifest_path.read_text(encoding='utf-8'))
+        package_id=package['id']
+        state+='\n[[package]]\nid = '+json.dumps(package_id)+'\nversion = '+json.dumps(package['version'])+'\n'
+        for feature in package.get('feature',[]):
+            pair=(package_id,feature['id']);available.add(pair)
+            state+='\n[[feature]]\npackage_id = '+json.dumps(package_id)+'\nid = '+json.dumps(feature['id'])+'\nenabled = '+str(pair in selected).lower()+'\n'
+    if selected-available:raise SystemExit(f'Unknown package features: {sorted(selected-available)}')
     (catalog/'state.toml').write_text(state,encoding='utf-8')
     if (repo/'build/keybinds.ini').exists():shutil.copy2(repo/'build/keybinds.ini',host/'keybinds.ini')
     env=dict(os.environ)
@@ -51,9 +66,42 @@ def main():
     if args.screenshot_frame:
         env.update(SNESRECOMP_SCREENSHOT=str(out/'presentation.ppm'),
                    SNESRECOMP_SCREENSHOT_FRAME=str(args.screenshot_frame))
+    diagnostic_paths={'LAGOON_WIDE_ENTITY_REPORT','LAGOON_SOUNDTRACK_PROBE',
+                      'SNESRECOMP_APURAM_TRACE_FILE','SNESRECOMP_DSPREG_TRACE_FILE'}
+    overrides={}
+    for spec in args.env:
+        key,sep,value=spec.partition('=')
+        if not sep or key not in diagnostic_paths|{'LAGOON_WIDE_ASPECT'}:
+            raise SystemExit('Unsupported diagnostic override: '+spec)
+        if key in diagnostic_paths:
+            p=Path(value);p=(p if p.is_absolute() else out/p).resolve()
+            if not p.is_relative_to(out) or p.exists():raise SystemExit('Diagnostic outputs must be fresh paths within --out')
+            p.parent.mkdir(parents=True,exist_ok=True);value=str(p)
+        elif value not in {'16:9','16:10','21:9','32:9','window'}:
+            raise SystemExit('Unsupported widescreen aspect: '+value)
+        env[key]=value;overrides[key]=value
+    pack_receipt=None
+    if args.msu_prefix:
+        prefix=args.msu_prefix.resolve()
+        data_file=Path(str(prefix)+'.msu')
+        if not data_file.is_file():raise SystemExit('MSU prefix requires its .msu data file')
+        env['SNESRECOMP_MSU1']=str(prefix)
+        pack_receipt={'prefix':str(prefix),'data_sha256':hashlib.sha256(data_file.read_bytes()).hexdigest()}
+        pack_manifest=prefix.parent/'pack.json'
+        if pack_manifest.is_file():pack_receipt['manifest_sha256']=hashlib.sha256(pack_manifest.read_bytes()).hexdigest()
+        # The framework resolves MSU through an enabled declared resource and
+        # intentionally clears an unbound environment-only prefix on commit.
+        state+='\n[[resource]]\npackage_id = "lagoon.soundtrack"\nfeature_id = "x68000"\nid = "pack"\npath = '+json.dumps(str(prefix.parent))+'\n'
+        (catalog/'state.toml').write_text(state,encoding='utf-8')
     sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
-    receipt=dict(exe=str(exe),exe_sha256=sha(exe),rom_sha256=sha(rom),route=str(route),route_sha256=sha(route),frames=args.frames)
-    receipt.update(enabled_features=sorted(enabled),private_mod_state=state,private_working_directory=str(host))
+    receipt=dict(exe=str(exe),exe_sha256=sha(exe),rom_sha256=sha(rom),route=str(route),route_sha256=hashlib.sha256(route_bytes).hexdigest(),frozen_route=str(frozen_route),frames=args.frames)
+    receipt.update(enabled_features=sorted(enabled),enabled_package_features=sorted(selected),
+                   diagnostic_overrides=overrides,private_mod_state=state,private_working_directory=str(host))
+    # The framework's current save-root buffer is only 96 bytes. A short path
+    # relative to our isolated CWD avoids truncating long Windows test roots.
+    receipt['private_save_root']=str(out/'saves')
+    receipt['save_root_argument']='../saves'
+    receipt['input_msu_pack']=pack_receipt
     for rel in ('config.ini','keybinds.ini','mods/preloaded/state.toml'):
         p=repo/'build'/rel
         if p.exists():receipt[rel]=dict(sha256=sha(p),text=p.read_text(encoding='utf-8'))
@@ -71,8 +119,8 @@ def main():
     (out/'config.ini').write_text(config,encoding='utf-8')
     started=time.monotonic()
     with (out/'stdout.log').open('w') as stdout,(out/'stderr.log').open('w') as stderr:
-        result=subprocess.run([str(exe),'--no-launcher','--config',str(out/'config.ini'),'--rom',str(rom),'--save-root',str(out/'saves'),
-                               '--script',str(route)],cwd=host,env=env,stdout=stdout,stderr=stderr,timeout=240)
+        result=subprocess.run([str(exe),'--no-launcher','--config',str(out/'config.ini'),'--rom',str(rom),'--save-root','../saves',
+                               '--script',str(frozen_route)],cwd=host,env=env,stdout=stdout,stderr=stderr,timeout=240)
     receipt.update(exit_code=result.returncode,elapsed_seconds=round(time.monotonic()-started,2),
                    dump_tags=sorted(p.name.removesuffix('.wram.bin') for p in (out/'dumps').glob('*.wram.bin')))
     (out/'receipt.json').write_text(json.dumps(receipt,indent=2))

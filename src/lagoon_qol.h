@@ -4,8 +4,8 @@
 /* Owner-requested quality-of-life features (see lagoon_qol.c for what each one
  * does and how it was proven). The ROM hook is wired through the desktop host's
  * game descriptor and runs on the loaded image before the machine exists, which
- * is the only point where a data patch is visible to both the interpreter and
- * ahead-of-time code. */
+ * is the point where a data patch is visible to both execution tiers. Camera
+ * instruction operands require the explicit interpreter-only generation guard. */
 
 #include <stddef.h>
 #include <stdint.h>

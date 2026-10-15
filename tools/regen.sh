@@ -104,6 +104,7 @@ if [ "$VERIFY" -eq 1 ]; then GEN_ARGS+=("${VERIFY_ARGS[@]}"); fi
 
 echo "== Generating src/gen =="
 "$PYTHON" "$CLI" generate "${GEN_ARGS[@]}"
+"$PYTHON" -P "$ROOT/tools/check_camera_patch_safety.py" "$ROOT/src/gen/program_manifest.json"
 
 echo
 echo "Done. Build with:"

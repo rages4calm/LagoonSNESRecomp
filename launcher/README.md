@@ -25,6 +25,16 @@ window choices through `[Graphics] Widescreen` and `[Lagoon] WideAspect`. It exp
 backgrounds; off-screen NPC/enemy rendering and some rooms remain unfinished.
 Unsupported scenes retain their original view.
 
+Audio also offers **Original SNES** (default) and **X68000 (partial, experimental)**.
+Select the private imported music folder, choose X68000, Apply and restart.
+The local converted folder is `C:\Users\crono\Desktop\Projects\Lagoon\Soundtracks\X68000`;
+VGZ conversion is already complete, so MP3 files are not required. Title, Atland
+and opening Gold Cave music are mapped; other/missing cues retain SNES audio and
+sound effects stay on the original driver. State loads restart the cue, and
+run-ahead/netplay use SNES. The selector and folder persist as the matching
+`lagoon.soundtrack` feature/resource in native mod state. Nothing enables it
+automatically. See [soundtrack details](../docs/X68000-SOUNDTRACK.md).
+
 The Quality of life page changes the matching native package's feature selections
 in `mods/preloaded/state.toml` beside the executable. All nine options default off:
 walking speed, opening balance, camera centering, sword reach, follower speed,

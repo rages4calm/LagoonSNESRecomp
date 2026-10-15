@@ -112,6 +112,45 @@ index 1f5de57..a5ec24a 100644
                  _pop = ("RecompStackPopYield"
                          if "interp_bridge_lle_yield_unwind" in stripped
                          else "RecompStackPop")
+diff --git a/runner/runner.cmake b/runner/runner.cmake
+index a95cc69..77cd633 100644
+--- a/runner/runner.cmake
++++ b/runner/runner.cmake
+@@ -739,7 +739,9 @@ function(snesrecomp_target_mod_catalog target preloaded_dir)
+         # but a catalog that arrives incomplete (a package removed from the
+         # source tree between configure and build, a destination someone else's
+         # POST_BUILD wiped) looks exactly like a title with fewer mods.
+-        list(JOIN _ids "|" _ids_arg)
++        # Commas are not shell metacharacters. A pipe survives CMake's quoting
++        # inside nested Windows cmd.exe commands and can split the build step.
++        list(JOIN _ids "," _ids_arg)
+         add_custom_command(TARGET ${target} POST_BUILD
+             COMMAND ${CMAKE_COMMAND}
+                 "-DSNES_MOD_DEST=$<TARGET_FILE_DIR:${target}>/${SNESRECOMP_MOD_CATALOG_DEST}"
+diff --git a/runner/snes_check_mod_catalog.cmake b/runner/snes_check_mod_catalog.cmake
+index a240b9d..d77f9b2 100644
+--- a/runner/snes_check_mod_catalog.cmake
++++ b/runner/snes_check_mod_catalog.cmake
+@@ -2,7 +2,7 @@
+ #
+ # Run by snesrecomp_target_mod_catalog as a POST_BUILD step, with:
+ #   SNES_MOD_DEST   the staged <exe-dir>/mods/preloaded/packages
+-#   SNES_MOD_IDS    '|'-separated package ids the source tree declared
++#   SNES_MOD_IDS    comma-separated package ids the source tree declared
+ #   SNES_MOD_TARGET the target, for the message
+ #
+ # A staged catalog that is missing a package is the failure this exists to
+@@ -12,7 +12,9 @@ if(NOT DEFINED SNES_MOD_DEST OR NOT DEFINED SNES_MOD_IDS)
+     message(FATAL_ERROR "snes_check_mod_catalog: SNES_MOD_DEST and SNES_MOD_IDS are required")
+ endif()
+ 
+-string(REPLACE "|" ";" _ids "${SNES_MOD_IDS}")
++string(REPLACE "," ";" _ids "${SNES_MOD_IDS}")
++# Keep older generated commands usable until their next configure.
++string(REPLACE "|" ";" _ids "${_ids}")
+ set(_missing "")
+ foreach(_id IN LISTS _ids)
+     if(NOT IS_DIRECTORY "${SNES_MOD_DEST}/${_id}")
 diff --git a/runner/src/cpu_state.c b/runner/src/cpu_state.c
 index 57fe6bc..7e66d4d 100644
 --- a/runner/src/cpu_state.c
@@ -492,6 +531,50 @@ index 01dbd36..c9fcb6c 100644
  } SnesrecompHostArgs;
  
  /* Consume the engine-owned arguments from *argc / *argv, in place.
+diff --git a/runner/src/snes/dma.c b/runner/src/snes/dma.c
+index 9fb6639..9719165 100644
+--- a/runner/src/snes/dma.c
++++ b/runner/src/snes/dma.c
+@@ -15,6 +15,11 @@
+ 
+ extern Ppu *g_ppu;
+ static DmaVramNotifyHook g_vram_notify_hook;
++static DmaStartObserver g_start_observer;
++
++void dma_set_start_observer(DmaStartObserver observer) {
++  g_start_observer = observer;
++}
+ 
+ /* Debug logging gate: set SNESRECOMP_DMA_DEBUG=1 to enable the DMA config /
+  * CGRAM / S-DD1 arm trace. Off by default — the trace fires for every DMA
+@@ -556,6 +561,10 @@ void dma_startDma(Dma* dma, uint8_t val, bool hdma) {
+     }
+   }
+   if(!hdma) {
++    if (g_start_observer) {
++      for (unsigned i = 0; i < 8; ++i)
++        if (val & (1u << i)) g_start_observer(dma, i, &dma->channel[i]);
++    }
+     dma->dmaBusy = val;
+     dma->dmaTimer += dma->dmaBusy ? 16 : 0; // 12-24 cycle overhead for entire dma transfer
+     /* Diagnostic: log ALL DMA triggers with source addresses */
+diff --git a/runner/src/snes/dma.h b/runner/src/snes/dma.h
+index f55baf8..ec56156 100644
+--- a/runner/src/snes/dma.h
++++ b/runner/src/snes/dma.h
+@@ -38,6 +38,12 @@ typedef struct DmaChannel {
+   uint8_t offIndex;
+ } DmaChannel;
+ 
++/* Read-only notification before an ordinary DMA channel begins. Borrowed
++ * state is valid only during the callback. No callback runs for HDMA. */
++typedef void (*DmaStartObserver)(const Dma *dma, unsigned channel,
++                                 const DmaChannel *transfer);
++void dma_set_start_observer(DmaStartObserver observer);
++
+ struct Dma {
+   Snes* snes;
+   /* Transient state for channels enabled between frame initializations. Keep
 diff --git a/runner/src/snes/interp_bridge.c b/runner/src/snes/interp_bridge.c
 index c1e48eb..8985861 100644
 --- a/runner/src/snes/interp_bridge.c
@@ -576,7 +659,7 @@ index c1e48eb..8985861 100644
          if (dtrace && in.dp != dp_before) {
              extern int snes_frame_counter;
 diff --git a/runner/src/snes/ppu.c b/runner/src/snes/ppu.c
-index 25dcfe0..257d250 100644
+index 25dcfe0..cee0ebd 100644
 --- a/runner/src/snes/ppu.c
 +++ b/runner/src/snes/ppu.c
 @@ -273,6 +273,7 @@ bool PpuSetOverlayOamRange(Ppu *ppu, uint8_t first, uint8_t count) {
@@ -614,6 +697,14 @@ index 25dcfe0..257d250 100644
    for (size_t windex = 0; windex < win.nr; windex++) {
      if (win.bits & (1 << windex))
        continue;  // layer is disabled for this window part
+@@ -2792,6 +2804,7 @@ void PpuSetExtraObjects(Ppu *ppu,const PpuExtraObject *objects,size_t count) {
+   ppu->extraObjects=objects;ppu->extraObjectCount=objects?count:0;
+ }
+ 
++
+ bool PpuComposeExtraObjects(const PpuExtraObject *objects,size_t count,
+     int y,int x0,size_t width,unsigned first_slot,
+     uint16_t *depth,uint16_t *colors,uint64_t *order) {
 diff --git a/runner/src/snes/ppu.h b/runner/src/snes/ppu.h
 index 7e092bb..21de274 100644
 --- a/runner/src/snes/ppu.h
@@ -752,6 +843,74 @@ index 98ce817..bc7c0f7 100644
 +  puts("RDNMI: disabled/enabled NMI, non-consuming $4210/$4212 reads, field expiry, instance isolation, host compatibility, v9/v10 snapshots and reset PASS");
    return 0;
  }
+diff --git a/tests/ppu/ppu_shadow_authoritative_map_test.c b/tests/ppu/ppu_shadow_authoritative_map_test.c
+new file mode 100644
+index 0000000..1f7c676
+--- /dev/null
++++ b/tests/ppu/ppu_shadow_authoritative_map_test.c
+@@ -0,0 +1,62 @@
++/* Actual shadow storage + actual PPU: a captured circular-map blank must
++ * yield to a title-resolved retained map, while native pixels stay authentic. */
++#define main unused_world_mirror_main
++#define WsShadowTile fixture_WsShadowTile
++#define WsShadowLayerActive fixture_WsShadowLayerActive
++#define WsShadowWorldX fixture_WsShadowWorldX
++#define WsShadowPresentWorldY fixture_WsShadowPresentWorldY
++#define WsShadowScrollY fixture_WsShadowScrollY
++#define WsShadowOnVramWrite fixture_WsShadowOnVramWrite
++#include "ppu_world_mirror_test.c"
++#undef main
++#undef WsShadowTile
++#undef WsShadowLayerActive
++#undef WsShadowWorldX
++#undef WsShadowPresentWorldY
++#undef WsShadowScrollY
++#undef WsShadowOnVramWrite
++#include "snes/ws_shadow.h"
++
++int main(void) {
++  Ppu *p = calloc(1, sizeof(*p));
++  uint32_t pixels[kWide];
++  check(p != NULL, "allocate PPU");
++  ppu_reset(p);
++  PpuBeginDrawing(p, (uint8_t *)pixels, sizeof(uint32_t) * kWide,
++                  kPpuRenderFlags_NewRenderer);
++  setup_arena_bg1(p);
++  for (int i = 0; i < 0x1000; ++i) p->vram[i] = 1;
++  int native[8], resolved[8];
++  for (int x = 0; x < 8; ++x) { native[x] = 1; resolved[x] = 5; }
++  for (int y = 0; y < 8; ++y) {
++    put_tile_row(p, 1, y, native); put_tile_row(p, 2, y, resolved);
++  }
++  PpuSetExtraSpace(p, kExtra);
++  PpuSetWidescreenShadowNativeExactMask(p, 1);
++  WsShadowReset(); WsShadowSetWorld(0, 0, 0); WsShadowFrame(p);
++  /* Native column35 is circular-buffer headroom, not a proven world tile. */
++  p->vram[0x403] = 0;
++  WsShadowOnVramWrite(0x403, 0);
++  uint16_t tile = 999;
++  check(WsShadowLookupWorldTile(0, 35, 0, &tile) && tile == 0,
++        "real VRAM capture reproduces blank history");
++  WsShadowPrefillTile(0, 35, 0, 2);
++  check(WsShadowLookupWorldTile(0, 35, 0, &tile) && tile == 0,
++        "default prefill preserves captured entries for existing ports");
++  WsShadowForceTile(0, 35, 0, 2);
++  WsShadowForceTile(0, 1, 0, 2); /* deliberately differs under native view */
++  check(WsShadowLookupWorldTile(0, 35, 0, &tile) && tile == 2,
++        "opt-in authoritative map replaces circular blank");
++  ppu_runLine(p, 0); ppu_runLine(p, 1);
++  check(pixels[kExtra + 280] == 0x292929, "resolved right-margin pixel has exact retained palette color");
++  check(pixels[kExtra + 8] == 0x080808, "native fragment retains exact guest palette color");
++  check(pixels[kExtra + 280] != pixels[kExtra + 8],
++        "native fragment uses actual VRAM despite authoritative shadow difference");
++  check(WsShadowTile(0, 8, 0, 0, 1, 1) == 1,
++        "native tile lookup remains actual guest tile");
++  WsShadowReset();
++  check(!WsShadowLookupWorldTile(0, 35, 0, &tile), "reset clears authoritative history");
++  free(p);
++  puts("authoritative retained map: captured blank reproduction, unchanged default, real PPU margin/native pixels, reset PASS");
++  return 0;
++}
 diff --git a/tests/ppu/ppu_shadow_native_boundary_test.c b/tests/ppu/ppu_shadow_native_boundary_test.c
 new file mode 100644
 index 0000000..3487480
@@ -875,6 +1034,59 @@ index 0000000..157d166
 +if ($LASTEXITCODE -ne 0) { throw 'PPU native-boundary regression failed to compile' }
 +& $output
 +if ($LASTEXITCODE -ne 0) { throw 'PPU native-boundary regression failed' }
+diff --git a/tests/runtime_dispatch/dma_start_observer_test.c b/tests/runtime_dispatch/dma_start_observer_test.c
+new file mode 100644
+index 0000000..3ebf8e4
+--- /dev/null
++++ b/tests/runtime_dispatch/dma_start_observer_test.c
+@@ -0,0 +1,47 @@
++#include <assert.h>
++#include <stdio.h>
++#include <string.h>
++#include "snes/dma.h"
++#include "snes/ppu.h"
++#include "snes/sdd1.h"
++Ppu *g_ppu;
++uint8_t g_ppu_wlog_src;
++uint8_t snes_readBBus(Snes *s, uint8_t a) { (void)s; (void)a; return 0; }
++void snes_writeBBus(Snes *s, uint8_t a, uint8_t v) { (void)s; (void)a; (void)v; }
++uint8_t snes_read(Snes *s, uint32_t a) { (void)s; (void)a; return 0; }
++void snes_write(Snes *s, uint32_t a, uint8_t v) { (void)s; (void)a; (void)v; }
++uint8_t sdd1_dma_get_byte(Sdd1 *s, int ch) { (void)s; (void)ch; return 0; }
++void sdd1_dma_init(Sdd1 *s, int ch, uint32_t source, uint32_t size) {
++  (void)s; (void)ch; (void)source; (void)size;
++}
++bool sdd1_dma_active(Sdd1 *s, int ch) { (void)s; (void)ch; return false; }
++static unsigned calls, channels;
++static void observe(const Dma *dma, unsigned channel, const DmaChannel *t) {
++  assert(t == &dma->channel[channel]);
++  assert(t->aAdr == 0x2000 + channel && t->size == 0x220);
++  assert(t->dmaActive); /* enabled but source/size not consumed */
++  ++calls; channels |= 1u << channel;
++}
++int main(void) {
++  Dma off = {0}, observed = {0};
++  for (unsigned i=0;i<8;++i) {
++    off.channel[i].aAdr = (uint16_t)(0x2000+i);
++    off.channel[i].aBank = 0x7e;
++    off.channel[i].bAdr = 4;
++    off.channel[i].size = 0x220;
++  }
++  observed = off;
++  dma_startDma(&off, 0x85, false);
++  dma_set_start_observer(observe);
++  dma_startDma(&observed, 0x85, false);
++  assert(calls==3 && channels==0x85);
++  assert(!memcmp(&off,&observed,sizeof(off)));
++  dma_startDma(&observed, 0x85, true);
++  dma_startDma(&observed, 0, false);
++  assert(calls==3); /* HDMA/disabled masks do not observe ordinary starts */
++  dma_set_start_observer(NULL);
++  dma_startDma(&observed, 1, false);
++  assert(calls==3);
++  puts("DMA start observer: selected channels, pre-transfer source, unchanged state, HDMA, unregister PASS");
++  return 0;
++}
 diff --git a/tests/runtime_dispatch/run_wram_write_filter_test.ps1 b/tests/runtime_dispatch/run_wram_write_filter_test.ps1
 new file mode 100644
 index 0000000..89ed45b

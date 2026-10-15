@@ -7,8 +7,9 @@ Usage:
   <cpu_pc>   24-bit CPU address: $00:8148, 008148, or 8148 (bank 00).
   count      instructions to print (default 40).
 
-Uses snesrecomp/recompiler/snes65816.py, so operand widths and flag-sensitive
-immediate sizes match what the recompiler itself will emit.
+Uses snesrecomp/recompiler/snes65816.py and tracks linear REP/SEP width changes.
+This is not a control-flow analysis: use explicit entry widths and bounded
+ranges, especially around PLP, XCE, branches and embedded data.
 """
 import os
 import sys
@@ -99,6 +100,12 @@ def main(argv):
             elif insn.mode in (getattr(sn, "REL", None), getattr(sn, "REL16", None)):
                 tgt = "  ; -> %02X:%04X" % (bank, insn.operand)
             out.append("%02X:%04X [%06X]  %-16s %s%s" % (bank, pc, off, hexb, text, tgt))
+            if insn.mnem == 'REP':
+                if o & 0x20: m = 0
+                if o & 0x10: x = 0
+            elif insn.mnem == 'SEP':
+                if o & 0x20: m = 1
+                if o & 0x10: x = 1
             off += insn.length
             pc = (pc + insn.length) & 0xFFFF
             printed += 1

@@ -1,0 +1,245 @@
+# Natural traversal probe; no RAM writes, no debug positioning, all features off.
+# Same prefix as combat2 so the enemy is at (1472,1440) at f2664; then teleport to
+# 16 px left of it and swing right, into it.
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+dump town
+press up 12
+dump north-first-00
+press up 12
+dump north-first-01
+press up 12
+dump north-first-02
+press up 12
+dump north-first-03
+press up 12
+dump north-first-04
+press up 12
+dump north-first-05
+press up 12
+dump north-first-06
+press up 12
+dump north-first-07
+wait 300
+dump north-first-settled
+press up 12
+dump north-second-00
+press up 12
+dump north-second-01
+press up 12
+dump north-second-02
+press up 12
+dump north-second-03
+press up 12
+dump north-second-04
+press up 12
+dump north-second-05
+press up 12
+dump north-second-06
+press up 12
+dump north-second-07
+press up 12
+dump north-second-08
+press up 12
+dump north-second-09
+press up 12
+dump north-second-10
+press up 12
+dump north-second-11
+press up 12
+dump north-second-12
+press up 12
+dump north-second-13
+wait 300
+dump north-second-settled
+press right 64
+dump aligned-corridor
+press up 12
+dump gate-00
+press up 12
+dump gate-01
+press up 12
+dump gate-02
+press up 12
+dump gate-03
+press up 12
+dump gate-04
+press up 12
+dump gate-05
+press up 12
+dump gate-06
+press up 12
+dump gate-07
+wait 300
+dump cave-settled
+press up 12
+dump cave-north-00
+press up 12
+dump cave-north-01
+press up 12
+dump cave-north-02
+press up 12
+dump cave-north-03
+press up 12
+dump cave-north-04
+press up 12
+dump cave-north-05
+press up 12
+dump cave-north-06
+press up 12
+dump cave-north-07
+press up 12
+dump cave-north-08
+press up 12
+dump cave-north-09
+press up 12
+dump cave-north-10
+press up 12
+dump cave-north-11
+press up 12
+dump cave-north-12
+press up 12
+dump cave-north-13
+press up 12
+dump cave-north-14
+wait 300
+dump cave-end
+quit

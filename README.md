@@ -6,7 +6,8 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress — October 15, 2026
 
-Eight gameplay routines have been promoted in the October 15 batches:
+Twenty-one gameplay roots have been promoted in the October 15 batches.
+The first eight cover:
 
 - Entity movement integration (`01:A4EB`).
 - Room-boundary clamping (`01:A56A`).
@@ -17,6 +18,12 @@ Eight gameplay routines have been promoted in the October 15 batches:
 - Map/attribute quadrant sampling (`01:8385`).
 - Jump eligibility/input checks (`02:8199`).
 
+Thirteen more cover hit eligibility/rectangles, enemy defeat marking, gold and
+EXP awards, level/stat recalculation and regeneration. Real bat combat,
+level-up, gold saturation, temporary stat bonuses and equipment fixtures match
+the previous native control. These fixtures explicitly seed a few setup values;
+natural story progression and the full campaign still need qualification.
+
 They use opt-in instruction-boundary timing and real bus-region costs. The
 7,219-frame movement/menu route matches the prior native control at all 18 dump
 tags, including framebuffer, WRAM, registers, VRAM, OAM, CGRAM and guest clock.
@@ -24,11 +31,11 @@ Interpreted work falls from the first batch's 70,655,953 to 63,863,965
 instructions on that route, another 9.61% reduction. This measures interpreted
 work on a bounded replay, not a native-completion percentage.
 
-The build generates 151 AOT variants and 18 declared LLE variants; additional
+The build generates 164 AOT variants and 18 declared LLE variants; additional
 runtime fallback remains available. The original opening-loop fix stays in place.
 Existing native-versus-pure-interpreter clock/state differences remain unresolved.
-Combat, progression, save/load and the full campaign are not qualified.
-See [the current evidence receipt](NATIVE-BATCH2-2026-10-15.md) and [todo list](TODO.md).
+Bounded combat/progression evidence does not certify every encounter or save.
+See [the current evidence receipt](NATIVE-BATCH3-2026-10-15.md) and [todo list](TODO.md).
 
 ## Launcher
 
@@ -79,18 +86,32 @@ rejected by this clean-ROM build. Generated C is ROM-derived and remains local.
 
 All nine requested QoL changes are implemented and default off. They use guarded
 ROM data changes and shared CPU write hooks, so generated native routines and
-the interpreter see the same gameplay values. The supplied BPS informed this
+the interpreter see the same gameplay values. Camera centering changes guarded
+operands in explicitly interpreted routines, preserving the original scenery
+streamer. The supplied BPS informed this
 work; it is not bundled or automatically applied. See
 [QoL implementation and limits](QOL-IMPLEMENTATION.md) for exact balance values
 and the distinction between synthetic tests and gameplay evidence.
 
 Optional widescreen draws additional world backgrounds in supported rooms at
 the original pixel scale, with 16:9, 16:10, 21:9, 32:9 and window-driven aspects.
-It remains experimental: off-screen NPC/enemy rendering, parallax and campaign
-coverage are unfinished. All four fixed aspects preserved guest state and native
+Normal NPC/enemy cells can also appear in the margins when independently matched
+to the game's completed OAM queue. The game's finite off-screen actor buffer,
+special actor states, parallax and campaign coverage remain limits. All four fixed aspects preserved guest state and native
 center pixels at 18 opening/town checkpoints. See [widescreen details](docs/WIDESCREEN.md).
 
+## Optional X68000 soundtrack
+
+The optional soundtrack uses a privately imported VGZ pack, with loop points
+preserved. Initial replacement covers opening, Atland and GoldCave; other cues
+retain SNES music. SNES audio remains the default. No music is bundled in the
+repository. See [setup and current limits](docs/X68000-SOUNDTRACK.md).
+
 ## Source and publishing
+
+See [credits](CREDITS.md), including the original
+[Lagoon QoL hack](https://www.romhacking.net/hacks/9856/) that inspired the
+requested comfort changes.
 
 This repository contains source, build configuration and development tools. It
 excludes ROMs, generated ROM-derived C, private decompilation exports, extracted

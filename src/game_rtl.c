@@ -33,6 +33,7 @@
  */
 
 #include "game_rtl.h"
+#include "lagoon_soundtrack.h"
 
 #include "beam_frame_driver.h"
 
@@ -53,6 +54,7 @@ void GameSessionReset(void)
      * been fine" is the usual desync culprit, because single-player never
      * re-enters the boot path twice in one process. */
     snes_beam_frame_driver_reset();
+    LagoonSoundtrack_Reset();
 }
 
 const RtlGameInfo kGameInfo = {
@@ -62,4 +64,9 @@ const RtlGameInfo kGameInfo = {
     .draw_ppu_frame = &GameDrawPpuFrame,
     .save_name_prefix = "save",
     .session_reset = &GameSessionReset,
+    .hardware_reset = &GameSessionReset,
+    .state_save_extra = &LagoonSoundtrack_SaveExtra,
+    .state_load_extra = &LagoonSoundtrack_LoadExtra,
+    .on_state_loaded = &LagoonSoundtrack_OnStateLoaded,
+    .snapshot_preflight = &LagoonSoundtrack_Preflight,
 };

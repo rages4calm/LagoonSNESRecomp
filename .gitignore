@@ -11,6 +11,13 @@
 *.mss
 *.cdl
 *.bps
+*.vgm
+*.vgz
+*.pcm
+*.msu
+*.wav
+*.mp3
+*.flac
 
 # Build trees and packaged output
 /build/

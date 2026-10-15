@@ -8,6 +8,11 @@ static CpuWramWriteFilterHook filter;
 static int enabled_all;
 static int callbacks;
 static uint64_t state_generation;
+static int camera_aot_conflict;
+const char *cpu_dispatch_entry_reason(uint32_t pc, uint8_t mx) {
+  return camera_aot_conflict && pc==0x0183D8 && mx==2
+    ? "compiled_entry_available_check_policy" : "missing_entry";
+}
 uint64_t RtlStateGeneration(void) { return state_generation; }
 int snes_mod_runtime_feature_enabled_c(const char *package, const char *feature) {
   (void)package; (void)feature; return enabled_all;
@@ -89,9 +94,24 @@ int main(int argc, char **argv) {
   g_recovery_frames=7; g_recovery_holding=1; ++state_generation;
   qol_mechanics_frame(); assert(g_recovery_frames==0);
   LagoonQol_ResetTransient(); assert(!g_jump_frames && !g_recovery_frames);
-  /* Camera does not invent a view during title/game-over/uninitialised maps. */
-  g_camera_center=1; memset(g_ram,0,sizeof(g_ram));
-  qol_wram_write16(0x480,123); qol_frame(); assert(getword(0x480)==123);
+  /* Camera changes only guarded centre operands. The guest owns movement,
+   * streaming and large-room coordinates; activation never teleports WRAM. */
+  assert(rom[0x8408]==128 && rom[0x8432]==128);
+  assert(rom[0x845F]==112 && rom[0x8489]==112 && rom[0x87F6]==128);
+  assert(rom[0x8815]==stock[0x8815]); /* vertical initial centre already112 */
+  memset(g_ram,0xA5,sizeof(g_ram)); callbacks=0;
+  qol_camera_activated();
+  for (unsigned j=0;j<sizeof(g_ram);++j) assert(g_ram[j]==0xA5);
+  assert(callbacks==0);
+  /* A compiled camera entry refuses ALL camera operand patches. */
+  memcpy(rom,stock,0x100000); camera_aot_conflict=1;
+  LagoonQol_OnRomLoaded(rom,0x100000);
+  assert(!g_camera_center && rom[0x8408]==192 && rom[0x87F6]==112);
+  camera_aot_conflict=0;
+  /* A mismatching operand also refuses the full camera patch atomically. */
+  memcpy(rom,stock,0x100000); rom[0x8432]^=1;
+  LagoonQol_OnRomLoaded(rom,0x100000);
+  assert(!g_camera_center && rom[0x8408]==192 && rom[0x87F6]==112);
   /* One failed guard refuses the whole associated ROM feature. */
   memcpy(rom,stock,0x100000); rom[0xFFBB]^=1;
   LagoonQol_OnRomLoaded(rom,0x100000); assert((rom[0x131DC]|rom[0x131DD]<<8)==500);

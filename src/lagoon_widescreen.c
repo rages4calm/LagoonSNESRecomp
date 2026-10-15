@@ -2,6 +2,7 @@
  * read-only host lookups, never by moving the guest camera or replaying DMA.
  * No ROM data, graphics, or generated guest code belongs in this source. */
 #include "lagoon_widescreen.h"
+#include "lagoon_wide_entities.h"
 #include "common_rtl.h"
 #include "config.h"
 #include "snes/ppu.h"
@@ -75,6 +76,7 @@ static void read_ini(const char *path) {
 }
 
 void LagoonWide_AfterConfig(void) {
+  LagoonWideEntities_Init();
   s_aspect = 16.0 / 9;
   read_ini(s_config_path);
   read_ini("config.local.ini");
@@ -97,6 +99,7 @@ void LagoonWide_PrepareFrame(int drawable_w, int drawable_h, int *width, int *he
 }
 
 void LagoonWide_Reset(void) {
+  LagoonWideEntities_Reset();
   WsShadowReset();
   s_was_active = 0;
   s_room_key = 0;
@@ -133,6 +136,7 @@ void LagoonWide_BeginFrame(unsigned number) {
   if (!active || !s_was_active || key != s_room_key) WsShadowReset();
   s_was_active = active;
   s_room_key = key;
+  LagoonWideEntities_BeginFrame(active);
   if (!active) return;
   PpuSetWidescreenLayerMask(g_ppu, 3);
   PpuSetWidescreenShadowNativeExactMask(g_ppu, 3);
@@ -151,12 +155,15 @@ void LagoonWide_BeginFrame(unsigned number) {
     WsShadowSetBlankTile(layer, map_tile(layer, -16, -16));
   }
   WsShadowFrame(g_ppu);
+  /* These ordinary-room retained maps are exact sources, not guesses about
+   * circular VRAM headroom. Captured blank/uninitialized slots must yield to
+   * the current room map. Native fragments still use actual guest VRAM. */
   for (int layer = 0; layer < 2; ++layer) {
     int wx = WsShadowWorldX(layer), wy = WsShadowWorldY(layer);
     int x0 = (wx - g_ppu->extraLeftRight - 8) / 8;
     int x1 = (wx + 256 + g_ppu->extraLeftRight + 8) / 8;
     for (int y = wy / 8; y <= (wy + 232) / 8 && y < 512; ++y)
       for (int x = x0 < 0 ? 0 : x0; x <= x1 && x < 4096; ++x)
-        WsShadowPrefillTile(layer, x, y, map_tile(layer, x * 8, y * 8));
+        WsShadowForceTile(layer, x, y, map_tile(layer, x * 8, y * 8));
   }
 }

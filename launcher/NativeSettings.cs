@@ -40,15 +40,26 @@ internal static class NativeSettings
         "follower_speed" => "Follower speed: 3 pixels/frame", "recovery_time" => "Eight extra protection frames",
         "exp_boost" => "EXP rewards: +50%", "jump_hold" => "Eight-frame jump peak hold",
         "magic_power" => "Stronger magic", _ => id };
-    internal static IEnumerable<OptionDefinition> Options => Fields.Select(x => x.Option).Concat(Features.Select(id =>
+    private static readonly OptionDefinition[] SoundtrackOptions = {
+        new("audio.soundtrack", "Audio", "Soundtrack", OptionKind.Choice, OptionValue.From("snes"),
+            "X68000 is experimental: title, Atland and opening Gold Cave only. Other music uses SNES. Tracks restart on state load; run-ahead and netplay use SNES.",
+            Choices: new[] { new ChoiceItem("snes", "Original SNES"), new ChoiceItem("x68000", "X68000 (partial, experimental)") }),
+        new("audio.soundtrack-folder", "Audio", "Imported X68000 music folder", OptionKind.Text, OptionValue.From(""),
+            "Select the folder produced by the VGZ importer. No MP3 files are needed. See the soundtrack setup guide for your local pack location.")
+    };
+    internal static IEnumerable<OptionDefinition> Options => Fields.Select(x => x.Option).Concat(SoundtrackOptions).Concat(Features.Select(id =>
         new OptionDefinition("qol." + id, "Quality of life", FeatureLabel(id), OptionKind.Boolean, OptionValue.From(false),
             id == "start_hp" ? "New-game starting stats and level-two growth. Does not rewrite an existing save." : "Optional native gameplay change. Restart the game after Apply.")));
-    internal static bool IsNative(string id) => Fields.Any(x => x.Id == id) || Features.Any(feature => id == "qol." + feature);
+    internal static bool IsNative(string id) => Fields.Any(x => x.Id == id) || SoundtrackOptions.Any(x => x.Id == id) || Features.Any(feature => id == "qol." + feature);
     private static string Config(IReadOnlyDictionary<string, JsonElement> values) => values["config.path"].GetString()!;
     private static string State(IReadOnlyDictionary<string, JsonElement> values) =>
         Path.Combine(Path.GetDirectoryName(values["engine.path"].GetString()!)!, "mods", "preloaded", "state.toml");
     private static string Manifest(IReadOnlyDictionary<string, JsonElement> values) =>
         Path.Combine(Path.GetDirectoryName(State(values))!, "packages", "lagoon.quality", "1.0.0", "manifest.toml");
+    private static string SoundtrackManifest(IReadOnlyDictionary<string, JsonElement> values) =>
+        Path.Combine(Path.GetDirectoryName(State(values))!, "packages", "lagoon.soundtrack", "1.0.0", "manifest.toml");
+    private static byte[] ManifestRevision(IReadOnlyDictionary<string, JsonElement> values) => Encoding.UTF8.GetBytes(
+        Hash(ReadBytes(Manifest(values))) + Hash(ReadBytes(SoundtrackManifest(values))));
     private static string Hash(byte[]? bytes) => bytes == null ? "missing" : Convert.ToHexString(SHA256.HashData(bytes));
     private static string Revision(string launcher, string config, byte[]? ini, string state, byte[]? mods, byte[]? manifest) =>
         Hash(Encoding.UTF8.GetBytes(string.Join("\n", launcher, config, Hash(ini), state, Hash(mods), Hash(manifest))));
@@ -56,7 +67,7 @@ internal static class NativeSettings
     internal static SettingsSnapshot Read(SettingsSnapshot paths)
     {
         var config = Config(paths.Values); var state = State(paths.Values);
-        var ini = Document.Read(config); var mods = Document.Read(state); var manifest = ReadBytes(Manifest(paths.Values));
+        var ini = Document.Read(config); var mods = Document.Read(state); var manifest = ManifestRevision(paths.Values);
         mods.ValidateModState();
         foreach (var field in Fields)
         {
@@ -64,6 +75,8 @@ internal static class NativeSettings
             paths.Values[field.Id] = value == null ? field.Option.DefaultValue.Clone() : Parse(field.Option, value);
         }
         foreach (var id in Features) paths.Values["qol." + id] = OptionValue.From(mods.Feature(id) ?? false);
+        paths.Values["audio.soundtrack"] = OptionValue.From(mods.Feature("x68000", "lagoon.soundtrack") == true ? "x68000" : "snes");
+        paths.Values["audio.soundtrack-folder"] = OptionValue.From(mods.SoundtrackFolder() ?? "");
         return new(paths.Values, Revision(paths.Revision, config, ini.Original, state, mods.Original, manifest));
     }
     private static JsonElement Parse(OptionDefinition option, string value)
@@ -87,6 +100,18 @@ internal static class NativeSettings
             if (ini.IniValue(field.Section, field.Key) is { } value && OptionValidation.ValidateValue(field.Option, Parse(field.Option, value)) is { } error)
                 throw new InvalidDataException(error);
         foreach (var id in Features) _ = state.Feature(id);
+        _ = state.Feature("x68000", "lagoon.soundtrack"); _ = state.SoundtrackFolder();
+        if (values.TryGetValue("audio.soundtrack", out var soundtrack) && soundtrack.GetString() == "x68000")
+        {
+            var package = Document.Read(SoundtrackManifest(values));
+            if (package.Original == null || !package.DeclaredFeatures().Contains("x68000"))
+                throw new InvalidDataException("This executable's matching soundtrack package is missing.");
+            var folder = values["audio.soundtrack-folder"].GetString() ?? "";
+            if (!Path.IsPathFullyQualified(folder) || !Directory.Exists(folder) || !File.Exists(Path.Combine(folder, "lagoon-x68000.msu")))
+                throw new InvalidDataException("Select the private imported X68000 folder containing lagoon-x68000.msu.");
+            if (!new[] { 1, 2, 4 }.Any(id => ValidPcm(Path.Combine(folder, $"lagoon-x68000-{id}.pcm"))))
+                throw new InvalidDataException("The selected folder has no valid supported PCM tracks. Run the VGZ importer first.");
+        }
         var enabledFeatures = Features.Where(id => values.TryGetValue("qol." + id, out var item) && item.GetBoolean()).ToArray();
         if (enabledFeatures.Length > 0)
         {
@@ -112,6 +137,10 @@ internal static class NativeSettings
         foreach (var id in Features)
             if (values["qol." + id].GetRawText() != current.Values["qol." + id].GetRawText())
                 mods.SetFeature(id, values["qol." + id].GetBoolean());
+        if (values["audio.soundtrack"].GetRawText() != current.Values["audio.soundtrack"].GetRawText())
+            mods.SetFeature("x68000", values["audio.soundtrack"].GetString() == "x68000", "lagoon.soundtrack");
+        if (values["audio.soundtrack-folder"].GetRawText() != current.Values["audio.soundtrack-folder"].GetRawText())
+            mods.SetSoundtrackFolder(values["audio.soundtrack-folder"].GetString() ?? "");
         // Per-file atomic replacement, with rollback if a later commit fails.
         // This is not a filesystem-wide transaction against power loss.
         var writes = new[] { ini, mods }.Where(x => x.Changed).ToArray();
@@ -128,6 +157,16 @@ internal static class NativeSettings
             foreach (var file in committed.AsEnumerable().Reverse()) file.Rollback();
             throw;
         }
+    }
+
+    private static bool ValidPcm(string path)
+    {
+        if (!File.Exists(path)) return false;
+        using var f = File.OpenRead(path);
+        if (f.Length <= 8 || (f.Length - 8) % 4 != 0) return false;
+        Span<byte> header = stackalloc byte[8]; f.ReadExactly(header);
+        return header[..4].SequenceEqual("MSU1"u8) &&
+            System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(header[4..]) < (f.Length - 8) / 4;
     }
 
     private static byte[]? ReadBytes(string path)
@@ -227,7 +266,7 @@ internal static class NativeSettings
             }
             Changed = true;
         }
-        private (int Start, int End)? FeatureBlock(string id)
+        private (int Start, int End)? FeatureBlock(string id, string packageId = "lagoon.quality")
         {
             (int Start, int End)? found = null;
             for (var i = 0; i < lines.Count; i++)
@@ -242,7 +281,7 @@ internal static class NativeSettings
                         if (key == "package_id") package = value.Trim('"');
                         if (key == "id") name = value.Trim('"');
                     }
-                if (package == "lagoon.quality" && name == id)
+                if (package == packageId && name == id)
                 {
                     if (found != null) throw new InvalidDataException("Duplicate QoL feature " + id);
                     found = (i, end);
@@ -251,9 +290,9 @@ internal static class NativeSettings
             }
             return found;
         }
-        internal bool? Feature(string id)
+        internal bool? Feature(string id, string packageId = "lagoon.quality")
         {
-            if (FeatureBlock(id) is not { } block) return null;
+            if (FeatureBlock(id, packageId) is not { } block) return null;
             bool? result = null;
             for (var j = block.Start + 1; j < block.End; j++)
                 if (Assignment(lines[j], out var key, out var value) && key == "enabled")
@@ -274,33 +313,80 @@ internal static class NativeSettings
             }
             return result;
         }
-        internal void SetFeature(string id, bool enabled)
+        internal void SetFeature(string id, bool enabled, string packageId = "lagoon.quality")
         {
-            EnsurePackage();
-            if (FeatureBlock(id) is { } block)
+            EnsurePackage(packageId);
+            if (FeatureBlock(id, packageId) is { } block)
             {
-                _ = Feature(id);
+                _ = Feature(id, packageId);
                 for (var j = block.Start + 1; j < block.End; j++)
                     if (Assignment(lines[j], out var key, out _) && key == "enabled") { lines[j] = "enabled = " + enabled.ToString().ToLowerInvariant(); break; }
             }
             else
             {
-                lines.AddRange(new[] { "", "[[feature]]", "package_id = \"lagoon.quality\"", "id = \"" + id + "\"", "enabled = " + enabled.ToString().ToLowerInvariant(), "" });
+                lines.AddRange(new[] { "", "[[feature]]", "package_id = " + JsonSerializer.Serialize(packageId), "id = \"" + id + "\"", "enabled = " + enabled.ToString().ToLowerInvariant(), "" });
             }
             Changed = true;
         }
-        private void EnsurePackage()
+        private (int Start, int End)? SoundtrackResource()
+        {
+            (int Start, int End)? found = null;
+            for (int i = 0; i < lines.Count; i++)
+            {
+                if (lines[i].Trim() != "[[resource]]") continue;
+                int end = i + 1; while (end < lines.Count && !lines[end].TrimStart().StartsWith('[')) end++;
+                var ids = new Dictionary<string, string>();
+                for (int j = i + 1; j < end; j++)
+                    if (Assignment(lines[j], out var key, out var value) && key is "package_id" or "feature_id" or "id")
+                    {
+                        if (!ids.TryAdd(key, value.Trim('"'))) throw new InvalidDataException("Duplicate soundtrack resource key.");
+                    }
+                if (ids.GetValueOrDefault("package_id") == "lagoon.soundtrack" && ids.GetValueOrDefault("feature_id") == "x68000" && ids.GetValueOrDefault("id") == "pack")
+                {
+                    if (found != null) throw new InvalidDataException("Duplicate soundtrack resource.");
+                    found = (i, end);
+                }
+                i = end - 1;
+            }
+            return found;
+        }
+        internal string? SoundtrackFolder()
+        {
+            if (SoundtrackResource() is not { } block) return null;
+            string? result = null;
+            for (int j = block.Start + 1; j < block.End; j++)
+                if (Assignment(lines[j], out var key, out var value) && key == "path")
+                {
+                    if (result != null) throw new InvalidDataException("Duplicate soundtrack path.");
+                    result = value.StartsWith('\'') && value.EndsWith('\'') ? value[1..^1] :
+                        JsonSerializer.Deserialize<string>(value) ?? throw new InvalidDataException("Invalid soundtrack path.");
+                }
+            return result ?? throw new InvalidDataException("Missing soundtrack resource path.");
+        }
+        internal void SetSoundtrackFolder(string path)
+        {
+            EnsurePackage("lagoon.soundtrack");
+            if (SoundtrackResource() is { } block)
+            {
+                _ = SoundtrackFolder();
+                for (int j = block.Start + 1; j < block.End; j++)
+                    if (Assignment(lines[j], out var key, out _) && key == "path") { lines[j] = "path = " + JsonSerializer.Serialize(path); break; }
+            }
+            else lines.AddRange(new[] { "", "[[resource]]", "package_id = \"lagoon.soundtrack\"", "feature_id = \"x68000\"", "id = \"pack\"", "path = " + JsonSerializer.Serialize(path), "" });
+            Changed = true;
+        }
+        private void EnsurePackage(string packageId = "lagoon.quality")
         {
             var section = ""; bool found = false;
             foreach (var raw in lines)
             {
                 var line = StripComment(raw).Trim();
                 if (line.StartsWith('[')) section = line;
-                else if (section == "[[package]]" && Assignment(line, out var key, out var value) && key == "id" && value.Trim('"') == "lagoon.quality") found = true;
+                else if (section == "[[package]]" && Assignment(line, out var key, out var value) && key == "id" && value.Trim('"') == packageId) found = true;
             }
             if (found) return;
             if (Original == null && !lines.Any(line => line.Trim() == "format_version = 1")) lines.Add("format_version = 1");
-            lines.AddRange(new[] { "", "[[package]]", "id = \"lagoon.quality\"", "version = \"1.0.0\"", "" });
+            lines.AddRange(new[] { "", "[[package]]", "id = " + JsonSerializer.Serialize(packageId), "version = \"1.0.0\"", "" });
         }
         internal void AssertUnchanged() { if (Hash(ReadBytes(path)) != Hash(Original)) throw new SettingsConflictException(); }
         private static void AtomicWrite(string path, byte[] bytes)

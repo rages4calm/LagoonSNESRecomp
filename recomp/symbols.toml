@@ -229,3 +229,149 @@ emit = false
 entry_m = 1
 entry_x = 0
 note = "Interpreted: unproven call/continuation at 02:824A; not counted as native"
+
+# Batch 3 combat/progression candidates; qualify before source publication.
+
+[[func]]
+name = "Lagoon_Combat_CanReceiveHit"
+addr = "ba52"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 3 qualified M1/X0 precise root; bounded combat/progression/equipment evidence in NATIVE-BATCH3-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Combat_InsideHitRectangle"
+addr = "b7ae"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 3 qualified M1/X0 precise root; bounded combat/progression/equipment evidence in NATIVE-BATCH3-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Combat_BuildSwordRectangle"
+addr = "b6bd"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 3 qualified M1/X0 precise root; bounded combat/progression/equipment evidence in NATIVE-BATCH3-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Combat_MarkDefeated"
+addr = "b919"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 3 qualified M1/X0 precise root; bounded combat/progression/equipment evidence in NATIVE-BATCH3-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Progress_AddGold"
+addr = "947a"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 3 qualified M1/X0 precise root; bounded combat/progression/equipment evidence in NATIVE-BATCH3-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Progress_RecalculateStrength"
+addr = "94f7"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 3 qualified M1/X0 precise root; bounded combat/progression/equipment evidence in NATIVE-BATCH3-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Progress_RecalculateDefense"
+addr = "952f"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 3 qualified M1/X0 precise root; bounded combat/progression/equipment evidence in NATIVE-BATCH3-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Progress_LoadHpMpCaps"
+addr = "957f"
+bank = 1
+emit = false
+entry_m = 1
+entry_x = 0
+note = "Kept interpreted: no runtime invocation in qualified routes"
+
+[[func]]
+name = "Lagoon_Progress_AwardExperience"
+addr = "94b2"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 3 qualified M1/X0 precise root; bounded combat/progression/equipment evidence in NATIVE-BATCH3-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Regen_UpdateTimers"
+addr = "9170"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 3 qualified M1/X0 precise root; bounded combat/progression/equipment evidence in NATIVE-BATCH3-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Regen_QueueHp"
+addr = "91b4"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 3 qualified M1/X0 precise root; bounded combat/progression/equipment evidence in NATIVE-BATCH3-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Regen_QueueMp"
+addr = "91bb"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 3 qualified M1/X0 precise root; bounded combat/progression/equipment evidence in NATIVE-BATCH3-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Regen_QueueSpecial"
+addr = "91c2"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 3 qualified M1/X0 precise root; bounded combat/progression/equipment evidence in NATIVE-BATCH3-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Regen_ApplyStatus"
+addr = "91d5"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 3 qualified M1/X0 precise root; bounded combat/progression/equipment evidence in NATIVE-BATCH3-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Combat_UpdateSwordHits"
+addr = "b5ee"
+bank = 1
+emit = false
+entry_m = 1
+entry_x = 0
+note = "Kept interpreted: unproven sword-selector continuation; auto-discovered descendants failed clock gate"
+
+[[func]]
+name = "Lagoon_Combat_GrantDefeatRewards"
+addr = "b7d4"
+bank = 1
+emit = false
+entry_m = 1
+entry_x = 0
+note = "Batch 3 combat orchestration candidate; kept interpreted: unproven boss call continuation; auto-discovered descendants failed clock gate"
