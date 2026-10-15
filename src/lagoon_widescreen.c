@@ -32,6 +32,8 @@ static uint16_t s_world_chars[0x4000];
 static unsigned s_world_char_key;
 static uint8_t s_world_char_used[1024];
 static int s_world_chars_ready;
+static int s_initial_world_authority;
+static LagoonWideBackground s_background;
 static uint64_t s_state_generation;
 static const char *s_config_path = "config.ini";
 
@@ -120,6 +122,7 @@ void LagoonWide_Reset(void) {
   WsShadowReset();
   s_was_active = 0;
   s_world_chars_ready=0;
+  s_initial_world_authority=0;LagoonWideBackground_Reset(&s_background);
   s_outdoor_frame=s_outdoor_present=0;
   memset(s_row_known,0,sizeof(s_row_known));
   memset(&s_scene_gate,0,sizeof(s_scene_gate));
@@ -128,12 +131,20 @@ void LagoonWide_Reset(void) {
 }
 
 static int room_bounds_enabled(unsigned room) { return room==2 || (room>=4 && room<=6); }
-static int audited_room_ready(void) {
+static int audited_room_resources(void) {
   unsigned room=word(0x48e);
-  return !g_ram[0x100e] && (!room_bounds_enabled(room) ||
+  return (!room_bounds_enabled(room) ||
       LagoonWideEntities_BoundedRoom(room,word(0x53)*8,word(0x55)*8)) &&
       LagoonWideEntities_AuditedRoom(word(0x48e),pointer(0x57),pointer(0x5d),
       pointer(0x69),pointer(0x75),pointer(0x88),pointer(0x8b));
+}
+static int background_upload_ready(void) {
+  return s_background.ready && s_background.generation==RtlStateGeneration() &&
+      s_background.room==word(0x48e) && s_background.source==pointer(0x57);
+}
+static int audited_room_ready(void) {
+  return audited_room_resources() && (!g_ram[0x100e] ||
+      (s_initial_world_authority && background_upload_ready()));
 }
 static int has_modal_ui(void) {
   return ((g_ppu->screenEnabled[0]|g_ppu->screenEnabled[1])&4) &&
@@ -161,6 +172,34 @@ static int native_world_map(void) {
   }
   return 1;
 }
+static int capture_world_characters(const uint8_t *upload) {
+    /* BG3 map $3C00 aliases unused BG1 character slots. Own only characters
+     * actually referenced by the complete room, including its fill tile. */
+    memset(s_world_char_used,0,sizeof(s_world_char_used));
+    unsigned tw=word(0x53),th=word(0x55);
+    if(tw>256)tw=256;if(th>256)th=256;
+    for(unsigned layer=0;layer<2;++layer) {
+      s_world_char_used[map_tile(layer,-16,-16)&1023]=1;
+      for(unsigned y=0;y<th;++y)for(unsigned x=0;x<tw;++x)
+        s_world_char_used[map_tile(layer,(int)x*8,(int)y*8)&1023]=1;
+    }
+    if(upload) {
+      for(unsigned tile=kLagoonWideBackgroundBytes/32;tile<1024;++tile)
+        if(s_world_char_used[tile])return 0;
+      memset(s_world_chars,0,sizeof(s_world_chars));
+      memcpy(s_world_chars,upload,kLagoonWideBackgroundBytes);
+    } else memcpy(s_world_chars,PpuRenderVram(g_ppu),sizeof(s_world_chars));
+    if(!LagoonWideEntities_WorldCharacters(PpuRenderVram(g_ppu),s_world_chars,s_world_char_used))return 0;
+    s_world_char_key=world_resource_key();s_world_chars_ready=1;return 1;
+}
+static int world_scene_geometry(void) {
+  return (g_ram[0x500]&0xC0)==0xC0 && !g_ram[0x50] &&
+      !(g_ppu->mosaic&3) && (g_ppu->bgmode&7)==1 &&
+      !PPU_bigTiles(g_ppu,0) && !PPU_bigTiles(g_ppu,1) &&
+      PPU_bgTilemapAdr(g_ppu,0)==0x7000 && PPU_bgTilemapAdr(g_ppu,1)==0x7800 &&
+      valid_pointer(pointer(0x88)) && valid_pointer(pointer(0x8b)) &&
+      valid_pointer(pointer(0x69)) && valid_pointer(pointer(0x75));
+}
 static int unsafe_modal_ui(void) {
   if(!has_modal_ui())return 0;
   return !s_world_chars_ready || s_world_char_key!=world_resource_key() ||
@@ -179,8 +218,28 @@ static void native_ui_frame(void) {
   PpuSetWidescreenShadowNativeExactMask(g_ppu,0);PpuSetExtraObjects(g_ppu,NULL,0);
   PpuSetWidescreenLineEnhancer(g_ppu,menu_line,NULL);
 }
+void LagoonWide_OnBackgroundDma(unsigned bank,unsigned address,unsigned destination,unsigned length) {
+  if(!g_ppu || !g_config.widescreen)return;
+  if(s_background.generation!=RtlStateGeneration())LagoonWideBackground_Reset(&s_background);
+  int begins=bank==0x7F && address==0x7F80 && destination==0 && length==0x1000;
+  /* Inventory uploads cannot claim a fresh world through stale room metadata. */
+  if(begins && !g_ram[0x100e]) {s_background.left=0;return;}
+  LagoonWideBackground_Begin(&s_background,RtlStateGeneration(),word(0x48e),pointer(0x57),
+      bank,address,destination,length);
+  if(begins) {
+    s_world_chars_ready=s_initial_world_authority=0;s_scene_gate.fields=0;
+    native_ui_frame();
+  }
+}
+
 void LagoonWide_OnVramWrite(unsigned byte_address) {
   if(!g_ppu || !g_config.widescreen) return;
+  if(s_background.generation!=RtlStateGeneration())LagoonWideBackground_Reset(&s_background);
+  if(s_background.left || byte_address<kLagoonWideBackgroundBytes)
+    LagoonWideBackground_Write(&s_background,byte_address,
+        (uint8_t)(g_ppu->vram[byte_address/2]>>((byte_address&1)*8)));
+  if(g_ram[0x100e] && byte_address>=0xE000 && byte_address<0x10000)
+    s_initial_world_authority=0;
   /* Room loading can begin after the frame policy was selected. Catch the
    * first actual graphics write before a changed atlas can reach margins. */
   if(!audited_room_ready()) { s_scene_gate.fields=0; s_world_chars_ready=0; native_ui_frame(); return; }
@@ -188,7 +247,7 @@ void LagoonWide_OnVramWrite(unsigned byte_address) {
   /* A text/font DMA does not own the world layers. A changed BG1/2
    * character word does; reject it immediately, and recheck completed maps
    * in EndFrame before the mutable compositor can expose either margin. */
-  if(has_modal_ui() && word_address<0x4000 && s_world_char_used[word_address/16] &&
+  if(word_address<0x4000 && s_world_char_used[word_address/16] && has_modal_ui() &&
       (!s_world_chars_ready || PpuRenderVram(g_ppu)[word_address]!=s_world_chars[word_address]))
     native_ui_frame();
 }
@@ -203,8 +262,18 @@ void LagoonWide_BeginFrame(unsigned number) {
   s_native_fallback=0;
   s_outdoor_frame=0;
   memset(s_row_known,0,sizeof(s_row_known));
-  if(!audited_room_ready() || (s_world_chars_ready && s_world_char_key!=world_resource_key()))
+  if(!audited_room_resources() || (s_world_chars_ready && s_world_char_key!=world_resource_key()))
     s_world_chars_ready=0;
+  s_initial_world_authority=0;
+  /* $100E spans the final fade, after the full world graphics/map upload.
+   * Authorize that first visible world from actual completed bytes, never
+   * from the loading flag or a prior quiet/text-free frame alone. */
+  if(audited_room_resources() && background_upload_ready() && world_scene_geometry() && native_world_map()) {
+    if(!s_world_chars_ready)capture_world_characters(s_background.bytes);
+    if(s_world_chars_ready && s_world_char_key==world_resource_key() &&
+        LagoonWideEntities_WorldCharacters(PpuRenderVram(g_ppu),s_world_chars,s_world_char_used))
+      s_initial_world_authority=1;
+  }
   int modal_ui=unsafe_modal_ui();
   PpuSetWidescreenLineEnhancer(g_ppu,NULL,NULL);
   /* Lagoon parks unused OAM at x=320, leaving old tile/y bytes intact. The
@@ -224,34 +293,16 @@ void LagoonWide_BeginFrame(unsigned number) {
       audited_room_ready(),word(0x48e)+1,RtlStateGeneration());
   /*  sets100E before the room loader;  clears it
    * only after map, graphics, palette and entities are installed. */
-  int active = audited_room && !g_ram[0x100e] && !modal_ui && g_config.widescreen && g_ppu->extraLeftRight &&
-      (g_ram[0x500] & 0xc0) == 0xc0 && g_ram[0x50] == 0 &&
-      !(g_ppu->mosaic & 3) &&
-      (g_ppu->bgmode & 7) == 1 && !PPU_bigTiles(g_ppu, 0) &&
-      !PPU_bigTiles(g_ppu, 1) && PPU_bgTilemapAdr(g_ppu, 0) == 0x7000 &&
-      PPU_bgTilemapAdr(g_ppu, 1) == 0x7800 &&
-      valid_pointer(pointer(0x88)) && valid_pointer(pointer(0x8b)) &&
-      valid_pointer(pointer(0x69)) && valid_pointer(pointer(0x75));
+  int active=audited_room && !modal_ui && g_config.widescreen &&
+      g_ppu->extraLeftRight && world_scene_geometry();
   unsigned key = pointer(0x69) ^ pointer(0x75) ^ (g_ram[0x48e] << 24);
   if (!active || !s_was_active || key != s_room_key) WsShadowReset();
   s_was_active = active;
   s_room_key = key;
   LagoonWideEntities_BeginFrame(active);
   if (!active) { if(g_config.widescreen)native_ui_frame(); return; }
-  if(!s_world_chars_ready && !has_modal_ui() && native_world_map()) {
-    /* BG3 map $3C00 aliases unused BG1 character slots. Own only characters
-     * actually referenced by the complete room, including its fill tile. */
-    memset(s_world_char_used,0,sizeof(s_world_char_used));
-    unsigned tw=word(0x53),th=word(0x55);
-    if(tw>256)tw=256;if(th>256)th=256;
-    for(unsigned layer=0;layer<2;++layer) {
-      s_world_char_used[map_tile(layer,-16,-16)&1023]=1;
-      for(unsigned y=0;y<th;++y)for(unsigned x=0;x<tw;++x)
-        s_world_char_used[map_tile(layer,(int)x*8,(int)y*8)&1023]=1;
-    }
-    memcpy(s_world_chars,PpuRenderVram(g_ppu),sizeof(s_world_chars));
-    s_world_char_key=world_resource_key();s_world_chars_ready=1;
-  }
+  if(!s_world_chars_ready && !has_modal_ui() && native_world_map())
+    capture_world_characters(NULL);
   s_outdoor_frame=room_bounds_enabled(word(0x48e));
   s_extent_width=word(0x53)*8;s_extent_height=word(0x55)*8;
   PpuSetWidescreenLayerMask(g_ppu, 3);
@@ -318,15 +369,30 @@ static void report_outdoor(unsigned frame) {
   fclose(f);
 }
 
+static void report_scene(unsigned frame) {
+  const char *base=getenv("LAGOON_WIDE_ENTITY_REPORT");if(!base)return;
+  char path[1200];if(snprintf(path,sizeof(path),"%s.scene.tsv",base)>=(int)sizeof(path))return;
+  FILE *f=fopen(path,"ab");if(!f)return;fseek(f,0,SEEK_END);
+  if(!ftell(f))fprintf(f,"frame\troom\tloading\tbg_complete\tbg_ready\tchars_ready\tearly_authority\tmap_ready\tmodal\tactive\tfallback\tbrightness\ttm\n");
+  int map_ready=world_scene_geometry() && native_world_map();
+  fprintf(f,"%u\t%u\t%u\t%u\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%u\t%u\n",frame,
+      word(0x48e),g_ram[0x100e],s_background.completed,background_upload_ready(),
+      s_world_chars_ready,s_initial_world_authority,map_ready,has_modal_ui(),s_was_active,
+      s_present_fallback,g_ppu->inidisp,g_ppu->screenEnabled[0]);fclose(f);
+}
+
 /* Keep the completed field's policy with the presentation boundary. The
  * source field is const; the official compositor owns mutable destination. */
 void LagoonWide_EndFrame(const uint8_t *field,unsigned number) {
   (void)field;
-  s_present_fallback=s_native_fallback || !audited_room_ready() || unsafe_modal_ui();
+  s_present_fallback=s_native_fallback || !audited_room_ready() || unsafe_modal_ui() ||
+      (g_ram[0x100e] && (!native_world_map() || !s_world_chars_ready ||
+      !LagoonWideEntities_WorldCharacters(PpuRenderVram(g_ppu),s_world_chars,s_world_char_used)));
   s_outdoor_present=s_outdoor_frame && !s_present_fallback;
   if(s_outdoor_present)for(unsigned y=0;y<224;++y)
     if(!s_row_known[y]) {s_present_fallback=1;s_outdoor_present=0;break;}
   report_outdoor(number);
+  report_scene(number);
 }
 int LagoonWide_DrawFrame(uint8_t *dst,size_t pitch,const uint8_t *field,
     int width,int height,double alpha) {

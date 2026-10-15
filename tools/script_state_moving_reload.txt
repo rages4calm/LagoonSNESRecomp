@@ -1,0 +1,193 @@
+# Consecutive-field regression for cold-load raster journal restoration.
+# Patient intro route: let scripted sequences finish, then take the pad.
+# Opening reset regression: reach Atland, move down, open Start menu, close with B.
+
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+press start 6
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+dump c-3000
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-4000
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-4500
+press a 4
+wait 240
+press a 4
+press start 6
+wait 240
+dump n-5000
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-5500
+press a 4
+wait 240
+press a 4
+wait 240
+dump town
+savestate 0
+wait 1
+loadstate 0
+wait 1
+dump consecutive-00
+wait 1
+dump consecutive-01
+wait 1
+dump consecutive-02
+wait 1
+dump consecutive-03
+wait 1
+dump consecutive-04
+wait 1
+dump consecutive-05
+wait 1
+dump consecutive-06
+wait 1
+dump consecutive-07
+wait 1
+dump consecutive-08
+wait 1
+dump consecutive-09
+wait 1
+dump consecutive-10
+wait 1
+dump consecutive-11
+wait 1
+dump consecutive-12
+wait 1
+dump consecutive-13
+wait 1
+dump consecutive-14
+wait 1
+dump consecutive-15
+wait 1
+dump consecutive-16
+wait 1
+dump consecutive-17
+wait 1
+dump consecutive-18
+wait 1
+dump consecutive-19
+wait 1
+dump consecutive-20
+wait 1
+dump consecutive-21
+wait 1
+dump consecutive-22
+wait 1
+dump consecutive-23
+wait 1
+dump consecutive-24
+wait 1
+dump consecutive-25
+wait 1
+dump consecutive-26
+wait 1
+dump consecutive-27
+wait 1
+dump consecutive-28
+wait 1
+dump consecutive-29
+wait 1
+dump consecutive-30
+wait 1
+dump consecutive-31
+wait 1
+dump consecutive-32
+wait 1
+dump consecutive-33
+wait 1
+dump consecutive-34
+wait 1
+dump consecutive-35
+wait 1
+dump consecutive-36
+wait 1
+dump consecutive-37
+wait 1
+dump consecutive-38
+wait 1
+dump consecutive-39
+wait 1
+dump consecutive-40
+wait 1
+dump consecutive-41
+wait 1
+dump consecutive-42
+wait 1
+dump consecutive-43
+wait 1
+dump consecutive-44
+wait 1
+dump consecutive-45
+wait 1
+dump consecutive-46
+wait 1
+dump consecutive-47
+wait 1
+dump consecutive-48
+wait 1
+dump consecutive-49
+wait 1
+dump consecutive-50
+wait 1
+dump consecutive-51
+wait 1
+dump consecutive-52
+wait 1
+dump consecutive-53
+wait 1
+dump consecutive-54
+wait 1
+dump consecutive-55
+wait 1
+dump consecutive-56
+wait 1
+dump consecutive-57
+wait 1
+dump consecutive-58
+wait 1
+dump consecutive-59
+wait 1
+dump consecutive-60
+wait 1
+dump consecutive-61
+wait 1
+dump consecutive-62
+wait 1
+dump consecutive-63
+quit

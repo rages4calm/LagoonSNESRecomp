@@ -163,8 +163,38 @@
         "walk_speed"
       ],
       "limitations": "Early inventory mostly empty; populated late-game panels unaudited. 32:9 viewport letterboxed on 16:9 monitor."
+    },
+    {
+      "file": "atland-32x9-epx-performance-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "aspect": "32:9",
+      "host_frame": 3000,
+      "fullscreen": true,
+      "video_driver": "windows",
+      "renderer": "opengl",
+      "enhanced_pixels": true,
+      "camera_center": true,
+      "exe_sha256": "03fcc1f6eb0fef35c9a3427bf36d1c6aa36adf8faed9103f465d0f670f35b2c2",
+      "route_sha256": "629cd17b00c58e322293b9bdcfe6eda939638b3f46a5530bf540cf1e5eec86f5",
+      "seed_sha256": "485fc2bff6cdf2ca4fac8ec99e412dd049722f76bfc380a797e6b32d41af7ba3",
+      "png_sha256": "3268795aa43abb69d56383f64ea1d68220c6d6b6ae61e371751cca7574ca0645",
+      "capture": "Actual OpenGL fullscreen readback beforeSwap; losslessBMPtoPNG; no resizing",
+      "features": [
+        "walk_speed",
+        "start_hp",
+        "camera_center",
+        "sword_reach",
+        "follower_speed",
+        "recovery_time",
+        "jump_hold",
+        "magic_power",
+        "exp_boost"
+      ],
+      "notes": "Freshv3state; one visible finalrun; 59.63fps wholeinterval with WMI/readback overhead. See PERFORMANCE.md for separate cleanhidden timing and jitter; no hard realtime guarantee."
     }
   ],
   "accepted_build_exe_sha256": "904d218f875e4ebd877e9f5df4b85aecf901efbdc70fd7b04c26d9822fcf752b",
-  "accepted_build_validation": "All three source presentation frames exactly match the final published build after transition settlement/compositor changes; original full-resolution SDL captures retained."
+  "accepted_build_validation": "All three source presentation frames exactly match the final published build after transition settlement/compositor changes; original full-resolution SDL captures retained.",
+  "accepted_build_validation_scope": "The top-level accepted-build fields describe the original first three batch-4 captures. Later entries each record their own executable identity and limits."
 }

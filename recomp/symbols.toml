@@ -491,7 +491,7 @@ bank = 1
 emit = true
 entry_m = 1
 entry_x = 0
-note = "Batch6 candidate: genuine D481 revival call; source-closed child widths, qualification pending"
+note = "Batch6 qualified: genuine revival entry; frame-wait continuation retains interpreter"
 
 [[func]]
 name = "Lagoon_Health_AddAndClamp"
@@ -500,4 +500,42 @@ bank = 1
 emit = true
 entry_m = 1
 entry_x = 0
-note = "Batch6 candidate: HP arithmetic/clamp, HUD dispatcher stays LLE; qualification pending"
+note = "Batch6 qualified: native HP arithmetic/clamp; original HUD retains interpreter"
+
+
+[[func]]
+name = "Lagoon_Combat_ApplyPlayerHit"
+addr = "b9f4"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch7 candidate: paired player-hit wrapper; HP nonlocal seam remains interpreted"
+
+[[func]]
+name = "Lagoon_Boss_UpdateFirstPhase"
+addr = "ace7"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch7 candidate: first-boss phase logic; conservative live return-width dispatch"
+
+
+[[func]]
+name = "Lagoon_Actor_UpdateDispatch"
+addr = "a7b5"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch7 candidate: original paired dispatch; unaudited actor handlers remain LLE"
+
+[[func]]
+name = "Lagoon_Boss_UpdateDispatch"
+addr = "acaa"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch7 candidate: original boss phase table; first phase native, other phases LLE"

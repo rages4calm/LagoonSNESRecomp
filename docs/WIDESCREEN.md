@@ -9,14 +9,15 @@ framework's 800-pixel PPU capacity, with letterboxing beyond that capacity.
 
 This renders additional world tiles at their original pixel scale. BG3
 text/HUD remains centered at native size. Audited field resources currently
-cover Atland (room 0), the guard exterior (room 2), and Gold Cave rooms 3–6.
+cover Atland (room 0), the guard exterior (room 2), and Gold Cave rooms 3â€“6.
 Known dialogue and Start/status overlays retain that scenery when its original
 map and graphics remain intact. Items/Magic panels have a separate guarded
 original-art frame compositor; see [menu presentation](MENU-PRESENTATION.md).
 Titles, unsupported intro layouts, other menus, parallax, BG1/BG2 mosaic and
 unknown room resources keep a clean centered native fallback. Matching a PPU
-mode alone is insufficient. Room loading (`$100E`) still forces fallback;
-actual VRAM-write observation catches resource changes within a frame.
+mode alone is insufficient. Room loading (`$100E`) normally forces fallback;
+the completed-upload authority described below permits the verified Atland
+opening fade. Actual VRAM-write observation catches resource changes within a frame.
 The official presentation compositor also blanks only the margins whenever the
 completed frame selected native fallback, preserving all 256 native columns.
 RAM can name the next room while the completed raster still shows the previous
@@ -25,6 +26,66 @@ prior completed boundaries). Loading, resource changes and timeline jumps reset
 that settlement. A 391-present cave-entry audit includes the previously corrupt
 single frame and checks clean fallback throughout the unsupported exterior,
 then expansion once the cave raster is settled.
+
+## Batch 7: continuous Atland opening fade
+
+The initial Atland view previously remained narrow until `$100E` cleared,
+although the game had already loaded its scenery and was fading that complete
+world into view. The loader clears this flag at `018769`, after the final fade
+call at `018762`. Widescreen now accepts this earlier world only after observing
+the entire real BG upload: 14,272 sequential bytes from WRAM `7F:7F80` to VRAM
+word zero, in the original four DMA segments. A DMA start alone gives no authority.
+
+This witness binds to room, resource source and timeline generation. The actual
+completed PPU characters must match those uploaded bytes, and initialized native
+map cells must match the retained room layout. All other scene geometry, modal,
+resource, settlement and final compositor guards still apply. Partial uploads,
+changed resources, unsupported character ownership and timeline jumps refuse
+expansion. No game memory or simulation timing is changed.
+
+On the final candidate `lagoon-batch7-raster.exe`, SHA256
+`03fcc1f6eb0fef35c9a3427bf36d1c6aa36adf8faed9103f465d0f670f35b2c2`,
+73 opening checkpoints match native center, WRAM, registers, VRAM, OAM, CGRAM and
+guest clocks with widescreen off/on. Across all 51 actual presentations covering
+the fade, the native center remains exact. Both native world and expanded world
+first become visible at frame 1603, removing the previous 44-field delay.
+All 4,198,656 added pixel observations across those 44 newly widened fields
+match independently decoded map/VRAM/CGRAM colors. Fade brightness is inferred
+only from the native picture, never fitted to the new margins. The earlier
+candidate also passed 1,191 consecutive actual presentation center comparisons.
+The final executable additionally passes 35 outdoor checkpoints (both ordinary
+town-door directions, Start/inventory/close and reset), 46 actual cave-door
+checkpoints across rooms 4/5/6, and 11 dialogue-route checkpoints with
+widescreen off/on. The all-nine-QoL real NPC dialogue also matches the retained
+batch-6 control at 11 checkpoints. Complete expanded pictures at cave frame
+4871 and dialogue frame 6320 are byte-identical to their previously source-audited
+controls. These final bindings reuse the broader earlier presentation sequences;
+they do not claim new campaign coverage or display performance.
+The Atland title card itself retains native layout; this change expands its
+subsequent real world, not the title lettering or unsupported intro artwork.
+
+Gold Cave's fresh-load maps reference animated torch characters 944..949 beyond
+the base BG pack. Their real animation upload is `01DF88` through `008F19`,
+ROM `10:8900/89C0/8A80` to VRAM word `3B00`, length `C0`. Until these separate
+completed animation uploads have independent ownership, early cave fades remain
+conservative native fallback. Previously qualified settled cave scenery and
+actor rules remain available. This is not universal first-frame expansion.
+
+The per-word graphics observer also checks character address and ownership
+before scanning modal BG3 text. Unrelated sprite/font words avoid that scan;
+the full resource invalidation checks are retained. No frame-rate claim follows
+from this ordering change.
+
+Reproduce with private inputs and the matching executable manifest:
+
+```
+python -P tools/qualify_native.py --exe <candidate.exe> --manifest <matching-manifest.json> --route tools/script_wide_initial_world.txt --frames 5000 --features walk_speed,start_hp,camera_center,sword_reach,follower_speed,recovery_time,jump_hold,magic_power,exp_boost --config <private-wide.ini> --env LAGOON_WIDE_ASPECT=32:9 --env LAGOON_WIDE_ENTITY_REPORT=entities.txt --screenshot-range 1600 1650 --out <new-private-output>
+python -P tools/verify_wide_opening.py --run <wide-output> --control <normal-output> --baseline <batch6-wide-output> --rom <private.sfc> --source-tag opening-064 --out <private-report.json>
+```
+
+`tools/test_wide_entities.ps1` exercises the production completed-upload tracker:
+full byte ownership, partial/reordered writes, room/generation changes and
+unexpected overwrites. Private raw captures and ROM inputs remain outside source.
 
 ## Batch 6: camera, dialogue, and three more cave areas
 
@@ -72,8 +133,8 @@ checkpoints and 164 actual paired presentations: the native center is exact
 and both margins retain scenery, including 68 frames with the live text box.
 Start/status over town scenery was also captured with intact margins.
 
-Rooms 4–6 use the same audited graphics/definition resources as room 3. Their
-actual extents are 768×256, 1536×1280 and 512×256 pixels. They now use the same
+Rooms 4â€“6 use the same audited graphics/definition resources as room 3. Their
+actual extents are 768Ã—256, 1536Ã—1280 and 512Ã—256 pixels. They now use the same
 completed-raster boundary mask as the guard exterior: added pixels outside the
 real room are black; native columns remain untouched. The door fixture places
 Nasir near source-derived door coordinates, then uses real movement, collision,

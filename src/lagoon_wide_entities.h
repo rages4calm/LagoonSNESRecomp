@@ -42,6 +42,18 @@ int LagoonWideEntities_WorldCharacters(const uint16_t *vram,
     const uint16_t *witness,const uint8_t used[1024]);
 int LagoonWideEntities_WorldTilemap(const uint16_t *vram,unsigned base,
     int tile_x,int tile_y,const uint16_t expected[720]);
+/* Exact streamed world graphics upload from $01:8875/$01:88CD. */
+enum { kLagoonWideBackgroundBytes=0x37C0 };
+typedef struct LagoonWideBackground {
+  uint8_t bytes[kLagoonWideBackgroundBytes];
+  uint64_t generation;
+  unsigned room,source,completed,next,left,ready;
+} LagoonWideBackground;
+void LagoonWideBackground_Reset(LagoonWideBackground *background);
+int LagoonWideBackground_Begin(LagoonWideBackground *background,uint64_t generation,
+    unsigned room,unsigned source,unsigned bank,unsigned address,unsigned destination,unsigned length);
+void LagoonWideBackground_Write(LagoonWideBackground *background,unsigned address,uint8_t value);
+
 int LagoonWideEntities_MenuOverlay(const uint16_t *vram, unsigned map_base, unsigned char_base);
 void LagoonWideEntities_BlankMargins(uint16_t *depth, unsigned native_offset, unsigned left, unsigned right);
 

@@ -469,7 +469,7 @@ index f9b1e26..5ddf987 100644
  uint32 interp_bridge_lle_resume_pc(void);
  void interp_bridge_set_lle_bounce_exclusions(const uint32 *targets,
 diff --git a/runner/src/desktop/host_main.c b/runner/src/desktop/host_main.c
-index 3bc3905..3b6420d 100644
+index 3bc3905..be05c34 100644
 --- a/runner/src/desktop/host_main.c
 +++ b/runner/src/desktop/host_main.c
 @@ -244,6 +244,29 @@ static const char *HostGetenv(const char *name) {
@@ -502,7 +502,24 @@ index 3bc3905..3b6420d 100644
  static uint32 g_win_flags = SDL_WINDOW_RESIZABLE;
  static SDL_Window *g_window;
  
-@@ -476,6 +499,12 @@ static void GameReset(void) {
+@@ -354,8 +377,15 @@ static void WaitUntil(double deadline) {
+     double remaining_ms = (deadline - now) * 1000;
+     if (remaining_ms > 1.5)
+       SDL_Delay((Uint32)(remaining_ms - 0.5));
+-    else
++    else {
++#if SNESRECOMP_SDL3
++      /* Yielding a time slice here can miss an entire display interval.
++       * Spend the final sub-millisecond CPU budget on the existing deadline. */
++      SDL_DelayPrecise((Uint64)((deadline - now) * 1000000000.0));
++#else
+       SDL_Delay(0);
++#endif
++    }
+     now = MonotonicSeconds();
+   }
+   ProfileEnd(kProfileWait, profile_start);
+@@ -476,6 +506,12 @@ static void GameReset(void) {
  #endif
    g_reset_clock = true;
  }
@@ -515,7 +532,7 @@ index 3bc3905..3b6420d 100644
  
  /* The Reset hotkey, and the script's `reset`: one path, so a test of the
   * script command is a test of what the player presses. */
-@@ -608,7 +637,7 @@ static void PreparePpuFrame(void) {
+@@ -608,7 +644,7 @@ static void PreparePpuFrame(void) {
    if (g_ws_active) flags |= kPpuRenderFlags_NewRenderer;
    PpuBeginDrawing(g_ppu, g_my_pixels,
                    (g_game->native_widescreen ? fw : 256) * 4, flags);
@@ -524,7 +541,7 @@ index 3bc3905..3b6420d 100644
  }
  
  // --- Scripted input ---
-@@ -625,6 +654,7 @@ typedef struct {
+@@ -625,6 +661,7 @@ typedef struct {
    uint16 cond_value;
    int cond_timeout;   // frames
    int cond_waited;
@@ -532,7 +549,7 @@ index 3bc3905..3b6420d 100644
    char *dump_tag;     // dump <tag>
  } ScriptEntry;
  
-@@ -768,6 +798,7 @@ static ScriptEntry *NewScriptEntry(int *cap) {
+@@ -768,6 +805,7 @@ static ScriptEntry *NewScriptEntry(int *cap) {
   *   press <buttons> [N]     hold a+b+... for N frames (default 1)
   *                           prefix P2 buttons with p2:, e.g. right+p2:right
   *   loadstate N             load save-state slot N
@@ -540,7 +557,7 @@ index 3bc3905..3b6420d 100644
   *   reset                   the Reset hotkey's console reset
   *   turbo on|off            change the held-Turbo state at this frame boundary
   *   poke <addr> <hex>       write WRAM bytes for one frame
-@@ -814,11 +845,18 @@ static void LoadScript(const char *path) {
+@@ -814,11 +852,18 @@ static void LoadScript(const char *path) {
        e->mask = kScriptTurbo | (strcmp(arg1, "on") == 0 ? 1u : 0u);
        e->wait_frames = pending_wait;
        pending_wait = 0;
@@ -561,7 +578,7 @@ index 3bc3905..3b6420d 100644
        e->hold_frames = 1;
        e->wait_frames = pending_wait;
        pending_wait = 0;
-@@ -990,8 +1028,8 @@ static uint32 TickScript(void) {
+@@ -990,8 +1035,8 @@ static uint32 TickScript(void) {
      if (g_script_counter > 0) {
        g_script_counter--;
        if (e->mask & kScriptLoadState) {
@@ -572,24 +589,51 @@ index 3bc3905..3b6420d 100644
          return 0;
        }
        if (e->mask & kScriptReset) {
-@@ -1482,6 +1520,16 @@ static void DrawPpuFrameWithPerf(void) {
+@@ -1280,6 +1325,29 @@ static void WritePpm(const char *path, const uint8 *pixel_buffer, int pitch,
+     host_report_breadcrumb("screenshot: wrote %s (%dx%d) at frame %u", path, w, h, frame);
+ }
+ 
++/* Opt-in real-GPU captures for hidden-window diagnosis as well as visible
++ * screenshots. Range capture never requests the user's screenshot flash. */
++static const char *DisplayScreenshotPath(unsigned frame) {
++  static int single_done;
++  const char *single = single_done ? NULL : HostGetenv("DISPLAY_SCREENSHOT");
++  const char *at = single ? HostGetenv("DISPLAY_SCREENSHOT_FRAME") : NULL;
++  if (single && frame >= (at ? strtoul(at, NULL, 10) : 1)) {
++    single_done = 1;
++    return single;
++  }
++  const char *dir = HostGetenv("DISPLAY_SCREENSHOT_DIR");
++  if (!dir || !*dir) return NULL;
++  const char *first = HostGetenv("DISPLAY_SCREENSHOT_FROM");
++  const char *last = HostGetenv("DISPLAY_SCREENSHOT_TO");
++  unsigned lo = first ? strtoul(first, NULL, 10) : 1;
++  unsigned hi = last ? strtoul(last, NULL, 10) : lo;
++  if (hi < lo || hi-lo > 1500 || frame < lo || frame > hi) return NULL;
++  static char path[1024];
++  if (snprintf(path, sizeof(path), "%s/frame-%08u.bmp", dir, frame) >= (int)sizeof(path))
++    return NULL;
++  return path;
++}
++
+ static void DrawPpuFrameWithPerf(void) {
+   double profile_start = ProfileStart();
+   PreparePpuFrame();
+@@ -1482,6 +1550,13 @@ static void DrawPpuFrameWithPerf(void) {
  
    ProfileEnd(kProfileCompose, profile_start);
    profile_start = ProfileStart();
 +  if (g_config.output_method == kOutputMethod_OpenGL) {
-+    static int gl_display_shot_done;
-+    const char *path = gl_display_shot_done ? NULL : HostGetenv("DISPLAY_SCREENSHOT");
-+    const char *at = path ? HostGetenv("DISPLAY_SCREENSHOT_FRAME") : NULL;
-+    if (path && (long)g_present_frame >= (at ? strtol(at, NULL, 0) : 1)) {
++    const char *path = DisplayScreenshotPath(g_present_frame);
++    if (path) {
 +      OpenGLRenderer_RequestScreenshotPath(path);
-+      gl_display_shot_done = 1;
 +      host_report_breadcrumb("OpenGL display screenshot requested at frame=%u",g_present_frame);
 +    }
 +  }
    g_renderer_funcs.EndDraw();
    ProfileEnd(kProfilePresent, profile_start);
    RecordFrameTiming(g_present_frame);
-@@ -2288,6 +2336,45 @@ static void SdlRenderer_EndDraw(void) {
+@@ -2288,6 +2363,42 @@ static void SdlRenderer_EndDraw(void) {
    /* SDL3's SDL_RenderTexture takes SDL_FRect, not SDL_Rect. */
    snesrecomp_sdl_render_texture(g_renderer, g_texture, &g_sdl_renderer_rect,
                                  &g_sdl_present_rect);
@@ -597,11 +641,8 @@ index 3bc3905..3b6420d 100644
 +   * and letterboxing. Read before Present: the backbuffer is undefined after
 +   * presentation. Ordinary native-resolution diagnostic dumps remain separate. */
 +  {
-+    static int display_shot_done;
-+    const char *path = display_shot_done ? NULL : HostGetenv("DISPLAY_SCREENSHOT");
-+    const char *at = path ? HostGetenv("DISPLAY_SCREENSHOT_FRAME") : NULL;
-+    if (path && (long)g_present_frame >= (at ? strtol(at, NULL, 0) : 1)) {
-+      display_shot_done = 1;
++    const char *path = DisplayScreenshotPath(g_present_frame);
++    if (path) {
 +      SDL_Surface *surface = NULL;
 +#if SNESRECOMP_SDL3
 +      surface = SDL_RenderReadPixels(g_renderer, NULL);
@@ -635,7 +676,7 @@ index 3bc3905..3b6420d 100644
    SDL_RenderPresent(g_renderer);
  }
  
-@@ -2649,14 +2736,16 @@ static void LauncherSeed(RecompLauncherCSettings *ls, RecompLauncherCGameInfo *g
+@@ -2649,14 +2760,16 @@ static void LauncherSeed(RecompLauncherCSettings *ls, RecompLauncherCGameInfo *g
    ls->enable_audio  = g_config.enable_audio;
    ls->audio_freq    = g_config.audio_freq;
    ls->volume        = g_config.volume;
@@ -656,7 +697,7 @@ index 3bc3905..3b6420d 100644
    ls->player_src[1] = ConfigHasPlayerSource(1) ? g_config.player_src[1]
                                                 : (g_config.enable_gamepad[1] ? 2 : 0);
    for (int seat = 2; seat < kSnesHostPadSeats && seat < RECOMP_LAUNCHER_MAX_PLAYERS; ++seat)
-@@ -2796,7 +2885,7 @@ static void LauncherCommit(const RecompLauncherCSettings *ls, const char *config
+@@ -2796,7 +2909,7 @@ static void LauncherCommit(const RecompLauncherCSettings *ls, const char *config
      /* Seats past the game's count are not on the launcher's page; keep them. */
      if (seat >= 2 && seat >= HostConfiguredSeats()) break;
      g_config.player_src[seat]     = ls->player_src[seat];
@@ -665,7 +706,20 @@ index 3bc3905..3b6420d 100644
    }
    g_config.gamepad_deadzone    = (ls->deadzone[0] * 32767 + 50) / 100;
    g_config.skip_launcher       = ls->skip_launcher != 0;
-@@ -3714,6 +3803,17 @@ error_reading:;
+@@ -3458,6 +3571,12 @@ int snesrecomp_desktop_main(const SnesDesktopHostGame *game, int argc, char **ar
+   g_ppu_render_flags = g_config.new_renderer * kPpuRenderFlags_NewRenderer |
+     g_config.no_sprite_limits * kPpuRenderFlags_NoSpriteLimits;
+ 
++  /* Diagnostic GPU runs must never show or switch the user's display. */
++  if (HostGetenv("HIDDEN_WINDOW") && atoi(HostGetenv("HIDDEN_WINDOW"))) {
++    g_config.fullscreen = 0;
++    g_win_flags |= SDL_WINDOW_HIDDEN;
++    host_report_breadcrumb("diagnostic hidden window: fullscreen disabled");
++  }
+   if (g_config.fullscreen == 1)
+     g_win_flags ^= SNESRECOMP_SDL_WINDOW_FULLSCREEN_DESKTOP;
+   else if (g_config.fullscreen == 2)
+@@ -3714,6 +3833,17 @@ error_reading:;
  
    PreparePpuFrame();
  
@@ -683,7 +737,7 @@ index 3bc3905..3b6420d 100644
    MkDir("saves");
    if (!g_netplay_session) RtlReadSram();
  
-@@ -3887,8 +3987,7 @@ error_reading:;
+@@ -3887,8 +4017,7 @@ error_reading:;
      {
        int ls = debug_server_consume_loadstate();
        if (ls >= 0 && !g_netplay_session) {
@@ -693,7 +747,7 @@ index 3bc3905..3b6420d 100644
        }
        int ss = debug_server_consume_savestate();
        if (ss >= 0 && !g_netplay_session)
-@@ -4207,6 +4306,14 @@ error_reading:;
+@@ -4207,6 +4336,14 @@ error_reading:;
      bool runahead_captured = false;
      {
        const uint32 word = inputs | GetActiveControllers() | debug_server_get_controller_active_mask();
@@ -708,7 +762,7 @@ index 3bc3905..3b6420d 100644
        if (g_turbo || !snes_runahead_run_frame(word))
          RtlRunFrame(word);
        else
-@@ -4406,11 +4513,11 @@ error_reading:;
+@@ -4406,11 +4543,11 @@ error_reading:;
  static void PollKeyboardControls(const uint8_t *keys) {
    /* Replace the whole keyboard word so changing a seat to Gamepad/None also
     * releases keys held under its previous assignment. Hotkeys remain separate. */
@@ -723,7 +777,7 @@ index 3bc3905..3b6420d 100644
          ? keybinds_read_player_runner(keys, seat + 1) : 0;
  }
  
-@@ -4465,8 +4572,7 @@ static void HandleCommand(uint32 j, bool pressed) {
+@@ -4465,8 +4602,7 @@ static void HandleCommand(uint32 j, bool pressed) {
    if (!pressed)
      return;
    if (j <= kKeys_Load_Last) {
@@ -733,7 +787,7 @@ index 3bc3905..3b6420d 100644
    } else if (j <= kKeys_Save_Last) {
      RtlSaveLoad(kSaveLoad_Save, j - kKeys_Save);
    } else {
-@@ -4528,6 +4634,9 @@ static void HandleCommand(uint32 j, bool pressed) {
+@@ -4528,6 +4664,9 @@ static void HandleCommand(uint32 j, bool pressed) {
  
  static void HandleInput(int keyCode, int keyMod, bool pressed) {
    int j = FindCmdForSdlKey(keyCode, (SDL_Keymod)keyMod);
@@ -743,7 +797,7 @@ index 3bc3905..3b6420d 100644
    if (j != 0)
      HandleCommand(j, pressed);
  }
-@@ -4553,8 +4662,8 @@ static void RequestScreenshot(void) {
+@@ -4553,8 +4692,8 @@ static void RequestScreenshot(void) {
  
  static uint32 GetActiveControllers(void) {
    uint32 ctrl = g_script_controllers |
@@ -1101,7 +1155,7 @@ index c1e48eb..06a70a5 100644
          if (dtrace && in.dp != dp_before) {
              extern int snes_frame_counter;
 diff --git a/runner/src/snes/ppu.c b/runner/src/snes/ppu.c
-index 25dcfe0..d47a226 100644
+index 25dcfe0..fc830f5 100644
 --- a/runner/src/snes/ppu.c
 +++ b/runner/src/snes/ppu.c
 @@ -167,6 +167,12 @@ void ppu_rb_residue_set(Ppu *ppu, const PpuRollbackResidue *in) {
@@ -1160,8 +1214,94 @@ index 25dcfe0..d47a226 100644
  bool PpuComposeExtraObjects(const PpuExtraObject *objects,size_t count,
      int y,int x0,size_t width,unsigned first_slot,
      uint16_t *depth,uint16_t *colors,uint64_t *order) {
+@@ -3205,6 +3224,85 @@ static int raster_reg_journaled(uint16_t reg) {
+   }
+ }
+ 
++/* Pointer-free, little-endian raster continuation. Only live entries are
++ * serialized; stale array tails and C padding are deliberately excluded.
++ * The host snapshots between frames, after RenderEnd, while both the completed
++ * field and any next-field writes after V=225 are still needed. */
++enum { kRasterStateHeader = 16, kRasterStateField = PPU_SAVESTATE_REGS_SIZE + 12 };
++static uint32_t raster_state_get32(const uint8_t *p) {
++  return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24;
++}
++static void raster_state_put32(uint8_t *p, uint32_t v) {
++  p[0]=(uint8_t)v; p[1]=(uint8_t)(v>>8); p[2]=(uint8_t)(v>>16); p[3]=(uint8_t)(v>>24);
++}
++size_t ppu_raster_state_size(void) {
++  return kRasterStateHeader + 2u * kRasterStateField +
++      5u * ((size_t)s_field[0].count + (size_t)s_field[1].count);
++}
++void ppu_raster_state_save(void *dst) {
++  uint8_t *p = (uint8_t *)dst;
++  assert(dst && !s_raster_rendering);
++  memcpy(p,"PRJ1",4); raster_state_put32(p+4,1);
++  raster_state_put32(p+8,(uint32_t)ppu_raster_state_size());
++  p[12]=(uint8_t)s_raster_cur; p[13]=(uint8_t)s_raster_armed;
++  p[14]=(uint8_t)s_raster_have_completed; p[15]=0; p+=kRasterStateHeader;
++  for (unsigned n=0;n<2;n++) {
++    const PpuRasterField *f=&s_field[n];
++    memcpy(p,f->regs,PPU_SAVESTATE_REGS_SIZE); p+=PPU_SAVESTATE_REGS_SIZE;
++    *p++=f->scrollPrev; *p++=f->scrollPrev2; *p++=f->m7prev; *p++=f->hdmaen;
++    raster_state_put32(p,(uint32_t)f->count); p+=4;
++    raster_state_put32(p,f->dropped); p+=4;
++    for (int i=0;i<f->count;i++) {
++      *p++=(uint8_t)f->e[i].key; *p++=(uint8_t)(f->e[i].key>>8);
++      *p++=(uint8_t)f->e[i].reg; *p++=(uint8_t)(f->e[i].reg>>8);
++      *p++=f->e[i].val;
++    }
++  }
++}
++int ppu_raster_state_valid(const void *data, size_t size) {
++  const uint8_t *p=(const uint8_t *)data;
++  size_t left=size;
++  if (!p || size<kRasterStateHeader || size>kRasterStateHeader+2u*kRasterStateField+10u*PPU_RASTER_MAX ||
++      memcmp(p,"PRJ1",4) || raster_state_get32(p+4)!=1 ||
++      raster_state_get32(p+8)!=size || p[12]>1 || p[13]>1 || p[14]>1 || p[15]) return 0;
++  p+=kRasterStateHeader; left-=kRasterStateHeader;
++  for (unsigned n=0;n<2;n++) {
++    if (left<kRasterStateField) return 0;
++    uint32_t count=raster_state_get32(p+PPU_SAVESTATE_REGS_SIZE+4);
++    p+=kRasterStateField; left-=kRasterStateField;
++    if (count>PPU_RASTER_MAX || count>left/5u) return 0;
++    for (uint32_t i=0;i<count;i++,p+=5,left-=5) {
++      uint16_t key=(uint16_t)(p[0]|(uint16_t)p[1]<<8);
++      uint16_t reg=(uint16_t)(p[2]|(uint16_t)p[3]<<8);
++      if (key>=262 || !raster_reg_journaled(reg)) return 0;
++    }
++  }
++  return left==0;
++}
++int ppu_raster_state_load(const void *data, size_t size) {
++  const uint8_t *p=(const uint8_t *)data;
++  /* Validate everything before touching the current continuation. */
++  if (!ppu_raster_state_valid(data,size)) return 0;
++  s_raster_cur=p[12]; s_raster_armed=p[13]; s_raster_have_completed=p[14];
++  p+=kRasterStateHeader;
++  memset(s_field,0,sizeof(s_field));
++  for (unsigned n=0;n<2;n++) {
++    PpuRasterField *f=&s_field[n];
++    memcpy(f->regs,p,PPU_SAVESTATE_REGS_SIZE); p+=PPU_SAVESTATE_REGS_SIZE;
++    f->scrollPrev=*p++; f->scrollPrev2=*p++; f->m7prev=*p++; f->hdmaen=*p++;
++    f->count=(int)raster_state_get32(p); p+=4;
++    f->dropped=raster_state_get32(p); p+=4;
++    for (int i=0;i<f->count;i++,p+=5) {
++      f->e[i].key=(uint16_t)(p[0]|(uint16_t)p[1]<<8);
++      f->e[i].reg=(uint16_t)(p[2]|(uint16_t)p[3]<<8); f->e[i].val=p[4];
++    }
++  }
++  s_raster_rendering=0; s_raster_render=NULL; s_raster_next=0;
++  s_raster_hdmaen=0; s_raster_hdmaen_pending=0;
++  memset(&s_raster_port,0,sizeof(s_raster_port));
++  return 1;
++}
++
+ static void raster_snapshot(PpuRasterField *f, const Ppu *ppu) {
+   memcpy(f->regs, &ppu->inidisp, PPU_SAVESTATE_REGS_SIZE);
+   f->scrollPrev = ppu->scrollPrev;
 diff --git a/runner/src/snes/ppu.h b/runner/src/snes/ppu.h
-index 7e092bb..ced9309 100644
+index 7e092bb..b4eae35 100644
 --- a/runner/src/snes/ppu.h
 +++ b/runner/src/snes/ppu.h
 @@ -8,6 +8,7 @@
@@ -1182,7 +1322,21 @@ index 7e092bb..ced9309 100644
    // Optional native-width Mode 2 layer capture. Stored as layer+1 so zero is
    // disabled; pixels are palette indices for the most recently drawn frame.
    uint8_t wsMode2CaptureLayer;
-@@ -696,6 +700,14 @@ typedef struct PpuRollbackResidue {
+@@ -611,6 +615,13 @@ void ppu_rasterApplyLine(Ppu *ppu, int line);
+ void ppu_rasterFieldBoundary(void);
+ /* Disarm, for a machine rebuild (session reset). */
+ void ppu_rasterReset(void);
++/* Between-frame continuation, including pending next-field journal writes.
++ * Pointer-free/versioned blob; caller supplies size() bytes to save. Load
++ * validates atomically and resets replay transients, not the live PPU body. */
++size_t ppu_raster_state_size(void);
++void ppu_raster_state_save(void *dst);
++int ppu_raster_state_valid(const void *data, size_t size);
++int ppu_raster_state_load(const void *data, size_t size);
+ 
+ /* Scanout latch bypass — set by the debug server around render_inject so an
+  * injected OAM/CGRAM state is rendered as given. A frame-model host that
+@@ -696,6 +707,14 @@ typedef struct PpuRollbackResidue {
  
  void ppu_rb_residue_get(const Ppu *ppu, PpuRollbackResidue *out);
  void ppu_rb_residue_set(Ppu *ppu, const PpuRollbackResidue *in);
@@ -1197,7 +1351,7 @@ index 7e092bb..ced9309 100644
  
  // Replace stale BG1 tilemap pixels in widened side margins before final
  // composition. The callback is host-only and runs independently for main and
-@@ -826,6 +838,10 @@ void PpuSetWidescreenBg3Widen(Ppu *ppu, uint8_t from_y);
+@@ -826,6 +845,10 @@ void PpuSetWidescreenBg3Widen(Ppu *ppu, uint8_t from_y);
  // The authentic center and OBJ rendering are unaffected. A zero mask restores
  // the default layer policy.
  void PpuSetWidescreenLayerMask(Ppu *ppu, uint8_t bg_layer_mask);
@@ -1321,6 +1475,126 @@ index 98ce817..bc7c0f7 100644
 +  puts("RDNMI: disabled/enabled NMI, non-consuming $4210/$4212 reads, field expiry, instance isolation, host compatibility, v9/v10 snapshots and reset PASS");
    return 0;
  }
+diff --git a/tests/ppu/ppu_raster_state_test.c b/tests/ppu/ppu_raster_state_test.c
+new file mode 100644
+index 0000000..e68f988
+--- /dev/null
++++ b/tests/ppu/ppu_raster_state_test.c
+@@ -0,0 +1,114 @@
++/* ROM-free raster continuation test. The PPU body alone cannot reproduce
++ * a cold-process restore: both completed and overshooting journals are needed. */
++#include <assert.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include "snes/ppu.h"
++#include "snes/snes.h"
++Snes *g_snes;
++int snes_frame_counter;
++unsigned char g_snesrecomp_last_hdmaen;
++uint16_t WsShadowTile(int layer, int x, uint32_t y, uint16_t tile) {
++  (void)layer; (void)x; (void)y; return tile;
++}
++bool WsShadowLayerActive(int layer) { (void)layer; return false; }
++uint32_t WsShadowWorldX(int layer) { (void)layer; return 0; }
++uint32_t WsShadowPresentWorldY(int layer, int x) { (void)layer; (void)x; return 0; }
++uint32_t WsShadowScrollY(int layer) { (void)layer; return 0; }
++void WsShadowOnVramWrite(uint16_t address, uint16_t value) { (void)address; (void)value; }
++
++
++static Snes machine;
++static Ppu p, saved_body;
++static void write_at(unsigned line, uint8_t reg, uint8_t value) {
++  machine.vPos=(uint16_t)line; ppu_write(&p,reg,value);
++}
++typedef struct { uint8_t brightness,left,right,prev,oam,pending,hdma; } Sample;
++static Sample sample(void) {
++  Sample s={p.inidisp,p.window1left,p.window1right,p.scrollPrev,p.oamAdr,0,0};
++  s.pending=(uint8_t)ppu_rasterTakeHdmaen(&s.hdma); return s;
++}
++static void replay(Sample result[14]) {
++  static const int lines[]={0,21,22,198,199};
++  unsigned n=0;
++  for (int field=0;field<2;field++) {
++    ppu_rasterRenderBegin(&p); result[n++]=sample();
++    for (unsigned i=0;i<5;i++) { ppu_rasterApplyLine(&p,lines[i]); result[n++]=sample(); }
++    ppu_rasterApplyLine(&p,224); ppu_rasterRenderEnd(&p); result[n++]=sample();
++    machine.vPos=225; ppu_rasterFieldBoundary();
++  }
++  assert(n==14);
++}
++static void put32(uint8_t *p,uint32_t value) {
++  for(unsigned i=0;i<4;i++)p[i]=(uint8_t)(value>>(i*8));
++}
++int main(void) {
++  g_snes=&machine; machine.ppu=&p; ppu_reset(&p); ppu_rasterReset();
++  size_t empty_size=ppu_raster_state_size(); uint8_t *empty=malloc(empty_size);
++  assert(empty); ppu_raster_state_save(empty); assert(ppu_raster_state_valid(empty,empty_size));
++  assert(ppu_raster_state_load(empty,empty_size));
++  assert(!ppu_raster_state_valid(NULL,empty_size));
++  assert(!ppu_raster_state_valid(empty,empty_size-1));
++  free(empty);
++  write_at(225,0x00,0x80); write_at(225,0x26,0xFF); ppu_rasterBegin(&p);
++  write_at(230,0x00,15); ppu_rasterRecord(0x420C,230,3);
++  write_at(22,0x26,0x14); write_at(22,0x27,0xEB);
++  write_at(199,0x00,0x80); write_at(199,0x26,0xFF);
++  machine.vPos=225; ppu_rasterFieldBoundary();
++  /* Pending writes AFTER the field ended: dropping these corrupts the guest
++   * register file restored at RenderEnd and the following field's replay. */
++  write_at(230,0x00,7); write_at(10,0x26,0x20); write_at(12,0x02,0x40);
++  p.oamAdr=0x41; p.scrollPrev=0x6D; saved_body=p;
++  size_t size=ppu_raster_state_size(); uint8_t *blob=malloc(size),*bad=malloc(size+1),*after=malloc(size);
++  assert(blob&&bad&&after); ppu_raster_state_save(blob); assert(ppu_raster_state_valid(blob,size));
++  Sample baseline[14],restored[14]; replay(baseline);
++  assert(baseline[1].brightness==15 && baseline[1].pending && baseline[1].hdma==3);
++  assert(baseline[3].left==0x14 && baseline[5].brightness==0x80);
++  assert(baseline[6].brightness==7 && baseline[6].left==0x20 && baseline[6].oam==0x41);
++  /* A new process has cold registers/journals, not the warm last game's. */
++  ppu_rasterReset(); ppu_reset(&p); write_at(225,0x00,0x80); ppu_rasterBegin(&p);
++  assert(ppu_raster_state_load(blob,size));
++  assert(p.inidisp==0x80); /* API never restores the separately saved PPU body. */
++  p=saved_body; replay(restored); assert(!memcmp(baseline,restored,sizeof(baseline)));
++  /* Loading also clears a partially consumed replay/HDMA notification. */
++  assert(ppu_raster_state_load(blob,size)); p=saved_body;
++  ppu_rasterRenderBegin(&p); ppu_rasterApplyLine(&p,0);
++  assert(ppu_raster_state_load(blob,size)); uint8_t hdma=0xAA;
++  assert(!ppu_rasterTakeHdmaen(&hdma));
++  p=saved_body; replay(restored); assert(!memcmp(baseline,restored,sizeof(baseline)));
++  /* Every malformed load is rejected before changing either journal. */
++  assert(ppu_raster_state_load(blob,size));
++  for(unsigned mutation=0;mutation<10;mutation++) {
++    memcpy(bad,blob,size); size_t supplied=size;
++    switch(mutation) {
++      case 0: bad[0]^=1; break;
++      case 1: bad[4]=2; break;
++      case 2: bad[12]=2; break;
++      case 3: bad[13]=2; break;
++      case 4: bad[14]=2; break;
++      case 5: bad[15]=1; break;
++      case 6: put32(bad+16+PPU_SAVESTATE_REGS_SIZE+4,4097); break;
++      case 7: bad[16+PPU_SAVESTATE_REGS_SIZE+12]=6; bad[17+PPU_SAVESTATE_REGS_SIZE+12]=1; break; /* key262 */
++      case 8: bad[18+PPU_SAVESTATE_REGS_SIZE+12]=0x18; bad[19+PPU_SAVESTATE_REGS_SIZE+12]=0x21; break; /* upload port2118 */
++      case 9: supplied=size+1; put32(bad+8,(uint32_t)supplied); break;
++    }
++    assert(!ppu_raster_state_valid(bad,supplied)); assert(!ppu_raster_state_load(bad,supplied));
++    assert(ppu_raster_state_size()==size); ppu_raster_state_save(after); assert(!memcmp(after,blob,size));
++  }
++  assert(!ppu_raster_state_load(blob,size-1));
++  /* Capacity and dropped-write accounting survive without stale array tails. */
++  ppu_rasterReset(); ppu_rasterBegin(&p);
++  for(unsigned i=0;i<4097;i++) ppu_rasterRecord(0x2100,230,15);
++  size_t full_size=ppu_raster_state_size(); uint8_t *full=malloc(full_size),*full_copy=malloc(full_size);
++  assert(full&&full_copy); ppu_raster_state_save(full);
++  assert(ppu_raster_state_valid(full,full_size));
++  assert(ppu_raster_state_load(full,full_size));
++  ppu_raster_state_save(full_copy); assert(!memcmp(full,full_copy,full_size));
++  assert(full[16+PPU_SAVESTATE_REGS_SIZE+8]==1); /* dropped count */
++  put32(full+16+PPU_SAVESTATE_REGS_SIZE+4,0xFFFFFFFFu);
++  assert(!ppu_raster_state_load(full,full_size));
++  free(full);free(full_copy);
++  free(blob);free(bad);free(after);
++  puts("ppu_raster_state_test: PASS fresh/cold restore, two-field replay, V225 overshoot, latches/HDMA, transient reset, atomic malformed rejection");return 0;
++}
 diff --git a/tests/ppu/ppu_shadow_authoritative_map_test.c b/tests/ppu/ppu_shadow_authoritative_map_test.c
 new file mode 100644
 index 0000000..1f7c676

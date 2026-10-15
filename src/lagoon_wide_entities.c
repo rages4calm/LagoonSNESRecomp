@@ -207,6 +207,33 @@ int LagoonWideEntities_WorldTilemap(const uint16_t *vram,unsigned base,
   return 1;
 }
 
+void LagoonWideBackground_Reset(LagoonWideBackground *b) {
+  if(b)memset(b,0,sizeof(*b));
+}
+int LagoonWideBackground_Begin(LagoonWideBackground *b,uint64_t generation,
+    unsigned room,unsigned source,unsigned bank,unsigned address,unsigned destination,unsigned length) {
+  if(!b)return 0;
+  if(bank==0x7F && address==0x7F80 && destination==0 && length==0x1000) {
+    LagoonWideBackground_Reset(b);b->generation=generation;b->room=room;b->source=source;
+  }
+  b->left=0;
+  unsigned remaining=kLagoonWideBackgroundBytes-b->completed;
+  if(b->generation!=generation || b->room!=room || b->source!=source || b->ready ||
+      bank!=0x7F || address!=0x7F80+b->completed || destination!=b->completed/2 ||
+      !remaining || length!=(remaining>0x1000?0x1000:remaining))return 0;
+  b->next=destination*2;b->left=length;return 1;
+}
+void LagoonWideBackground_Write(LagoonWideBackground *b,unsigned address,uint8_t value) {
+  if(!b)return;
+  int expected=b->left && address==b->next;
+  if(!expected) {
+    if(address<kLagoonWideBackgroundBytes)b->ready=0;
+    b->left=0;return;
+  }
+  b->bytes[address]=value;b->next++;b->left--;b->completed++;
+  if(b->completed==kLagoonWideBackgroundBytes)b->ready=1;
+}
+
 int LagoonWideEntities_MenuOverlay(const uint16_t *vram,unsigned map,unsigned chars) {
   if(!vram) return 1;
   for(unsigned i=0;i<24*32;++i) {
@@ -328,10 +355,11 @@ static void observe_dma(const Dma *dma,unsigned channel,const DmaChannel *t) {
     unsigned channels=0;
     for (unsigned i=0;i<8;++i) channels+=dma->channel[i].dmaActive!=0;
     if (channels==1 && t->mode==1 && t->bAdr==0x18 && !t->fixed && !t->decrement &&
-        g_ppu->vramIncrement==1 && g_ppu->vramIncrementOnHigh && !g_ppu->vramRemapMode)
+        g_ppu->vramIncrement==1 && g_ppu->vramIncrementOnHigh && !g_ppu->vramRemapMode) {
+      LagoonWide_OnBackgroundDma(t->aBank,t->aAdr,g_ppu->vramPointer,t->size);
       LagoonWideAtlas_Begin(&s_atlas,RtlStateGeneration(),g_ram[0x48e],
           ram_pointer(g_ram,0x5d),t->aBank,t->aAdr,g_ppu->vramPointer,t->size);
-    else s_atlas.transfer_left=0;
+    } else s_atlas.transfer_left=0;
   }
   if (channel!=0 || t->fromB || t->mode!=0 || t->fixed || t->decrement ||
       t->bAdr!=4 || t->aBank!=0x7e || t->aAdr!=0x2000 || t->size!=0x220) return;

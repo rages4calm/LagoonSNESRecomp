@@ -14,6 +14,8 @@ batches. Generated routine counts are not campaign completion percentages.
       room-hazard/first-boss quake dispatch; exact damage/revival/defeat parity.
 - [x] Native HP addition/clamping and revival healing entry, with suspended-call
       bank preservation and four bounded combat-route checks.
+- [x] Native paired actor/boss dispatch, player-hit wrapper and first-boss phase;
+      four complete replay comparisons confirm actual native execution.
 - [ ] Promote HP subtraction, full death/revival and remaining boss-phase orchestration
       only after proving their indirect and nonlocal stack continuations.
 - [ ] Continue native promotion from measured hot paths; resolve existing
@@ -55,6 +57,8 @@ batches. Generated routine counts are not campaign completion percentages.
 - [ ] Adapt title/intro, equipment/save layouts and unaudited scripted scenes.
 - [x] Optional Faster menus: one second less fade delay entering Items/Magic.
 - [x] Remove Smooth scaling; retain optional Enhanced original pixels.
+- [x] Preserve both raster register journals in development states; fix alternating
+      black frames after cold loading, with consecutive-field and hidden GPU checks.
 - [x] General live-execution/PPU-port state serialization, exact same-process
       and cold-process restores; incomplete/corrupt files refuse cleanly.
 - [x] Reconstruct OAM-matched normal NPC and enemy margin cells; reject stale
@@ -65,13 +69,18 @@ batches. Generated routine counts are not campaign completion percentages.
 - [x] Optional original-art EPX smoothing with sharp HUD, reversible Companion
       settings and actual full-HD GPU capture checks. Full retexture shelved.
 - [ ] Broader EPX menu, GPU and monitor qualification.
-- [ ] Profile sustained widescreen world performance: the normal-paced full-HD
-      dialogue capture averaged about 46 host frames/sec, versus roughly 60 in
-      the lightweight menu route. Separate simulation, composition and pacing.
+- [x] Profile sustained widescreen world performance in isolated fullscreen runs;
+      the earlier 46 FPS average was not reproduced, with baseline runs near 60.
+- [x] Use a precise final deadline wait on SDL3 to reduce scheduler jitter.
+- [x] Keep the initial Atland world wide during its verified loaded fade.
+- [ ] Broaden sustained frame-time checks across more areas/devices and investigate
+      remaining cave fade, state-load settlement and unaudited transition gaps.
+- [ ] Evaluate a separate game-state-driven Lagoon renderer for broader scene/HUD
+      coverage. Choose graphics API from measured needs; keep reference output.
 - [ ] Broader save/load, hardware controller and campaign/ending qualification.
 
 Every QoL feature and widescreen defaults off. Exact implementation/evidence:
-[native batch](NATIVE-BATCH6-2026-10-15.md), [QoL](QOL-IMPLEMENTATION.md),
+[native batch](NATIVE-BATCH7-2026-10-15.md), [QoL](QOL-IMPLEMENTATION.md),
 [widescreen](docs/WIDESCREEN.md).
 
 The supplied BPS is a private reference. Keep the clean ROM identity for

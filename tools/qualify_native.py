@@ -20,6 +20,8 @@ def main():
     parser.add_argument('--live-input',action='store_true',help='Opt in to merging physical keyboard/gamepads into the script; default uses only scripted guest input')
     parser.add_argument('--input-trace',action='store_true',help='Log actual guest input words for isolation checks')
     parser.add_argument('--visible',action='store_true',help='Use the real SDL display for fullscreen screenshot checks; saves/config remain isolated')
+    parser.add_argument('--offscreen',action='store_true',help='Real GPU in a hidden non-fullscreen window; no desktop display changes')
+    parser.add_argument('--display-screenshot-range',nargs=2,type=int,metavar=('FIRST','LAST'),help='Read back a bounded range of actual GPU frames; requires visible or offscreen')
     parser.add_argument('--display-screenshot-frame',type=int,help='Capture the actual SDL output at this frame; requires --visible')
     parser.add_argument('--features',default='',help='Comma-separated lagoon.quality feature ids; creates a private mod catalog')
     parser.add_argument('--feature',action='append',default=[],help='Additional package_id:feature_id; repeatable')
@@ -31,8 +33,9 @@ def main():
     parser.add_argument('--screenshot-range',nargs=2,type=int,metavar=('FIRST','LAST'),help='Save every presentation in a bounded diagnostic frame range')
     parser.add_argument('--manifest',type=Path,help='Manifest belonging to this executable; required for old retained binaries')
     args=parser.parse_args()
-    if args.display_screenshot_frame and not args.visible:
-        parser.error('--display-screenshot-frame requires --visible')
+    if args.visible and args.offscreen:parser.error('Choose visible OR offscreen')
+    if (args.display_screenshot_frame or args.display_screenshot_range) and not (args.visible or args.offscreen):
+        parser.error('Display capture requires --visible or --offscreen')
     repo=Path(__file__).resolve().parents[1];rom=repo.parent/'Lagoon (USA).sfc'
     exe=args.exe.resolve();route=args.route.resolve();out=args.out.resolve()
     out.mkdir(parents=True,exist_ok=False)
@@ -83,8 +86,9 @@ def main():
                SNESRECOMP_RUN_FRAMES=str(args.frames),SNESRECOMP_DUMP_DIR=str(out/'dumps'),
                SNESRECOMP_PRESENT_LOG=str(out/'presents.csv'))
     if args.input_trace:env['SNESRECOMP_INPUT_TRACE']='1'
-    if args.visible:env.pop('SDL_VIDEODRIVER',None)
+    if args.visible or args.offscreen:env.pop('SDL_VIDEODRIVER',None)
     else:env['SDL_VIDEODRIVER']='dummy'
+    if args.offscreen:env['SNESRECOMP_HIDDEN_WINDOW']='1'
     if args.coverage:env.update(SNESRECOMP_TIER2_CAPTURE='1',SNESRECOMP_COVERAGE_DIR=str(out/'coverage'))
     if args.screenshot_frame:
         env.update(SNESRECOMP_SCREENSHOT=str(out/'presentation.ppm'),
@@ -99,6 +103,11 @@ def main():
     if args.display_screenshot_frame:
         env.update(SNESRECOMP_DISPLAY_SCREENSHOT=str(out/'display.bmp'),
                    SNESRECOMP_DISPLAY_SCREENSHOT_FRAME=str(args.display_screenshot_frame))
+    if args.display_screenshot_range:
+        first,last=args.display_screenshot_range
+        if first<1 or last<first or last-first>1500:parser.error('Display range must contain 1..1501 frames')
+        (out/'display-frames').mkdir()
+        env.update(SNESRECOMP_DISPLAY_SCREENSHOT_DIR=str(out/'display-frames'),SNESRECOMP_DISPLAY_SCREENSHOT_FROM=str(first),SNESRECOMP_DISPLAY_SCREENSHOT_TO=str(last))
     diagnostic_paths={'LAGOON_WIDE_ENTITY_REPORT','LAGOON_SOUNDTRACK_PROBE',
                       'SNESRECOMP_APURAM_TRACE_FILE','SNESRECOMP_DSPREG_TRACE_FILE',
                       'SNESRECOMP_FRAME_TIMING'}
@@ -139,6 +148,8 @@ def main():
                    diagnostic_overrides=overrides,private_mod_state=state,private_working_directory=str(host))
     receipt['seeded_save_files']=seeded
     receipt['visible_display']=args.visible
+    receipt['offscreen_gpu']=args.offscreen
+    receipt['display_screenshot_range']=args.display_screenshot_range
     receipt['display_screenshot_frame']=args.display_screenshot_frame
     # The framework's current save-root buffer is only 96 bytes. A short path
     # relative to our isolated CWD avoids truncating long Windows test roots.
@@ -158,8 +169,10 @@ def main():
     config=config_path.read_text(encoding='utf-8')
     receipt['input_config_path']=str(config_path)
     receipt['input_config_sha256']=sha(config_path)
-    delay=0 if args.visible else 1
+    delay=0 if (args.visible or args.offscreen) else 1
     config=re.sub(r'(?m)^DisableFrameDelay\s*=.*$', f'DisableFrameDelay = {delay}', config)
+    if args.offscreen:
+        config=re.sub(r'(?m)^Fullscreen\s*=.*$', 'Fullscreen = 0', config)
     receipt['effective_disable_frame_delay']=delay
     receipt['input_trace']=args.input_trace
     receipt['script_only_input']=not args.live_input

@@ -7,19 +7,47 @@ Earlier builds stored WRAM, PPU memory and a dormant emulator CPU, omitting the
 actual runtime CPU and frame cursor. Loading that blob could resume unrelated
 boot code against an in-progress world, producing flashing and frozen controls.
 Saving now includes the live CPU, interpreter bridge continuation, shared runtime
-timing/residue, beam cursor/WAI state and PPU ports/latches. The missing PPU
+timing/residue, beam cursor/WAI state, PPU ports/latches and both raster register journals. The missing PPU
 VMAIN port was separately caught by a cold restart: same-process restores looked
 correct, while cold uploads corrupted VRAM. The new extension restores it too.
 
 The existing framework RSGUARD envelope now checks a whole-payload CRC32 and the
-versioned Lagoon state identity before any guest mutation. Inside that envelope,
+versioned Lagoon state identity (`lagoon-native-state-v3`) before any guest mutation. Inside that envelope,
 the RTLS guest schema remains version 10. Lagoon's title extension is
-LGA1 audio data followed by a versioned LGE2 execution payload (format 2), checked
+LGA1 audio data followed by a versioned LGE2 execution payload (format 3), checked
 for exact size, an additional execution checksum, runtime layout and valid beam state before the first
-guest byte changes. These are matching-runtime development states. Older
-incomplete test states are refused cleanly; start a fresh game and save with the
+guest byte changes. These are matching-runtime development states. Earlier
+development state formats are refused cleanly; start a fresh game and save with the
 updated build. Failed loading reports a message and keeps the running session.
 There is no checkpoint-specific recovery path in production.
+
+## Cold-load flashing repair
+
+A moving-town state exposed an omitted display continuation: the PPU has two
+raster register journals. A warm reload kept compatible journals in memory,
+while a cold reload reused a reset-era buffer every other field. CPU, WRAM,
+VRAM, OAM, CGRAM and even the complete register-write trace matched, but every
+second reconstructed framebuffer was black. Both SDL and Enhanced/OpenGL
+presented that same incorrect source frame.
+
+Format 3 includes an explicitly encoded, pointer-free PRJ1 raster blob: both
+field baselines, latches, HDMA enables, ordered writes, drop counters, current
+journal and completion/arming state. Pending writes after V=225 survive too.
+Loading validates bounds, counts, register addresses and keys before mutation;
+render pointers and temporary replay cursors are rebuilt. The earlier format 2
+is refused rather than loaded with an incomplete display continuation.
+
+The repaired moving-town cold load matches 64 consecutive warm-reload fields
+and 62 uninterrupted fields at all seven state/clock files. None is black.
+Hidden actual-GPU SDL and Enhanced/OpenGL checks each capture 141 fields;
+only the pre-load startup field is black, followed by 140 nonblack fields.
+These are consecutive-field checks, not sparse screenshots. Public reproduction
+routes `tools/script_state_moving_natural.txt`,
+`tools/script_state_moving_reload.txt` and
+`tools/script_state_moving_coldload.txt`, plus the raster serializer unit test,
+retain this regression. The natural/reload routes produce a private slot-0
+state; seed its copy into the cold-load run with `--seed-save-root`. Compare
+matching guest frame numbers because the cold process host counter differs.
 
 ## Bounded runtime verification
 
@@ -28,8 +56,9 @@ moves, restores and repeats the same inputs. `tools/script_state_coldload.txt`
 loads a private copy of that state in a new process and repeats the movement.
 All six snapshot files plus full frame/clock metadata match exactly in the
 same-process and cold-process cases. This includes VRAM, OAM, CGRAM, framebuffer,
-registers and WRAM. Five refusal tests alter guest payload CRC, guard identity, a beam cursor
-(with recomputed checksums), file length and an older incomplete state; each
+registers and WRAM. Six refusal tests alter guest payload CRC, guard identity, a beam cursor,
+a raster entry count (the latter two with recomputed checksums), file length
+and an older format-2 state; each
 refusal matches an equal-frame no-load
 control at all seven files, with no guest mutation or console reset.
 

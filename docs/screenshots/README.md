@@ -62,3 +62,16 @@ These are actual 1920×1080 fullscreen OpenGL readbacks from batch 6. Original
 text/icons stay centered while the original frame expands. The early inventory
 is mostly empty; populated late-game panels need further checks. The 32:9 field
 is letterboxed on this 16:9 monitor. See [menu qualification](../MENU-PRESENTATION.md).
+
+## Atland — current 32:9 Enhanced pixels, 1920×1080
+
+![Current fullscreen Atland with Enhanced pixels](atland-32x9-epx-performance-1920x1080.png)
+
+Actual OpenGL fullscreen output after the raster-state restoration fix. A fresh
+version-3 state was loaded, followed by about 50 seconds of movement and idle
+time. The original artwork and centered HUD remain; the 32:9 viewport is
+letterboxed. This single visible run averaged 59.63 fps including state loading
+and diagnostic overhead. A separate clean hidden-GPU interval measured about
+60.12 fps with remaining frame-time spikes. See [performance evidence and
+limits](../PERFORMANCE.md); the older 46.2 fps dialogue capture above is a
+historical measurement, not the current controlled result.

@@ -12,7 +12,7 @@
 #include <string.h>
 #include <stdio.h>
 
-enum { kMagic = 0x3245474c, kVersion = 2, kAudioBytes = 16 };
+enum { kMagic = 0x3245474c, kVersion = 3, kAudioBytes = 16 };
 typedef struct StateCursor { SnesBeamFrameState beam; PpuPortState ports; } StateCursor;
 typedef struct StateHeader { uint32_t magic, version, bytes, checksum; } StateHeader;
 typedef struct StateBuffer {
@@ -23,7 +23,7 @@ typedef struct StateBuffer {
 } StateBuffer;
 static int pending_execution;
 static StateCursor pending_cursor;
-const char *LagoonState_Identity(void) { return "lagoon-native-state-v2"; }
+const char *LagoonState_Identity(void) { return "lagoon-native-state-v3"; }
 static uint32_t checksum(const uint8_t *data, size_t size) {
   uint32_t hash=2166136261u;
   for(size_t i=0;i<size;++i)hash=(hash^data[i])*16777619u;
@@ -41,12 +41,14 @@ static void read_buffer(SaveLoadInfo *sli, void *data, size_t size) {
 }
 static int valid_body(const StateHeader *h,const uint8_t *body,size_t size) {
   if(h->magic!=kMagic || h->version!=kVersion || h->bytes!=size ||
-      size!=sizeof(StateCursor)+RtlExecutionStateSize() ||
+      size<sizeof(StateCursor)+RtlExecutionStateSize() ||
       checksum(body,size)!=h->checksum)return 0;
   SnesBeamFrameState beam;memcpy(&beam,body,sizeof(beam));
   if((beam.resume_pc && !cpu_pc24_resumable(beam.resume_pc)) || beam.wai_halted>1 ||
       beam.reserved[0] || beam.reserved[1] || beam.reserved[2])return 0;
-  return RtlValidateExecutionState(body+sizeof(StateCursor),size-sizeof(StateCursor));
+  size_t exec=RtlExecutionStateSize();
+  return RtlValidateExecutionState(body+sizeof(StateCursor),exec) &&
+      ppu_raster_state_valid(body+sizeof(StateCursor)+exec,size-sizeof(StateCursor)-exec);
 }
 bool LagoonState_Preflight(const void *data,size_t size) {
   pending_execution=0;
@@ -72,15 +74,17 @@ bool LagoonState_Preflight(const void *data,size_t size) {
 }
 void LagoonState_SaveExtra(SaveLoadInfo *sli) {
   LagoonSoundtrack_SaveExtra(sli);
-  size_t bytes=sizeof(StateCursor)+RtlExecutionStateSize();
+  size_t exec_end=sizeof(StateCursor)+RtlExecutionStateSize();
+  size_t bytes=exec_end+ppu_raster_state_size();
   uint8_t *body=malloc(bytes);
   if(!body){RtlStateStreamFail(sli);return;}
   StateCursor cursor;memset(&cursor,0,sizeof(cursor));
   snes_beam_frame_driver_capture(&cursor.beam);ppu_capture_ports(g_ppu,&cursor.ports);
   memcpy(body,&cursor,sizeof(cursor));
-  StateBuffer b={{write_buffer,NULL},body,bytes,sizeof(cursor),0};
+  StateBuffer b={{write_buffer,NULL},body,exec_end,sizeof(cursor),0};
   RtlSaveExecutionState(&b.base);
-  if(b.error || b.position!=bytes){free(body);RtlStateStreamFail(sli);return;}
+  if(b.error || b.position!=exec_end){free(body);RtlStateStreamFail(sli);return;}
+  ppu_raster_state_save(body+exec_end);
   StateHeader h={kMagic,kVersion,(uint32_t)bytes,checksum(body,bytes)};
   sli->func(sli,&h,sizeof(h));sli->func(sli,body,bytes);free(body);
 }
@@ -92,7 +96,8 @@ void LagoonState_LoadExtra(SaveLoadInfo *sli,uint32_t version) {
   StateHeader h;
   if(bytes<sizeof(h)){RtlStateStreamFail(sli);return;}
   sli->func(sli,&h,sizeof(h));
-  if(h.bytes!=sizeof(pending_cursor)+RtlExecutionStateSize() || bytes!=sizeof(h)+h.bytes){
+  size_t exec_end=sizeof(pending_cursor)+RtlExecutionStateSize();
+  if(h.bytes<exec_end || bytes!=sizeof(h)+h.bytes){
     RtlStateStreamFail(sli);return;
   }
   uint8_t *body=malloc(h.bytes);
@@ -100,8 +105,12 @@ void LagoonState_LoadExtra(SaveLoadInfo *sli,uint32_t version) {
   sli->func(sli,body,h.bytes);
   if(!valid_body(&h,body,h.bytes)){free(body);RtlStateStreamFail(sli);return;}
   memcpy(&pending_cursor,body,sizeof(pending_cursor));
-  StateBuffer b={{read_buffer,NULL},body,h.bytes,sizeof(pending_cursor),0};
+  StateBuffer b={{read_buffer,NULL},body,exec_end,sizeof(pending_cursor),0};
   pending_execution=RtlLoadExecutionState(&b.base) && !b.error && b.position==b.capacity;
+  /* The validated journal belongs to this snapshot, never to the cold boot
+   * that happened to precede it. Keep pending post-vblank writes as well. */
+  if(pending_execution)
+    pending_execution=ppu_raster_state_load(body+exec_end,h.bytes-exec_end);
   free(body);
   if(!pending_execution)RtlStateStreamFail(sli);
 }

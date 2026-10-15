@@ -6,7 +6,7 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress — October 15, 2026
 
-Thirty-four gameplay roots have been promoted in the October 15 batches.
+Thirty-eight gameplay roots have been promoted in the October 15 batches.
 The first eight cover:
 
 - Entity movement integration (`01:A4EB`).
@@ -49,24 +49,34 @@ Four targeted combat routes again match at 953 checkpoints and 15,939
 presentations. The cooperative JSL suspension now preserves the live callee
 bank; remaining HP subtraction, death and boss orchestration retain fallback.
 
-The build generates 177 AOT variants and 18 declared LLE variants; additional
+Four further roots cover paired actor dispatch, boss phase dispatch, the first
+boss phase and player-hit handling. Those four routes still match at 953
+checkpoints and 15,939 presentations. The first boss phase genuinely executes
+natively; other phase handlers and the broad HP/death wrappers retain fallback.
+
+The build generates 181 AOT variants and 18 declared LLE variants; additional
 runtime fallback remains available. The original opening-loop fix stays in place.
 Existing native-versus-pure-interpreter clock/state differences remain unresolved.
 Bounded combat/progression evidence does not certify every encounter or save.
-See [the current evidence receipt](NATIVE-BATCH6-2026-10-15.md) and [todo list](TODO.md).
+See [the current evidence receipt](NATIVE-BATCH7-2026-10-15.md) and [todo list](TODO.md).
 
 Camera centering now follows completed collision/movement, including stopping
 and turning. Audited town dialogue and Start keep the wider world visible;
 Items and Magic reflow original border art without stretching text. Gold Cave
-rooms 4, 5 and 6 extend the audited scenery set. Unknown scenes retain fallback.
+rooms 4, 5 and 6 extend the audited scenery set. Unknown scenes retain fallback. The first Atland world now expands from its
+first visible fade field, including while its loader flag remains active.
 
 Smooth/bilinear scaling has been removed. Enhanced original pixels remains
 optional. The optional Faster menus toggle trims 60 fade fields (about one
 second) when opening Items or Magic, while preserving asset loading.
 
-Fresh states now preserve the live execution cursor and PPU ports, including
-cold restart. Earlier incomplete test states are refused cleanly; start fresh
-and save with this build. See [save-state details](docs/SAVE-STATES.md).
+Fresh states now preserve live execution, PPU ports and both raster journals.
+This fixes a cold-load bug that alternated the world with black frames. Earlier
+development states are refused cleanly; start fresh and save with this build. See [save-state details](docs/SAVE-STATES.md).
+
+Sustained Atland checks run at about 60 FPS, with occasional frame-time spikes
+still under investigation. See [timing evidence](docs/PERFORMANCE.md) for
+fullscreen and hidden-GPU measurements, hardware and test limits.
 
 ## Fullscreen screenshots
 

@@ -1,0 +1,218 @@
+# Natural traversal probe; no RAM writes, no debug positioning, all features off.
+# Same prefix as combat2 so the enemy is at (1472,1440) at f2664; then teleport to
+# 16 px left of it and swing right, into it.
+wait 20
+dump opening-000
+press a 4
+wait 20
+dump opening-001
+press a 4
+wait 20
+dump opening-002
+press a 4
+wait 20
+dump opening-003
+press a 4
+wait 20
+dump opening-004
+press a 4
+wait 20
+dump opening-005
+press a 4
+wait 20
+dump opening-006
+press a 4
+wait 20
+dump opening-007
+press a 4
+wait 20
+dump opening-008
+press a 4
+wait 20
+dump opening-009
+press a 4
+wait 20
+dump opening-010
+press a 4
+wait 20
+dump opening-011
+press a 4
+wait 20
+dump opening-012
+press a 4
+wait 20
+dump opening-013
+press a 4
+wait 20
+dump opening-014
+press a 4
+wait 20
+dump opening-015
+press a 4
+wait 20
+dump opening-016
+press a 4
+wait 20
+dump opening-017
+press a 4
+wait 20
+dump opening-018
+press a 4
+wait 20
+dump opening-019
+press a 4
+wait 20
+dump opening-020
+press a 4
+wait 20
+dump opening-021
+press a 4
+wait 20
+dump opening-022
+press a 4
+wait 20
+dump opening-023
+press a 4
+wait 20
+dump opening-024
+press a 4
+wait 20
+dump opening-025
+press a 4
+wait 20
+dump opening-026
+press a 4
+wait 20
+dump opening-027
+press a 4
+wait 20
+dump opening-028
+press a 4
+wait 20
+dump opening-029
+press a 4
+wait 20
+dump opening-030
+press a 4
+wait 20
+dump opening-031
+press a 4
+wait 20
+dump opening-032
+press a 4
+wait 20
+dump opening-033
+press a 4
+wait 20
+dump opening-034
+press a 4
+wait 20
+dump opening-035
+press a 4
+wait 20
+dump opening-036
+press a 4
+wait 20
+dump opening-037
+press a 4
+wait 20
+dump opening-038
+press a 4
+wait 20
+dump opening-039
+press a 4
+wait 20
+dump opening-040
+press a 4
+wait 20
+dump opening-041
+press a 4
+wait 20
+dump opening-042
+press a 4
+wait 20
+dump opening-043
+press a 4
+wait 20
+dump opening-044
+press a 4
+wait 20
+dump opening-045
+press a 4
+wait 20
+dump opening-046
+press a 4
+wait 20
+dump opening-047
+press a 4
+wait 20
+dump opening-048
+press a 4
+wait 20
+dump opening-049
+press a 4
+wait 20
+dump opening-050
+press a 4
+wait 20
+dump opening-051
+press a 4
+wait 20
+dump opening-052
+press a 4
+wait 20
+dump opening-053
+press a 4
+wait 20
+dump opening-054
+press a 4
+wait 20
+dump opening-055
+press a 4
+wait 20
+dump opening-056
+press a 4
+wait 20
+dump opening-057
+press a 4
+wait 20
+dump opening-058
+press a 4
+wait 20
+dump opening-059
+press a 4
+wait 20
+dump opening-060
+press a 4
+wait 20
+dump opening-061
+press a 4
+wait 20
+dump opening-062
+press a 4
+wait 20
+dump opening-063
+press a 4
+wait 20
+dump opening-064
+press a 4
+wait 20
+dump opening-065
+press a 4
+wait 20
+dump opening-066
+press a 4
+wait 20
+dump opening-067
+press a 4
+wait 20
+dump opening-068
+press a 4
+wait 20
+dump opening-069
+press a 4
+dump town
+wait 240
+dump opening-070
+dump town-idle
+quit
