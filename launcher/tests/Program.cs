@@ -97,6 +97,16 @@ internal static class SettingsChecks
         controller.SetOption("video.enhanced-pixels", OptionValue.From(false)); controller.Apply();
         Assert(File.ReadAllText(config).Contains("Shader = custom-private.glslp") && File.ReadAllText(config).Contains("Renderer = software") &&
             File.ReadAllText(config).Contains("OutputMethod = SDL-Software"), "EPX did not restore custom graphics preferences.");
+        Assert(!adapter.Definition.Options.Any(option => option.Id == "video.filter" || option.Label == "Smooth scaling"), "Retired Smooth control remains exposed.");
+        File.WriteAllText(config, File.ReadAllText(config).Replace("LinearFiltering = 0", "LinearFiltering = 1"), new UTF8Encoding(true));
+        controller.Reload(); controller.SetOption("audio.volume", OptionValue.From(61)); controller.Apply();
+        Assert(File.ReadAllText(config).Contains("LinearFiltering = 0"), "Apply did not retire legacy smoothing.");
+        File.WriteAllText(config, File.ReadAllText(config).Replace("LinearFiltering = 0", "LinearFiltering = 1"), new UTF8Encoding(true));
+        controller.Reload(); controller.SetOption("video.enhanced-pixels", OptionValue.From(true)); controller.Apply();
+        Assert(File.ReadAllText(config).Contains("LinearFiltering = 0"), "EPX enable retained legacy smoothing.");
+        controller.SetOption("video.enhanced-pixels", OptionValue.From(false)); controller.Apply();
+        Assert(File.ReadAllText(config).Contains("LinearFiltering = 0") && !controller.Snapshot.Values["video.enhanced-pixels"].GetBoolean(),
+            "EPX disable resurrected smoothing from saved old graphics metadata.");
         controller.SetOption("video.enhanced-pixels", OptionValue.From(true)); File.AppendAllText(shader, "// external edit\n");
         ExpectConflict(controller); controller.Reload();
         controller.SetOption("audio.volume", OptionValue.From(35)); controller.SetOption("qol.walk_speed", OptionValue.From(true));
@@ -109,6 +119,9 @@ internal static class SettingsChecks
         Assert(pathStore.Read().Values["qol.future-option"].GetString() == "retain future preference", "Unknown launcher preference lost.");
         controller.SetOption("qol.sword_reach", OptionValue.From(true));
         try { controller.Apply(); throw new Exception("Older native package accepted new feature."); } catch (InvalidDataException) { }
+        controller.Reload();
+        controller.SetOption("qol.fast_menus", OptionValue.From(true));
+        try { controller.Apply(); throw new Exception("Older native package accepted fast menus."); } catch (InvalidDataException) { }
         controller.Reload();
         var iniBeforeRollback = File.ReadAllBytes(config); var modsBeforeRollback = File.ReadAllBytes(state);
         controller.SetOption("audio.volume", OptionValue.From(36)); controller.SetOption("qol.walk_speed", OptionValue.From(false));

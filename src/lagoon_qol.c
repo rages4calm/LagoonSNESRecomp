@@ -23,6 +23,7 @@
  */
 
 #include "lagoon_qol.h"
+#include "lagoon_fast_menus.h"
 
 #include "mod_runtime.h"
 #include "cpu_state.h"
@@ -77,8 +78,8 @@ static int g_camera_center;
  * entry in either affected range has acquired an AOT variant. The generation
  * contract separately excludes enclosing bodies that cover these operands. */
 static int qol_camera_has_aot_conflict(void) {
-  static const uint32_t ranges[][2] = {{0x0183D8,0x0184A7},{0x0187D0,0x018834}};
-  for (unsigned range=0; range<2; ++range) {
+  static const uint32_t ranges[][2] = {{0x01807A,0x018184},{0x0183D8,0x0184A7},{0x0187D0,0x018834}};
+  for (unsigned range=0; range<sizeof(ranges)/sizeof(ranges[0]); ++range) {
     for (uint32_t pc=ranges[range][0]; pc<ranges[range][1]; ++pc) {
       for (uint8_t mx=0; mx<4; ++mx) {
         const char *reason=cpu_dispatch_entry_reason(pc,mx);
@@ -212,6 +213,7 @@ static void qol_check_timeline(void) {
 
 
 void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
+  LagoonFastMenus_Reset(rom,size);
   g_walk_speed_applied = 0;
   g_start_hp_applied = 0;
   g_start_def_applied = 0;
@@ -229,6 +231,10 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
   if (!rom) {
     return;
   }
+  /* Interpreter write markers need live scoped registers even when the
+   * read-view features are off. The registered filter then returns unchanged. */
+  if(snes_mod_runtime_feature_enabled_c(QOL_PACKAGE_ID,"fast_menus"))
+    cpu_set_wram_read_filter_hook(qol_filter_read);
   /* Each data patch is guarded on its own, so one refused patch cannot silence
    * another. With every feature off neither branch runs and the ROM image the
    * guest sees is byte-for-byte the one on disk. */
@@ -252,7 +258,25 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
       {0x8488,0xA9, 80,112}, /* up screen-space threshold */
       {0x87F5,0xE9,112,128}, /* initial camera before complete map/VRAM load */
     };
-    int matches=1;
+    /* Reuse the old 35-byte direction dispatcher. Run camera after player
+     * movement AND entity collision, then tail-dispatch the original animation
+     * with its original caller frame. In particular A0E1 retains its stack:
+     * damage paths there can unwind callers nonlocally. X/Y survive strip DMA.
+     * Each axis uses actual resolved position, including stopped/blocked frames. */
+    static const uint8_t dispatcher_stock[35]={
+      0x64,0x40,0x64,0x41,0xAD,0x19,0x05,0x30,0x19,0x5A,0x0A,0xA8,
+      0xB9,0xF2,0x83,0x85,0x26,0xB9,0xF3,0x83,0x85,0x27,0x7A,
+      0x6C,0x26,0x00,0xFB,0x83,0x52,0x84,0x26,0x84,0x7D,0x84,0x60};
+    static const uint8_t dispatcher_center[35]={
+      0x5A,0x9B,0xD0,0x16,0xDA,0x64,0x41,
+      0x20,0xFB,0x83,0x20,0x26,0x84,0x20,0x52,0x84,0x20,0x7D,0x84,
+      0xFA,0xAD,0x19,0x05,0x8D,0x19,0x05,
+      0x7A,0x4C,0xB5,0xA7,0xEA,0xEA,0xEA,0xEA,0xEA};
+    static const uint8_t early_call[]={0x20,0xD8,0x83};
+    static const uint8_t collision_and_animation[]={0x20,0xE1,0xA0,0x20,0xB5,0xA7};
+    int matches=!memcmp(rom+0x83D8,dispatcher_stock,sizeof(dispatcher_stock)) &&
+        !memcmp(rom+0x809D,early_call,sizeof(early_call)) &&
+        !memcmp(rom+0x80C7,collision_and_animation,sizeof(collision_and_animation));
     for (unsigned j=0; j<sizeof(changes)/sizeof(changes[0]); ++j) {
       size_t o=changes[j].offset;
       if (rom[o]!=changes[j].opcode || rom[o+1]!=changes[j].stock || rom[o+2]!=0)
@@ -266,7 +290,11 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
       uint8_t *r=(uint8_t *)(uintptr_t)rom;
       for (unsigned j=0; j<sizeof(changes)/sizeof(changes[0]); ++j)
         r[changes[j].offset+1]=changes[j].center;
+      memset(r+0x809D,0xEA,3);
+      r[0x80CB]=0xD8; r[0x80CC]=0x83;
+      memcpy(r+0x83D8,dispatcher_center,sizeof(dispatcher_center));
       g_camera_center=1;
+      cpu_set_wram_read_filter_hook(qol_filter_read);
       fprintf(stderr,"lagoon.qol: camera_center applied, native strip streaming retained\n");
     }
   }
@@ -435,9 +463,41 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
 
 }
 
+/* $01:A5AA and $01:BCE2 project entity/projectile world positions to screen;
+ * $01:A624/$01:BD2F append their screen ground-Y to six-byte sort records.
+ * The camera now runs after collision, so refresh ALREADY queued projections
+ * at the explicit no-op store marker before animation. Do not rerun projectile
+ * movement/culling, AI, damage, queue insertion, or hardware arithmetic.
+ * Validate the entire bounded queue before writing any presentation field. */
+static void qol_camera_project_queue(const CpuWramReadContext *c) {
+  if (!g_camera_center || !c || !c->interpreter || !c->m || c->x || c->e ||
+      (c->pb&0x7F)!=1 || (c->instruction_pc&0x7FFFFF)!=0x0183EF ||
+      c->stack>0x1FFB || qol_wram_read16(c->stack+3)!=0x80CC) return;
+  unsigned count=g_ram[0x48C];
+  if(count>52) return;
+  for(unsigned i=0;i<count;++i) {
+    unsigned q=0xEC0+i*6, index=qol_wram_read16(q), kind=g_ram[q+4];
+    if(kind>5 || (kind==4 ? (index>=0x180 || index%0x18) :
+                             (index>=0x840 || index%0x40))) return;
+  }
+  unsigned cx=qol_wram_read16(0x480),cy=qol_wram_read16(0x482);
+  for(unsigned i=0;i<count;++i) {
+    unsigned q=0xEC0+i*6,index=qol_wram_read16(q);
+    unsigned world=g_ram[q+4]==4 ? 0xD41+index : 0x502+index;
+    unsigned screen=g_ram[q+4]==4 ? 0xD49+index : 0x50C+index;
+    uint16_t x=(uint16_t)(qol_wram_read16(world)-cx);
+    uint16_t y=(uint16_t)(qol_wram_read16(world+2)-cy);
+    qol_wram_write16(screen,x); qol_wram_write16(screen+2,y);
+    qol_wram_write16(q+2,y);
+  }
+}
+
 /* Called before canonical WRAM writes by both execution paths. No PC/register
  * assumptions: older generated routines do not keep an architectural PC live. */
 static uint8_t qol_filter_write(uint32_t addr, uint8_t value) {
+  if(addr==0x23C) value=LagoonFastMenus_Filter(addr,value,cpu_current_wram_context(),g_ram);
+  if(addr==0x519 && value==g_ram[addr])
+    qol_camera_project_queue(cpu_current_wram_context());
   if (g_recovery_time || g_jump_hold || g_start_hp_applied) qol_check_timeline();
   if (g_start_hp_applied && addr == 0x520 && value == 10 &&
       qol_wram_read16(0x520) == 0 && g_ram[0x500] == 0xC0 &&

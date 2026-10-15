@@ -17,7 +17,6 @@ internal static class NativeSettings
             OptionValue.From("0"), "Restart the game after applying settings.", Choices: new[] {
                 new ChoiceItem("0", "Windowed"), new ChoiceItem("1", "Desktop fullscreen"), new ChoiceItem("2", "Exclusive fullscreen") })),
         Integer("video.scale", "Display", "Window scale", "Graphics", "WindowScale", 3, 1, 6),
-        Boolean("video.filter", "Display", "Smooth scaling", "Graphics", "LinearFiltering", false),
         Boolean("video.vsync", "Display", "Vertical sync", "Graphics", "VSync", true),
         Boolean("video.widescreen", "Display", "Widescreen (experimental)", "Graphics", "Widescreen", false,
             "Expanded backgrounds; off-screen NPC/enemy rendering and some rooms remain unfinished. Unsupported scenes retain their original view."),
@@ -33,13 +32,13 @@ internal static class NativeSettings
             "SDL axis units, 0–32767. Existing controller GUIDs and bindings are preserved.")
     };
     // Add features only after their native implementation has been qualified.
-    internal static readonly string[] Features = { "walk_speed", "start_hp", "camera_center", "sword_reach", "follower_speed", "recovery_time", "exp_boost", "jump_hold", "magic_power" };
+    internal static readonly string[] Features = { "walk_speed", "start_hp", "camera_center", "sword_reach", "follower_speed", "recovery_time", "exp_boost", "jump_hold", "magic_power", "fast_menus" };
     private static string FeatureLabel(string id) => id switch {
         "walk_speed" => "Walking speed: 5 pixels/frame", "start_hp" => "More forgiving opening",
         "camera_center" => "Immediate camera following", "sword_reach" => "Sword reach: 38 pixels",
         "follower_speed" => "Follower speed: 3 pixels/frame", "recovery_time" => "Eight extra protection frames",
         "exp_boost" => "EXP rewards: +50%", "jump_hold" => "Eight-frame jump peak hold",
-        "magic_power" => "Stronger magic", _ => id };
+        "magic_power" => "Stronger magic", "fast_menus" => "Faster Items and Magic fades", _ => id };
     private static readonly OptionDefinition[] SoundtrackOptions = {
         new("audio.soundtrack", "Audio", "Soundtrack", OptionKind.Choice, OptionValue.From("snes"),
             "X68000 is experimental: title, Atland and opening Gold Cave only. Other music uses SNES. Tracks restart on state load; run-ahead and netplay use SNES.",
@@ -61,10 +60,11 @@ internal static class NativeSettings
     }
     private static byte[] GraphicsRevision(IReadOnlyDictionary<string, JsonElement> values) => Encoding.UTF8.GetBytes(
         Hash(ReadBytes(EpxPreset(values))) + Hash(ReadBytes(Path.ChangeExtension(EpxPreset(values), ".glsl"))));
-    internal static IEnumerable<OptionDefinition> Options => Fields.Take(3).Select(x => x.Option).Append(EnhancedPixels)
-        .Concat(Fields.Skip(3).Select(x => x.Option)).Concat(SoundtrackOptions).Concat(Features.Select(id =>
+    internal static IEnumerable<OptionDefinition> Options => Fields.Take(2).Select(x => x.Option).Append(EnhancedPixels)
+        .Concat(Fields.Skip(2).Select(x => x.Option)).Concat(SoundtrackOptions).Concat(Features.Select(id =>
         new OptionDefinition("qol." + id, "Quality of life", FeatureLabel(id), OptionKind.Boolean, OptionValue.From(false),
-            id == "start_hp" ? "New-game starting stats and level-two growth. Does not rewrite an existing save." : "Optional native gameplay change. Restart the game after Apply.")));
+            id == "start_hp" ? "New-game starting stats and level-two growth. Does not rewrite an existing save." :
+            id == "fast_menus" ? "Shorter Items/Magic fade steps. Resource loading and world fades remain unchanged. Restart after Apply." : "Optional native gameplay change. Restart the game after Apply.")));
     internal static bool IsNative(string id) => id == EnhancedPixels.Id || Fields.Any(x => x.Id == id) || SoundtrackOptions.Any(x => x.Id == id) || Features.Any(feature => id == "qol." + feature);
     private static string Config(IReadOnlyDictionary<string, JsonElement> values) => values["config.path"].GetString()!;
     private static string State(IReadOnlyDictionary<string, JsonElement> values) =>
@@ -121,8 +121,6 @@ internal static class NativeSettings
         {
             if (!File.Exists(EpxPreset(values)) || !File.Exists(Path.ChangeExtension(EpxPreset(values), ".glsl")))
                 throw new InvalidDataException("The selected native build is missing its EPX shader files. Install the matching assets/shaders folder.");
-            if (values["video.filter"].GetBoolean())
-                throw new InvalidDataException("Turn Smooth scaling off when selecting enhanced pixels; EPX uses exact original colors.");
         }
         if (values.TryGetValue("audio.soundtrack", out var soundtrack) && soundtrack.GetString() == "x68000")
         {
@@ -151,12 +149,6 @@ internal static class NativeSettings
     {
         ValidateSources(values);
         var ini = Document.Read(Config(values)); var mods = Document.Read(State(values));
-        foreach (var field in Fields)
-            if (values[field.Id].GetRawText() != current.Values[field.Id].GetRawText())
-                ini.SetIni(field.Section, field.Key, field.Option.Kind switch {
-                    OptionKind.Boolean => values[field.Id].GetBoolean() ? "1" : "0",
-                    OptionKind.Integer => values[field.Id].GetInt32().ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    _ => values[field.Id].GetString()! });
         if (values[EnhancedPixels.Id].GetBoolean() != current.Values[EnhancedPixels.Id].GetBoolean())
         {
             if (values[EnhancedPixels.Id].GetBoolean())
@@ -184,6 +176,17 @@ internal static class NativeSettings
                 else ini.SetIni("Graphics", "Shader", "");
             }
         }
+        // Restore the preceding graphics profile before applying explicit edits.
+        foreach (var field in Fields)
+            if (values[field.Id].GetRawText() != current.Values[field.Id].GetRawText())
+                ini.SetIni(field.Section, field.Key, field.Option.Kind switch {
+                    OptionKind.Boolean => values[field.Id].GetBoolean() ? "1" : "0",
+                    OptionKind.Integer => values[field.Id].GetInt32().ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    _ => values[field.Id].GetString()! });
+        // This title offers nearest pixels and optional EPX only. Legacy INIs
+        // and saved EPX metadata must not silently resurrect bilinear smoothing.
+        if (ini.IniValue("Graphics", "LinearFiltering") != "0")
+            ini.SetIni("Graphics", "LinearFiltering", "0");
         foreach (var id in Features)
             if (values["qol." + id].GetRawText() != current.Values["qol." + id].GetRawText())
                 mods.SetFeature(id, values["qol." + id].GetBoolean());

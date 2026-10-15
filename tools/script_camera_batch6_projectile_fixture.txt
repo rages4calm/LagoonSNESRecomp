@@ -1,0 +1,133 @@
+# Patient intro route: let scripted sequences finish, then take the pad.
+# Opening reset regression: reach Atland, move down, open Start menu, close with B.
+
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+press start 6
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+dump c-3000
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-4000
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-4500
+press a 4
+wait 240
+press a 4
+press start 6
+wait 240
+dump n-5000
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-5500
+press a 4
+wait 240
+press a 4
+wait 240
+dump town
+press down 80
+wait 12
+dump camera-interior
+
+# Bounded fixture: one ordinary player-owned projectile record; no story/HP/camera changes.
+poke 0D40 018a02380103000000000000000000000000000000000000
+press right 4
+dump projectile-00
+press right 4
+dump projectile-01
+press right 4
+dump projectile-02
+press right 4
+dump projectile-03
+press right 4
+dump projectile-04
+press right 4
+dump projectile-05
+press right 4
+dump projectile-06
+press right 4
+dump projectile-07
+press right 4
+dump projectile-08
+press right 4
+dump projectile-09
+press right 4
+dump projectile-10
+press right 4
+dump projectile-11
+press right 4
+dump projectile-12
+press right 4
+dump projectile-13
+press right 4
+dump projectile-14
+press right 4
+dump projectile-15
+press right 4
+dump projectile-16
+press right 4
+dump projectile-17
+press right 4
+dump projectile-18
+press right 4
+dump projectile-19
+press right 4
+dump projectile-20
+press right 4
+dump projectile-21
+press right 4
+dump projectile-22
+press right 4
+dump projectile-23
+press right 4
+dump projectile-24
+press right 4
+dump projectile-25
+press right 4
+dump projectile-26
+press right 4
+dump projectile-27
+press right 4
+dump projectile-28
+press right 4
+dump projectile-29
+press right 4
+dump projectile-30
+press right 4
+dump projectile-31
+wait 8
+dump projectile-stopped
+quit

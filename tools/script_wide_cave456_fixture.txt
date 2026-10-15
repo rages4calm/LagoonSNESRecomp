@@ -1,0 +1,257 @@
+# Bounded presentation fixture, camera_center on. Position-only staging is
+# disclosed at the guard and three source-derived cave doors below. Destinations
+# are reached through real collision, warp and room loading; no room/map edits.
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+dump town
+press up 12
+dump north-first-00
+press up 12
+dump north-first-01
+press up 12
+dump north-first-02
+press up 12
+dump north-first-03
+press up 12
+dump north-first-04
+press up 12
+dump north-first-05
+press up 12
+dump north-first-06
+press up 12
+dump north-first-07
+wait 300
+dump north-first-settled
+press up 12
+dump north-second-00
+press up 12
+dump north-second-01
+press up 12
+dump north-second-02
+press up 12
+dump north-second-03
+press up 12
+dump north-second-04
+press up 12
+dump north-second-05
+press up 12
+dump north-second-06
+press up 12
+dump north-second-07
+press up 12
+dump north-second-08
+press up 12
+dump north-second-09
+press up 12
+dump north-second-10
+press up 12
+dump north-second-11
+press up 12
+dump north-second-12
+press up 12
+dump north-second-13
+wait 300
+dump north-second-settled
+press right 64
+dump aligned-corridor
+press up 12
+dump gate-00
+press up 12
+dump gate-01
+press up 12
+dump gate-02
+press up 12
+dump gate-03
+press up 12
+dump gate-04
+press up 12
+dump gate-05
+press up 12
+dump gate-06
+press up 12
+dump gate-07
+# TARGETED FIXTURE: bypass solid north guards, do not alter story flags.
+# The destination is still entered through its real map transition.
+poke 0502 60017800
+press up 72
+wait 300
+dump cave-entered
+wait 300
+# Bounded door fixture: source-derived near-door world placement only.
+# Guest collision/warp/full-map loader selects every destination naturally.
+poke 0502 30015000
+press up 24
+wait 300
+dump cave-room4-entered
+press left 12
+wait 12
+dump cave-room4-left
+press right 24
+wait 12
+dump cave-room4-right
+poke 0502 50029000
+press down 24
+wait 300
+dump cave-room5-entered
+press left 12
+wait 12
+dump cave-room5-left
+press right 24
+wait 12
+dump cave-room5-right
+poke 0502 b0055000
+press up 40
+wait 500
+dump cave-room6-entered
+press up 24
+wait 20
+dump cave-room6-up
+press left 12
+wait 12
+dump cave-room6-left
+press right 24
+wait 12
+dump cave-room6-right
+poke 0502 f0008c00
+press down 28
+wait 500
+dump cave-room6-return
+quit

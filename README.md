@@ -6,7 +6,7 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress — October 15, 2026
 
-Thirty-two gameplay roots have been promoted in the October 15 batches.
+Thirty-four gameplay roots have been promoted in the October 15 batches.
 The first eight cover:
 
 - Entity movement integration (`01:A4EB`).
@@ -44,18 +44,36 @@ previous build at 953 checkpoints and 15,939 complete presentations, including
 real damage, consumable revival and boss defeat/rewards. HP/death wrappers remain
 interpreted; native callers dispatch using the actual returned CPU widths.
 
-The build generates 175 AOT variants and 18 declared LLE variants; additional
+Two further roots cover HP addition/clamping and the revival healing entry.
+Four targeted combat routes again match at 953 checkpoints and 15,939
+presentations. The cooperative JSL suspension now preserves the live callee
+bank; remaining HP subtraction, death and boss orchestration retain fallback.
+
+The build generates 177 AOT variants and 18 declared LLE variants; additional
 runtime fallback remains available. The original opening-loop fix stays in place.
 Existing native-versus-pure-interpreter clock/state differences remain unresolved.
 Bounded combat/progression evidence does not certify every encounter or save.
-See [the current evidence receipt](NATIVE-BATCH5-2026-10-15.md) and [todo list](TODO.md).
+See [the current evidence receipt](NATIVE-BATCH6-2026-10-15.md) and [todo list](TODO.md).
+
+Camera centering now follows completed collision/movement, including stopping
+and turning. Audited town dialogue and Start keep the wider world visible;
+Items and Magic reflow original border art without stretching text. Gold Cave
+rooms 4, 5 and 6 extend the audited scenery set. Unknown scenes retain fallback.
+
+Smooth/bilinear scaling has been removed. Enhanced original pixels remains
+optional. The optional Faster menus toggle trims 60 fade fields (about one
+second) when opening Items or Magic, while preserving asset loading.
+
+Fresh states now preserve the live execution cursor and PPU ports, including
+cold restart. Earlier incomplete test states are refused cleanly; start fresh
+and save with this build. See [save-state details](docs/SAVE-STATES.md).
 
 ## Fullscreen screenshots
 
-[View three 1920×1080 fullscreen captures](docs/screenshots/README.md), showing
-Atland at 21:9 and 32:9 and Gold Cave at 16:9 with camera centering enabled.
+[View the 1920×1080 fullscreen captures](docs/screenshots/README.md), including
+wide town dialogue, Items/Magic, Atland and Gold Cave.
 
-![Atland widescreen fullscreen capture](docs/screenshots/town-21x9-fullscreen.png)
+![Atland dialogue in widescreen fullscreen](docs/screenshots/atland-dialogue-21x9-1920x1080.png)
 
 ## Launcher
 
@@ -66,7 +84,7 @@ with its existing config and save locations. The old pre-boot UI is excluded fro
 the default build; it can be enabled explicitly for development.
 
 Companion exposes executable/ROM/config paths, native display/audio/gamepad
-settings, all nine QoL toggles and experimental widescreen aspects. Apply/Revert
+settings, all ten QoL toggles and experimental widescreen aspects. Apply/Revert
 preserves unknown settings and controller bindings and detects stale edits.
 Existing native settings remain in `build/config.ini`, input in `build/keybinds.ini`,
 and saves in `build/saves`. The adapter does not migrate them.
@@ -118,7 +136,9 @@ the original pixel scale, with 16:9, 16:10, 21:9, 32:9 and window-driven aspects
 Witnessed ordinary NPC/enemy forms can also appear beyond the game's original
 off-screen actor buffer, using resident graphics and read-only presentation
 animation. Current scenery support covers audited Atland, Gold Cave and the
-outdoor guard exterior (room 2), clipped to its actual world bounds. Other rooms, titles, intro and menus keep clean native-width layouts.
+outdoor guard exterior (room 2), plus audited cave rooms 4–6, clipped to real
+world bounds. Verified dialogue/Start retain scenery and Items/Magic widen their
+frames. Other rooms, title/intro and unadapted panels use native-width fallback.
 Special actors, parallax and campaign coverage remain unfinished. All four fixed aspects preserved guest state and native
 center pixels at 18 opening/town checkpoints. See [widescreen details](docs/WIDESCREEN.md).
 

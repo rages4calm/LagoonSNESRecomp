@@ -7,15 +7,16 @@ setting still controls pixel shape, so a CRT 4:3 presentation uses fewer source
 pixels than square-pixel mode for the same monitor. Width is bounded by the
 framework's 800-pixel PPU capacity, with letterboxing beyond that capacity.
 
-This renders additional world tiles at their original pixel scale. It does not
-stretch the native image. BG3 text/HUD remains centered at native size. Titles,
-menus with other PPU layouts, parallax rooms, BG1/BG2 mosaic, and unsupported map modes keep
-their native field. Expansion is currently enabled only for the exact resource
-combinations qualified in Atland (room 0), the guard exterior (room 2), and Gold
-Cave (room 3). Matching PPU
-layout alone is insufficient. Other rooms use a clean centered native fallback.
-Room loading (`$100E`) and BG3 modal overlays also force that fallback; actual
-VRAM-write observation catches loading/menu changes within a simulated frame.
+This renders additional world tiles at their original pixel scale. BG3
+text/HUD remains centered at native size. Audited field resources currently
+cover Atland (room 0), the guard exterior (room 2), and Gold Cave rooms 3–6.
+Known dialogue and Start/status overlays retain that scenery when its original
+map and graphics remain intact. Items/Magic panels have a separate guarded
+original-art frame compositor; see [menu presentation](MENU-PRESENTATION.md).
+Titles, unsupported intro layouts, other menus, parallax, BG1/BG2 mosaic and
+unknown room resources keep a clean centered native fallback. Matching a PPU
+mode alone is insufficient. Room loading (`$100E`) still forces fallback;
+actual VRAM-write observation catches resource changes within a frame.
 The official presentation compositor also blanks only the margins whenever the
 completed frame selected native fallback, preserving all 256 native columns.
 RAM can name the next room while the completed raster still shows the previous
@@ -25,7 +26,80 @@ that settlement. A 391-present cave-entry audit includes the previously corrupt
 single frame and checks clean fallback throughout the unsupported exterior,
 then expansion once the cave raster is settled.
 
-## Read-only map reconstruction
+## Batch 6: camera, dialogue, and three more cave areas
+
+Qualification uses `lagoon-batch6-integrated.exe`, SHA256
+`14be32d86a553a27f47971bf5479f9900d225c832f6ee5dc016b870d1423a507`.
+These are bounded checks with private, isolated input and save directories.
+
+The optional camera previously ran before player movement/collision and checked
+only the current direction. A blocked player could remain three pixels off
+center; moving frames could sit five pixels away and snap back when stopping.
+The guarded interpreter dispatcher now runs after the player's actual entity
+collision and checks both axes. It calls the original one-pixel scroll loops,
+strip loaders, parallax/lock checks and room clamps. It never teleports camera
+WRAM from a host frame callback. The collision routine's return stack is
+unchanged, including its nonlocal damage paths.
+
+Projectiles already move and queue before the player. A precisely guarded
+same-value `$0519` store marker therefore refreshes every already-queued screen
+projection and ground-Y sort key from its actual world coordinates and the
+new camera. It does not repeat projectile movement, AI, damage or queue insertion.
+The marker requires its exact interpreted instruction and original caller stack.
+The whole queue's types, indices, alignment and capacity are validated first.
+
+The natural stop/turn/wall route has 61 checkpoints: every held/idle interior
+sample stays at (128,112), including eight stopped wall-contact frames. All
+player world coordinates match the previous camera build. A separate disclosed
+fixture seeds one ordinary projectile record, then moves normally: 33 actual
+projectile screen/sort-key witnesses match world minus camera. Its 40 checkpoints
+and the 61 natural checkpoints preserve guest components, native framebuffer
+and clock exactly between widescreen off/on. Reproduce with
+`tools/script_camera_batch6_stop_turn.txt`,
+`tools/script_camera_batch6_projectile_fixture.txt` and
+`tools/camera_batch6_report.py`.
+
+Dialogue authorization uses actual background ownership. A first known field
+captures only character IDs referenced by the complete retained room map,
+including its fill. Later BG3 overlays may retain scenery only while those
+character words are unchanged and initialized native BG1/BG2 map interiors
+still match the retained descriptors. This excludes BG3's `$3C00` tilemap,
+which aliases unused background character slots. Inventory replacements do
+not inherit permission from stale room pointers. Resource changes and timeline
+loads clear this witness. Without a prior valid world witness, text falls back
+conservatively. The natural NPC conversation has 11 matching state/clock
+checkpoints and 164 actual paired presentations: the native center is exact
+and both margins retain scenery, including 68 frames with the live text box.
+Start/status over town scenery was also captured with intact margins.
+
+Rooms 4–6 use the same audited graphics/definition resources as room 3. Their
+actual extents are 768×256, 1536×1280 and 512×256 pixels. They now use the same
+completed-raster boundary mask as the guard exterior: added pixels outside the
+real room are black; native columns remain untouched. The door fixture places
+Nasir near source-derived door coordinates, then uses real movement, collision,
+warp and the full room loader. It does not write room IDs, camera, maps, story
+flags or HP. This is staged presentation testing, not earned campaign progress.
+It enters 4, 5 and 6, then returns from 6 to 5.
+
+Across 46 checkpoints, widescreen off/on preserves all guest components and
+clock. Across 1,501 actual paired presentations, all native centers match;
+89,535,898 added pixel observations required to be black by loading or room
+bounds contain zero leaks. Three complete margin samples account for 218,999
+in-map pixels: 218,523 match independently decoded background colors and the
+remaining 476 exactly match the ordinary enemy's actual OAM/VRAM/CGRAM colors.
+Its coordinate hash equals the entire set of background occlusions. Two samples
+have no actor occlusion and match all 95,424 / 57,344 background pixels.
+
+Black beyond finite room boundaries and genuine map void remains intentional.
+Unknown rooms, special/death/boss forms, unwitnessed graphics and unsupported
+parallax remain gated; this does not certify the whole campaign or all actors.
+ROM-free routes `tools/script_wide_dialogue_batch6.txt` and
+`tools/script_wide_cave456_fixture.txt` reproduce the interactions and doors.
+Raw captures, ROM input and snapshots remain private.
+
+## Earlier map and actor qualification
+
+### Read-only map reconstruction
 
 The game retains 128-column byte metatile maps at the 24-bit pointers in direct
 page `$88` (BG1) and `$8B` (BG2), and four-word metatile definitions at pointers
@@ -265,8 +339,8 @@ python -P tools/verify_wide_outdoor.py --run <wide-output> --bounds <wide-output
 
 The trace contains captured row anchors and the checks fail rather than guess
 if these fixtures gain nonuniform per-line scrolling. The renderer itself
-retains each row's coordinate separately. Inventory remains native-width;
-redesigning title/intro/menu layout is separate unfinished work.
+retains each row's coordinate separately. In batch 5 inventory remained
+native-width; batch 6 adds the separate guarded Items/Magic compositor described above.
 
 Batch 5 presentation acceptance binds to `lagoon-batch5-top.exe`, SHA256
 `13ce550c4ccdf0f5fc214abe9067e89e5dbbce31e70d1d8734922e063b35e439`.

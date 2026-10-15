@@ -12,12 +12,14 @@ batches. Generated routine counts are not campaign completion percentages.
       helpers. Real player damage/death and first-boss damage retain exact parity.
 - [x] Native damage calculation, boss player-contact, death-stop velocity and
       room-hazard/first-boss quake dispatch; exact damage/revival/defeat parity.
-- [ ] Promote HP subtraction, death/revival and remaining boss-phase orchestration
+- [x] Native HP addition/clamping and revival healing entry, with suspended-call
+      bank preservation and four bounded combat-route checks.
+- [ ] Promote HP subtraction, full death/revival and remaining boss-phase orchestration
       only after proving their indirect and nonlocal stack continuations.
 - [ ] Continue native promotion from measured hot paths; resolve existing
       native-versus-pure-interpreter timing differences. Keep 00:80E6 interpreted.
 - [x] Use CompanionLauncher 0.2.0 instead of the old pre-boot launcher.
-- [x] Native display/audio/gamepad settings, Apply/Revert, nine QoL toggles,
+- [x] Native display/audio/gamepad settings, Apply/Revert, ten QoL toggles,
       experimental widescreen aspects and preserved settings/bindings.
 - [x] Sword reach: guarded directional extents match the supplied BPS's +/-38.
 - [x] Followers: guarded ally tier-zero velocity +/-1 -> +/-3.
@@ -47,8 +49,14 @@ batches. Generated routine counts are not campaign completion percentages.
 - [x] Expand audited outdoor room 2 using actual raster scroll anchors and
       mask beyond its real 512 by 512 extent. Natural walking, menu, doors and
       reset checks preserve native center/state/timing; unknown resources fallback.
-- [ ] Adapt title/intro backdrops, the Start/status menu and inventory layout
-      for wider displays. Their current native-width fallback is intentional.
+- [x] Keep verified world scenery behind Start and town dialogue; reflow Items
+      and Magic frames from original pixels without stretching text/icons.
+- [x] Audit Gold Cave rooms 4, 5 and 6, real door transitions and world extents.
+- [ ] Adapt title/intro, equipment/save layouts and unaudited scripted scenes.
+- [x] Optional Faster menus: one second less fade delay entering Items/Magic.
+- [x] Remove Smooth scaling; retain optional Enhanced original pixels.
+- [x] General live-execution/PPU-port state serialization, exact same-process
+      and cold-process restores; incomplete/corrupt files refuse cleanly.
 - [x] Reconstruct OAM-matched normal NPC and enemy margin cells; reject stale
       parked sprites, dynamic player graphics and unproven states.
 - [x] Import all 40 user-supplied X68000 VGZ tracks privately with loop points.
@@ -57,12 +65,16 @@ batches. Generated routine counts are not campaign completion percentages.
 - [x] Optional original-art EPX smoothing with sharp HUD, reversible Companion
       settings and actual full-HD GPU capture checks. Full retexture shelved.
 - [ ] Broader EPX menu, GPU and monitor qualification.
+- [ ] Profile sustained widescreen world performance: the normal-paced full-HD
+      dialogue capture averaged about 46 host frames/sec, versus roughly 60 in
+      the lightweight menu route. Separate simulation, composition and pacing.
 - [ ] Broader save/load, hardware controller and campaign/ending qualification.
 
 Every QoL feature and widescreen defaults off. Exact implementation/evidence:
-[native batch](NATIVE-BATCH5-2026-10-15.md), [QoL](QOL-IMPLEMENTATION.md),
+[native batch](NATIVE-BATCH6-2026-10-15.md), [QoL](QOL-IMPLEMENTATION.md),
 [widescreen](docs/WIDESCREEN.md).
 
 The supplied BPS is a private reference. Keep the clean ROM identity for
 generation; runtime-only instruction patches would disagree with AOT code.
-Never publish ROMs, generated C, extracted graphics/audio, saves or captures.
+Never publish ROMs, generated C, extracted graphics/audio, saves or raw test
+captures. Only explicitly approved, curated gameplay screenshots are public.

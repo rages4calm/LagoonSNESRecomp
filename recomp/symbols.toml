@@ -483,3 +483,21 @@ emit = true
 entry_m = 1
 entry_x = 0
 note = "Batch5 qualified: LLE player-hit wrapper, live return-width dispatch; damage/revival/boss parity"
+
+[[func]]
+name = "Lagoon_Revival_HealPlayer"
+addr = "d487"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch6 candidate: genuine D481 revival call; source-closed child widths, qualification pending"
+
+[[func]]
+name = "Lagoon_Health_AddAndClamp"
+addr = "91ea"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch6 candidate: HP arithmetic/clamp, HUD dispatcher stays LLE; qualification pending"

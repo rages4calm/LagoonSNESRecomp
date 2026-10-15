@@ -135,3 +135,14 @@ default_enabled = false
 [[plugin]]
 feature = "exp_boost"
 id = "lagoon.qol.exp_boost"
+
+[[feature]]
+id = "fast_menus"
+name = "Faster Items and Magic fades"
+description = "Shortens the proven Items/Magic fade steps from three frames to one. Resource loading, world fades and other menus stay unchanged."
+group = "Interface"
+default_enabled = false
+
+[[plugin]]
+feature = "fast_menus"
+id = "lagoon.qol.fast_menus"

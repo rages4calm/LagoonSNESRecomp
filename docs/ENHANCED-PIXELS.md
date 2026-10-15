@@ -26,10 +26,13 @@ so no extra native option or runtime module hook is required. Its boolean
 `video.enhanced-pixels` defaults off. Enable saves previous Shader, Renderer,
 OutputMethod and LinearFiltering values in `[Lagoon] EpxPreviousGraphicsV1`
 (base64-encoded JSON), then selects the preset and nearest sampling. Disable
-restores those values, including previously absent keys. Unknown fields survive.
+restores shader, renderer and output method values, including previously absent
+keys. Apply always keeps `LinearFiltering = 0`; the former bilinear Smooth
+control has been retired, and old saved graphics metadata cannot re-enable it.
+Unknown fields survive.
 INI and shader assets participate in stale-write detection; per-file atomic
-commit and rollback are shared with the existing adapter. Missing assets and
-incompatible Smooth scaling are rejected before writes. The shared Companion
+commit and rollback are shared with the existing adapter. Missing assets are
+rejected before writes. The shared Companion
 foundation is unchanged.
 Do not modify `prepare_frame` dimensions or the PPU render buffer to enable this.
 Only explicitly choosing the treatment should select OpenGL/the preset.

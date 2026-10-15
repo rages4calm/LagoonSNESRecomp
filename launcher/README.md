@@ -13,7 +13,7 @@ path preferences use Companion's own storage; no save or engine setting migratio
 is performed.
 
 Display, Audio and Input read the selected native INI directly. Supported controls
-are window/fullscreen mode, window scale, smoothing, vertical sync, audio enable,
+are window/fullscreen mode, window scale, enhanced pixels, vertical sync, audio enable,
 volume, player-one gamepad enable and analog deadzone. Existing keyboard bindings,
 button mappings, controller GUIDs and unknown fields are retained. Apply writes only
 changed native controls; restart the game to use them. Selecting another executable
@@ -22,9 +22,11 @@ source's values into it. Make further setting edits after that refresh.
 
 **Enhanced original pixels (EPX)** is optional and defaults off. It smooths diagonal
 edges using original colors while keeping the HUD sharp. Apply selects the OpenGL
-GPU renderer and the matching `assets/shaders/lagoon-epx.glslp` preset; Smooth
-scaling must be off. Turning EPX off restores the previous shader, renderer,
-output method and filtering preferences stored in native INI metadata. Other
+GPU renderer and the matching `assets/shaders/lagoon-epx.glslp` preset. Turning EPX
+off restores the previous shader, renderer and output method stored in native
+INI metadata. Bilinear Smooth scaling has been retired; Apply keeps
+`LinearFiltering = 0`, including when old EPX metadata previously saved smoothing.
+Other
 settings, bindings, mod selections and saves remain in place. Both EPX shader
 files must accompany the selected executable. Restart after Apply. This is a
 pixel treatment, not replacement artwork or smoother gameplay motion. See
@@ -46,9 +48,10 @@ run-ahead/netplay use SNES. The selector and folder persist as the matching
 automatically. See [soundtrack details](../docs/X68000-SOUNDTRACK.md).
 
 The Quality of life page changes the matching native package's feature selections
-in `mods/preloaded/state.toml` beside the executable. All nine options default off:
+in `mods/preloaded/state.toml` beside the executable. All ten options default off:
 walking speed, opening balance, camera centering, sword reach, follower speed,
-recovery time, EXP rewards, jump peak hold and magic strength. They require the
+recovery time, EXP rewards, jump peak hold, magic strength and faster Items/Magic
+fade steps. Fast menus leaves resource loading and world fades unchanged. They require the
 matching `lagoon.quality/1.0.0/manifest.toml` package. These are native feature
 switches; the original ROM remains clean. Opening balance affects new games.
 

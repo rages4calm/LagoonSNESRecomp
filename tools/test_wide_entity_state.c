@@ -102,6 +102,13 @@ static void field_fallback(void) {
     assert(pixels[y*344*4+x]==((y<2 && (x<43*4 || (x>=299*4 && x<342*4)))?0:0x91));
 }
 static void audited_rooms(void) {
+  assert(LagoonWideEntities_BoundedRoom(4,768,256));
+  assert(LagoonWideEntities_BoundedRoom(5,1536,1280));
+  assert(LagoonWideEntities_BoundedRoom(6,512,256));
+  assert(!LagoonWideEntities_BoundedRoom(4,768,512));
+  for(unsigned room=4;room<=6;++room)
+    assert(LagoonWideEntities_AuditedRoom(room,0x128b77,0x1d8000,0x069298,0x069298,0x7f0000,0x7f4000));
+  assert(!LagoonWideEntities_AuditedRoom(7,0x128b77,0x1d8000,0x069298,0x069298,0x7f0000,0x7f4000));
   assert(LagoonWideEntities_AuditedRoom(0,0x138000,0x198000,0x068000,0x068000,0x7f0000,0x7f4000));
   assert(LagoonWideEntities_AuditedRoom(2,0x128000,0x1a8000,0x068e90,0x068e90,0x7f0000,0x7f4000));
   assert(LagoonWideEntities_AuditedRoom(3,0x128b77,0x1d8000,0x069298,0x069298,0x7f0000,0x7f4000));
@@ -110,4 +117,24 @@ static void audited_rooms(void) {
   assert(!LagoonWideEntities_AuditedRoom(0,0x138000,0x198000,0x068000,0x069298,0x7f0000,0x7f4000));
   assert(!LagoonWideEntities_AuditedRoom(3,0x128b77,0x1d8000,0x069298,0x069298,0x7f0000,0x7f8000));
 }
-int main(void){animation();ownership();modal();audited_rooms();field_fallback();scene_settlement();room_bounds();puts("wide actor state: pure post-frame/step, idle/variant/refusal, segmented atlas, partial/wrong-room/overwrite/reset PASS");return 0;}
+static void world_tilemap(void) {
+  static uint16_t vram[32768],witness[16384];uint8_t used[1024]={0};
+  uint16_t expected[720];used[7]=1;
+  assert(LagoonWideEntities_WorldCharacters(vram,witness,used));
+  vram[0x3C00]=123; /* BG3 map aliases unowned character960. */
+  assert(LagoonWideEntities_WorldCharacters(vram,witness,used));
+  vram[7*16+15]=1;
+  assert(!LagoonWideEntities_WorldCharacters(vram,witness,used));
+  vram[7*16+15]=0;
+  int tx=29,ty=29; /* cross both horizontal/vertical circular seams */
+  for(unsigned y=0;y<24;++y)for(unsigned x=0;x<30;++x) {
+    unsigned a=0x7000+((((unsigned)tx+x)&32)<<5)+((((unsigned)ty+y)&31)*32)+(((unsigned)tx+x)&31);
+    expected[y*30+x]=(uint16_t)(1+x+y*30);vram[a]=expected[y*30+x];
+  }
+  assert(LagoonWideEntities_WorldTilemap(vram,0x7000,tx,ty,expected));
+  vram[0x7000+((((unsigned)tx)&32)<<5)+(((unsigned)ty&31)*32)+((unsigned)tx&31)]^=1;
+  assert(!LagoonWideEntities_WorldTilemap(vram,0x7000,tx,ty,expected));
+  assert(!LagoonWideEntities_WorldTilemap(NULL,0x7000,tx,ty,expected));
+  assert(!LagoonWideEntities_WorldTilemap(vram,0x7000,-1,ty,expected));
+}
+int main(void){world_tilemap();animation();ownership();modal();audited_rooms();field_fallback();scene_settlement();room_bounds();puts("wide actor state: pure post-frame/step, idle/variant/refusal, segmented atlas, partial/wrong-room/overwrite/reset PASS");return 0;}

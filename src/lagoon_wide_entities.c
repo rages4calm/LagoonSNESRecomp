@@ -173,12 +173,38 @@ void LagoonWideEntities_BlankField(uint8_t *pixels,size_t pitch,unsigned width,u
   }
 }
 
+int LagoonWideEntities_BoundedRoom(unsigned room,unsigned width,unsigned height) {
+  return (room==2 && width==512 && height==512) ||
+      (room==4 && width==768 && height==256) ||
+      (room==5 && width==1536 && height==1280) ||
+      (room==6 && width==512 && height==256);
+}
+
 int LagoonWideEntities_AuditedRoom(unsigned room,unsigned bg,unsigned obj,
     unsigned d0,unsigned d1,unsigned m0,unsigned m1) {
   if(m0!=0x7f0000 || m1!=0x7f4000 || d0!=d1)return 0;
   return (room==0 && bg==0x138000 && obj==0x198000 && d0==0x068000) ||
-         (room==3 && bg==0x128b77 && obj==0x1d8000 && d0==0x069298) ||
+         (room>=3 && room<=6 && bg==0x128b77 && obj==0x1d8000 && d0==0x069298) ||
          (room==2 && bg==0x128000 && obj==0x1a8000 && d0==0x068e90);
+}
+
+int LagoonWideEntities_WorldCharacters(const uint16_t *vram,
+    const uint16_t *witness,const uint8_t used[1024]) {
+  if(!vram || !witness || !used)return 0;
+  for(unsigned tile=0;tile<1024;++tile)
+    if(used[tile] && memcmp(vram+tile*16,witness+tile*16,32))return 0;
+  return 1;
+}
+
+int LagoonWideEntities_WorldTilemap(const uint16_t *vram,unsigned base,
+    int tile_x,int tile_y,const uint16_t expected[720]) {
+  if(!vram || !expected || base>0x7800 || tile_x<0 || tile_y<0)return 0;
+  for(unsigned y=0;y<24;++y)for(unsigned x=0;x<30;++x) {
+    unsigned tx=(unsigned)tile_x+x,ty=(unsigned)tile_y+y;
+    unsigned a=base+((tx&32)<<5)+(ty&31)*32+(tx&31);
+    if(vram[a&32767]!=expected[y*30+x])return 0;
+  }
+  return 1;
 }
 
 int LagoonWideEntities_MenuOverlay(const uint16_t *vram,unsigned map,unsigned chars) {

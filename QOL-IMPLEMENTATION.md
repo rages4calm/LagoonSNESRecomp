@@ -1,10 +1,16 @@
 # QoL implementation and qualification
 
-October 15, 2026. All nine player features are optional and default off. The
+October 15, 2026. The original nine player features and the new Faster menus option are optional and default off. The
 package is `lagoon.quality`, version 1.0.0. Most features alter guarded data or
-shared WRAM writes. Camera centring changes five guarded instruction operands;
+shared WRAM writes. Camera centring uses guarded instruction patches and a scoped same-value
+write witness after collision/movement;
 the affected camera paths are explicitly interpreter-only and checked against
 the generated AOT manifest before every build.
+
+The post-collision camera correction and 61 stop/turn/wall checks are recorded
+in [batch 6](NATIVE-BATCH6-2026-10-15.md). The tenth optional feature,
+`fast_menus`, trims only proven Items/Magic entry fade waits; see
+[Faster menus](docs/FAST-MENUS.md) for its timing and scope.
 
 | Feature ID | Implementation |
 | --- | --- |
@@ -16,7 +22,7 @@ the generated AOT manifest before every build.
 | `exp_boost` | All39 enemy and16 boss template EXP words become floor(original*1.5). Zero rewards stay zero. Gold, stats and EXP thresholds remain stock. |
 | `jump_hold` | At original apex, intercept velocity0000->FF80 for eight frame ticks, keeping velocity zero and horizontal movement running. One hold per jump. |
 | `magic_power` | All nonzero player projectile powers (IDs1..8) and all16 selected-spell slots become floor(original*1.5); empty slots and enemy projectile tables stay stock. |
-| `camera_center` | Guarded centre thresholds and initial X centre in interpreter-owned camera code; the original loader streams every exposed tile strip. |
+| `camera_center` | Guarded centre thresholds, initial X centre and post-collision dispatcher; original streamers move the camera. A precisely scoped same-value marker refreshes queued entity/projectile screen coordinates and sort keys without repeating movement or AI. |
 
 The new level-two opening values are explicit project choices: 21HP and13DEF
 sit between the requested level-one values and the stock level-three values.

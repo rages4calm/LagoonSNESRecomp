@@ -26,6 +26,7 @@ def main():
     parser.add_argument('--env',action='append',default=[],help='Allowlisted diagnostic KEY=VALUE; relative output paths stay under --out')
     parser.add_argument('--msu-prefix',type=Path,help='Read-only private PCM pack prefix; never copies music into the source tree')
     parser.add_argument('--config',type=Path,help='Private input config; never modifies the owner configuration')
+    parser.add_argument('--seed-save-root',type=Path,help='Copy existing save/state files into the private run; source files are read-only')
     parser.add_argument('--screenshot-frame',type=int,help='Capture the full expanded presentation at this frame')
     parser.add_argument('--screenshot-range',nargs=2,type=int,metavar=('FIRST','LAST'),help='Save every presentation in a bounded diagnostic frame range')
     parser.add_argument('--manifest',type=Path,help='Manifest belonging to this executable; required for old retained binaries')
@@ -40,6 +41,18 @@ def main():
     route_bytes=route.read_bytes()
     frozen_route=out/'route.txt';frozen_route.write_bytes(route_bytes)
     for name in ('saves','dumps','coverage'):(out/name).mkdir()
+    seeded=[]
+    if args.seed_save_root:
+        source=args.seed_save_root.resolve()
+        if not source.is_dir() or out.is_relative_to(source):
+            parser.error('Seed save root must be an existing directory outside this output')
+        for original in sorted(source.iterdir()):
+            if original.is_file() and original.suffix.lower() in {'.sav','.srm','.bak'}:
+                target=out/'saves'/original.name
+                shutil.copy2(original,target)
+                digest=hashlib.sha256(original.read_bytes()).hexdigest()
+                if hashlib.sha256(target.read_bytes()).hexdigest()!=digest:raise SystemExit('Seed copy hash mismatch')
+                seeded.append(dict(source=str(original),copy=str(target),sha256=digest))
     # Every run gets its own catalog and state. An explicit --config lets the
     # native host keep this CWD instead of anchoring itself beside the executable.
     host=out/'host';host.mkdir()
@@ -87,16 +100,23 @@ def main():
         env.update(SNESRECOMP_DISPLAY_SCREENSHOT=str(out/'display.bmp'),
                    SNESRECOMP_DISPLAY_SCREENSHOT_FRAME=str(args.display_screenshot_frame))
     diagnostic_paths={'LAGOON_WIDE_ENTITY_REPORT','LAGOON_SOUNDTRACK_PROBE',
-                      'SNESRECOMP_APURAM_TRACE_FILE','SNESRECOMP_DSPREG_TRACE_FILE'}
+                      'SNESRECOMP_APURAM_TRACE_FILE','SNESRECOMP_DSPREG_TRACE_FILE',
+                      'SNESRECOMP_FRAME_TIMING'}
+    diagnostic_numbers={'SNESRECOMP_HOST_PROFILE','SNESRECOMP_HOST_PROFILE_START_FRAME'}
     overrides={}
     for spec in args.env:
         key,sep,value=spec.partition('=')
-        if not sep or key not in diagnostic_paths|{'LAGOON_WIDE_ASPECT'}:
+        if not sep or key not in diagnostic_paths|diagnostic_numbers|{'LAGOON_WIDE_ASPECT'}:
             raise SystemExit('Unsupported diagnostic override: '+spec)
         if key in diagnostic_paths:
             p=Path(value);p=(p if p.is_absolute() else out/p).resolve()
             if not p.is_relative_to(out) or p.exists():raise SystemExit('Diagnostic outputs must be fresh paths within --out')
             p.parent.mkdir(parents=True,exist_ok=True);value=str(p)
+        elif key in diagnostic_numbers:
+            if not re.fullmatch(r'[0-9]+',value) or not 0<=int(value)<=1000000:
+                raise SystemExit('Diagnostic numeric overrides must be unsigned integers <=1000000')
+            if key=='SNESRECOMP_HOST_PROFILE' and value not in {'0','1'}:
+                raise SystemExit('HOST_PROFILE must be 0 or 1')
         elif value not in {'16:9','16:10','21:9','32:9','window'}:
             raise SystemExit('Unsupported widescreen aspect: '+value)
         env[key]=value;overrides[key]=value
@@ -117,6 +137,7 @@ def main():
     receipt=dict(exe=str(exe),exe_sha256=sha(exe),rom_sha256=sha(rom),route=str(route),route_sha256=hashlib.sha256(route_bytes).hexdigest(),frozen_route=str(frozen_route),frames=args.frames)
     receipt.update(enabled_features=sorted(enabled),enabled_package_features=sorted(selected),
                    diagnostic_overrides=overrides,private_mod_state=state,private_working_directory=str(host))
+    receipt['seeded_save_files']=seeded
     receipt['visible_display']=args.visible
     receipt['display_screenshot_frame']=args.display_screenshot_frame
     # The framework's current save-root buffer is only 96 bytes. A short path

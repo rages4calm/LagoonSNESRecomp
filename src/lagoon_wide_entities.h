@@ -37,9 +37,16 @@ void LagoonWideAtlas_Write(LagoonWideAtlas *atlas, unsigned byte_address);
 int LagoonWideAtlas_CellOwned(const LagoonWideAtlas *atlas, unsigned base1,
     unsigned base2, const LagoonWideCell *cell);
 
+/* Match initialized native interior tiles against the retained map. */
+int LagoonWideEntities_WorldCharacters(const uint16_t *vram,
+    const uint16_t *witness,const uint8_t used[1024]);
+int LagoonWideEntities_WorldTilemap(const uint16_t *vram,unsigned base,
+    int tile_x,int tile_y,const uint16_t expected[720]);
 int LagoonWideEntities_MenuOverlay(const uint16_t *vram, unsigned map_base, unsigned char_base);
 void LagoonWideEntities_BlankMargins(uint16_t *depth, unsigned native_offset, unsigned left, unsigned right);
 
+/* Finite audited rooms requiring masking beyond their actual map extent. */
+int LagoonWideEntities_BoundedRoom(unsigned room,unsigned width,unsigned height);
 /* Only resource combinations with actual retained-map/color qualification. */
 int LagoonWideEntities_AuditedRoom(unsigned room, unsigned bg_source, unsigned obj_source,
     unsigned definitions0, unsigned definitions1, unsigned map0, unsigned map1);

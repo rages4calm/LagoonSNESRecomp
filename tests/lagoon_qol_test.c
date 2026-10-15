@@ -11,13 +11,19 @@ static int enabled_all;
 static int callbacks;
 static uint64_t state_generation;
 static int camera_aot_conflict;
+static const CpuWramReadContext *current_context;
+const CpuWramReadContext *cpu_current_wram_context(void) { return current_context; }
+void LagoonFastMenus_Reset(const uint8_t *rom,size_t size) { (void)rom;(void)size; }
+uint8_t LagoonFastMenus_Filter(uint32_t a,uint8_t v,const CpuWramReadContext *c,const uint8_t *r) {
+  (void)a;(void)c;(void)r; return v;
+}
 const char *cpu_dispatch_entry_reason(uint32_t pc, uint8_t mx) {
-  return camera_aot_conflict && pc==0x0183D8 && mx==2
+  return camera_aot_conflict && pc==(camera_aot_conflict==2 ? 0x01807A : 0x0183D8) && mx==2
     ? "compiled_entry_available_check_policy" : "missing_entry";
 }
 uint64_t RtlStateGeneration(void) { return state_generation; }
 int snes_mod_runtime_feature_enabled_c(const char *package, const char *feature) {
-  (void)package; (void)feature; return enabled_all;
+  (void)package; return enabled_all==2 ? !strcmp(feature,"fast_menus") : enabled_all;
 }
 int snes_mod_register_activation_plugin(const char *id, SNESModActivationCallback cb) {
   (void)id; (void)cb; return 1;
@@ -142,16 +148,48 @@ int main(int argc, char **argv) {
    * streaming and large-room coordinates; activation never teleports WRAM. */
   assert(rom[0x8408]==128 && rom[0x8432]==128);
   assert(rom[0x845F]==112 && rom[0x8489]==112 && rom[0x87F6]==128);
+  assert(!memcmp(rom+0x809D,"\xEA\xEA\xEA",3));
+  assert(!memcmp(rom+0x80C7,stock+0x80C7,3)); /* collision stack is untouched */
+  assert(!memcmp(rom+0x80CA,"\x20\xD8\x83",3));
+  assert(rom[0x83D8]==0x5A && rom[0x83DB]==0x16);
+  assert(!memcmp(rom+0x83F2,"\x7A\x4C\xB5\xA7",4)); /* tail animation */
   assert(rom[0x8815]==stock[0x8815]); /* vertical initial centre already112 */
   memset(g_ram,0xA5,sizeof(g_ram)); callbacks=0;
   qol_camera_activated();
   for (unsigned j=0;j<sizeof(g_ram);++j) assert(g_ram[j]==0xA5);
   assert(callbacks==0);
+  /* Real write-filter marker reprojects projectile-first queue correctly,
+   * including negative screen coordinates, without touching world or velocity. */
+  memset(g_ram,0,sizeof(g_ram)); g_ram[0x48C]=2;
+  word(0x480,512); word(0x482,200);
+  word(0xD41,490); word(0xD43,220); word(0xD45,3);
+  word(0x502,640); word(0x504,312); word(0x506,5);
+  word(0xEC0,0); g_ram[0xEC4]=4; word(0xEC6,0); g_ram[0xECA]=0;
+  CpuWramReadContext marker={0x0183EF,0x1E0,7,1,1,0,0,1};
+  word(marker.stack+3,0x80CC); current_context=&marker;
+  put(0x519,0); assert(getword(0xD49)==(uint16_t)-22 && getword(0xD4B)==20);
+  assert(getword(0x50C)==128 && getword(0x50E)==112);
+  assert(getword(0xEC2)==20 && getword(0xEC8)==112);
+  assert(getword(0xD41)==490 && getword(0x502)==640 && getword(0xD45)==3 && getword(0x506)==5);
+  word(0x50C,77); marker.instruction_pc++; put(0x519,0); assert(getword(0x50C)==77);
+  marker.instruction_pc--; word(marker.stack+3,0x80CD); put(0x519,0); assert(getword(0x50C)==77);
+  word(marker.stack+3,0x80CC); g_ram[0xEC4]=6; put(0x519,0); assert(getword(0x50C)==77);
+  g_ram[0xEC4]=4; word(0xEC0,1); put(0x519,0); assert(getword(0x50C)==77);
+  current_context=NULL;
   /* A compiled camera entry refuses ALL camera operand patches. */
   memcpy(rom,stock,0x100000); camera_aot_conflict=1;
   LagoonQol_OnRomLoaded(rom,0x100000);
   assert(!g_camera_center && rom[0x8408]==192 && rom[0x87F6]==112);
+  camera_aot_conflict=2; LagoonQol_OnRomLoaded(rom,0x100000);
+  assert(!g_camera_center && !memcmp(rom+0x809D,stock+0x809D,3));
   camera_aot_conflict=0;
+  /* Each altered wrapper/callsite guard refuses every camera byte. */
+  const unsigned camera_guards[]={0x809D,0x80C7,0x80CA,0x83D8,0x83FA};
+  for(unsigned i=0;i<sizeof(camera_guards)/sizeof(camera_guards[0]);++i) {
+    memcpy(rom,stock,0x100000); rom[camera_guards[i]]^=1;
+    LagoonQol_OnRomLoaded(rom,0x100000);
+    assert(!g_camera_center && rom[0x8408]==192 && rom[0x87F6]==112);
+  }
   /* A mismatching operand also refuses the full camera patch atomically. */
   memcpy(rom,stock,0x100000); rom[0x8432]^=1;
   LagoonQol_OnRomLoaded(rom,0x100000);
@@ -160,6 +198,9 @@ int main(int argc, char **argv) {
   memcpy(rom,stock,0x100000); rom[0xFFBB]^=1;
   LagoonQol_OnRomLoaded(rom,0x100000); assert((rom[0x131DC]|rom[0x131DD]<<8)==500);
   enabled_all=0; LagoonQol_OnRomLoaded(stock,0x100000); assert(!read_filter);
+  enabled_all=2; LagoonQol_OnRomLoaded(stock,0x100000);
+  assert(read_filter && !g_camera_center && !g_recovery_time);
+  assert(read_filter(0x501,0x17,NULL)==0x17); /* fast-menu-only context observer */
   free(rom); free(stock);
   puts("QoL checks passed: off identity, data patches, new-game guard, follower exclusion, recovery/jump timers, guard refusal");
   return 0;

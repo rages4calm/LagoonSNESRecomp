@@ -1,0 +1,8 @@
+# Use a private copy of slot 0 produced by script_state_roundtrip.txt.
+wait 20
+loadstate 0
+wait 30
+press right 20
+wait 5
+dump cold-pass
+quit

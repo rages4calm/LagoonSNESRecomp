@@ -213,7 +213,7 @@ void LagoonSoundtrack_LoadExtra(SaveLoadInfo *sli, uint32_t version) {
   pending_valid = 0;
   size_t remaining = RtlStateBytesRemaining(sli);
   if (!remaining) return;
-  if (remaining != sizeof(pending_chunk)) { RtlStateStreamFail(sli); return; }
+    if (remaining < sizeof(pending_chunk)) { RtlStateStreamFail(sli); return; }
   sli->func(sli, pending_chunk, sizeof(pending_chunk));
   if (!chunk_valid(pending_chunk)) { RtlStateStreamFail(sli); return; }
   pending_valid = 1;

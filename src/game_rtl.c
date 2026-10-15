@@ -34,6 +34,7 @@
 
 #include "game_rtl.h"
 #include "lagoon_soundtrack.h"
+#include "lagoon_state.h"
 #include "lagoon_widescreen.h"
 
 #include "beam_frame_driver.h"
@@ -66,8 +67,9 @@ const RtlGameInfo kGameInfo = {
     .save_name_prefix = "save",
     .session_reset = &GameSessionReset,
     .hardware_reset = &GameSessionReset,
-    .state_save_extra = &LagoonSoundtrack_SaveExtra,
-    .state_load_extra = &LagoonSoundtrack_LoadExtra,
-    .on_state_loaded = &LagoonSoundtrack_OnStateLoaded,
-    .snapshot_preflight = &LagoonSoundtrack_Preflight,
+    .state_save_extra = &LagoonState_SaveExtra,
+    .state_load_extra = &LagoonState_LoadExtra,
+    .on_state_loaded = &LagoonState_OnLoaded,
+    .snapshot_preflight = &LagoonState_Preflight,
+    .snapshot_guard_identity = &LagoonState_Identity,
 };
