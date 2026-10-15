@@ -11,7 +11,7 @@ the generated AOT manifest before every build.
 | `walk_speed` | Guarded stock row at 02:8149 remains unchanged; shared WRAM filter turns only Nasir's ordinary tier-two velocity +/-3 into +/-5. Enemy/NPC velocities and hurt knockback stay stock. |
 | `sword_reach` | Guarded four signed extent words in rectangles 01:B6F0..B70F become +/-38, exactly the supplied BPS changes. Orthogonal rectangle dimensions remain stock. |
 | `follower_speed` | Shared WRAM filter on ally velocity stores: tier-zero +/-1 becomes +/-3 only with the BPS follower signature (04E1 active, entity >=40, state&C0=C0, type0518=1, mode051B=0/1/3, tier051A=0). |
-| `recovery_time` | A fresh ordinary-hit flag80 arms a hold. Counter0512 cannot reach its stock expiry6 until eight frame ticks after it first tries to expire. Knockback velocity is unchanged. |
+| `recovery_time` | After stock ordinary-hit expiry, eight extra frames reject ordinary hits through a guarded read view at 01:BA52. Actual flags, counter, knockback and control expiry remain stock. |
 | `start_hp` | Recognises the freshly cleared new-game party construction, changes current HP10->18 and subsequent DEF5->11. Curves: HP18/21/23 and DEF11/13/16 for levels1/2/3; level3 onward stock. |
 | `exp_boost` | All39 enemy and16 boss template EXP words become floor(original*1.5). Zero rewards stay zero. Gold, stats and EXP thresholds remain stock. |
 | `jump_hold` | At original apex, intercept velocity0000->FF80 for eight frame ticks, keeping velocity zero and horizontal movement running. One hold per jump. |
@@ -75,16 +75,16 @@ clang -Wall -Wextra -Isrc -Isnesrecomp/runner/src tests/lagoon_qol_test.c -o <pr
 & <private-output>/qol-test.exe '../Lagoon (USA).sfc'
 ```
 
-These tests certify the transformations, not an entire campaign. Recovery and
-jump timing are counted in frame callbacks, which intentionally skip speculative
-frames; actual combat/jump replay, equipment progression, follower encounters,
+These tests certify the transformations, not an entire campaign. Recovery uses
+an eight-frame guest-counter deadline; the apex hold uses frame callbacks,
+which intentionally skip speculative frames. Actual combat/jump replay, equipment progression, follower encounters,
 all spell casts, and in-session save/load need gameplay qualification. These
 per-session host timer counters are not serialized in existing SNES states.
-`RtlStateGeneration()` is checked before active-mechanics CPU writes and timer
+`RtlStateGeneration()` is checked before active-mechanics CPU reads/writes and timer
 frame callbacks. A reset or successful file/memory snapshot load clears pending
-new-game and hold counters before they can affect the restored timeline. Loading
-a mid-hold state therefore resumes stock expiry/descent instead of reconstructing
-the remaining hold; exact mid-hold snapshot parity is not claimed. Rollback
+new-game, immunity and hold counters before they can affect the restored timeline. Loading
+a mid-hold state therefore resumes stock expiry/descent without reconstructing
+the extra immunity or remaining hold; exact mid-hold snapshot parity is not claimed. Rollback
 restores intentionally do not change this generation, so netplay/rollback parity
 for these optional mechanics remains unqualified. A public
 `LagoonQol_ResetTransient()` hook is also available to title integration.
@@ -195,3 +195,28 @@ checkpoints also matches both retained map layers. Normal/wide paired routes
 preserve native pixels, guest state and clock. Transition frames are evaluated
 separately from initialized ordinary rooms. These bounded checks do not qualify
 every room, parallax scene, transition or the full campaign.
+
+## Recovery correction: batch 4
+
+The actual contact fixture in `tools/DAMAGE-BATCH4.md` found that holding the
+shared counter at 5 added 24 pixels to first-hit knockback. The correction never
+changes counter0512 or flag0501. A fresh alive player ordinary-hit flag arms
+the detector; its stock counter6/flag-clear transition starts an eight-frame
+window measured with `snes_frame_counter`. Room writes, death, reset and state
+generation changes invalidate pending state.
+
+Only the first `LDA0501,Y` of helper01:BA52 may see a synthetic80. The read
+requires playerY0, M1X0/E0, bank01/81, a live JSR return from one of four
+observed eligibility call sites, guarded JSR operands and the guarded helper
+bytes. Interpreter reads additionally require the exact pre-instruction PC;
+native reads use live registers/stack without trusting a stale PC. Both paths
+use the shared canonical CPU read API. Other guest readers and WRAM itself see
+stock flags; existing knockback/control/animation routines run unchanged.
+The read hook exists only while this feature is active and clears at ROM load.
+Unit checks prove those guard exclusions and the exact eight-counter window.
+The c7c2d806 integration candidate passes the frozen ordinary-enemy damage
+routes: all 397 horizontal snapshots retain stock position/velocity/HP/flags/
+counter, while the vertical route blocks an immediate rehit for exactly eight
+additional frames (3283..3290) and permits the next actual hit at 3291.
+See `tools/DAMAGE-BATCH4.md` for hashes, setup and private receipts. Special
+hazards bypassing this helper, bosses and rollback remain unqualified here.

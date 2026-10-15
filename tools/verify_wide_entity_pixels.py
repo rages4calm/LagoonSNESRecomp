@@ -6,6 +6,7 @@ must be visible: foregrounds, windows and earlier objects can obscure pixels.
 The bounded Lagoon checks use OBSEL2, brightness15 and no color math.
 """
 import argparse
+import csv
 import json
 import struct
 from pathlib import Path
@@ -16,7 +17,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dump', required=True, type=Path, help='Dump prefix, without .oam.bin')
     parser.add_argument('--image', required=True, type=Path)
-    parser.add_argument('--slots', required=True, help='Comma-separated independently validated actor slots')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--slots', help='Comma-separated independently validated actor slots')
+    group.add_argument('--cells', type=Path, help='Actual emitted far-cell TSV diagnostic')
+    parser.add_argument('--cell-frame', type=int, help='Exact even OAM snapshot frame held by this capture')
     parser.add_argument('--out', required=True, type=Path)
     args = parser.parse_args()
     read = lambda suffix: Path(str(args.dump) + suffix).read_bytes()
@@ -28,8 +32,15 @@ def main():
     image = Image.open(args.image).convert('RGB')
     extra = (image.width - 256) // 2
     expected = {}
-    slots = sorted(set(map(int, args.slots.split(','))))
-    assert slots and all(0 <= s < 128 for s in slots)
+    slots = sorted(set(map(int, args.slots.split(',')))) if args.slots else []
+    cells = []
+    if args.cells:
+        assert args.cell_frame is not None
+        for row in csv.DictReader(args.cells.open(), delimiter='\t'):
+            if row['host_frame'] != str(args.cell_frame): continue
+            cells.append((int(row['x']), int(row['y']), int(row['tile'],16), int(row['size'])))
+        assert cells, 'No actual emitted cells at requested snapshot'
+    assert all(0 <= s < 128 for s in slots)
     for slot in slots:
         x, y, tile = struct.unpack_from('<BBH', oam, slot * 4)
         high = (oam[512 + slot // 4] >> ((slot % 4) * 2)) & 3
@@ -37,6 +48,8 @@ def main():
         if x >= 384:
             x -= 512  # bounded ordinary native-active range
         size = 16 if high & 2 else 8
+        cells.append((x, y, tile, size))
+    for x, y, tile, size in cells:
         for py in range(size):
             for px in range(size):
                 xx, yy = x + px, y + py
@@ -56,7 +69,7 @@ def main():
                 rgb15 = palette[128 + ((tile >> 9) & 7) * 16 + color]
                 rgb = tuple((((rgb15 >> shift) & 31) << 3) | (((rgb15 >> shift) & 31) >> 2) for shift in (0, 5, 10))
                 expected.setdefault((xx, yy), rgb)  # earlier OAM slot wins
-    result = dict(frame=regs['frame'], slots=slots, source_opaque=dict(left=0, right=0), visible_exact_color=dict(left=0, right=0))
+    result = dict(frame=regs['frame'], slots=slots, cell_frame=args.cell_frame, emitted_cells=len(cells), source_opaque=dict(left=0, right=0), visible_exact_color=dict(left=0, right=0))
     for (x, y), color in expected.items():
         side = 'left' if x < 0 else 'right'
         result['source_opaque'][side] += 1

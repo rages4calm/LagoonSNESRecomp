@@ -1,0 +1,471 @@
+# Batch4 boss fixture: real transitions after explicit setup listed inline.
+# Position/weapon-selector writes only; no HP, rewards, death or victory seeds.
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+dump town
+press up 12
+dump north-first-00
+press up 12
+dump north-first-01
+press up 12
+dump north-first-02
+press up 12
+dump north-first-03
+press up 12
+dump north-first-04
+press up 12
+dump north-first-05
+press up 12
+dump north-first-06
+press up 12
+dump north-first-07
+wait 300
+dump north-first-settled
+press up 12
+dump north-second-00
+press up 12
+dump north-second-01
+press up 12
+dump north-second-02
+press up 12
+dump north-second-03
+press up 12
+dump north-second-04
+press up 12
+dump north-second-05
+press up 12
+dump north-second-06
+press up 12
+dump north-second-07
+press up 12
+dump north-second-08
+press up 12
+dump north-second-09
+press up 12
+dump north-second-10
+press up 12
+dump north-second-11
+press up 12
+dump north-second-12
+press up 12
+dump north-second-13
+wait 300
+dump north-second-settled
+press right 64
+dump aligned-corridor
+press up 12
+dump gate-00
+press up 12
+dump gate-01
+press up 12
+dump gate-02
+press up 12
+dump gate-03
+press up 12
+dump gate-04
+press up 12
+dump gate-05
+press up 12
+dump gate-06
+press up 12
+dump gate-07
+# TARGETED FIXTURE: bypass solid north guards, do not alter story flags.
+# The destination is still entered through its real map transition.
+poke 0502 60017800
+press up 72
+wait 300
+dump cave-entered
+# BATCH4 TARGETED SETUP: position only, at the real Gold Cave boss doorway.
+# Door table05:8158 cell(40,1) loadsroom40 through01C8B5; no room/story/HP seed.
+poke 0502 10055a00
+press up 24
+wait 240
+dump boss-init
+wait 120
+dump boss-idle-120
+# Explicit gear-selector setup only, same Short Sword as prior combat fixture.
+# No STR/DEF/HP/EXP edits; report whether the engine recomputes STR naturally.
+poke 0530 01
+press up 20
+dump boss-armed-before
+press b 3
+wait 8
+press up 1
+dump boss-armed-00
+press b 3
+wait 8
+press up 1
+dump boss-armed-01
+press b 3
+wait 8
+press up 1
+dump boss-armed-02
+press b 3
+wait 8
+press up 1
+dump boss-armed-03
+press b 3
+wait 8
+press up 1
+dump boss-armed-04
+press b 3
+wait 8
+press up 1
+dump boss-armed-05
+press b 3
+wait 8
+press up 1
+dump boss-armed-06
+press b 3
+wait 8
+press up 1
+dump boss-armed-07
+press b 3
+wait 8
+press up 1
+dump boss-armed-08
+press b 3
+wait 8
+press up 1
+dump boss-armed-09
+press b 3
+wait 8
+press up 1
+dump boss-armed-10
+press b 3
+wait 8
+press up 1
+dump boss-armed-11
+press b 3
+wait 8
+press up 1
+dump boss-armed-12
+press b 3
+wait 8
+press up 1
+dump boss-armed-13
+press b 3
+wait 8
+press up 1
+dump boss-armed-14
+press b 3
+wait 8
+press up 1
+dump boss-armed-15
+press b 3
+wait 8
+press up 1
+dump boss-armed-16
+press b 3
+wait 8
+press up 1
+dump boss-armed-17
+press b 3
+wait 8
+press up 1
+dump boss-armed-18
+press b 3
+wait 8
+press up 1
+dump boss-armed-19
+press b 3
+wait 8
+press up 1
+dump boss-armed-20
+press b 3
+wait 8
+press up 1
+dump boss-armed-21
+press b 3
+wait 8
+press up 1
+dump boss-armed-22
+press b 3
+wait 8
+press up 1
+dump boss-armed-23
+press b 3
+wait 8
+press up 1
+dump boss-armed-24
+press b 3
+wait 8
+press up 1
+dump boss-armed-25
+press b 3
+wait 8
+press up 1
+dump boss-armed-26
+press b 3
+wait 8
+press up 1
+dump boss-armed-27
+press b 3
+wait 8
+press up 1
+dump boss-armed-28
+press b 3
+wait 8
+press up 1
+dump boss-armed-29
+press b 3
+wait 8
+press up 1
+dump boss-armed-30
+press b 3
+wait 8
+press up 1
+dump boss-armed-31
+press b 3
+wait 8
+press up 1
+dump boss-armed-32
+press b 3
+wait 8
+press up 1
+dump boss-armed-33
+press b 3
+wait 8
+press up 1
+dump boss-armed-34
+press b 3
+wait 8
+press up 1
+dump boss-armed-35
+press b 3
+wait 8
+press up 1
+dump boss-armed-36
+press b 3
+wait 8
+press up 1
+dump boss-armed-37
+press b 3
+wait 8
+press up 1
+dump boss-armed-38
+press b 3
+wait 8
+press up 1
+dump boss-armed-39
+press b 3
+wait 8
+press up 1
+dump boss-armed-40
+press b 3
+wait 8
+press up 1
+dump boss-armed-41
+press b 3
+wait 8
+press up 1
+dump boss-armed-42
+press b 3
+wait 8
+press up 1
+dump boss-armed-43
+press b 3
+wait 8
+press up 1
+dump boss-armed-44
+press b 3
+wait 8
+press up 1
+dump boss-armed-45
+press b 3
+wait 8
+press up 1
+dump boss-armed-46
+press b 3
+wait 8
+press up 1
+dump boss-armed-47
+press b 3
+wait 8
+press up 1
+dump boss-armed-48
+press b 3
+wait 8
+press up 1
+dump boss-armed-49
+press b 3
+wait 8
+press up 1
+dump boss-armed-50
+press b 3
+wait 8
+press up 1
+dump boss-armed-51
+press b 3
+wait 8
+press up 1
+dump boss-armed-52
+press b 3
+wait 8
+press up 1
+dump boss-armed-53
+press b 3
+wait 8
+press up 1
+dump boss-armed-54
+press b 3
+wait 8
+press up 1
+dump boss-armed-55
+press b 3
+wait 8
+press up 1
+dump boss-armed-56
+press b 3
+wait 8
+press up 1
+dump boss-armed-57
+press b 3
+wait 8
+press up 1
+dump boss-armed-58
+press b 3
+wait 8
+press up 1
+dump boss-armed-59
+wait 240
+dump boss-armed-end
+quit

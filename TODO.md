@@ -8,6 +8,10 @@ batches. Generated routine counts are not campaign completion percentages.
       The 7,219-frame/18-tag stock route matches the previous native control.
 - [x] Thirteen combat/progression roots, with staged real-bat defeat/reward,
       level 2, gold saturation, temporary bonus and equipment comparisons.
+- [x] Six more roots: horizontal/vertical player hit direction and boss drawing
+      helpers. Real player damage/death and first-boss damage retain exact parity.
+- [ ] Promote HP subtraction, death/revival and boss phase/quake orchestration
+      only after proving their indirect and nonlocal stack continuations.
 - [ ] Continue native promotion from measured hot paths; resolve existing
       native-versus-pure-interpreter timing differences. Keep 00:80E6 interpreted.
 - [x] Use CompanionLauncher 0.2.0 instead of the old pre-boot launcher.
@@ -17,8 +21,8 @@ batches. Generated routine counts are not campaign completion percentages.
 - [x] Followers: guarded ally tier-zero velocity +/-1 -> +/-3.
 - [x] Walking: Nasir-only velocity +/-3 -> +/-5; shared tier-two data and NPC/
       enemy speeds stay stock. Measured in the actual town replay.
-- [x] Recovery: eight additional frame ticks after an ordinary hit; synthetic
-      actual-source and shared CPU write-bus checks pass.
+- [x] Recovery: eight additional immunity ticks without extending knockback;
+      real damage routes and native/interpreted hit-eligibility paths agree.
 - [x] New-game opening: 18 HP/11 DEF; level 2 is 21 HP/13 DEF, level 3+ stock.
       Current starting stats verified in the runtime opening route.
 - [x] Enemy/boss EXP: floor(original * 1.5), all 39/16 guarded template records.
@@ -38,6 +42,12 @@ batches. Generated routine counts are not campaign completion percentages.
       16:9, 16:10, 21:9, 32:9 and window-driven aspects.
 - [ ] Complete widescreen off-screen entity composition/graphics staging,
       parallax, map bounds, room transitions, HUD/dialogue and campaign coverage.
+- [ ] Reconstruct the outdoor room-2 scenery resources before enabling its
+      wider field; mask beyond its real 512×512 extent instead of exposing fill
+      metatile 29. Dimensions are DP53/55 words multiplied by 8. Retain clean
+      native fallback while its margin data is unproven.
+- [ ] Adapt title/intro backdrops, the Start/status menu and inventory layout
+      for wider displays. Their current native-width fallback is intentional.
 - [x] Reconstruct OAM-matched normal NPC and enemy margin cells; reject stale
       parked sprites, dynamic player graphics and unproven states.
 - [x] Import all 40 user-supplied X68000 VGZ tracks privately with loop points.
@@ -46,7 +56,7 @@ batches. Generated routine counts are not campaign completion percentages.
 - [ ] Broader save/load, hardware controller and campaign/ending qualification.
 
 Every QoL feature and widescreen defaults off. Exact implementation/evidence:
-[native batch](NATIVE-BATCH3-2026-10-15.md), [QoL](QOL-IMPLEMENTATION.md),
+[native batch](NATIVE-BATCH4-2026-10-15.md), [QoL](QOL-IMPLEMENTATION.md),
 [widescreen](docs/WIDESCREEN.md).
 
 The supplied BPS is a private reference. Keep the clean ROM identity for

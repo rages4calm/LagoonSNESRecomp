@@ -1,0 +1,301 @@
+# Batch4 boss fixture: real transitions after explicit setup listed inline.
+# Position/weapon-selector writes only; no HP, rewards, death or victory seeds.
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+dump town
+press up 12
+dump north-first-00
+press up 12
+dump north-first-01
+press up 12
+dump north-first-02
+press up 12
+dump north-first-03
+press up 12
+dump north-first-04
+press up 12
+dump north-first-05
+press up 12
+dump north-first-06
+press up 12
+dump north-first-07
+wait 300
+dump north-first-settled
+press up 12
+dump north-second-00
+press up 12
+dump north-second-01
+press up 12
+dump north-second-02
+press up 12
+dump north-second-03
+press up 12
+dump north-second-04
+press up 12
+dump north-second-05
+press up 12
+dump north-second-06
+press up 12
+dump north-second-07
+press up 12
+dump north-second-08
+press up 12
+dump north-second-09
+press up 12
+dump north-second-10
+press up 12
+dump north-second-11
+press up 12
+dump north-second-12
+press up 12
+dump north-second-13
+wait 300
+dump north-second-settled
+press right 64
+dump aligned-corridor
+press up 12
+dump gate-00
+press up 12
+dump gate-01
+press up 12
+dump gate-02
+press up 12
+dump gate-03
+press up 12
+dump gate-04
+press up 12
+dump gate-05
+press up 12
+dump gate-06
+press up 12
+dump gate-07
+# TARGETED FIXTURE: bypass solid north guards, do not alter story flags.
+# The destination is still entered through its real map transition.
+poke 0502 60017800
+press up 72
+wait 300
+dump cave-entered
+# BATCH4 TARGETED SETUP: position only, at the real Gold Cave boss doorway.
+# Door table05:8158 cell(40,1) loadsroom40 through01C8B5; no room/story/HP seed.
+poke 0502 10055a00
+press up 24
+wait 240
+dump boss-init
+wait 120
+dump boss-idle-120
+# Requires explicit --features sword_reach (native opt-in 38px reach).
+# Timedmechanicsfixture: synchronizeactualquakecompletion andbossidleanchor.
+# Noenemyflags/HP/iframes seeded. ExistingunarmedSTR10 remainsunchanged.
+poke 0530 01
+until 03ae == 00 600
+until16 0544 == 009e 600
+dump boss-window
+press left 1
+press a 3
+wait 4
+dump boss-jump-ready
+poke 0502 a4009e00
+press b 3
+dump boss-timed-00
+wait 1
+dump boss-timed-01
+wait 1
+dump boss-timed-02
+wait 1
+dump boss-timed-03
+wait 1
+dump boss-timed-04
+wait 1
+dump boss-timed-05
+wait 1
+dump boss-timed-06
+wait 1
+dump boss-timed-07
+wait 1
+dump boss-timed-08
+wait 1
+dump boss-timed-09
+wait 1
+dump boss-timed-10
+wait 1
+dump boss-timed-11
+wait 1
+dump boss-timed-12
+wait 1
+dump boss-timed-13
+wait 1
+dump boss-timed-14
+wait 1
+dump boss-timed-15
+wait 1
+dump boss-timed-16
+wait 1
+dump boss-timed-17
+wait 1
+dump boss-timed-18
+wait 1
+dump boss-timed-19
+wait 1
+dump boss-timed-20
+wait 1
+dump boss-timed-21
+wait 1
+dump boss-timed-22
+wait 1
+dump boss-timed-23
+wait 1
+dump boss-timed-24
+wait 1
+dump boss-timed-25
+wait 1
+dump boss-timed-26
+wait 1
+dump boss-timed-27
+wait 1
+dump boss-timed-28
+wait 1
+dump boss-timed-29
+wait 1
+dump boss-timed-30
+poke 0502 8000ec00
+wait 90
+dump boss-timed-end
+quit

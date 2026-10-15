@@ -1,0 +1,735 @@
+# Batch4 boss fixture: real transitions after explicit setup listed inline.
+# Position/weapon-selector writes only; no HP, rewards, death or victory seeds.
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+dump town
+press up 12
+dump north-first-00
+press up 12
+dump north-first-01
+press up 12
+dump north-first-02
+press up 12
+dump north-first-03
+press up 12
+dump north-first-04
+press up 12
+dump north-first-05
+press up 12
+dump north-first-06
+press up 12
+dump north-first-07
+wait 300
+dump north-first-settled
+press up 12
+dump north-second-00
+press up 12
+dump north-second-01
+press up 12
+dump north-second-02
+press up 12
+dump north-second-03
+press up 12
+dump north-second-04
+press up 12
+dump north-second-05
+press up 12
+dump north-second-06
+press up 12
+dump north-second-07
+press up 12
+dump north-second-08
+press up 12
+dump north-second-09
+press up 12
+dump north-second-10
+press up 12
+dump north-second-11
+press up 12
+dump north-second-12
+press up 12
+dump north-second-13
+wait 300
+dump north-second-settled
+press right 64
+dump aligned-corridor
+press up 12
+dump gate-00
+press up 12
+dump gate-01
+press up 12
+dump gate-02
+press up 12
+dump gate-03
+press up 12
+dump gate-04
+press up 12
+dump gate-05
+press up 12
+dump gate-06
+press up 12
+dump gate-07
+# TARGETED FIXTURE: bypass solid north guards, do not alter story flags.
+# The destination is still entered through its real map transition.
+poke 0502 60017800
+press up 72
+wait 300
+dump cave-entered
+# BATCH4 TARGETED SETUP: position only, at the real Gold Cave boss doorway.
+# Door table05:8158 cell(40,1) loadsroom40 through01C8B5; no room/story/HP seed.
+poke 0502 10055a00
+press up 24
+wait 240
+dump boss-init
+wait 120
+dump boss-idle-120
+# Position/gear-selector setup only, no combat result edits.
+# Exact boss contact rectangle(01B730) is[x-32,x+8) by[y,y+32).
+# Attackfromright withrealB input; no boss HP/flags changes.
+poke 0530 01
+poke 0502 9c00bc00
+press left 1
+dump boss-side-before
+# Actual A-jump then B-sword inputs. Boss quake03AE pauses groundedNasir
+# via01DDE2 INC0500; jumping avoids this branch. Noquake/iframe flagsseeded.
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-000
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-001
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-002
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-003
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-004
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-005
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-006
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-007
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-008
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-009
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-010
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-011
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-012
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-013
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-014
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-015
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-016
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-017
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-018
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-019
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-020
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-021
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-022
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-023
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-024
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-025
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-026
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-027
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-028
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-029
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-030
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-031
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-032
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-033
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-034
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-035
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-036
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-037
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-038
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-039
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-040
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-041
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-042
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-043
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-044
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-045
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-046
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-047
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-048
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-049
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-050
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-051
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-052
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-053
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-054
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-055
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-056
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-057
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-058
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-059
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-060
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-061
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-062
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-063
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-064
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-065
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-066
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-067
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-068
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-069
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-070
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-071
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-072
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-073
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-074
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-075
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-076
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-077
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-078
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-079
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-080
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-081
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-082
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-083
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-084
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-085
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-086
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-087
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-088
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-089
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-090
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-091
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-092
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-093
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-094
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-095
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-096
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-097
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-098
+press a 3
+wait 6
+press b 3
+wait 18
+dump boss-jump-099
+wait 240
+dump boss-jump-end
+quit

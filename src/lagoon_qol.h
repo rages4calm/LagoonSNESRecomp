@@ -10,8 +10,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Clear host-only hold counters after a guest timeline discontinuity. The
- * implementation also observes RtlStateGeneration before CPU writes/frame ticks. */
+/* Clear host-only immunity/hold counters after a guest timeline discontinuity.
+ * Also observes RtlStateGeneration before active CPU reads/writes/frame ticks. */
 void LagoonQol_ResetTransient(void);
 
 void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size);

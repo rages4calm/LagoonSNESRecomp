@@ -6,7 +6,7 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress — October 15, 2026
 
-Twenty-one gameplay roots have been promoted in the October 15 batches.
+Twenty-seven gameplay roots have been promoted in the October 15 batches.
 The first eight cover:
 
 - Entity movement integration (`01:A4EB`).
@@ -31,11 +31,25 @@ Interpreted work falls from the first batch's 70,655,953 to 63,863,965
 instructions on that route, another 9.61% reduction. This measures interpreted
 work on a bounded replay, not a native-completion percentage.
 
-The build generates 164 AOT variants and 18 declared LLE variants; additional
+Six more cover player hit-direction dispatch/handlers and boss sprite offsets,
+palette selection and jump-anchor projection. Real player damage/death and a
+first-boss sword hit match the previous build at 924 checkpoints and all 15,123
+presentations. Boss HP falls from 96 to 94 in a fixture using the sword-reach
+option and explicit player positioning/equipment setup. Boss victory, rewards
+and the complete damage/death orchestration still need qualification.
+
+The build generates 170 AOT variants and 18 declared LLE variants; additional
 runtime fallback remains available. The original opening-loop fix stays in place.
 Existing native-versus-pure-interpreter clock/state differences remain unresolved.
 Bounded combat/progression evidence does not certify every encounter or save.
-See [the current evidence receipt](NATIVE-BATCH3-2026-10-15.md) and [todo list](TODO.md).
+See [the current evidence receipt](NATIVE-BATCH4-2026-10-15.md) and [todo list](TODO.md).
+
+## Fullscreen screenshots
+
+[View three 1920×1080 fullscreen captures](docs/screenshots/README.md), showing
+Atland at 21:9 and 32:9 and Gold Cave at 16:9 with camera centering enabled.
+
+![Atland widescreen fullscreen capture](docs/screenshots/town-21x9-fullscreen.png)
 
 ## Launcher
 
@@ -85,7 +99,7 @@ rejected by this clean-ROM build. Generated C is ROM-derived and remains local.
 ## QoL and widescreen
 
 All nine requested QoL changes are implemented and default off. They use guarded
-ROM data changes and shared CPU write hooks, so generated native routines and
+ROM data changes and shared CPU read/write hooks, so generated native routines and
 the interpreter see the same gameplay values. Camera centering changes guarded
 operands in explicitly interpreted routines, preserving the original scenery
 streamer. The supplied BPS informed this
@@ -95,9 +109,11 @@ and the distinction between synthetic tests and gameplay evidence.
 
 Optional widescreen draws additional world backgrounds in supported rooms at
 the original pixel scale, with 16:9, 16:10, 21:9, 32:9 and window-driven aspects.
-Normal NPC/enemy cells can also appear in the margins when independently matched
-to the game's completed OAM queue. The game's finite off-screen actor buffer,
-special actor states, parallax and campaign coverage remain limits. All four fixed aspects preserved guest state and native
+Witnessed ordinary NPC/enemy forms can also appear beyond the game's original
+off-screen actor buffer, using resident graphics and read-only presentation
+animation. Current scenery support is limited to audited Atland and Gold Cave
+resources. Other rooms, titles, intro and menus keep clean native-width layouts.
+Special actors, parallax and campaign coverage remain unfinished. All four fixed aspects preserved guest state and native
 center pixels at 18 opening/town checkpoints. See [widescreen details](docs/WIDESCREEN.md).
 
 ## Optional X68000 soundtrack

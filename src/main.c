@@ -69,6 +69,8 @@ static const SnesDesktopHostGame kGameHost = {
     .after_config        = LagoonWide_AfterConfig,
     .prepare_frame       = LagoonWide_PrepareFrame,
     .begin_sim_frame     = LagoonWide_BeginFrame,
+    .end_sim_frame       = LagoonWide_EndFrame,
+    .draw_frame          = LagoonWide_DrawFrame,
     .on_reset            = LagoonWide_Reset,
 };
 

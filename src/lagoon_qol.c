@@ -152,6 +152,7 @@ static const uint16_t kDefTableStock[QOL_STAT_ENTRIES] = {
 static uint16_t qol_wram_read16(uint32_t addr);
 static void qol_wram_write16(uint32_t addr, uint16_t value);
 static uint8_t qol_filter_write(uint32_t addr, uint8_t value);
+static uint8_t qol_filter_read(uint32_t addr, uint8_t value, const CpuWramReadContext *context);
 static void qol_mechanics_frame(void);
 #define QOL_WRAM_HP 0x0520u /* party block: current HP, proven by damage and by the menu */
 #define QOL_WRAM_DEF 0x0526u /* party block: current defence, written as defence by $01:9541 */
@@ -173,11 +174,22 @@ static void qol_register_mechanics(void) {
     g_mechanics_registered = 1;
   }
 }
-static int g_recovery_armed, g_recovery_holding, g_recovery_frames;
+static int g_recovery_armed, g_recovery_frames;
+static uint32_t g_recovery_start_frame;
+static uint8_t g_recovery_room;
+static const uint8_t *g_recovery_rom;
+static size_t g_recovery_rom_size;
 static int g_jump_armed, g_jump_holding, g_jump_frames;
 static void qol_follower_activated(void) { g_follower_speed = 1; }
 static void qol_recovery_activated(void) {
+  static const uint8_t eligibility[] = {0xB9,0x01,0x05,0x30,0x11};
+  if (!g_recovery_rom || g_recovery_rom_size < 0xBA57 ||
+      memcmp(g_recovery_rom + 0xBA52, eligibility, sizeof(eligibility))) {
+    fprintf(stderr, "[lagoon-qol] recovery_time refused: unknown hit eligibility code\n");
+    return;
+  }
   g_recovery_time = 1;
+  cpu_set_wram_read_filter_hook(qol_filter_read);
   qol_register_mechanics();
 }
 static void qol_jump_activated(void) {
@@ -187,7 +199,7 @@ static void qol_jump_activated(void) {
 static void qol_data_activated(void) {}
 
 void LagoonQol_ResetTransient(void) {
-  g_recovery_armed = g_recovery_holding = g_recovery_frames = 0;
+  g_recovery_armed = g_recovery_frames = 0;
   g_jump_armed = g_jump_holding = g_jump_frames = 0;
   g_def_written = 0;
   g_qol_state_generation = RtlStateGeneration();
@@ -206,10 +218,13 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
   g_camera_center = 0;
   g_follower_speed = g_recovery_time = g_jump_hold = 0;
   g_mechanics_registered = 0;
-  g_recovery_armed = g_recovery_holding = g_recovery_frames = 0;
+  g_recovery_armed = g_recovery_frames = 0;
   g_jump_armed = g_jump_holding = g_jump_frames = 0;
   LagoonQol_ResetTransient();
   cpu_set_wram_write_filter_hook(qol_filter_write);
+  cpu_set_wram_read_filter_hook(NULL);
+  g_recovery_rom = rom;
+  g_recovery_rom_size = size;
   /* Per-session feature state and transient timers have been cleared above. */
   if (!rom) {
     return;
@@ -460,18 +475,20 @@ static uint8_t qol_filter_write(uint32_t addr, uint8_t value) {
     }
   }
   if (g_recovery_time) {
-    if (addr == 0x501 && (value & 0xC0) == 0x80 && !(g_ram[addr] & 0x80)) {
+    if (addr == 0x48E) g_recovery_armed = g_recovery_frames = 0;
+    if (addr == 0x501 && (value & 0xC1) == 0x80 && !(g_ram[addr] & 0x80) &&
+        (g_ram[0x500] & 0xC0) == 0xC0 && g_ram[0x518] == 0 &&
+        qol_wram_read16(0x520)) {
       g_recovery_armed = 1;
-      g_recovery_holding = 0;
-      g_recovery_frames = 8;
+      g_recovery_frames = 0;
+      g_recovery_room = g_ram[0x48E];
     }
-    if (addr == 0x512 && value == 6 && g_recovery_armed &&
-        (g_ram[0x501] & 0xC0) == 0x80) {
-      if (g_recovery_frames) {
-        g_recovery_holding = 1;
-        return 5; /* defer the engine's CMP #6 expiry for eight frame ticks */
-      }
+    if (addr == 0x501 && (g_ram[addr] & 0xC1) == 0x80 &&
+        !(value & 0xC1) && g_ram[0x512] == 6 && g_recovery_armed &&
+        qol_wram_read16(0x520) && g_ram[0x48E] == g_recovery_room) {
       g_recovery_armed = 0;
+      g_recovery_frames = 8;
+      g_recovery_start_frame = (uint32_t)snes_frame_counter;
     }
   }
   if (g_jump_hold && addr == 0x517 && (g_ram[0x501] & 0x20)) {
@@ -492,16 +509,44 @@ static uint8_t qol_filter_write(uint32_t addr, uint8_t value) {
   return value;
 }
 
+/* The extra window is a view of one ordinary-hit eligibility read, not an
+ * entity flag: stock knockback, control, rendering and counter expiry remain
+ * unchanged. The caller's live JSR return frame identifies the helper even in
+ * generated code, whose architectural PC is not maintained. Interpreter reads
+ * must additionally identify the exact pre-instruction cursor. */
+static uint8_t qol_filter_read(uint32_t addr, uint8_t value, const CpuWramReadContext *c) {
+  if (!g_recovery_time || addr != 0x501 || !c) return value;
+  qol_check_timeline();
+  uint32_t elapsed = (uint32_t)snes_frame_counter - g_recovery_start_frame;
+  if (!g_recovery_frames || elapsed >= 8 || g_ram[0x48E] != g_recovery_room ||
+      !qol_wram_read16(0x520) || (g_ram[0x500] & 0xC0) != 0xC0 ||
+      (value & 0xC1) || g_ram[0x518] != 0) return value;
+  if ((c->pb & 0x7F) != 1 || c->y || !c->m || c->x || c->e || c->stack > 0x1FFD)
+    return value;
+  if (c->interpreter && (c->instruction_pc & 0x7FFFFF) != 0x01BA52) return value;
+  uint16_t ret = (uint16_t)(g_ram[c->stack + 1] | ((uint16_t)g_ram[c->stack + 2] << 8));
+  if (ret != 0xB9A8 && ret != 0xB9F6 && ret != 0xBA28 && ret != 0xBA31) return value;
+  uint32_t off = (uint32_t)ret - 2;
+  if (!g_recovery_rom || off + 2 >= g_recovery_rom_size ||
+      g_recovery_rom[off] != 0x20 || g_recovery_rom[off + 1] != 0x52 ||
+      g_recovery_rom[off + 2] != 0xBA ||
+      memcmp(g_recovery_rom + 0xBA52, "\xB9\x01\x05\x30\x11", 5)) return value;
+  return value | 0x80;
+}
+
 static void qol_mechanics_frame(void) {
   qol_check_timeline();
-  if (g_recovery_holding && g_recovery_frames) --g_recovery_frames;
+  if (g_recovery_frames) {
+    uint32_t elapsed = (uint32_t)snes_frame_counter - g_recovery_start_frame;
+    g_recovery_frames = elapsed < 8 ? 8 - (int)elapsed : 0;
+  }
   if (g_jump_holding && g_jump_frames) --g_jump_frames;
   if (!(g_ram[0x501] & 0x20)) {
     g_jump_armed = g_jump_holding = g_jump_frames = 0;
   }
-  if (!(g_ram[0x501] & 0x80)) {
-    g_recovery_armed = g_recovery_holding = g_recovery_frames = 0;
-  }
+  if (!qol_wram_read16(0x520) || (g_ram[0x501] & 0x41) ||
+      (g_ram[0x500] & 0xC0) != 0xC0 || g_ram[0x48E] != g_recovery_room)
+    g_recovery_armed = g_recovery_frames = 0;
 }
 
 /* The original camera now owns its WRAM position, room limits, BG2 parallax

@@ -1,0 +1,94 @@
+#include "lagoon_wide_entities.h"
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+static uint8_t rom[0x100000];
+static void put(unsigned a,unsigned v) {rom[((a>>16)&127)*32768+(a&32767)]=(uint8_t)v;}
+static void tables(void) {
+  put(0x1f885+41*2,0);put(0x1f886+41*2,0xf0);put(0x1f000,3);
+  put(0x1f41a,2);
+  for(unsigned i=0;i<16;++i){put(0x1f001+i,40+i);put(0x1f41b+i,10+i);}
+}
+static void animation(void) {
+  uint8_t r[64]={0},frame=0;tables();r[0]=0xe0;r[0x18]=1;r[0x1b]=41;r[10]=3;
+  LagoonWideAnimation a={2,2};
+  assert(LagoonWideEntities_CommonFrame(rom,sizeof(rom),r,&a,0,&frame)&&frame==54&&a.timer==2);
+  assert(LagoonWideEntities_CommonFrame(rom,sizeof(rom),r,&a,1,&frame)&&frame==55&&a.timer==0&&a.phase==3);
+  a.timer=2;assert(LagoonWideEntities_CommonFrame(rom,sizeof(rom),r,&a,1,&frame)&&frame==52&&a.phase==0);
+  r[0]=0xc1;a.timer=2;a.phase=3;
+  assert(LagoonWideEntities_CommonFrame(rom,sizeof(rom),r,&a,1,&frame)&&frame==52&&a.phase==0&&a.timer==0);
+  r[0]=0xc0;r[11]=0x80;a.phase=2;
+  assert(LagoonWideEntities_CommonFrame(rom,sizeof(rom),r,&a,0,&frame)&&frame==52&&a.phase==0);
+  r[0]=0xe0;r[11]=0;r[0x18]=2;r[0x1b]=0;r[0x2c]=2;r[10]=1;a.timer=1;a.phase=2;
+  assert(LagoonWideEntities_CommonFrame(rom,sizeof(rom),r,&a,1,&frame)&&frame==49&&a.phase==3);
+  r[1]=1;assert(!LagoonWideEntities_CommonFrame(rom,sizeof(rom),r,&a,0,&frame));
+  r[1]=0;r[0x1b]=12;assert(!LagoonWideEntities_CommonFrame(rom,sizeof(rom),r,&a,0,&frame));
+  r[0x18]=1;r[0x1b]=2;assert(!LagoonWideEntities_CommonFrame(rom,sizeof(rom),r,&a,0,&frame));
+  r[0x1b]=41;r[10]=4;assert(!LagoonWideEntities_CommonFrame(rom,sizeof(rom),r,&a,0,&frame));
+  r[10]=0;assert(!LagoonWideEntities_CommonFrame(rom,16,r,&a,0,&frame));
+}
+static void load_chunk(LagoonWideAtlas *a,unsigned n) {
+  unsigned len=n==0x2000?0xa00:0x1000;
+  assert(LagoonWideAtlas_Begin(a,7,3,0x118000,0x7f,0x7f80+n,0x4400+n/2,len));
+  for(unsigned b=0;b<len;++b)LagoonWideAtlas_Write(a,0x8800+n+b);
+}
+static void ownership(void) {
+  LagoonWideAtlas a;LagoonWideAtlas_Reset(&a);
+  LagoonWideCell c={400,10,0x2640,16};
+  load_chunk(&a,0);assert(!a.ready&&!LagoonWideAtlas_CellOwned(&a,0x4000,0x5000,&c));
+  assert(!LagoonWideAtlas_Begin(&a,7,3,0x118000,0x7f,0x9f80,0x5400,0xa00));
+  load_chunk(&a,0x1000);load_chunk(&a,0x2000);
+  assert(a.ready&&a.completed==0x2a00&&LagoonWideAtlas_CellOwned(&a,0x4000,0x5000,&c));
+  LagoonWideAtlas_Write(&a,0x8803);
+  assert(!LagoonWideAtlas_CellOwned(&a,0x4000,0x5000,&c));
+  c.tile=0x2650;assert(LagoonWideAtlas_CellOwned(&a,0x4000,0x5000,&c));
+  c.tile=0x2601;assert(!LagoonWideAtlas_CellOwned(&a,0x4000,0x5000,&c));
+  assert(!LagoonWideAtlas_Begin(&a,8,3,0x118000,0x7f,0x8f80,0x4c00,0x1000));
+  LagoonWideAtlas_Reset(&a);load_chunk(&a,0);
+  assert(!LagoonWideAtlas_Begin(&a,7,4,0x118000,0x7f,0x8f80,0x4c00,0x1000));
+  LagoonWideAtlas_Write(&a,0x9800);assert(!a.ready);
+  LagoonWideAtlas_Reset(&a);assert(!a.ready&&!a.completed);
+}
+static void modal(void) {
+  static uint16_t vram[32768],depth[800];
+  for(unsigned i=0;i<1024;++i)vram[0x3c00+i]=511;
+  assert(!LagoonWideEntities_MenuOverlay(vram,0x3c00,0x6000));
+  vram[0x3c00+24*32]=1;vram[0x6008]=1; /* ordinary bottom HUD */
+  assert(!LagoonWideEntities_MenuOverlay(vram,0x3c00,0x6000));
+  vram[0x3c00+2*32+2]=1;
+  assert(LagoonWideEntities_MenuOverlay(vram,0x3c00,0x6000));
+  vram[0x3c00+2*32+2]=511;
+  assert(!LagoonWideEntities_MenuOverlay(vram,0x3c00,0x6000));
+  for(unsigned i=0;i<800;++i)depth[i]=0x9999;
+  LagoonWideEntities_BlankMargins(depth,272,213,213);
+  for(unsigned i=0;i<800;++i)assert(depth[i]==((i>=59&&i<272)||(i>=528&&i<741)?0x0500:0x9999));
+}
+static void scene_settlement(void) {
+  LagoonWideSceneGate g={0};
+  assert(!LagoonWideEntities_SceneSettled(&g,1,1,7));
+  assert(!LagoonWideEntities_SceneSettled(&g,1,1,7));
+  assert(LagoonWideEntities_SceneSettled(&g,1,1,7));
+  assert(!LagoonWideEntities_SceneSettled(&g,1,4,7));
+  assert(!LagoonWideEntities_SceneSettled(&g,1,4,7));
+  assert(LagoonWideEntities_SceneSettled(&g,1,4,7));
+  assert(!LagoonWideEntities_SceneSettled(&g,0,4,7));
+  assert(!LagoonWideEntities_SceneSettled(&g,1,4,7));
+  assert(!LagoonWideEntities_SceneSettled(&g,1,4,8));
+  assert(!LagoonWideEntities_SceneSettled(&g,1,4,8));
+  assert(LagoonWideEntities_SceneSettled(&g,1,4,8));
+}
+static void field_fallback(void) {
+  uint8_t pixels[3*344*4];memset(pixels,0x91,sizeof(pixels));
+  LagoonWideEntities_BlankField(pixels,344*4,342,2);
+  for(unsigned y=0;y<3;++y)for(unsigned x=0;x<344*4;++x)
+    assert(pixels[y*344*4+x]==((y<2 && (x<43*4 || (x>=299*4 && x<342*4)))?0:0x91));
+}
+static void audited_rooms(void) {
+  assert(LagoonWideEntities_AuditedRoom(0,0x138000,0x198000,0x068000,0x068000,0x7f0000,0x7f4000));
+  assert(LagoonWideEntities_AuditedRoom(3,0x128b77,0x1d8000,0x069298,0x069298,0x7f0000,0x7f4000));
+  assert(!LagoonWideEntities_AuditedRoom(2,0x138000,0x198000,0x068000,0x068000,0x7f0000,0x7f4000));
+  assert(!LagoonWideEntities_AuditedRoom(0,0x128b77,0x198000,0x068000,0x068000,0x7f0000,0x7f4000));
+  assert(!LagoonWideEntities_AuditedRoom(0,0x138000,0x198000,0x068000,0x069298,0x7f0000,0x7f4000));
+  assert(!LagoonWideEntities_AuditedRoom(3,0x128b77,0x1d8000,0x069298,0x069298,0x7f0000,0x7f8000));
+}
+int main(void){animation();ownership();modal();audited_rooms();field_fallback();scene_settlement();puts("wide actor state: pure post-frame/step, idle/variant/refusal, segmented atlas, partial/wrong-room/overwrite/reset PASS");return 0;}

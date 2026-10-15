@@ -10,8 +10,19 @@ framework's 800-pixel PPU capacity, with letterboxing beyond that capacity.
 This renders additional world tiles at their original pixel scale. It does not
 stretch the native image. BG3 text/HUD remains centered at native size. Titles,
 menus with other PPU layouts, parallax rooms, BG1/BG2 mosaic, and unsupported map modes keep
-their native field. The first implementation supports ordinary mode-1 rooms
-with the two retained map layers and the verified `$7000/$7800` tilemap bases.
+their native field. Expansion is currently enabled only for the exact resource
+combinations qualified in Atland (room0) and Gold Cave (room3). Matching PPU
+layout alone is insufficient. Other rooms use a clean centered native fallback.
+Room loading (`$100E`) and BG3 modal overlays also force that fallback; actual
+VRAM-write observation catches loading/menu changes within a simulated frame.
+The official presentation compositor also blanks only the margins whenever the
+completed frame selected native fallback, preserving all256 native columns.
+RAM can name the next room while the completed raster still shows the previous
+room, so expansion requires three consecutive ready resource observations (two
+prior completed boundaries). Loading, resource changes and timeline jumps reset
+that settlement. A391-present cave-entry audit includes the previously corrupt
+single frame and checks clean fallback throughout the unsupported exterior,
+then expansion once the cave raster is settled.
 
 ## Read-only map reconstruction
 
@@ -120,17 +131,54 @@ progression or post-reset gameplay qualification. Generate them with
 `camera_center` for both comparison runs. `tools/verify_wide_entity_pixels.py`
 records the exact-frame color witness for independently validated OAM slots.
 
-This currently reveals only cells already produced by the game's ordinary
-active buffer (up to 96 pixels beyond the native view). Entities beyond that
-buffer have no validated current animation/graphics/OAM ownership and remain
-hidden. In particular, 21:9 edge overhangs and the farther portions of 32:9 can
-still lack NPCs/enemies. Widening guest culling would expose stale frames; a
-complete solution needs a separate animation/graphics ownership model.
+## Wider actor buffer (batch 4)
+
+Ordinary queued actors retain the original decoded-cell/OAM witness and exact
+native-edge clipping. Farther out, a bounded host producer now supports NPC
+kinds41/59 and normal enemy kinds0/1, after that kind has matched native OAM
+in the current room. This is presentation only: it never extends guest AI,
+collision, damage or entity simulation.
+
+The producer recognizes the actual three-segment ordinary-room OBJ upload,
+tracks ownership of every atlas byte, and rejects unknown later overwrites.
+It reads the common animation table from the private ROM and advances a separate
+presentation phase using the game's own main-loop clock. Returning to the
+native queue synchronizes to the guest phase. A guest offscreen phase is not
+claimed to run while culled. Room/source/timeline changes clear phase history,
+kind witnesses and atlas ownership; loading a state without a fresh witnessed
+atlas load safely hides far actors.
+
+Deep-margin objects share the game's unsigned ground-Y order and entity-index
+tie order. The near seam preserves exact original OAM slots, and added objects
+have zero opacity throughout the native256 pixels. Unsupported native objects
+in the deep margin or an over-capacity buffer disable the far producer for that
+frame. Death, bosses, special/player packs, unrecognized kinds, more rooms and
+complete campaign coverage remain unfinished.
+
+Actual32:9 walking captures include a far-right NPC with216/216 opaque source
+pixels matching current VRAM/CGRAM colors, and a far-left cave enemy with476/476
+matching pixels. Their origins are beyond the native[-96,352) horizontal active
+buffer. Town/cave/menu paired routes cover63 tags with exact native framebuffer,
+WRAM, registers, VRAM, OAM, CGRAM, SRAM and guest clock. The cave route declares
+a guard-position fixture before room entry; movement inside the cave is normal
+input. One initial cave kind1 frame-selector mismatch is rejected and revokes
+its witness until a later matching native frame; it is not treated as a valid
+far pose. These are bounded checks, not full campaign certification.
+
+Inventory and Start overlays now keep clean native margins, including when the
+menu writes its BG3 map after the frame starts. A stable inventory/open/return
+route additionally checks that expanded scenery resumes after closing.
+
+The guard exterior (room2) exposed patterned white out-of-room fill and colored
+edge corruption during room loading. It is outside the qualified resource set
+and now uses native fallback. This does not claim an outdoor-map decoder repair.
+Future room expansion needs its own map/graphics/bounds and transition proof.
 
 ## Reproduce the map check
 
-Use private ROM and state-dump paths; these inputs and screenshots must stay
-out of the source repository:
+Use private ROM and state-dump paths. ROMs, states and raw probe captures stay
+out of the source repository. The three explicitly requested curated fullscreen
+PNGs in `docs/screenshots` are the screenshot exception:
 
 ```
 python -P tools/verify_wide_map.py --rom <private.sfc> --dumps <private-dumps> --out <private-report.json>
@@ -150,10 +198,23 @@ powershell -File tools/test_wide_entities.ps1 -OutDir <private-test-output>
 
 They cover stream grids/escapes/refusal, actual native-versus-host PPU colors
 for all four flips, native-center clipping, dynamic-player-pack refusal, and
-DMA callback timing/state preservation. These synthetic checks complement
+DMA callback timing/state preservation. Additional tests cover pure animation selection, segmented atlas ownership,
+room/source/timeline invalidation, modal fallback and exact audited-resource
+acceptance/refusal. These synthetic checks complement
 runtime parity; they do not certify all campaign entities.
 
-Future work: entities outside the native active buffer, special/death/boss
+Future work: additional far actor kinds and rooms, special/death/boss
 composition, parallax BG2 reconstruction, room-bound policy, HUD anchoring, first
 visit/room transition and save-load checks across more of the campaign. Follow
 the framework's `docs/WIDESCREEN_PATTERNS.md` invariants during that work.
+
+## Batch 4 acceptance binding
+
+The bounded menu/far-actor/transition checks bind to
+`lagoon-batch4-settled.exe`, SHA256
+`904d218f875e4ebd877e9f5df4b85aecf901efbdc70fd7b04c26d9822fcf752b`.
+The63 tag comparison includes seven binary components plus guest clock; the
+391-present audit separately preserves the native center and checks transient
+margins. The ROM-free regressions cover native-center/pitch padding preservation
+and scene settlement across room/load/timeline changes. Public fullscreen
+captures have their separate source/display provenance in `docs/screenshots`.

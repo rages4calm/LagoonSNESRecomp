@@ -375,3 +375,75 @@ emit = false
 entry_m = 1
 entry_x = 0
 note = "Batch 3 combat orchestration candidate; kept interpreted: unproven boss call continuation; auto-discovered descendants failed clock gate"
+
+[[func]]
+name = "Lagoon_Combat_HorizontalHitDirection"
+addr = "b9c4"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 4 qualified M1/X0 precise root; bounded damage/boss evidence in NATIVE-BATCH4-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Combat_VerticalHitDirection"
+addr = "b9dc"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 4 qualified M1/X0 precise root; bounded damage/boss evidence in NATIVE-BATCH4-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Death_StopVelocity"
+addr = "92f1"
+bank = 1
+emit = false
+entry_m = 1
+entry_x = 0
+note = "Kept interpreted: branch-arrival routine did not enter the generated body in measured death fixtures"
+
+[[func]]
+name = "Lagoon_Boss_ProjectFrameOffset"
+addr = "c3e8"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 4 qualified M1/X0 precise root; bounded damage/boss evidence in NATIVE-BATCH4-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Boss_SelectRenderPalette"
+addr = "c402"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 4 qualified M1/X0 precise root; bounded damage/boss evidence in NATIVE-BATCH4-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Boss_ProjectJumpAnchor"
+addr = "c486"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 4 qualified M1/X0 precise root; bounded damage/boss evidence in NATIVE-BATCH4-2026-10-15.md"
+
+[[func]]
+name = "Lagoon_Boss_UpdateQuake"
+addr = "ddad"
+bank = 1
+emit = false
+entry_m = 1
+entry_x = 0
+note = "Kept interpreted: D8F6 JMP arrival has no native call-frame contract; compiled candidate showed no native execution"
+
+[[func]]
+name = "Lagoon_Combat_SelectHitDirection"
+addr = "b9b0"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch 4 qualified M1/X0 precise root and both tail targets; complete four-word table, horizontal/vertical real-hit parity"

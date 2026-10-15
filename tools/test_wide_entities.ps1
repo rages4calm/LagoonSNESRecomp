@@ -16,6 +16,7 @@ try {
   }
   $decodeFlags = @('-DLAGOON_WIDE_ENTITIES_DECODER_ONLY', '-Isrc')
   Invoke-TestBuild 'wide-entity-decoder' @('tools/test_wide_entity_decoder.c','src/lagoon_wide_entities.c') $decodeFlags
+  Invoke-TestBuild 'wide-entity-state' @('tools/test_wide_entity_state.c','src/lagoon_wide_entities.c') $decodeFlags
   $ppuFlags = $decodeFlags + @('-DSNESRECOMP_REVERSE_DEBUG=0','-Isnesrecomp/runner/src','-Isnesrecomp/runner/src/snes')
   Invoke-TestBuild 'wide-entity-pixels' @('tools/test_wide_entity_pixels.c','src/lagoon_wide_entities.c','snesrecomp/runner/src/snes/ppu.c','snesrecomp/runner/src/snes/ppu_legacy.c') $ppuFlags
   Invoke-TestBuild 'shadow-authoritative-map' @('snesrecomp/tests/ppu/ppu_shadow_authoritative_map_test.c','snesrecomp/runner/src/snes/ws_shadow.c','snesrecomp/runner/src/snes/ppu.c','snesrecomp/runner/src/snes/ppu_legacy.c') $ppuFlags

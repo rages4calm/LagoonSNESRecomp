@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-15",
+  "captures": [
+    {
+      "file": "town-21x9-fullscreen.png",
+      "width": 1920,
+      "height": 1080,
+      "aspect": "21:9",
+      "frame": 6567,
+      "fullscreen": true,
+      "video_driver": "windows",
+      "camera_center": true,
+      "exe_sha256": "536d1a63104f34a8149680c651a339583ee28ed37548c1194a7631e6cde3e40f",
+      "route_sha256": "850d696398ade63b4a11f1f14a42de8f1ff5697acdab72cbd1680fac0a2584c0",
+      "png_sha256": "786ac7d9042abc0fa8cb29a31fc01b1537857f1f34d052497ff68bf8da2a47ba",
+      "capture": "SDL renderer output readback before Present; lossless BMP to PNG"
+    },
+    {
+      "file": "town-32x9-fullscreen.png",
+      "width": 1920,
+      "height": 1080,
+      "aspect": "32:9",
+      "frame": 6650,
+      "fullscreen": true,
+      "video_driver": "windows",
+      "camera_center": true,
+      "exe_sha256": "536d1a63104f34a8149680c651a339583ee28ed37548c1194a7631e6cde3e40f",
+      "route_sha256": "265504e4def5745294ded9cb427b149ee29bef12ef1c83ce30be6ab3d8609280",
+      "png_sha256": "86dea249b4666136f91864371039c61ecb519d1fba154094c1b77e1bacb539f8",
+      "capture": "SDL renderer output readback before Present; lossless BMP to PNG"
+    },
+    {
+      "file": "cave-16x9-fullscreen.png",
+      "width": 1920,
+      "height": 1080,
+      "aspect": "16:9",
+      "frame": 3353,
+      "fullscreen": true,
+      "video_driver": "windows",
+      "camera_center": true,
+      "exe_sha256": "536d1a63104f34a8149680c651a339583ee28ed37548c1194a7631e6cde3e40f",
+      "route_sha256": "5213a6fa4633f2306fb325a03ac2b521ada0b43205d9ce4c9a5a1a5828c450f0",
+      "png_sha256": "e2a8d067f3c2858ab215a5a6a72121d9993922c7177399977e7781a984f07dcf",
+      "capture": "SDL renderer output readback before Present; lossless BMP to PNG"
+    }
+  ],
+  "accepted_build_exe_sha256": "904d218f875e4ebd877e9f5df4b85aecf901efbdc70fd7b04c26d9822fcf752b",
+  "accepted_build_validation": "All three source presentation frames exactly match the final published build after transition settlement/compositor changes; original full-resolution SDL captures retained."
+}

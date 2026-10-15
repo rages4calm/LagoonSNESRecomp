@@ -5,6 +5,7 @@
 #include "lagoon_wide_entities.h"
 #include "common_rtl.h"
 #include "config.h"
+#include "widescreen.h"
 #include "snes/ppu.h"
 #include "snes/ws_shadow.h"
 #include <ctype.h>
@@ -14,6 +15,9 @@
 
 static double s_aspect = 16.0 / 9.0; /* 0 means drawable aspect */
 static int s_was_active;
+static int s_native_fallback;
+static int s_present_fallback;
+static LagoonWideSceneGate s_scene_gate;
 static unsigned s_room_key;
 static uint64_t s_state_generation;
 static const char *s_config_path = "config.ini";
@@ -102,8 +106,40 @@ void LagoonWide_Reset(void) {
   LagoonWideEntities_Reset();
   WsShadowReset();
   s_was_active = 0;
+  memset(&s_scene_gate,0,sizeof(s_scene_gate));
   s_room_key = 0;
   s_state_generation = RtlStateGeneration();
+}
+
+static int audited_room_ready(void) {
+  return !g_ram[0x100e] && LagoonWideEntities_AuditedRoom(word(0x48e),pointer(0x57),pointer(0x5d),
+      pointer(0x69),pointer(0x75),pointer(0x88),pointer(0x8b));
+}
+static int has_modal_ui(void) {
+  return ((g_ppu->screenEnabled[0]|g_ppu->screenEnabled[1])&4) &&
+      (g_ppu->hScroll[2] || g_ppu->vScroll[2] ||
+       LagoonWideEntities_MenuOverlay(PpuRenderVram(g_ppu),PPU_bgTilemapAdr(g_ppu,2),PPU_bgTileAdr(g_ppu,2)));
+}
+static void menu_line(Ppu *ppu,uint y,bool sub,void *context) {
+  (void)y;(void)context;
+  LagoonWideEntities_BlankMargins(ppu->bgBuffers[sub].data,kPpuExtraLeftRight,
+                                  ppu->extraLeftCur,ppu->extraRightCur);
+}
+static void native_ui_frame(void) {
+  s_native_fallback=1;
+  PpuSetWidescreenLayerMask(g_ppu,0);PpuSetWidescreenLayerClamp(g_ppu,15);
+  PpuSetWidescreenShadowNativeExactMask(g_ppu,0);PpuSetExtraObjects(g_ppu,NULL,0);
+  PpuSetWidescreenLineEnhancer(g_ppu,menu_line,NULL);
+}
+void LagoonWide_OnVramWrite(unsigned byte_address) {
+  if(!g_ppu || !g_config.widescreen) return;
+  /* Room loading can begin after the frame policy was selected. Catch the
+   * first actual graphics write before a changed atlas can reach margins. */
+  if(!audited_room_ready()) { s_scene_gate.fields=0; native_ui_frame(); return; }
+  unsigned word_address=byte_address/2;
+  unsigned map=PPU_bgTilemapAdr(g_ppu,2),chars=PPU_bgTileAdr(g_ppu,2);
+  if(((word_address-map)<24*32 || (word_address-chars)<0x2000) && has_modal_ui())
+    native_ui_frame();
 }
 
 void LagoonWide_BeginFrame(unsigned number) {
@@ -113,6 +149,9 @@ void LagoonWide_BeginFrame(unsigned number) {
    * including while this scene has no supported widescreen layout. */
   if (s_state_generation != RtlStateGeneration()) LagoonWide_Reset();
   if (!g_ppu) return;
+  s_native_fallback=0;
+  int modal_ui=has_modal_ui();
+  PpuSetWidescreenLineEnhancer(g_ppu,NULL,NULL);
   /* Lagoon parks unused OAM at x=320, leaving old tile/y bytes intact. The
    * generic widened decoder would resurrect them as ghost menu/HUD sprites.
    * Until a title-specific off-screen object producer exists, only native
@@ -124,7 +163,13 @@ void LagoonWide_BeginFrame(unsigned number) {
    * Parallax rooms ($50 != 0) need a different BG2 resolver. */
   PpuSetWidescreenLayerMask(g_ppu, 0);
   PpuSetWidescreenLayerClamp(g_ppu, 15);
-  int active = g_config.widescreen && g_ppu->extraLeftRight &&
+  /* Retained RAM can switch to the next room before the completed raster
+   * stops showing the old one. Require two prior ready field boundaries. */
+  int audited_room=LagoonWideEntities_SceneSettled(&s_scene_gate,
+      audited_room_ready(),word(0x48e)+1,RtlStateGeneration());
+  /*  sets100E before the room loader;  clears it
+   * only after map, graphics, palette and entities are installed. */
+  int active = audited_room && !g_ram[0x100e] && !modal_ui && g_config.widescreen && g_ppu->extraLeftRight &&
       (g_ram[0x500] & 0xc0) == 0xc0 && g_ram[0x50] == 0 &&
       !(g_ppu->mosaic & 3) &&
       (g_ppu->bgmode & 7) == 1 && !PPU_bigTiles(g_ppu, 0) &&
@@ -137,7 +182,7 @@ void LagoonWide_BeginFrame(unsigned number) {
   s_was_active = active;
   s_room_key = key;
   LagoonWideEntities_BeginFrame(active);
-  if (!active) return;
+  if (!active) { if(g_config.widescreen)native_ui_frame(); return; }
   PpuSetWidescreenLayerMask(g_ppu, 3);
   PpuSetWidescreenShadowNativeExactMask(g_ppu, 3);
   PpuSetWidescreenLayerClamp(g_ppu, 12); /* BG3 HUD remains native centered */
@@ -166,4 +211,19 @@ void LagoonWide_BeginFrame(unsigned number) {
       for (int x = x0 < 0 ? 0 : x0; x <= x1 && x < 4096; ++x)
         WsShadowForceTile(layer, x, y, map_tile(layer, x * 8, y * 8));
   }
+}
+
+/* Keep the completed field's policy with the presentation boundary. The
+ * source field is const; the official compositor owns mutable destination. */
+void LagoonWide_EndFrame(const uint8_t *field,unsigned number) {
+  (void)field;(void)number;
+  s_present_fallback=s_native_fallback || !audited_room_ready() || has_modal_ui();
+}
+int LagoonWide_DrawFrame(uint8_t *dst,size_t pitch,const uint8_t *field,
+    int width,int height,double alpha) {
+  (void)alpha;
+  if(!g_config.widescreen || !s_present_fallback)return 0;
+  RtlWidescreenPresent(dst,pitch,field,width,height);
+  LagoonWideEntities_BlankField(dst,pitch,(unsigned)width,(unsigned)height);
+  return 1;
 }

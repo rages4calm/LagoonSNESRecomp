@@ -152,7 +152,7 @@ index a240b9d..d77f9b2 100644
  foreach(_id IN LISTS _ids)
      if(NOT IS_DIRECTORY "${SNES_MOD_DEST}/${_id}")
 diff --git a/runner/src/cpu_state.c b/runner/src/cpu_state.c
-index 57fe6bc..7e66d4d 100644
+index 57fe6bc..41140c7 100644
 --- a/runner/src/cpu_state.c
 +++ b/runner/src/cpu_state.c
 @@ -29,6 +29,7 @@
@@ -163,7 +163,7 @@ index 57fe6bc..7e66d4d 100644
  #include "cpu_trace.h"
  #include "snes/snes.h"
  #include "snes/cart.h"
-@@ -40,8 +41,22 @@
+@@ -40,8 +41,44 @@
  
  extern Snes *g_snes;
  
@@ -179,6 +179,28 @@ index 57fe6bc..7e66d4d 100644
  CpuState g_cpu;
  static CpuStageWindowStoreHook g_stage_window_store_hook;
 +static CpuWramWriteFilterHook g_wram_write_filter_hook;
++static CpuWramReadFilterHook g_wram_read_filter_hook;
++static const CpuWramReadContext *g_wram_read_context;
++
++void cpu_set_wram_read_filter_hook(CpuWramReadFilterHook hook) {
++    g_wram_read_filter_hook = hook;
++}
++
++int cpu_wram_read_filter_active(void) { return g_wram_read_filter_hook != NULL; }
++
++const CpuWramReadContext *cpu_swap_wram_read_context(const CpuWramReadContext *context) {
++    const CpuWramReadContext *previous = g_wram_read_context;
++    g_wram_read_context = context;
++    return previous;
++}
++
++static uint8 cpu_filter_wram_read(CpuState *cpu, uint32_t off, uint8 value) {
++    if (!g_wram_read_filter_hook) return value;
++    CpuWramReadContext native = {0xFFFFFFFFu, cpu->S, cpu->Y,
++        cpu->PB, cpu->m_flag, cpu->x_flag, cpu->emulation, 0};
++    return g_wram_read_filter_hook(off, value,
++        g_wram_read_context ? g_wram_read_context : &native);
++}
 +
 +void cpu_set_wram_write_filter_hook(CpuWramWriteFilterHook hook) {
 +    g_wram_write_filter_hook = hook;
@@ -186,7 +208,30 @@ index 57fe6bc..7e66d4d 100644
  
  void cpu_set_stage_window_store_hook(CpuStageWindowStoreHook hook) {
      g_stage_window_store_hook = hook;
-@@ -557,6 +572,7 @@ void cpu_write8(CpuState *cpu, uint8 bank, uint16 addr, uint8 v) {
+@@ -425,7 +462,8 @@ uint8 cpu_read8(CpuState *cpu, uint8 bank, uint16 addr) {
+     if (g_snes && g_snes->cart)
+         cart_note_cpu_bus(g_snes->cart, bank, addr);
+     int off = cpu_wram_offset(bank, addr);
+-    if (off >= 0) return cpu_latch_read8(cpu, cpu->ram[off]);
++    if (off >= 0) return cpu_latch_read8(cpu,
++        cpu_filter_wram_read(cpu, (uint32_t)off, cpu->ram[off]));
+     if (is_hw_reg(bank, addr)) {
+         cpu_pace_cycles(addr);
+         cpu_hw_log(addr, 1, 0);
+@@ -466,10 +504,10 @@ uint16 cpu_read16(CpuState *cpu, uint8 bank, uint16 addr) {
+          * $00:1FFF -> $00:2000 crosses from WRAM into an I/O register. */
+         uint16 hi_addr = (uint16)(addr + 1);
+         int hi_off = cpu_wram_offset(bank, hi_addr);
+-        uint8 lo = cpu->ram[off];
++        uint8 lo = cpu_filter_wram_read(cpu, (uint32_t)off, cpu->ram[off]);
+         cpu->open_bus = lo;
+         uint8 hi = (hi_off >= 0)
+-            ? cpu->ram[hi_off]
++            ? cpu_filter_wram_read(cpu, (uint32_t)hi_off, cpu->ram[hi_off])
+             : cpu_read8(cpu, bank, hi_addr);
+         return cpu_latch_read16(cpu, (uint16)lo | ((uint16)hi << 8));
+     }
+@@ -557,6 +595,7 @@ void cpu_write8(CpuState *cpu, uint8 bank, uint16 addr, uint8 v) {
      int off = cpu_wram_offset(bank, addr);
      if (off >= 0) {
          uint8 old = cpu->ram[off];
@@ -194,7 +239,7 @@ index 57fe6bc..7e66d4d 100644
          cpu->ram[off] = v;
          /* Optional title hook for game-specific stage-window tracking. */
          if (g_stage_window_store_hook) {
-@@ -648,8 +664,12 @@ void cpu_write16(CpuState *cpu, uint8 bank, uint16 addr, uint16 v) {
+@@ -648,8 +687,12 @@ void cpu_write16(CpuState *cpu, uint8 bank, uint16 addr, uint16 v) {
      if (off >= 0 && off + 1 < 0x20000) {
          uint16 old = (uint16)cpu->ram[off]
                     | ((uint16)cpu->ram[off + 1] << 8);
@@ -210,10 +255,10 @@ index 57fe6bc..7e66d4d 100644
          if (g_stage_window_store_hook) {
              if ((off >= 0x1E72 && off <= 0x1E79) ||
 diff --git a/runner/src/cpu_state.h b/runner/src/cpu_state.h
-index f9b1e26..337d709 100644
+index f9b1e26..8f515fe 100644
 --- a/runner/src/cpu_state.h
 +++ b/runner/src/cpu_state.h
-@@ -33,6 +33,10 @@ extern "C" {
+@@ -33,6 +33,25 @@ extern "C" {
  typedef void (*CpuStageWindowStoreHook)(uint32_t ram_off, uint32_t pc24);
  extern uint32_t g_interp816_cur_pc;
  void cpu_set_stage_window_store_hook(CpuStageWindowStoreHook hook);
@@ -221,10 +266,25 @@ index f9b1e26..337d709 100644
 + * The address is a canonical g_ram offset; the original bus latch is retained. */
 +typedef uint8_t (*CpuWramWriteFilterHook)(uint32_t ram_off, uint8_t value);
 +void cpu_set_wram_write_filter_hook(CpuWramWriteFilterHook hook);
++
++/* Optional guest-read view. RAM remains unchanged; the filtered byte drives
++ * the guest data-bus latch. Context is the interpreter's pre-instruction
++ * registers, or the live native registers with unknown instruction_pc. */
++typedef struct CpuWramReadContext {
++    uint32_t instruction_pc;
++    uint16_t stack, y;
++    uint8_t pb, m, x, e, interpreter;
++} CpuWramReadContext;
++typedef uint8_t (*CpuWramReadFilterHook)(uint32_t ram_off, uint8_t value,
++                                        const CpuWramReadContext *context);
++void cpu_set_wram_read_filter_hook(CpuWramReadFilterHook hook);
++int cpu_wram_read_filter_active(void);
++/* CPU-thread scoped bridge context; returns the previous context for restore. */
++const CpuWramReadContext *cpu_swap_wram_read_context(const CpuWramReadContext *context);
  
  /* Canonical flat g_ram offset for full WRAM and its low-bank mirrors.
   * Returns -1 when the address is not WRAM. Keep every runtime observer on
-@@ -417,6 +421,28 @@ void   cpu_write16(CpuState *cpu, uint8 bank, uint16 addr, uint16 v);
+@@ -417,6 +436,28 @@ void   cpu_write16(CpuState *cpu, uint8 bank, uint16 addr, uint16 v);
   * interpreter's bridge shims use the plain accessors (they account
   * transfers themselves). */
  uint32_t  cpu_region_speed(uint32_t adr);
@@ -254,7 +314,7 @@ index f9b1e26..337d709 100644
   * (DMA A-bus writes in snes_write, WMDATA $2180). wa = g_ram offset. */
  void wlog_addr_note_direct(uint32_t wa, uint8_t v, const char *via);
 diff --git a/runner/src/desktop/host_main.c b/runner/src/desktop/host_main.c
-index 3bc3905..0b9c790 100644
+index 3bc3905..8fbb1f5 100644
 --- a/runner/src/desktop/host_main.c
 +++ b/runner/src/desktop/host_main.c
 @@ -244,6 +244,29 @@ static const char *HostGetenv(const char *name) {
@@ -296,7 +356,53 @@ index 3bc3905..0b9c790 100644
  }
  
  // --- Scripted input ---
-@@ -2649,14 +2672,16 @@ static void LauncherSeed(RecompLauncherCSettings *ls, RecompLauncherCGameInfo *g
+@@ -2288,6 +2311,45 @@ static void SdlRenderer_EndDraw(void) {
+   /* SDL3's SDL_RenderTexture takes SDL_FRect, not SDL_Rect. */
+   snesrecomp_sdl_render_texture(g_renderer, g_texture, &g_sdl_renderer_rect,
+                                 &g_sdl_present_rect);
++  /* Optional actual display-resolution capture, including viewport scaling
++   * and letterboxing. Read before Present: the backbuffer is undefined after
++   * presentation. Ordinary native-resolution diagnostic dumps remain separate. */
++  {
++    static int display_shot_done;
++    const char *path = display_shot_done ? NULL : HostGetenv("DISPLAY_SCREENSHOT");
++    const char *at = path ? HostGetenv("DISPLAY_SCREENSHOT_FRAME") : NULL;
++    if (path && (long)g_present_frame >= (at ? strtol(at, NULL, 0) : 1)) {
++      display_shot_done = 1;
++      SDL_Surface *surface = NULL;
++#if SNESRECOMP_SDL3
++      surface = SDL_RenderReadPixels(g_renderer, NULL);
++#else
++      int w = 0, h = 0;
++      SdlRenderer_GetOutputSize(&w, &h);
++      if (w > 0 && h > 0)
++        surface = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
++      if (surface && SDL_RenderReadPixels(g_renderer, NULL, surface->format->format,
++                                         surface->pixels, surface->pitch) != 0) {
++        SDL_FreeSurface(surface); surface = NULL;
++      }
++#endif
++      if (surface) {
++#if SNESRECOMP_SDL3
++        int saved = SDL_SaveBMP(surface, path);
++#else
++        int saved = SDL_SaveBMP(surface, path) == 0;
++#endif
++        host_report_breadcrumb("display screenshot: %s %s (%dx%d) frame=%u fullscreen=%d",
++            saved ? "wrote" : "failed", path, surface->w, surface->h,
++            g_present_frame, !!(SDL_GetWindowFlags(g_window) & SDL_WINDOW_FULLSCREEN));
++#if SNESRECOMP_SDL3
++        SDL_DestroySurface(surface);
++#else
++        SDL_FreeSurface(surface);
++#endif
++      } else host_report_breadcrumb("display screenshot: readback failed: %s", SDL_GetError());
++    }
++  }
+   SDL_RenderPresent(g_renderer);
+ }
+ 
+@@ -2649,14 +2711,16 @@ static void LauncherSeed(RecompLauncherCSettings *ls, RecompLauncherCGameInfo *g
    ls->enable_audio  = g_config.enable_audio;
    ls->audio_freq    = g_config.audio_freq;
    ls->volume        = g_config.volume;
@@ -317,7 +423,7 @@ index 3bc3905..0b9c790 100644
    ls->player_src[1] = ConfigHasPlayerSource(1) ? g_config.player_src[1]
                                                 : (g_config.enable_gamepad[1] ? 2 : 0);
    for (int seat = 2; seat < kSnesHostPadSeats && seat < RECOMP_LAUNCHER_MAX_PLAYERS; ++seat)
-@@ -2796,7 +2821,7 @@ static void LauncherCommit(const RecompLauncherCSettings *ls, const char *config
+@@ -2796,7 +2860,7 @@ static void LauncherCommit(const RecompLauncherCSettings *ls, const char *config
      /* Seats past the game's count are not on the launcher's page; keep them. */
      if (seat >= 2 && seat >= HostConfiguredSeats()) break;
      g_config.player_src[seat]     = ls->player_src[seat];
@@ -326,7 +432,7 @@ index 3bc3905..0b9c790 100644
    }
    g_config.gamepad_deadzone    = (ls->deadzone[0] * 32767 + 50) / 100;
    g_config.skip_launcher       = ls->skip_launcher != 0;
-@@ -3714,6 +3739,17 @@ error_reading:;
+@@ -3714,6 +3778,17 @@ error_reading:;
  
    PreparePpuFrame();
  
@@ -344,7 +450,7 @@ index 3bc3905..0b9c790 100644
    MkDir("saves");
    if (!g_netplay_session) RtlReadSram();
  
-@@ -4207,6 +4243,14 @@ error_reading:;
+@@ -4207,6 +4282,14 @@ error_reading:;
      bool runahead_captured = false;
      {
        const uint32 word = inputs | GetActiveControllers() | debug_server_get_controller_active_mask();
@@ -359,7 +465,7 @@ index 3bc3905..0b9c790 100644
        if (g_turbo || !snes_runahead_run_frame(word))
          RtlRunFrame(word);
        else
-@@ -4406,11 +4450,11 @@ error_reading:;
+@@ -4406,11 +4489,11 @@ error_reading:;
  static void PollKeyboardControls(const uint8_t *keys) {
    /* Replace the whole keyboard word so changing a seat to Gamepad/None also
     * releases keys held under its previous assignment. Hotkeys remain separate. */
@@ -374,7 +480,7 @@ index 3bc3905..0b9c790 100644
          ? keybinds_read_player_runner(keys, seat + 1) : 0;
  }
  
-@@ -4528,6 +4572,9 @@ static void HandleCommand(uint32 j, bool pressed) {
+@@ -4528,6 +4611,9 @@ static void HandleCommand(uint32 j, bool pressed) {
  
  static void HandleInput(int keyCode, int keyMod, bool pressed) {
    int j = FindCmdForSdlKey(keyCode, (SDL_Keymod)keyMod);
@@ -384,7 +490,7 @@ index 3bc3905..0b9c790 100644
    if (j != 0)
      HandleCommand(j, pressed);
  }
-@@ -4553,8 +4600,8 @@ static void RequestScreenshot(void) {
+@@ -4553,8 +4639,8 @@ static void RequestScreenshot(void) {
  
  static uint32 GetActiveControllers(void) {
    uint32 ctrl = g_script_controllers |
@@ -576,7 +682,7 @@ index f55baf8..ec56156 100644
    Snes* snes;
    /* Transient state for channels enabled between frame initializations. Keep
 diff --git a/runner/src/snes/interp_bridge.c b/runner/src/snes/interp_bridge.c
-index c1e48eb..8985861 100644
+index c1e48eb..b528c0c 100644
 --- a/runner/src/snes/interp_bridge.c
 +++ b/runner/src/snes/interp_bridge.c
 @@ -522,6 +522,12 @@ static int      s_lle_unwind_is_deadline = 0;
@@ -632,7 +738,7 @@ index c1e48eb..8985861 100644
              sync_interp_to_cpu(&in,cpu);
              bridge_apu_flush(cpu);
              return 1;
-@@ -2435,16 +2460,19 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2435,16 +2460,30 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
          if (wlog_state_sync)
              sync_interp_to_cpu(&in, cpu);
          cpu->coprocessor_master_cycles = cpu->master_cycles;
@@ -648,10 +754,22 @@ index c1e48eb..8985861 100644
          if (g_interp_bridge_pc_hook)
              g_interp_bridge_pc_hook(pc_before & 0xFFFFFFu,
                                      in.mf ? 1 : 0, in.xf ? 1 : 0);
-         int _cyc = interp816_runOpcode(&in);   /* executes the opcode; pushes/pops frames */
+-        int _cyc = interp816_runOpcode(&in);   /* executes the opcode; pushes/pops frames */
 -        if (s_interp_pctrace && steps < 4)
 -            fprintf(stderr, "[pctrace] step=%ld post-runOpcode cyc=%d pc=%02X:%04X\n",
 -                    steps, _cyc, in.k, in.pc);
++        int _cyc;
++        if (cpu_wram_read_filter_active()) {
++            /* CpuState can lag the live interpreter between bridge boundaries.
++             * A read view must use this instruction's real input registers. */
++            CpuWramReadContext context = {pc_before & 0xFFFFFFu, in.sp, in.y,
++                in.k, in.mf, in.xf, in.e, 1};
++            const CpuWramReadContext *previous = cpu_swap_wram_read_context(&context);
++            _cyc = interp816_runOpcode(&in);
++            cpu_swap_wram_read_context(previous);
++        } else {
++            _cyc = interp816_runOpcode(&in);
++        }
 +        if (s_interp_pctrace && steps < s_interp_pctrace_steps)
 +            fprintf(stderr, "[pctrace] step=%ld post-runOpcode cyc=%d pc=%02X:%04X a=%04X\n",
 +                    steps, _cyc, in.k, in.pc, (unsigned)in.a);
@@ -1087,6 +1205,29 @@ index 0000000..3ebf8e4
 +  puts("DMA start observer: selected channels, pre-transfer source, unchanged state, HDMA, unregister PASS");
 +  return 0;
 +}
+diff --git a/tests/runtime_dispatch/run_wram_read_filter_test.ps1 b/tests/runtime_dispatch/run_wram_read_filter_test.ps1
+new file mode 100644
+index 0000000..308b161
+--- /dev/null
++++ b/tests/runtime_dispatch/run_wram_read_filter_test.ps1
+@@ -0,0 +1,17 @@
++[CmdletBinding()]
++param([string]$Compiler = 'clang', [string]$OutputDirectory)
++$ErrorActionPreference = 'Stop'
++$framework = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
++if (-not $OutputDirectory) { $OutputDirectory = Join-Path $framework 'build' }
++New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
++$output = Join-Path $OutputDirectory 'wram_read_filter_test.exe'
++$compileArgs = @(
++    '-std=c11', '-Wall', '-Wextra', '-ffunction-sections', '-fdata-sections',
++    "-I$framework/runner/src", "-I$framework/runner/src/snes",
++    "$PSScriptRoot/wram_read_filter_test.c", "$framework/runner/src/cpu_state.c",
++    '-Wl,--gc-sections', '-o', $output
++)
++& $Compiler @compileArgs
++if ($LASTEXITCODE -ne 0) { throw 'WRAM read filter regression failed to compile' }
++& $output
++if ($LASTEXITCODE -ne 0) { throw 'WRAM read filter regression failed' }
 diff --git a/tests/runtime_dispatch/run_wram_write_filter_test.ps1 b/tests/runtime_dispatch/run_wram_write_filter_test.ps1
 new file mode 100644
 index 0000000..89ed45b
@@ -1110,6 +1251,90 @@ index 0000000..89ed45b
 +if ($LASTEXITCODE -ne 0) { throw 'WRAM filter regression failed to compile' }
 +& $output
 +if ($LASTEXITCODE -ne 0) { throw 'WRAM filter regression failed' }
+diff --git a/tests/runtime_dispatch/wram_read_filter_test.c b/tests/runtime_dispatch/wram_read_filter_test.c
+new file mode 100644
+index 0000000..30296af
+--- /dev/null
++++ b/tests/runtime_dispatch/wram_read_filter_test.c
+@@ -0,0 +1,78 @@
++/* Exercise the production bus helpers; reuse only peripheral test stubs. */
++#define main cart_cpu_bus_latch_main
++#include "cart_cpu_bus_latch_test.c"
++#undef main
++uint8 g_ram[0x20000];
++void snes_refresh_charge(void) {}
++void snes_sync_master_clock(Snes *snes, uint64_t clock) { (void)snes; (void)clock; }
++void cart_sync_coprocessors(Cart *cart, uint64_t clock) { (void)cart; (void)clock; }
++static int calls;
++static uint32_t offsets[4];
++static CpuWramReadContext observed;
++static uint8_t filter(uint32_t off, uint8_t value, const CpuWramReadContext *context) {
++    if (calls < 4) offsets[calls] = off;
++    ++calls;
++    observed = *context;
++    return value ^ 0xa5;
++}
++int main(void) {
++    CpuState cpu;
++    static uint8 ram[0x20000];
++    const uint8 banks[] = {0, 0x80, 0x7e, 0x7f};
++    for (unsigned i = 0; i < sizeof(banks); ++i) {
++        reset_cpu(&cpu, ram); g_snes = NULL; calls = 0;
++        unsigned off = banks[i] == 0x7f ? 0x11234 : 0x1234;
++        ram[off] = 0x12; ram[off+1] = 0x34;
++        cpu.S = 0x1fee; cpu.Y = 0x123; cpu.PB = 1;
++        cpu.m_flag = 1; cpu.x_flag = 0; cpu.emulation = 0;
++        cpu_set_wram_read_filter_hook(filter);
++        check_int("active hook", cpu_wram_read_filter_active(), 1);
++        check_int("filtered word", cpu_read16(&cpu,banks[i],0x1234), 0x91b7);
++        check_int("two ordered reads", calls, 2);
++        check_u32("low canonical offset", offsets[0], off);
++        check_u32("high canonical offset", offsets[1], off+1);
++        check_int("filtered high on bus", cpu.open_bus, 0x91);
++        check_int("RAM low untouched",ram[off],0x12);
++        check_int("RAM high untouched",ram[off+1],0x34);
++        check_int("native stack",observed.stack,0x1fee);
++        check_int("native Y",observed.y,0x123);
++        check_int("native bank",observed.pb,1);
++        check_int("native mode",observed.m,1);
++        check_int("native context",observed.interpreter,0);
++        check_u32("no invented native PC",observed.instruction_pc,0xffffffff);
++        cpu_set_wram_read_filter_hook(NULL);
++        check_int("disabled read",cpu_read8(&cpu,banks[i],0x1234),0x12);
++        check_int("disabled hook",cpu_wram_read_filter_active(),0);
++        check_int("no extra calls",calls,2);
++    }
++    cpu_set_wram_read_filter_hook(filter);
++    for (unsigned bank=0x7e; bank<=0x7f; ++bank) {
++        unsigned base=(bank-0x7e)<<16; calls=0;
++        ram[base+0xffff]=0x12; ram[base]=0x34;
++        check_int("same-bank word wrap",cpu_read16(&cpu,bank,0xffff),0x91b7);
++        check_u32("wrapped high offset",offsets[1],base);
++    }
++    calls=0; ram[0x1fff]=0x12;
++    (void)cpu_read16(&cpu,0,0x1fff);
++    check_int("WRAM to IO only filters WRAM",calls,1);
++    (void)cpu_read8(&cpu,0,0x2100);
++    check_int("IO bypasses filter",calls,1);
++    CpuWramReadContext outer={0x01ba52,0x1ffa,0,1,1,0,0,1};
++    CpuWramReadContext inner={0x81ba52,0x1ff8,2,0x81,1,0,0,1};
++    const CpuWramReadContext *old=cpu_swap_wram_read_context(&outer);
++    (void)cpu_read8(&cpu,0,0x1234);
++    check_u32("live interpreter cursor",observed.instruction_pc,0x01ba52);
++    check_int("live interpreter stack",observed.stack,0x1ffa);
++    const CpuWramReadContext *saved=cpu_swap_wram_read_context(&inner);
++    (void)cpu_read8(&cpu,0,0x1234);
++    check_int("nested interpreter Y",observed.y,2);
++    cpu_swap_wram_read_context(saved);
++    (void)cpu_read8(&cpu,0,0x1234);
++    check_int("restored outer Y",observed.y,0);
++    cpu_swap_wram_read_context(old);
++    (void)cpu_read8(&cpu,0,0x1234);
++    check_int("restored native context",observed.interpreter,0);
++    cpu_set_wram_read_filter_hook(NULL);
++    if (!g_failures) puts("WRAM read filter regression passed");
++    return g_failures ? 1 : 0;
++}
 diff --git a/tests/runtime_dispatch/wram_write_filter_test.c b/tests/runtime_dispatch/wram_write_filter_test.c
 new file mode 100644
 index 0000000..28b6a45
