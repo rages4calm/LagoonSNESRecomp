@@ -113,13 +113,14 @@ def main():
         (out/'display-frames').mkdir()
         env.update(SNESRECOMP_DISPLAY_SCREENSHOT_DIR=str(out/'display-frames'),SNESRECOMP_DISPLAY_SCREENSHOT_FROM=str(first),SNESRECOMP_DISPLAY_SCREENSHOT_TO=str(last))
     diagnostic_paths={'LAGOON_WIDE_ENTITY_REPORT','LAGOON_SOUNDTRACK_PROBE',
+                      'LAGOON_SCENE_RENDERER_REPORT',
                       'SNESRECOMP_APURAM_TRACE_FILE','SNESRECOMP_DSPREG_TRACE_FILE',
                       'SNESRECOMP_FRAME_TIMING'}
     diagnostic_numbers={'SNESRECOMP_HOST_PROFILE','SNESRECOMP_HOST_PROFILE_START_FRAME'}
     overrides={}
     for spec in args.env:
         key,sep,value=spec.partition('=')
-        if not sep or key not in diagnostic_paths|diagnostic_numbers|{'LAGOON_WIDE_ASPECT'}:
+        if not sep or key not in diagnostic_paths|diagnostic_numbers|{'LAGOON_WIDE_ASPECT','LAGOON_SCENE_RENDERER'}:
             raise SystemExit('Unsupported diagnostic override: '+spec)
         if key in diagnostic_paths:
             p=Path(value);p=(p if p.is_absolute() else out/p).resolve()
@@ -130,6 +131,9 @@ def main():
                 raise SystemExit('Diagnostic numeric overrides must be unsigned integers <=1000000')
             if key=='SNESRECOMP_HOST_PROFILE' and value not in {'0','1'}:
                 raise SystemExit('HOST_PROFILE must be 0 or 1')
+        elif key=='LAGOON_SCENE_RENDERER':
+            if value not in {'off','verify','auto'}:
+                raise SystemExit('Unsupported scene renderer mode: '+value)
         elif value not in {'16:9','16:10','21:9','32:9','window'}:
             raise SystemExit('Unsupported widescreen aspect: '+value)
         env[key]=value;overrides[key]=value

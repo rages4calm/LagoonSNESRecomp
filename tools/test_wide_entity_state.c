@@ -207,4 +207,28 @@ static void torch_transfer(void) {
   assert(!LagoonWideTorches_Begin(&t,2,7,0x128B77,0x10,0x8900,0x3B00,0xC0)&&!t.seen);
   LagoonWideTorches_Reset(&t);assert(!t.seen&&!t.generation);
 }
-int main(void){torch_transfer();background_transfer();world_tilemap();animation();ownership();modal();audited_rooms();field_fallback();scene_settlement();room_bounds();puts("wide actor state: pure post-frame/step, idle/variant/refusal, segmented atlas, partial/wrong-room/overwrite/reset PASS");return 0;}
+static void retained_map(void) {
+  static LagoonWideRetainedMap map;
+  map.fill=29;
+  for(unsigned layer=0;layer<2;++layer) {
+    map.maps[layer][2*128+3]=7;
+    map.definitions[layer][7*4]=0x4001;
+    map.definitions[layer][7*4+1]=0x8002;
+    map.definitions[layer][7*4+2]=0x2003;
+    map.definitions[layer][7*4+3]=0xE004;
+    map.definitions[layer][29*4]=0x0011;
+    map.definitions[layer][29*4+3]=0x8012;
+    map.maps[layer][0x3FFF]=8;
+    map.definitions[layer][8*4+3]=0xA005;
+    assert(LagoonWideRetainedMap_Tile(&map,layer,48,32)==0x4001);
+    assert(LagoonWideRetainedMap_Tile(&map,layer,56,32)==0x8002);
+    assert(LagoonWideRetainedMap_Tile(&map,layer,48,40)==(layer?0x0003:0x2003));
+    assert(LagoonWideRetainedMap_Tile(&map,layer,56,40)==(layer?0xC004:0xE004));
+    assert(LagoonWideRetainedMap_Tile(&map,layer,-8,-8)==0x8012);
+    assert(LagoonWideRetainedMap_Tile(&map,layer,2048,0)==0x0011);
+    assert(LagoonWideRetainedMap_Tile(&map,layer,2040,2040)==(layer?0x8005:0xA005));
+  }
+  assert(!LagoonWideRetainedMap_Tile(NULL,0,0,0));
+  assert(!LagoonWideRetainedMap_Tile(&map,2,0,0));
+}
+int main(void){retained_map();torch_transfer();background_transfer();world_tilemap();animation();ownership();modal();audited_rooms();field_fallback();scene_settlement();room_bounds();puts("wide actor state: pure post-frame/step, idle/variant/refusal, segmented atlas, partial/wrong-room/overwrite/reset PASS");return 0;}

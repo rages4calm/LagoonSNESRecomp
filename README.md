@@ -6,7 +6,7 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress — October 15, 2026
 
-Forty-five gameplay roots have been promoted in the October 15 batches.
+Forty-seven gameplay roots have been promoted in the October 15 batches.
 The first eight cover:
 
 - Entity movement integration (`01:A4EB`).
@@ -65,11 +65,16 @@ still match at 953 checkpoints and 15,939 presentations; the seven new roots
 remove 349,093 interpreted instructions across these captures. No new CPU-width
 contract is guessed for the complicated tails.
 
-The build generates 188 AOT variants and 18 declared LLE variants; additional
+Two bounded death/HUD tails now also execute natively. Five replay comparisons
+match at 1,350 checkpoints and 19,603 presentations, including real damage,
+consumable revival and boss defeat. The remaining death and boss orchestration
+still uses the safety net. See [batch 9 evidence](tools/DAMAGE-BATCH9.md).
+
+The build generates 190 AOT variants and 18 declared LLE variants; additional
 runtime fallback remains available. The original opening-loop fix stays in place.
 Existing native-versus-pure-interpreter clock/state differences remain unresolved.
 Bounded combat/progression evidence does not certify every encounter or save.
-See [the current evidence receipt](NATIVE-BATCH7-2026-10-15.md) and [todo list](TODO.md).
+See [the current evidence receipt](NATIVE-BATCH9-2026-10-15.md) and [todo list](TODO.md).
 
 Camera centering now follows completed collision/movement, including stopping
 and turning. Audited town dialogue and Start keep the wider world visible;
@@ -79,6 +84,9 @@ first visible fade field, including while its loader flag remains active.
 Audited cave fades now wait for proven completed torch uploads and can expand
 before the visible fade begins. Supported cold-loaded scenes can restore their
 wide margins immediately after exact restored-map and character checks.
+Audited outgoing room fades can retain the completed old scenery until the
+actual PPU switches maps. Exact map, character and actor ownership checks
+prevent destination scenery from appearing early.
 
 Smooth/bilinear scaling has been removed. Enhanced original pixels remains
 optional. The optional Faster menus toggle trims 60 fade fields (about one
@@ -92,10 +100,11 @@ Sustained Atland checks run at about 60 FPS, with occasional frame-time spikes
 still under investigation. See [timing evidence](docs/PERFORMANCE.md) for
 fullscreen and hidden-GPU measurements, hardware and test limits.
 
-An [experimental custom scene renderer](docs/CUSTOM-RENDERER.md) now draws a
-qualified Atland snapshot from retained world maps and uploaded actor data.
-It is an offline prototype; the live game continues to use the reference PPU
-renderer and interpreter safety net.
+An [experimental live custom scene renderer](docs/CUSTOM-RENDERER.md) now draws
+supported Atland fields from immutable map, tile, palette and actor packets.
+It replaces a field only after every output pixel matches the reference PPU.
+Unsupported scenes and failed checks keep reference output. The reference PPU
+and interpreter safety net remain active while coverage expands.
 
 ## Fullscreen screenshots
 

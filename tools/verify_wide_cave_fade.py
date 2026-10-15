@@ -10,7 +10,10 @@ def main():
     if sys.flags.optimize:raise SystemExit('Run without -O: strict audit guards must remain enabled')
     p=argparse.ArgumentParser(description=__doc__)
     for arg in ['run','baseline','rom','out']:p.add_argument('--'+arg,required=True,type=Path)
+    p.add_argument('--frames',nargs=2,type=int,metavar=('FIRST','LAST'),help='Optional focused interval within a longer final capture')
     a=p.parse_args();rom=a.rom.read_bytes();rows=list(csv.DictReader((a.run/'presents.csv').open()));old={r['frame']:r for r in csv.DictReader((a.baseline/'presents.csv').open())}
+    if a.frames:rows=[r for r in rows if a.frames[0]<=int(r['frame'])<=a.frames[1]]
+    assert rows,'No actual presentations in the requested interval'
     snapshots={json.loads(f.read_text())['frame']:f.name[:-10] for f in (a.run/'dumps').glob('*.info.json')}
     report=dict(presents=len(rows),native_center_mismatches=[],newly_wide=[],checked=0,exact=0,actor_pixel_observations=0)
     image=lambda directory,row:Image.open(directory/'frames'/('present_%06d.ppm'%int(row['present']))).convert('RGB')

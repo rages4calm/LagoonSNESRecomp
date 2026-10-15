@@ -18,6 +18,17 @@ int LagoonWideEntities_Pixels(const uint16_t *vram, const uint16_t *cgram,
     uint16_t *pixels, int clip_native);
 void LagoonWideEntities_Reset(void);
 void LagoonWideEntities_BeginFrame(int enabled);
+/* Host-only outgoing-scene object packet; never restores guest records. */
+void LagoonWideEntities_RetainScene(void);
+void LagoonWideEntities_BeginRetained(int enabled);
+int LagoonWideEntities_RetainedSceneValid(void);
+
+typedef struct LagoonWideRetainedMap {
+  uint8_t maps[2][0x4000];
+  uint16_t definitions[2][1024];
+  uint8_t fill;
+} LagoonWideRetainedMap;
+unsigned LagoonWideRetainedMap_Tile(const LagoonWideRetainedMap *map,int layer,int x,int y);
 
 /* Pure presentation state. These helpers never execute a guest bus access. */
 typedef struct LagoonWideAnimation { uint8_t timer, phase; } LagoonWideAnimation;

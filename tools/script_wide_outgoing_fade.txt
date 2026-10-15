@@ -1,0 +1,414 @@
+# Bounded presentation fixture, camera_center on. Position-only staging is
+# disclosed at the guard and three source-derived cave doors below. Destinations
+# are reached through real collision, warp and room loading; no room/map edits.
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+dump town
+press up 12
+dump north-first-00
+press up 12
+dump north-first-01
+press up 12
+dump north-first-02
+press up 12
+dump north-first-03
+press up 12
+dump north-first-04
+press up 12
+dump north-first-05
+press up 12
+dump north-first-06
+press up 12
+dump north-first-07
+wait 300
+dump north-first-settled
+press up 12
+dump north-second-00
+press up 12
+dump north-second-01
+press up 12
+dump north-second-02
+press up 12
+dump north-second-03
+press up 12
+dump north-second-04
+press up 12
+dump north-second-05
+press up 12
+dump north-second-06
+press up 12
+dump north-second-07
+press up 12
+dump north-second-08
+press up 12
+dump north-second-09
+press up 12
+dump north-second-10
+press up 12
+dump north-second-11
+press up 12
+dump north-second-12
+press up 12
+dump north-second-13
+wait 300
+dump north-second-settled
+press right 64
+dump aligned-corridor
+press up 12
+dump gate-00
+press up 12
+dump gate-01
+press up 12
+dump gate-02
+press up 12
+dump gate-03
+press up 12
+dump gate-04
+press up 12
+dump gate-05
+press up 12
+dump gate-06
+press up 12
+dump gate-07
+# TARGETED FIXTURE: bypass solid north guards, do not alter story flags.
+# The destination is still entered through its real map transition.
+poke 0502 60017800
+press up 72
+wait 300
+dump cave-entered
+wait 300
+# Bounded door fixture: source-derived near-door world placement only.
+# Guest collision/warp/full-map loader selects every destination naturally.
+poke 0502 30015000
+press up 24
+wait 300
+dump cave-room4-entered
+press left 12
+wait 12
+dump cave-room4-left
+press right 24
+wait 12
+dump cave-room4-right
+poke 0502 50029000
+press down 24
+wait 1
+dump outgoing-000
+wait 1
+dump outgoing-001
+wait 1
+dump outgoing-002
+wait 1
+dump outgoing-003
+wait 1
+dump outgoing-004
+wait 1
+dump outgoing-005
+wait 1
+dump outgoing-006
+wait 1
+dump outgoing-007
+wait 1
+dump outgoing-008
+wait 1
+dump outgoing-009
+wait 1
+dump outgoing-010
+wait 1
+dump outgoing-011
+wait 1
+dump outgoing-012
+wait 1
+dump outgoing-013
+wait 1
+dump outgoing-014
+wait 1
+dump outgoing-015
+wait 1
+dump outgoing-016
+wait 1
+dump outgoing-017
+wait 1
+dump outgoing-018
+wait 1
+dump outgoing-019
+wait 1
+dump outgoing-020
+wait 1
+dump outgoing-021
+wait 1
+dump outgoing-022
+wait 1
+dump outgoing-023
+wait 1
+dump outgoing-024
+wait 1
+dump outgoing-025
+wait 1
+dump outgoing-026
+wait 1
+dump outgoing-027
+wait 1
+dump outgoing-028
+wait 1
+dump outgoing-029
+wait 1
+dump outgoing-030
+wait 1
+dump outgoing-031
+wait 1
+dump outgoing-032
+wait 1
+dump outgoing-033
+wait 1
+dump outgoing-034
+wait 1
+dump outgoing-035
+wait 1
+dump outgoing-036
+wait 1
+dump outgoing-037
+wait 1
+dump outgoing-038
+wait 1
+dump outgoing-039
+wait 1
+dump outgoing-040
+wait 1
+dump outgoing-041
+wait 1
+dump outgoing-042
+wait 1
+dump outgoing-043
+wait 1
+dump outgoing-044
+wait 1
+dump outgoing-045
+wait 1
+dump outgoing-046
+wait 1
+dump outgoing-047
+wait 1
+dump outgoing-048
+wait 1
+dump outgoing-049
+wait 1
+dump outgoing-050
+wait 1
+dump outgoing-051
+wait 1
+dump outgoing-052
+wait 1
+dump outgoing-053
+wait 1
+dump outgoing-054
+wait 1
+dump outgoing-055
+wait 1
+dump outgoing-056
+wait 1
+dump outgoing-057
+wait 1
+dump outgoing-058
+wait 1
+dump outgoing-059
+wait 1
+dump outgoing-060
+wait 1
+dump outgoing-061
+wait 1
+dump outgoing-062
+wait 1
+dump outgoing-063
+wait 1
+dump outgoing-064
+wait 1
+dump outgoing-065
+wait 1
+dump outgoing-066
+wait 1
+dump outgoing-067
+wait 1
+dump outgoing-068
+wait 1
+dump outgoing-069
+wait 1
+dump outgoing-070
+wait 1
+dump outgoing-071
+wait 1
+dump outgoing-072
+wait 1
+dump outgoing-073
+wait 1
+dump outgoing-074
+wait 1
+dump outgoing-075
+wait 1
+dump outgoing-076
+wait 1
+dump outgoing-077
+wait 1
+dump outgoing-078
+wait 1
+dump outgoing-079
+wait 1
+dump outgoing-080
+wait 1
+dump outgoing-081
+wait 1
+dump outgoing-082
+wait 1
+dump outgoing-083
+wait 1
+dump outgoing-084
+wait 1
+dump outgoing-085
+wait 1
+dump outgoing-086
+wait 1
+dump outgoing-087
+wait 1
+dump outgoing-088
+wait 1
+dump outgoing-089
+wait 210
+dump cave-room5-entered
+quit

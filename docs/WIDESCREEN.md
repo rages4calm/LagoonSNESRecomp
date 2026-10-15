@@ -23,10 +23,75 @@ completed frame selected native fallback, preserving all 256 native columns.
 RAM can name the next room while the completed raster still shows the previous
 room, so ordinary expansion requires three consecutive ready resource observations
 (two prior completed boundaries). The validated-state exception below applies
-only to the first post-load classification. Loading, resource changes and timeline jumps reset
+only to the first post-load classification. A previously settled retained scene
+may continue while its completed-raster proof holds; a fresh destination still
+needs its own upload authority. Loading, resource changes and timeline jumps reset
 that settlement. A 391-present cave-entry audit includes the previously corrupt
 single frame and checks clean fallback throughout the unsupported exterior,
 then expansion once the cave raster is settled.
+
+## Batch 9: retain the proven outgoing scene
+
+A door can update the destination room number while the completed raster still
+shows the outgoing room fading away. The renderer now retains that last
+completed room's complete metatile maps/definitions, used-character witness,
+world camera/extent and ordinary margin-object packet. It does not use the
+destination room's identity to resolve this outgoing scenery.
+
+Expansion requires the actual completed native BG1/BG2 tilemaps to match the
+retained map at the actual PPU scroll, and every used character to match its
+witness or an independently completed torch-animation phase. The original PPU
+continues rasterizing the scene with its real brightness, palette and scroll;
+all native fragments use the actual guest VRAM. New BG uploads or world-map/
+character writes immediately expire the old scene, including uploads that
+happen to contain familiar corridor tiles. Reset and timeline/load changes also
+clear it. Unknown destination layouts and incomplete proofs keep native fallback.
+
+Retained ordinary object pixels are copied from the already qualified producer.
+They remain available only with unchanged actual ordinary NPC records, resident
+atlas and palette, plus matching original native OAM anchors. Their source
+buffers may be reused without affecting the retained copy. This does not run
+AI, move entities, invent animation frames or alter guest OAM. Failed ownership
+checks refuse outgoing expansion.
+
+Selected optimized executable: `lagoon-batch9-optimized.exe`, SHA256
+`81bf8a4bf685fca8994836e3701499677ad9afded0139673b5732e269d97b814`,
+manifest SHA256 `b8720505d6b6b1f57c04b9dbac7abeba56c3e02f3f99485801dc416be78f934e`.
+A fresh isolated replay matches all 129 checkpoint components and guest clocks
+against the direct-proof executable below. Its complete retained presentation
+window, frames 2805..4100, matches all 1,296 ordered frame/alpha/CRC32/luma records.
+The new log contains 4,196 full-route records; only the reference's captured
+window has an older stream to compare. The constant presentation-index offset
+is 2,804 because the original log began at frame 2805. Wide source hashes are
+unchanged. No screenshots were taken again or relabelled: the direct pixel and
+capture evidence below still belongs to the EF1 executable.
+
+Final direct proof uses `lagoon-batch9-final.exe`, SHA256
+`ef1a8e025b3989525a60bb2289a4440417eadd042517f61a170c9da7ce410597`.
+All 129 checkpoints match the retained batch-8 executable in native framebuffer,
+WRAM, registers, VRAM, OAM, CGRAM and guest clocks. The focused 241 actual native centers match; the old critical door/cave-entry
+interval supplies another 391 matching centers, including frame 2864. The room-4 to room-5 outgoing fade gains 46 fully widened fields; all
+4,389,504 added pixel observations match independently decoded source colors.
+Across all 1,296 captured presentations, all 37,659,025 required-black margin
+observations are black. The final cold-load check also matches 64 guest/state/
+clock checkpoints and all 64 full expanded pictures from batch 8. These wider
+center/bounds checks are separate from the complete source-color proof for the
+46 newly revealed outgoing fields.
+
+This particular view has no opaque margin actor pixels; retained-object copying
+and refusal are separately exercised against the actual production helper and
+real PPU scanout, including unchanged native pixels and guest bytes.
+
+`tools/script_wide_outgoing_fade.txt` declares the same position-only staging and
+real door traversal as the earlier cave fixture. Its consecutive source dumps
+cover the outgoing fade. `tools/verify_wide_cave_fade.py` compares actual centers,
+map/graphics/palette colors and real uploaded ordinary object cells. These are
+bounded scene checks, not every door or actor family in the game.
+
+The separate [live custom-renderer work](CUSTOM-RENDERER.md) receives source
+snapshots only for its supported normal Atland fields. Unknown/outgoing scenes
+retain the existing guarded PPU path. Its independent whole-field comparison
+runs after normal world/menu composition, and cannot replace a mismatching field.
 
 ## Batch 8: cave fades and immediate restored-world width
 
@@ -81,11 +146,12 @@ The cold-load replay preserves all 64 state/framebuffer/clock checkpoints; its
 first two restored fields now retain their full width. An independent offline
 renderer reproduces all 152,768 pixels of the first restored 682x224 field.
 
-Some **outgoing door fades still narrow** when RAM already names the destination
+At batch 8, some **outgoing door fades still narrowed** when RAM already named the destination
 while the completed raster still shows the previous room. The old-room extent,
 map and actor packet must be independently retained and validated before those
-fields can safely stay wide. This batch fixes destination fades and restored
-worlds, and does not claim universal transition coverage. Unknown layouts and
+fields can safely stay wide; batch 9 adds that retained-scene authority above.
+Batch 8 fixed destination fades and restored worlds without claiming universal
+transition coverage. Unknown layouts and
 unsupported actor families retain conservative fallback.
 
 The dedicated fixture `tools/script_wide_cave_fade.txt` uses the existing declared

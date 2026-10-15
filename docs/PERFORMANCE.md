@@ -79,3 +79,114 @@ The longest profiled interval was 22.11 ms. Guest periods remained within 1.0000
 This confirms the settled timing improvement for the tested production-like logging configuration, rather than promising identical timing in every later room, with every audio device or at physical monitor scanout. The full-resolution screenshot above remains accurately labeled as the earlier batch 7 capture; no additional visible window was opened for this final check.
 
 Final executable SHA-256: `25b3b33272d74beccc1213423d4379a9ebf1bbe550ed91e32e84f4b275001bda`. Manifest SHA-256: `ca8099f0601967b4b13614f90fc26a192a2637be15a2fe0bc1d20bed11eac3b7`. The private `work-native-20261015-161718/final188-performance-verification.json` binds the route, settings, seeded-state hashes and explicit disabled-log receipt.
+
+## Initial batch 9 live scene backend measurement
+
+The bounded [custom scene renderer](CUSTOM-RENDERER.md) now independently draws
+supported Atland fields and replaces only exact full-field candidates. Its
+reference PPU renderer still runs for comparison. This stage establishes live
+correctness and coverage, and adds work; it is not yet a rendering speedup.
+
+Before the source-decoding cache optimization, one quiet hidden 1920x1080
+OpenGL/Enhanced Pixels run used the same 32:9 route,
+settings and fresh v3 seed as the prior batch 8 check. Default **auto** was used
+without a mode override. Presentation CRC/luma logging and GPU readbacks were
+disabled, the scene report wrote once at exit, and no initiated background tests
+or hardware queries overlapped the run. The final dump interval was excluded.
+
+| Hidden check | Rate | p50 / p95 / p99 interval | Intervals >20 / >25 ms |
+| --- | ---: | --- | ---: |
+| Historical batch 8, fields 150..1790 | 60.11 fps | 16.66 / 17.45 / 17.86 ms | 3 / 0 |
+| Batch 9 default auto, fields 150..1790 | 60.06 fps | 16.66 / 18.01 / 23.17 ms | 52 / 1 |
+| Batch 9 settled fields 200..1790 | 60.06 fps | 16.66 / 18.05 / 23.21 ms | 52 / 1 |
+
+The mean stayed near the guest rate, but this run had more long intervals than
+the historical reference. Its longest interval was 25.35 ms. The audio producer
+entered its bounded high-water wait 78 times, totaling 399.56 ms; the three
+largest intervals coincided with 9.07, 14.62 and 7.31 ms of that wait. Ordinary
+raw guest thread-cycle counts during those intervals support waiting rather
+than proportional extra guest execution. No buffer safeguard, audio policy,
+priority or affinity was changed to hide the waits.
+
+Mean composition was 1.473 ms versus 0.082 ms in the earlier no-log reference;
+mean raster/capture was 0.864 ms, guest 1.650 ms, and upload/presentation 0.230 ms.
+The full 1,792-field interval, including startup and loading, took 29.977 seconds
+and 7.594 CPU seconds. All seven final guest components/clocks matched the prior
+batch 8 endpoint exactly. Guest periods remained within 1.000000..1.000176.
+
+The exit report confirms actual custom output: **1,772 independently rendered
+and replaced fields**, **270,704,896 pixel observations**, zero mismatches and
+20 startup fallbacks at internal 682x224. OpenGL/Enhanced Pixels postprocessing
+was enabled with staged shader hashes verified against source. No visible
+window was opened.
+
+This is a historical same-route comparison, not a controlled same-executable
+renderer-off/auto performance A/B, so it does not isolate every cause of the
+extra jitter. Hidden/dummy-audio presentation-call timestamps do not certify
+focused fullscreen, physical monitor scanout or real audio-device timing. This
+run supports a bounded mean near 60 fps, not locked frame times or a campaign
+performance guarantee.
+
+Executable SHA256: `fd6044196a395c182b213e9605806c6137a38003e07b8e20c540f5d1fbc0b0cc`.
+Manifest SHA256: `b8720505d6b6b1f57c04b9dbac7abeba56c3e02f3f99485801dc416be78f934e`.
+Private evidence: `work-native-20261015-164402/scene190-performance-verification.json`
+and `performance-scene190-invocation.json`, with the full timing CSV and exit
+report under `performance-scene190/`.
+
+## Optimized batch 9 confirmation
+
+The selected backend caches decoded planar source rows, palette conversions and
+eight-pixel map spans. It also reuses an independent candidate across adjacent
+fields only when all captured rendering inputs are byte-identical. The full
+reference comparison, guest clocks, audio safeguards and presentation policy are
+unchanged. Every displayed replacement is still checked; cached drawing does not
+skip simulation or output fields.
+
+One sequential **same-executable** off/default-auto pair repeated the exact
+hidden 1920x1080 OpenGL/Enhanced Pixels 32:9 route, state, settings and nine
+original QoL options. All agents stopped heavy work during both runs. Both used
+`--no-present-log`, no GPU readbacks or hardware inventory queries, and exit-only
+renderer reports. Profile fields 150..1790 exclude the final dump interval.
+
+| Same-executable mode | Rate | p50 / p95 / p99 interval | Intervals >20 / >25 ms | Mean composition |
+| --- | ---: | --- | ---: | ---: |
+| Renderer off | 59.54 fps | 16.65 / 20.39 / 24.27 ms | 90 / 11 | 0.108 ms |
+| Default auto | 60.10 fps | 16.65 / 17.83 / 18.23 ms | 3 / 2 | 0.356 ms |
+
+The off control had a **135.61 ms** interval, including 112.44 ms in the
+upload/presentation stage. Its cause was not established. This single ordered
+pair is not evidence that enabling the backend increases frame rate; callback
+phase and OS/driver scheduling variance remain possible confounders. The measured
+composition overhead over off was about 0.247 ms. Compared with the explicitly
+historical pre-cache run, observed mean composition fell from 1.473 to 0.356 ms,
+about 76%, while retaining exact output.
+
+The default-auto maximum interval was **30.09 ms**, and all three intervals above
+20 ms are retained in the table. Settled fields 200..1790 measured 60.10 fps,
+17.83/18.22 ms p95/p99, and **zero audio high-water waits**. The full profile had
+three early entries totaling 3.81 ms, versus 105 entries/573.13 ms in the off
+control. The largest auto intervals did not coincide with audio high-water
+waits. This supports the bounded result without promising locked 60 fps or
+eliminating scheduling spikes.
+
+Default auto actually replaced **1,772 fields** with zero mismatches, from
+**844 independent redraws and 128,936,192 independently drawn pixel observations**;
+the other 928 replacements reused byte-identical source candidates. Twenty
+startup fields fell back. Full-resolution GPU postprocessing remained enabled
+after the internal 682x224 compositor. No additional visible window was opened.
+All seven final guest components/clocks were byte-identical between off and auto.
+Guest periods remained 1.000000..1.000176 per simulation.
+
+The auto process used 5.547 CPU seconds over its full 29.967-second, 1,792-field
+interval; off used 5.375 CPU seconds over 30.261 seconds. Auto's mean guest,
+raster/capture and upload/presentation stages were 1.444, 0.892 and 0.222 ms.
+Hidden/dummy-audio timing remains separate from focused fullscreen, real audio
+devices, physical scanout and campaign performance.
+
+Selected executable SHA256:
+`81bf8a4bf685fca8994836e3701499677ad9afded0139673b5732e269d97b814`.
+Manifest SHA256:
+`b8720505d6b6b1f57c04b9dbac7abeba56c3e02f3f99485801dc416be78f934e`.
+Private `work-native-20261015-164402/optimized190-performance-verification.json`
+binds both receipts, CSVs, shader hashes, default-auto report and exact endpoint
+comparison; `performance-opt190-invocation.json` records the two invocations.

@@ -602,3 +602,21 @@ emit = true
 entry_m = 1
 entry_x = 0
 note = "Batch8 qualified: twelve-instruction arithmetic region only; manual end:9245 and named LLE boundaries preserve interpreted death/HUD tails and original nonlocal stack"
+
+[[func]]
+name = "Lagoon_Health_DeathTail"
+addr = "9245"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch9 bounded HP-zero/revival selection prelude only; manual end:9266 and LLE siblings preserve original nonlocal death calls"
+
+[[func]]
+name = "Lagoon_Health_HudTail"
+addr = "9294"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch9 bounded post-damage HUD tail; existing conservative dispatcher return modes, no new width contract"

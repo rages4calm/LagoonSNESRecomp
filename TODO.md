@@ -16,7 +16,9 @@ batches. Generated routine counts are not campaign completion percentages.
       bank preservation and four bounded combat-route checks.
 - [x] Native paired actor/boss dispatch, player-hit wrapper and first-boss phase;
       four complete replay comparisons confirm actual native execution.
-- [ ] Promote HP subtraction, full death/revival and remaining boss-phase orchestration
+- [x] Native HP-subtraction prefix and bounded death initialization/HUD tails,
+      with exact damage, consumable revival and boss-defeat replay comparisons.
+- [ ] Promote full death/revival and remaining boss-phase orchestration
       only after proving their indirect and nonlocal stack continuations.
 - [ ] Continue native promotion from measured hot paths; resolve existing
       native-versus-pure-interpreter timing differences. Keep 00:80E6 interpreted.
@@ -73,14 +75,18 @@ batches. Generated routine counts are not campaign completion percentages.
       the earlier 46 FPS average was not reproduced, with baseline runs near 60.
 - [x] Use a precise final deadline wait on SDL3 to reduce scheduler jitter.
 - [x] Keep the initial Atland world wide during its verified loaded fade.
+- [x] Retain source-proven outgoing scenery/actors through audited room fades;
+      expire ownership on actual map/character uploads and timeline changes.
 - [ ] Broaden sustained frame-time checks across more areas/devices and investigate
       remaining cave fade, state-load settlement and unaudited transition gaps.
-- [ ] Evaluate a separate game-state-driven Lagoon renderer for broader scene/HUD
-      coverage. Choose graphics API from measured needs; keep reference output.
+- [x] Connect an independent live Atland scene renderer with immutable packets,
+      exact whole-field reference checks and fail-closed presentation.
+- [ ] Broaden custom renderer scene/HUD coverage and reduce its measured CPU cost.
+      Choose graphics API from measured needs; keep reference output.
 - [ ] Broader save/load, hardware controller and campaign/ending qualification.
 
 Every QoL feature and widescreen defaults off. Exact implementation/evidence:
-[native batch](NATIVE-BATCH7-2026-10-15.md), [QoL](QOL-IMPLEMENTATION.md),
+[native batch](NATIVE-BATCH9-2026-10-15.md), [QoL](QOL-IMPLEMENTATION.md),
 [widescreen](docs/WIDESCREEN.md).
 
 The supplied BPS is a private reference. Keep the clean ROM identity for

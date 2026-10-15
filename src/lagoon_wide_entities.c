@@ -41,6 +41,14 @@ static int s_has_far;
 static PpuExtraObject s_objects[kObjects];
 static uint16_t s_pixels[kObjects][256];
 static size_t s_object_count;
+static struct {
+  PpuExtraObject objects[kObjects];
+  uint16_t pixels[kObjects][256],atlas[0x1500],palette[256];
+  uint8_t records[0x800],oam[544];
+  uint64_t generation;
+  size_t count;
+  int valid;
+} s_retained_objects;
 static uint64_t s_captures, s_validated, s_rejected, s_emitted;
 static void report_status(const char *status, unsigned entity, unsigned cell) {
   const char *path = getenv("LAGOON_WIDE_ENTITY_REPORT");
@@ -73,6 +81,14 @@ static int rom_word(const uint8_t *rom, size_t size, unsigned a, unsigned *v) {
   unsigned lo, hi;
   if (!rom_byte(rom, size, a, &lo) || !rom_byte(rom, size, a + 1, &hi)) return 0;
   *v = lo | (hi << 8); return 1;
+}
+
+unsigned LagoonWideRetainedMap_Tile(const LagoonWideRetainedMap *map,int layer,int x,int y) {
+  if(!map || layer<0 || layer>1)return 0;
+  unsigned meta=x<0 || y<0 || x>=2048 || y>=2048 ? map->fill :
+      map->maps[layer][(y>>4)*128+(x>>4)];
+  unsigned tile=map->definitions[layer][meta*4+((x&8)>>3)+((y&8)>>2)];
+  return layer ? tile&0xDFFF : tile;
 }
 
 int LagoonWideEntities_Decode(const uint8_t *rom, size_t size,
@@ -423,10 +439,55 @@ void LagoonWideEntities_Init(void) {
   dma_set_start_observer(observe_dma); ppu_set_vram_write_log_hook(observe_vram_byte);
 }
 void LagoonWideEntities_Reset(void) {
+  s_retained_objects.valid=0;
   s_frame.valid=0; s_last_serial=0; s_object_count=0; s_has_far=0; s_pose_room_key=0; s_pose_generation=0;
   memset(s_pose,0,sizeof(s_pose)); memset(s_kind_witness,0,sizeof(s_kind_witness));
   LagoonWideAtlas_Reset(&s_atlas);
   if (g_ppu) PpuSetExtraObjects(g_ppu,NULL,0);
+}
+void LagoonWideEntities_RetainScene(void) {
+  s_retained_objects.valid=0;
+  if(!g_ppu || g_ppu->extraObjectCount>kObjects)return;
+  s_retained_objects.count=g_ppu->extraObjectCount;
+  for(size_t i=0;i<s_retained_objects.count;++i) {
+    const PpuExtraObject *o=&g_ppu->extraObjects[i];
+    if(!o->pixels || o->width>16 || o->height>16 || o->stride<o->width)return;
+    s_retained_objects.objects[i]=*o;
+    for(unsigned y=0;y<o->height;++y)
+      memcpy(s_retained_objects.pixels[i]+y*o->width,o->pixels+y*o->stride,o->width*2);
+    s_retained_objects.objects[i].pixels=s_retained_objects.pixels[i];
+    s_retained_objects.objects[i].stride=o->width;
+  }
+  memcpy(s_retained_objects.atlas,PpuRenderVram(g_ppu)+0x4400,sizeof(s_retained_objects.atlas));
+  memcpy(s_retained_objects.palette,g_ppu->cgram,sizeof(s_retained_objects.palette));
+  memcpy(s_retained_objects.records,g_ram+0x540,sizeof(s_retained_objects.records));
+  memcpy(s_retained_objects.oam,g_ppu->oam,512);
+  memcpy(s_retained_objects.oam+512,g_ppu->highOam,32);
+  s_retained_objects.generation=RtlStateGeneration();s_retained_objects.valid=1;
+}
+int LagoonWideEntities_RetainedSceneValid(void) {
+  if(!s_retained_objects.valid || !g_ppu || s_retained_objects.generation!=RtlStateGeneration())return 0;
+  if(!s_retained_objects.count)return 1;
+  if(memcmp(s_retained_objects.records,g_ram+0x540,sizeof(s_retained_objects.records)) ||
+      memcmp(s_retained_objects.atlas,PpuRenderVram(g_ppu)+0x4400,sizeof(s_retained_objects.atlas)) ||
+      memcmp(s_retained_objects.palette,g_ppu->cgram,sizeof(s_retained_objects.palette)))return 0;
+  for(size_t i=0;i<s_retained_objects.count;++i) {
+    const PpuExtraObject *o=&s_retained_objects.objects[i];
+    /* Native-anchored cells must retain their actual slot. Virtual deep
+     * ordering instead binds to the unchanged complete ordinary records. */
+    if(o->order==1) {
+      unsigned slot=o->oamSlot;
+      if(memcmp(s_retained_objects.oam+slot*4,(uint8_t*)g_ppu->oam+slot*4,4) ||
+          (((s_retained_objects.oam[512+slot/4]^g_ppu->highOam[slot/4])>>((slot%4)*2))&3))return 0;
+    }
+  }
+  return 1;
+}
+void LagoonWideEntities_BeginRetained(int enabled) {
+  s_object_count=0;s_has_far=0;
+  PpuSetExtraObjects(g_ppu,NULL,0);
+  if(enabled && LagoonWideEntities_RetainedSceneValid())
+    PpuSetExtraObjects(g_ppu,s_retained_objects.objects,s_retained_objects.count);
 }
 /* region0=all margin,1=seam strips,2=deep margin. Native opacity is always zero. */
 static int draw_cell(const LagoonWideCell *c,unsigned anchor,uint32_t order,int region) {

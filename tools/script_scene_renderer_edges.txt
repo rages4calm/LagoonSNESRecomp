@@ -1,0 +1,26 @@
+# Use a private fresh-v3 moving-town state from the existing regression seed.
+wait 20
+loadstate 0
+wait 20
+press left 180
+wait 8
+dump left-stop
+press right 40
+wait 8
+dump right-stop
+press up 160
+wait 8
+dump up-stop
+press down 40
+wait 8
+dump down-stop
+press start 4
+wait 30
+dump status-open
+press b 4
+wait 30
+dump status-closed
+reset
+wait 20
+dump reset-title
+quit
