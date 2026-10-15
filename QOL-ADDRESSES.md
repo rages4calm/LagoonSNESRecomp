@@ -1,5 +1,12 @@
 # QoL feature addresses: what the ROM actually does
 
+Current implementation evidence is in [QOL-IMPLEMENTATION.md](QOL-IMPLEMENTATION.md).
+The older investigation below is retained as history. In particular, the former
+"reward-like" words at `01:FFB7` and `02:B1BE` are **magic power**, not EXP.
+EXP lives at record offset +11 in the enemy/boss tables addressed by
+`05:91AB` / `05:9442`. The current implementation guards all 39 enemy and 16 boss
+records before changing their rewards.
+
 ## October 15 correction: supplied BPS now decoded
 
 `tools/bps_apply.py` was rewritten to use the BPS1 action order: SourceRead,

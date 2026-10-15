@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../GameAdapter.cs" Link="GameAdapter.cs" />
+    <Compile Include="../NativeSettings.cs" Link="NativeSettings.cs" />
     <PackageReference Include="Companion.Launcher.Core" Version="[0.2.0]" />
   </ItemGroup>
 </Project>

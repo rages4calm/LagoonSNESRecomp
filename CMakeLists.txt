@@ -43,6 +43,7 @@ add_executable(LagoonSNESRecomp
     src/game_rtl.c
     src/gen_stubs.c
     src/lagoon_qol.c
+    src/lagoon_widescreen.c
 )
 
 # ROM identity. rom_identity.txt is the one place the digests live: the build

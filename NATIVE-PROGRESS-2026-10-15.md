@@ -1,5 +1,9 @@
 # Native gameplay continuation — October 15, 2026
 
+This records the first accepted batch. [The second batch](NATIVE-BATCH2-2026-10-15.md)
+supersedes its pending launcher/QoL/widescreen items and the `01:C579` rejection.
+The original timing failures below remain useful evidence, not current status.
+
 Public source: https://github.com/rages4calm/LagoonSNESRecomp
 
 ## Accepted changes

@@ -1,0 +1,334 @@
+# Patient intro route: let scripted sequences finish, then take the pad.
+# Opening reset regression: reach Atland, move down, open Start menu, close with B.
+
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+press start 6
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+dump c-3000
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-4000
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-4500
+press a 4
+wait 240
+press a 4
+press start 6
+wait 240
+dump n-5000
+press a 4
+wait 240
+press a 4
+wait 240
+dump n-5500
+press a 4
+wait 240
+press a 4
+wait 240
+dump town
+press down 30
+dump moved
+press start 6
+wait 30
+dump menu
+press b 6
+wait 30
+dump back
+
+# Additional native movement/airborne branches after the opening route.
+press down 90
+dump walk-down
+press left 60
+dump walk-left
+press up 60
+dump walk-up
+press right 60
+dump walk-right
+# TARGETED FIXTURE: town normally disallows jumping (DP51=$82).
+# Set only the jump-enabled map bit; this is not a campaign traversal.
+# Input and the entire jump/airborne physics remain the ROM's own code.
+wait 30
+poke 0051 83
+wait 2
+dump fixture-before
+press a 3
+dump fixture-air-00
+wait 1
+dump fixture-air-01
+wait 1
+dump fixture-air-02
+wait 1
+dump fixture-air-03
+wait 1
+dump fixture-air-04
+wait 1
+dump fixture-air-05
+wait 1
+dump fixture-air-06
+wait 1
+dump fixture-air-07
+wait 1
+dump fixture-air-08
+wait 1
+dump fixture-air-09
+wait 1
+dump fixture-air-10
+wait 1
+dump fixture-air-11
+wait 1
+dump fixture-air-12
+wait 1
+dump fixture-air-13
+wait 1
+dump fixture-air-14
+wait 1
+dump fixture-air-15
+wait 1
+dump fixture-air-16
+wait 1
+dump fixture-air-17
+wait 1
+dump fixture-air-18
+wait 1
+dump fixture-air-19
+wait 1
+dump fixture-air-20
+wait 1
+dump fixture-air-21
+wait 1
+dump fixture-air-22
+wait 1
+dump fixture-air-23
+wait 1
+dump fixture-air-24
+wait 1
+dump fixture-air-25
+wait 1
+dump fixture-air-26
+wait 1
+dump fixture-air-27
+wait 1
+dump fixture-air-28
+wait 1
+dump fixture-air-29
+wait 1
+dump fixture-air-30
+wait 1
+dump fixture-air-31
+wait 1
+dump fixture-air-32
+wait 1
+dump fixture-air-33
+wait 1
+dump fixture-air-34
+wait 1
+dump fixture-air-35
+wait 1
+dump fixture-air-36
+wait 1
+dump fixture-air-37
+wait 1
+dump fixture-air-38
+wait 1
+dump fixture-air-39
+wait 1
+dump fixture-air-40
+wait 1
+dump fixture-air-41
+wait 1
+dump fixture-air-42
+wait 1
+dump fixture-air-43
+wait 1
+dump fixture-air-44
+wait 1
+dump fixture-air-45
+wait 1
+dump fixture-air-46
+wait 1
+dump fixture-air-47
+wait 1
+dump fixture-air-48
+wait 1
+dump fixture-air-49
+wait 1
+dump fixture-air-50
+wait 1
+dump fixture-air-51
+wait 1
+dump fixture-air-52
+wait 1
+dump fixture-air-53
+wait 1
+dump fixture-air-54
+wait 1
+dump fixture-air-55
+wait 1
+dump fixture-air-56
+wait 1
+dump fixture-air-57
+wait 1
+dump fixture-air-58
+wait 1
+dump fixture-air-59
+wait 1
+dump fixture-air-60
+wait 1
+dump fixture-air-61
+wait 1
+dump fixture-air-62
+wait 1
+dump fixture-air-63
+wait 1
+dump fixture-air-64
+wait 1
+dump fixture-air-65
+wait 15
+# Moving jump: keep downward input after the fresh A pulse.
+dump fixture-distance-before
+press a+down 3
+press down 1
+dump fixture-moving-00
+press down 1
+dump fixture-moving-01
+press down 1
+dump fixture-moving-02
+press down 1
+dump fixture-moving-03
+press down 1
+dump fixture-moving-04
+press down 1
+dump fixture-moving-05
+press down 1
+dump fixture-moving-06
+press down 1
+dump fixture-moving-07
+press down 1
+dump fixture-moving-08
+press down 1
+dump fixture-moving-09
+press down 1
+dump fixture-moving-10
+press down 1
+dump fixture-moving-11
+press down 1
+dump fixture-moving-12
+press down 1
+dump fixture-moving-13
+press down 1
+dump fixture-moving-14
+press down 1
+dump fixture-moving-15
+press down 1
+dump fixture-moving-16
+press down 1
+dump fixture-moving-17
+press down 1
+dump fixture-moving-18
+press down 1
+dump fixture-moving-19
+press down 1
+dump fixture-moving-20
+press down 1
+dump fixture-moving-21
+press down 1
+dump fixture-moving-22
+press down 1
+dump fixture-moving-23
+press down 1
+dump fixture-moving-24
+press down 1
+dump fixture-moving-25
+press down 1
+dump fixture-moving-26
+press down 1
+dump fixture-moving-27
+press down 1
+dump fixture-moving-28
+press down 1
+dump fixture-moving-29
+press down 1
+dump fixture-moving-30
+press down 1
+dump fixture-moving-31
+press down 1
+dump fixture-moving-32
+press down 1
+dump fixture-moving-33
+press down 1
+dump fixture-moving-34
+press down 1
+dump fixture-moving-35
+press down 1
+dump fixture-moving-36
+press down 1
+dump fixture-moving-37
+press down 1
+dump fixture-moving-38
+press down 1
+dump fixture-moving-39
+press down 1
+dump fixture-moving-40
+press down 1
+dump fixture-moving-41
+press down 1
+dump fixture-moving-42
+press down 1
+dump fixture-moving-43
+press down 1
+dump fixture-moving-44
+press down 1
+dump fixture-moving-45
+press down 1
+dump fixture-moving-46
+press down 1
+dump fixture-moving-47
+press down 1
+dump fixture-moving-48
+press down 1
+dump fixture-moving-49
+press down 1
+dump fixture-moving-50
+press down 1
+dump fixture-moving-51
+press down 1
+dump fixture-moving-52
+press down 1
+dump fixture-moving-53
+press down 1
+dump fixture-moving-54
+dump fixture-distance-after
+wait 15
+quit

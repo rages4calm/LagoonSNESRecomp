@@ -32,7 +32,7 @@ id = "lagoon.qol.walk_speed"
 [[feature]]
 id = "start_hp"
 name = "Start with 18 HP"
-description = "Nasir's level curve begins at 18 maximum HP instead of 10, and every later level moves by the same eight so the growth between levels is unchanged -- level 2 becomes 25 where it was 17. The same shift is applied to the defence curve at $01:E0F8, which the level-up path uses; the starting defence value is not read from there, so 11 defence is not yet delivered."
+description = "New games start with 18 HP and 11 base defence. Level 2 is 21 HP and 13 base defence; level 3 and later retain stock growth."
 group = "Stats"
 default_enabled = false
 
@@ -69,3 +69,69 @@ default_enabled = false
 [[plugin]]
 feature = "debug_position"
 id = "lagoon.qol.debug_position"
+
+[[feature]]
+id = "sword_reach"
+name = "Longer sword reach"
+description = "Extends the directional sword hit rectangles to 38 pixels, matching the supplied QoL patch."
+group = "Combat"
+default_enabled = false
+
+[[plugin]]
+feature = "sword_reach"
+id = "lagoon.qol.sword_reach"
+
+[[feature]]
+id = "follower_speed"
+name = "Faster followers"
+description = "Following allies use 3 pixels per applied movement frame instead of 1. Enemy movement is unchanged."
+group = "Movement"
+default_enabled = false
+
+[[plugin]]
+feature = "follower_speed"
+id = "lagoon.qol.follower_speed"
+
+[[feature]]
+id = "recovery_time"
+name = "Extra recovery time"
+description = "Adds eight frame ticks before the ordinary-hit protection counter can expire."
+group = "Combat"
+default_enabled = false
+
+[[plugin]]
+feature = "recovery_time"
+id = "lagoon.qol.recovery_time"
+
+[[feature]]
+id = "jump_hold"
+name = "More comfortable jumps"
+description = "Holds the original jump peak for eight frame ticks, preserving horizontal movement."
+group = "Movement"
+default_enabled = false
+
+[[plugin]]
+feature = "jump_hold"
+id = "lagoon.qol.jump_hold"
+
+[[feature]]
+id = "magic_power"
+name = "Stronger magic"
+description = "Increases every nonzero player magic power by 50 percent, rounded down. Enemy projectile powers are unchanged."
+group = "Combat"
+default_enabled = false
+
+[[plugin]]
+feature = "magic_power"
+id = "lagoon.qol.magic_power"
+
+[[feature]]
+id = "exp_boost"
+name = "Less grinding"
+description = "Enemy and boss EXP rewards increase by 50 percent, rounded down to whole numbers. Zero-reward phase records stay zero."
+group = "Stats"
+default_enabled = false
+
+[[plugin]]
+feature = "exp_boost"
+id = "lagoon.qol.exp_boost"

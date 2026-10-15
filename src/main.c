@@ -29,6 +29,8 @@
 #include "game_rtl.h"
 #include "snesrecomp_rom_identity.h"  /* generated from rom_identity.txt */
 #include "lagoon_qol.h"               /* opt-in quality-of-life plugins */
+#include "lagoon_widescreen.h"
+#include <string.h>
 
 #ifndef __ANDROID__
 #define SDL_MAIN_HANDLED 1
@@ -61,6 +63,13 @@ static const SnesDesktopHostGame kGameHost = {
      * quality-of-life features patch ROM data. Nothing happens unless the
      * player has enabled a feature: the faithful game is the default. */
     .on_rom_loaded       = LagoonQol_OnRomLoaded,
+    .widescreen_supported = 1,
+    .display_aspect_supported = 1,
+    .native_widescreen    = 1,
+    .after_config        = LagoonWide_AfterConfig,
+    .prepare_frame       = LagoonWide_PrepareFrame,
+    .begin_sim_frame     = LagoonWide_BeginFrame,
+    .on_reset            = LagoonWide_Reset,
 };
 
 #ifndef __ANDROID__
@@ -68,5 +77,7 @@ static const SnesDesktopHostGame kGameHost = {
 #endif
 int main(int argc, char **argv)
 {
+    for (int i = 1; i + 1 < argc; ++i)
+        if (!strcmp(argv[i], "--config")) LagoonWide_SetConfigPath(argv[i + 1]);
     return snesrecomp_desktop_main(&kGameHost, argc, argv);
 }

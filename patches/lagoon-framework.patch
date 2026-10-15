@@ -1,5 +1,44 @@
+diff --git a/recompiler/v2/codegen.py b/recompiler/v2/codegen.py
+index 43091e6..792cd45 100644
+--- a/recompiler/v2/codegen.py
++++ b/recompiler/v2/codegen.py
+@@ -629,16 +629,34 @@ def _segref_addr_expr(seg: SegRef) -> tuple:
+ # ── Per-op handlers ─────────────────────────────────────────────────────────
+ 
+ def _emit_read(op: Read) -> List[str]:
++    if op.seg.kind == SegKind.DP_INDIRECT_LONG and op.seg.index is not None:
++        ea = '_ea' + _v(op.out)
++        lines = _materialize_long_pointer(op.seg, ea)
++        return lines + [f"{widths.ctype(op.width)} {_v(op.out)} = "
++                        f"{widths.read_fn(op.width)}(cpu, (uint8)({ea} >> 16), (uint16){ea});"]
+     bank, addr = _segref_addr_expr(op.seg)
+     return [f"{widths.ctype(op.width)} {_v(op.out)} = "
+             f"{widths.read_fn(op.width)}(cpu, {bank}, {addr});"]
+ 
+ 
+ def _emit_write(op: Write) -> List[str]:
++    if op.seg.kind == SegKind.DP_INDIRECT_LONG and op.seg.index is not None:
++        return ['{'] + ['  '+ln for ln in _materialize_long_pointer(op.seg, '_ea')] + [
++            f"  {widths.write_fn(op.width)}(cpu, (uint8)(_ea >> 16), (uint16)_ea, {_v(op.src)});", '}']
+     bank, addr = _segref_addr_expr(op.seg)
+     return [f"{widths.write_fn(op.width)}(cpu, {bank}, {addr}, {_v(op.src)});"]
+ 
+ 
++def _materialize_long_pointer(seg: SegRef, name: str) -> List[str]:
++    # Pointer reads are bus operations, not pure expressions that CSE may merge.
++    # Read low/high/bank once, then propagate indexed carry through all 24 bits.
++    pointer = f'(uint16)(cpu->D + {seg.offset:#06x})'
++    index = 'cpu->X' if seg.index == Reg.X else 'cpu->Y'
++    return [f'uint32 {name} = cpu_read16(cpu, 0x00, {pointer});',
++            f'{name} |= (uint32)cpu_read8(cpu, 0x00, (uint16)({pointer} + 2)) << 16;',
++            f'{name} = ({name} + (uint32){index}) & 0xFFFFFFu;']
++
++
+ def _emit_readreg(op: ReadReg) -> List[str]:
+     """Emit a 16-bit read of A/X/Y/etc. For A, X, Y we route through
+     cpu_read_{a,x,y}16 helpers — same value, but the helper name carries
 diff --git a/recompiler/v2/emit_function.py b/recompiler/v2/emit_function.py
-index 1f5de57..20f9d73 100644
+index 1f5de57..a5ec24a 100644
 --- a/recompiler/v2/emit_function.py
 +++ b/recompiler/v2/emit_function.py
 @@ -612,7 +612,13 @@ def emit_function(rom: bytes, bank: int, start: int,
@@ -35,7 +74,16 @@ index 1f5de57..20f9d73 100644
  
          # Iterate the pre-lowered (Insn, [IROp]) pairs. Calling lower()
          # again here would mint fresh Value-ids and break codegen's
-@@ -2158,11 +2166,18 @@ def emit_function(rom: bytes, bank: int, start: int,
+@@ -2111,6 +2119,8 @@ def emit_function(rom: bytes, bank: int, start: int,
+     src.append(f'  if (g_recomp_stack_top >= 1) g_cpu_entry_s[g_recomp_stack_top - 1] = _entry_s;')
+     for i, key in enumerate(block_order):
+         src.append(f"  {_label_for(key)}:")
++        if precise_timing:
++            src.append('    cpu_instruction_timing_commit(cpu);')
+         # Trace block entry — gives us the SNES PC chain in the trace ring.
+         block_pc24 = (bank << 16) | (key.pc & 0xFFFF)
+         src.append(f'    cpu_trace_block(cpu, 0x{block_pc24:06X});')
+@@ -2158,11 +2168,18 @@ def emit_function(rom: bytes, bank: int, start: int,
          if _cyc_const:
              src.append(f'    cpu->cycles += {_cyc_const};')
              _spd_expr, _spd_const = _block_speed(bank, key.pc)
@@ -55,14 +103,93 @@ index 1f5de57..20f9d73 100644
              # Inject a stack-auditor pop before any return so the shadow
              # stack stays balanced. An LLE yield unwind is NOT a return: the
              # bounce site resumes the interpreter mid-routine with pushed
+@@ -2170,6 +2187,8 @@ def emit_function(rom: bytes, bank: int, start: int,
+             # imbalance. Pop it without recording a balance figure.
+             stripped = ln.strip()
+             if stripped.startswith("return"):
++                if precise_timing:
++                    src.append('    cpu_instruction_timing_commit(cpu);')
+                 _pop = ("RecompStackPopYield"
+                         if "interp_bridge_lle_yield_unwind" in stripped
+                         else "RecompStackPop")
+diff --git a/runner/src/cpu_state.c b/runner/src/cpu_state.c
+index 57fe6bc..7e66d4d 100644
+--- a/runner/src/cpu_state.c
++++ b/runner/src/cpu_state.c
+@@ -29,6 +29,7 @@
+ 
+ #include "cpu_state.h"
+ #include "common_rtl.h"
++#include "common_cpu_infra.h"
+ #include "cpu_trace.h"
+ #include "snes/snes.h"
+ #include "snes/cart.h"
+@@ -40,8 +41,22 @@
+ 
+ extern Snes *g_snes;
+ 
++void cpu_instruction_timing_commit(CpuState *cpu) {
++    snes_refresh_charge();
++    cpu->coprocessor_master_cycles = cpu->master_cycles;
++    if (g_snes) {
++        snes_sync_master_clock(g_snes, cpu->master_cycles);
++        if (g_snes->cart) cart_sync_coprocessors(g_snes->cart, cpu->master_cycles);
++    }
++}
++
+ CpuState g_cpu;
+ static CpuStageWindowStoreHook g_stage_window_store_hook;
++static CpuWramWriteFilterHook g_wram_write_filter_hook;
++
++void cpu_set_wram_write_filter_hook(CpuWramWriteFilterHook hook) {
++    g_wram_write_filter_hook = hook;
++}
+ 
+ void cpu_set_stage_window_store_hook(CpuStageWindowStoreHook hook) {
+     g_stage_window_store_hook = hook;
+@@ -557,6 +572,7 @@ void cpu_write8(CpuState *cpu, uint8 bank, uint16 addr, uint8 v) {
+     int off = cpu_wram_offset(bank, addr);
+     if (off >= 0) {
+         uint8 old = cpu->ram[off];
++        if (g_wram_write_filter_hook) v = g_wram_write_filter_hook((uint32_t)off, v);
+         cpu->ram[off] = v;
+         /* Optional title hook for game-specific stage-window tracking. */
+         if (g_stage_window_store_hook) {
+@@ -648,8 +664,12 @@ void cpu_write16(CpuState *cpu, uint8 bank, uint16 addr, uint16 v) {
+     if (off >= 0 && off + 1 < 0x20000) {
+         uint16 old = (uint16)cpu->ram[off]
+                    | ((uint16)cpu->ram[off + 1] << 8);
+-        cpu->ram[off]     = (uint8)(v & 0xFF);
+-        cpu->ram[off + 1] = (uint8)(v >> 8);
++        uint8 lo = (uint8)v;
++        if (g_wram_write_filter_hook) lo = g_wram_write_filter_hook((uint32_t)off, lo);
++        cpu->ram[off] = lo;
++        uint8 hi = (uint8)(v >> 8);
++        if (g_wram_write_filter_hook) hi = g_wram_write_filter_hook((uint32_t)off + 1u, hi);
++        cpu->ram[off + 1] = hi;
+         cpu->open_bus = (uint8)(v >> 8);
+         if (g_stage_window_store_hook) {
+             if ((off >= 0x1E72 && off <= 0x1E79) ||
 diff --git a/runner/src/cpu_state.h b/runner/src/cpu_state.h
-index f9b1e26..78f8740 100644
+index f9b1e26..337d709 100644
 --- a/runner/src/cpu_state.h
 +++ b/runner/src/cpu_state.h
-@@ -417,6 +417,27 @@ void   cpu_write16(CpuState *cpu, uint8 bank, uint16 addr, uint16 v);
+@@ -33,6 +33,10 @@ extern "C" {
+ typedef void (*CpuStageWindowStoreHook)(uint32_t ram_off, uint32_t pc24);
+ extern uint32_t g_interp816_cur_pc;
+ void cpu_set_stage_window_store_hook(CpuStageWindowStoreHook hook);
++/* Title-owned optional WRAM transform, shared by byte interpreter and AOT.
++ * The address is a canonical g_ram offset; the original bus latch is retained. */
++typedef uint8_t (*CpuWramWriteFilterHook)(uint32_t ram_off, uint8_t value);
++void cpu_set_wram_write_filter_hook(CpuWramWriteFilterHook hook);
+ 
+ /* Canonical flat g_ram offset for full WRAM and its low-bank mirrors.
+  * Returns -1 when the address is not WRAM. Keep every runtime observer on
+@@ -417,6 +421,28 @@ void   cpu_write16(CpuState *cpu, uint8 bank, uint16 addr, uint16 v);
   * interpreter's bridge shims use the plain accessors (they account
   * transfers themselves). */
  uint32_t  cpu_region_speed(uint32_t adr);
++void cpu_instruction_timing_commit(CpuState *cpu);
 +/* Precise-root codegen already charges six clocks per CPU cycle. These
 + * accessors add only the addressed bus region's excess over that baseline.
 + * ABI bookkeeping outside emitted instruction bodies stays unpaced. */
@@ -88,7 +215,7 @@ index f9b1e26..78f8740 100644
   * (DMA A-bus writes in snes_write, WMDATA $2180). wa = g_ram offset. */
  void wlog_addr_note_direct(uint32_t wa, uint8_t v, const char *via);
 diff --git a/runner/src/desktop/host_main.c b/runner/src/desktop/host_main.c
-index 3bc3905..addf677 100644
+index 3bc3905..0b9c790 100644
 --- a/runner/src/desktop/host_main.c
 +++ b/runner/src/desktop/host_main.c
 @@ -244,6 +244,29 @@ static const char *HostGetenv(const char *name) {
@@ -121,6 +248,15 @@ index 3bc3905..addf677 100644
  static uint32 g_win_flags = SDL_WINDOW_RESIZABLE;
  static SDL_Window *g_window;
  
+@@ -608,7 +631,7 @@ static void PreparePpuFrame(void) {
+   if (g_ws_active) flags |= kPpuRenderFlags_NewRenderer;
+   PpuBeginDrawing(g_ppu, g_my_pixels,
+                   (g_game->native_widescreen ? fw : 256) * 4, flags);
+-  PpuSetExtraSpace(g_ppu, (uint8)g_ws_extra);
++  PpuSetExtraSpace(g_ppu, (uint16)g_ws_extra);
+ }
+ 
+ // --- Scripted input ---
 @@ -2649,14 +2672,16 @@ static void LauncherSeed(RecompLauncherCSettings *ls, RecompLauncherCGameInfo *g
    ls->enable_audio  = g_config.enable_audio;
    ls->audio_freq    = g_config.audio_freq;
@@ -439,6 +575,70 @@ index c1e48eb..8985861 100644
          s_interp_bus_timing_active=0;
          if (dtrace && in.dp != dp_before) {
              extern int snes_frame_counter;
+diff --git a/runner/src/snes/ppu.c b/runner/src/snes/ppu.c
+index 25dcfe0..257d250 100644
+--- a/runner/src/snes/ppu.c
++++ b/runner/src/snes/ppu.c
+@@ -273,6 +273,7 @@ bool PpuSetOverlayOamRange(Ppu *ppu, uint8_t first, uint8_t count) {
+ }
+ 
+ static inline void PpuResetLayerPolicies(Ppu *ppu) {
++  ppu->wsShadowNativeExactMask = 0;
+   ppu->wsLayerClamp = 0;
+   ppu->wsLayerMirror = 0;
+   ppu->wsLayerRepeat = 0;
+@@ -429,6 +430,10 @@ void PpuSetWidescreenLayerMask(Ppu *ppu, uint8_t bg_layer_mask) {
+   ppu->wsLayerWidenMask = bg_layer_mask & 0x0f;
+ }
+ 
++void PpuSetWidescreenShadowNativeExactMask(Ppu *ppu, uint8_t bg_layer_mask) {
++  ppu->wsShadowNativeExactMask = bg_layer_mask & 0x0f;
++}
++
+ void PpuSetMode2LayerCapture(Ppu *ppu, int layer) {
+   ppu->wsMode2CaptureLayer = layer >= 0 && layer < 2 ? (uint8_t)(layer + 1) : 0;
+ }
+@@ -1110,7 +1115,14 @@ static void PpuDrawBackground_4bpp(Ppu *ppu, PpuPixelPrioBufs *dstbuf,
+   int tileadr1 = tileadr + 7 - (y & 0x7), tileadr0 = tileadr + (y & 0x7);
+   const uint16 *addr;
+   bool ws_shadow = WsShadowLayerActive(layer);
+-#define WS_TILE(t, sx) (ws_shadow ? WsShadowTile(layer, (sx), y, (uint16_t)ppu->hScroll[layer], (uint16_t)(tp - PpuRenderVram(ppu)), (uint16_t)(t)) : (uint32)(t))
++  bool native_exact = ws_shadow && (ppu->wsShadowNativeExactMask & (1u << layer));
++  if (native_exact) {
++    /* Split before choosing a tile: a shadow margin tile must not replace
++     * the native fragment of an eight-pixel span crossing x=256. */
++    PpuWindowsSplit(&win, ws_bias, 0);
++    PpuWindowsSplit(&win, ws_bias, 256);
++  }
++#define WS_TILE(t, sx) ((native_exact && (sx) >= 0 && (sx) < 256) ? (uint32)(t) : (ws_shadow ? WsShadowTile(layer, (sx), y, (uint16_t)ppu->hScroll[layer], (uint16_t)(tp - PpuRenderVram(ppu)), (uint16_t)(t)) : (uint32)(t)))
+   for (size_t windex = 0; windex < win.nr; windex++) {
+     if (win.bits & (1 << windex))
+       continue;  // layer is disabled for this window part
+diff --git a/runner/src/snes/ppu.h b/runner/src/snes/ppu.h
+index 7e092bb..21de274 100644
+--- a/runner/src/snes/ppu.h
++++ b/runner/src/snes/ppu.h
+@@ -262,6 +262,9 @@ struct Ppu {
+   // Optional bitmask of BG layers allowed to render in the side margins.
+   // Zero preserves the default behavior (BG1/BG2 wide, BG3 policy above).
+   uint8_t wsLayerWidenMask;
++  /* Opt-in shadow boundaries: native pixels always keep actual VRAM, even
++   * when a fine-scroll tile straddles x=256. Host presentation state only. */
++  uint8_t wsShadowNativeExactMask;
+   // Optional native-width Mode 2 layer capture. Stored as layer+1 so zero is
+   // disabled; pixels are palette indices for the most recently drawn frame.
+   uint8_t wsMode2CaptureLayer;
+@@ -826,6 +829,10 @@ void PpuSetWidescreenBg3Widen(Ppu *ppu, uint8_t from_y);
+ // The authentic center and OBJ rendering are unaffected. A zero mask restores
+ // the default layer policy.
+ void PpuSetWidescreenLayerMask(Ppu *ppu, uint8_t bg_layer_mask);
++/* Normal 4bpp span renderer only. Splits native/margin tiles so host shadow
++ * entries cannot correct or replace the guest's authentic edge fragment.
++ * Reapply after PpuSetExtraSpace each frame. Mosaic/big-tile paths unchanged. */
++void PpuSetWidescreenShadowNativeExactMask(Ppu *ppu, uint8_t bg_layer_mask);
+ 
+ // Capture one native 256-pixel Mode 2 background layer before it is combined
+ // with the other layers. This lets a game frontend synthesize presentation-
 diff --git a/runner/src/snes/snes.c b/runner/src/snes/snes.c
 index 5c03cfe..0c8c2e0 100644
 --- a/runner/src/snes/snes.c
@@ -552,12 +752,292 @@ index 98ce817..bc7c0f7 100644
 +  puts("RDNMI: disabled/enabled NMI, non-consuming $4210/$4212 reads, field expiry, instance isolation, host compatibility, v9/v10 snapshots and reset PASS");
    return 0;
  }
+diff --git a/tests/ppu/ppu_shadow_native_boundary_test.c b/tests/ppu/ppu_shadow_native_boundary_test.c
+new file mode 100644
+index 0000000..3487480
+--- /dev/null
++++ b/tests/ppu/ppu_shadow_native_boundary_test.c
+@@ -0,0 +1,100 @@
++/* Reuse the ROM-free world-mirror fixture and its peripheral stubs. The
++ * linked ppu.c remains the real renderer. Override only its shadow provider
++ * with deliberately different native/retained map tiles. */
++#define main world_mirror_fixture_main
++#define WsShadowTile inactive_fixture_shadow_tile
++#define WsShadowLayerActive inactive_fixture_shadow_layer
++#include "ppu_world_mirror_test.c"
++#undef main
++#undef WsShadowTile
++#undef WsShadowLayerActive
++
++static bool shadow_active;
++static const uint8_t *host_policy_address;
++static size_t serialized_bytes;
++static unsigned serialized_chunks;
++
++static void audit_serialized_range(SaveLoadInfo *info, void *data, size_t size) {
++    (void)info;
++    uintptr_t start = (uintptr_t)data, policy = (uintptr_t)host_policy_address;
++    check(!(policy >= start && policy - start < size),
++          "host-only exact-native mask is excluded from serialized ranges");
++    serialized_bytes += size;
++    serialized_chunks++;
++}
++bool WsShadowLayerActive(int layer) { return shadow_active && layer == 0; }
++uint16_t WsShadowTile(int layer, int x, uint32_t y, uint16_t scroll,
++                     uint16_t adr, uint16_t real_tile) {
++    (void)layer; (void)y; (void)scroll; (void)adr;
++    return x >= 0 && x + 8 <= 256 ? real_tile : 2;
++}
++
++static void render_boundary(Ppu *ppu, uint32_t *out, int phase,
++                            bool shadow, bool exact, bool sub) {
++    ppu_reset(ppu);
++    PpuBeginDrawing(ppu, (uint8_t *)out, sizeof(uint32_t) * kWide,
++                    kPpuRenderFlags_NewRenderer);
++    setup_arena_bg1(ppu);
++    for (int i = 0; i < 0x1000; ++i) ppu->vram[i] = 1;
++    for (int row = 0; row < 8; ++row) {
++        int native[8], retained[8];
++        for (int x = 0; x < 8; ++x) {
++            native[x] = 1 + x % 3;
++            retained[x] = 5 + x % 3;
++        }
++        put_tile_row(ppu, 1, row, native);
++        put_tile_row(ppu, 2, row, retained);
++    }
++    if (sub) {
++        ppu->screenEnabled[0] = 0;
++        ppu->screenEnabled[1] = 1;
++        ppu->cgwsel = 2; /* real subscreen */
++        ppu->cgadsub = 0x20; /* add subscreen to backdrop */
++    }
++    PpuSetExtraSpace(ppu, kExtra);
++    if (exact) PpuSetWidescreenShadowNativeExactMask(ppu, 1);
++    shadow_active = shadow;
++    ppu->hScroll[0] = (uint16_t)phase;
++    ppu_runLine(ppu, 0);
++    ppu->hScroll[0] = (uint16_t)phase;
++    ppu_runLine(ppu, 1);
++}
++
++int main(void) {
++    Ppu *ppu = calloc(1, sizeof(*ppu));
++    uint32_t native[kWide], legacy[kWide], exact[kWide];
++    int regression_witnesses = 0;
++    if (!ppu) return 2;
++    for (int sub = 0; sub < 2; ++sub)
++            for (int phase = 0; phase < 8; ++phase) {
++                render_boundary(ppu, native, phase, false, false, sub);
++                render_boundary(ppu, legacy, phase, true, false, sub);
++                render_boundary(ppu, exact, phase, true, true, sub);
++                for (int x = 0; x < 256; ++x) {
++                    check(exact[kExtra + x] == native[kExtra + x],
++                          "exact shadow policy preserves every native pixel");
++                    if (legacy[kExtra + x] != native[kExtra + x]) regression_witnesses++;
++                }
++                bool margin_changed = false;
++                for (int x = 0; x < kWide; ++x)
++                    if (x < kExtra || x >= kExtra + 256) {
++                        margin_changed |= exact[x] != native[x];
++                        check(exact[x] == legacy[x], "existing shadow margin pixels remain unchanged");
++                    }
++                check(margin_changed, "retained-map margin still renders");
++            }
++    check(regression_witnesses > 0, "fixture reproduces legacy native-boundary corruption");
++    PpuSetWidescreenShadowNativeExactMask(ppu, 3);
++    PpuSetExtraSpace(ppu, kExtra);
++    check(ppu->wsShadowNativeExactMask == 0, "policy is opt-in each frame");
++    SaveLoadInfo save = { .func = audit_serialized_range };
++    host_policy_address = &ppu->wsShadowNativeExactMask;
++    ppu_saveload(ppu, &save);
++    check(serialized_chunks == 3, "PPU snapshot keeps its three explicit chunks");
++    check(serialized_bytes == 8 + PPU_SAVESTATE_REGS_SIZE + PPU_SAVESTATE_MEM_SIZE,
++          "PPU serialized byte count remains backward compatible");
++    free(ppu);
++    if (failures) return 1;
++    puts("ppu_shadow_native_boundary_test: PASS (8 scroll phases, main/subscreen, real margins)");
++    return 0;
++}
+diff --git a/tests/ppu/run_shadow_native_boundary_test.ps1 b/tests/ppu/run_shadow_native_boundary_test.ps1
+new file mode 100644
+index 0000000..157d166
+--- /dev/null
++++ b/tests/ppu/run_shadow_native_boundary_test.ps1
+@@ -0,0 +1,11 @@
++[CmdletBinding()]
++param([string]$Compiler = 'clang', [string]$OutputDirectory)
++$ErrorActionPreference = 'Stop'
++$framework = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
++if (-not $OutputDirectory) { $OutputDirectory = Join-Path $framework 'build' }
++New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
++$output = Join-Path $OutputDirectory 'ppu_shadow_native_boundary_test.exe'
++& $Compiler '-std=c11' '-O2' '-DSNESRECOMP_REVERSE_DEBUG=0' "-I$framework/runner/src" "-I$framework/runner/src/snes" "$PSScriptRoot/ppu_shadow_native_boundary_test.c" "$framework/runner/src/snes/ppu.c" "$framework/runner/src/snes/ppu_legacy.c" '-lm' '-o' $output
++if ($LASTEXITCODE -ne 0) { throw 'PPU native-boundary regression failed to compile' }
++& $output
++if ($LASTEXITCODE -ne 0) { throw 'PPU native-boundary regression failed' }
+diff --git a/tests/runtime_dispatch/run_wram_write_filter_test.ps1 b/tests/runtime_dispatch/run_wram_write_filter_test.ps1
+new file mode 100644
+index 0000000..89ed45b
+--- /dev/null
++++ b/tests/runtime_dispatch/run_wram_write_filter_test.ps1
+@@ -0,0 +1,17 @@
++[CmdletBinding()]
++param([string]$Compiler = 'clang', [string]$OutputDirectory)
++$ErrorActionPreference = 'Stop'
++$framework = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
++if (-not $OutputDirectory) { $OutputDirectory = Join-Path $framework 'build' }
++New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
++$output = Join-Path $OutputDirectory 'wram_write_filter_test.exe'
++$compileArgs = @(
++    '-std=c11', '-Wall', '-Wextra', '-ffunction-sections', '-fdata-sections',
++    "-I$framework/runner/src", "-I$framework/runner/src/snes",
++    "$PSScriptRoot/wram_write_filter_test.c", "$framework/runner/src/cpu_state.c",
++    '-Wl,--gc-sections', '-o', $output
++)
++& $Compiler @compileArgs
++if ($LASTEXITCODE -ne 0) { throw 'WRAM filter regression failed to compile' }
++& $output
++if ($LASTEXITCODE -ne 0) { throw 'WRAM filter regression failed' }
+diff --git a/tests/runtime_dispatch/wram_write_filter_test.c b/tests/runtime_dispatch/wram_write_filter_test.c
+new file mode 100644
+index 0000000..28b6a45
+--- /dev/null
++++ b/tests/runtime_dispatch/wram_write_filter_test.c
+@@ -0,0 +1,128 @@
++/* Reuse the bus test's peripheral stubs, but exercise the actual cpu_state.c
++ * entry points and the real registered hook. No copied write implementation. */
++#define main cart_cpu_bus_latch_main
++#include "cart_cpu_bus_latch_test.c"
++#undef main
++
++/* Clock/coprocessor dependencies of the linked production translation unit.
++ * These tests call unpaced bus writes and do not advance a machine. */
++uint8 g_ram[0x20000];
++void snes_refresh_charge(void) {}
++void snes_sync_master_clock(Snes *snes, uint64_t clock) { (void)snes; (void)clock; }
++void cart_sync_coprocessors(Cart *cart, uint64_t clock) { (void)cart; (void)clock; }
++
++static uint32_t seen_offsets[4];
++static uint8_t seen_inputs[4];
++static uint8_t *test_ram;
++static int seen_count, check_low_visible;
++static unsigned low_offset;
++
++static uint8_t transform(uint32_t off, uint8_t value) {
++    if (seen_count < 4) {
++        seen_offsets[seen_count] = off;
++        seen_inputs[seen_count] = value;
++    }
++    if (check_low_visible && seen_count == 1)
++        check_int("high callback sees committed transformed low byte",
++                  test_ram[low_offset], 0x12 ^ 0xa5);
++    seen_count++;
++    return value ^ 0xa5;
++}
++
++static void start_case(CpuState *cpu, uint8_t *ram) {
++    reset_cpu(cpu, ram);
++    g_snes = NULL;
++    test_ram = ram;
++    seen_count = 0;
++    check_low_visible = 0;
++    memset(seen_offsets, 0xff, sizeof(seen_offsets));
++    memset(seen_inputs, 0, sizeof(seen_inputs));
++    cpu_set_wram_write_filter_hook(transform);
++}
++
++static void exercise_aliases(void) {
++    static const struct { uint8_t bank; unsigned offset; } cases[] = {
++        {0x00, 0x1234}, {0x80, 0x1234}, {0x7e, 0x1234}, {0x7f, 0x11234}
++    };
++    CpuState cpu;
++    uint8_t ram[0x20000];
++    for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
++        unsigned off = cases[i].offset;
++        start_case(&cpu, ram);
++        cpu_write8(&cpu, cases[i].bank, 0x1234, 0x12);
++        check_int("byte callback once", seen_count, 1);
++        check_u32("byte canonical WRAM offset", seen_offsets[0], off);
++        check_int("byte callback receives original bus byte", seen_inputs[0], 0x12);
++        check_int("byte stores transformed value", ram[off], 0xb7);
++        check_int("byte open bus retains original guest byte", cpu.open_bus, 0x12);
++
++        start_case(&cpu, ram);
++        low_offset = off;
++        check_low_visible = 1;
++        cpu_write16(&cpu, cases[i].bank, 0x1234, 0x3412);
++        check_int("word invokes two byte callbacks", seen_count, 2);
++        check_u32("word low canonical offset", seen_offsets[0], off);
++        check_u32("word high canonical offset", seen_offsets[1], off + 1);
++        check_int("word original low input", seen_inputs[0], 0x12);
++        check_int("word original high input", seen_inputs[1], 0x34);
++        check_int("word transformed low stored", ram[off], 0xb7);
++        check_int("word transformed high stored", ram[off + 1], 0x91);
++        check_int("word open bus retains original guest high", cpu.open_bus, 0x34);
++    }
++}
++
++static void exercise_boundaries(void) {
++    CpuState cpu;
++    uint8_t ram[0x20000];
++    for (unsigned bank = 0x7e; bank <= 0x7f; ++bank) {
++        unsigned base = (bank - 0x7e) << 16;
++        start_case(&cpu, ram);
++        low_offset = base + 0xffff;
++        check_low_visible = 1;
++        cpu_write16(&cpu, (uint8_t)bank, 0xffff, 0x3412);
++        check_int("wrapped word invokes two callbacks", seen_count, 2);
++        check_u32("wrapped word low offset", seen_offsets[0], base + 0xffff);
++        check_u32("wrapped word high stays in same bank", seen_offsets[1], base);
++        check_int("wrapped low stored", ram[base + 0xffff], 0xb7);
++        check_int("wrapped high stored", ram[base], 0x91);
++        check_int("wrapped word original high on open bus", cpu.open_bus, 0x34);
++    }
++    for (unsigned bank = 0; bank <= 0x80; bank += 0x80) {
++        start_case(&cpu, ram);
++        ram[0x2000] = 0x6d;
++        cpu_write16(&cpu, (uint8_t)bank, 0x1fff, 0x3412);
++        check_int("WRAM-to-unmapped only filters low byte", seen_count, 1);
++        check_u32("WRAM edge canonical offset", seen_offsets[0], 0x1fff);
++        check_int("WRAM edge transformed low", ram[0x1fff], 0xb7);
++        check_int("non-WRAM high does not touch flat RAM", ram[0x2000], 0x6d);
++        check_int("boundary open bus original high", cpu.open_bus, 0x34);
++    }
++}
++
++static void exercise_disabled_and_non_wram(void) {
++    CpuState cpu;
++    uint8_t ram[0x20000];
++    start_case(&cpu, ram);
++    cpu_write8(&cpu, 0x00, 0x2100, 0x12);
++    cpu_write16(&cpu, 0x80, 0x8000, 0x3412);
++    check_int("hardware and ROM bypass WRAM filter", seen_count, 0);
++    check_int("unfiltered ROM word bus value", cpu.open_bus, 0x34);
++
++    cpu_set_wram_write_filter_hook(NULL);
++    cpu_write8(&cpu, 0x7e, 0x1234, 0x12);
++    cpu_write16(&cpu, 0x7f, 0x1234, 0x3412);
++    check_int("unregister disables callbacks", seen_count, 0);
++    check_int("unregistered byte unchanged", ram[0x1234], 0x12);
++    check_int("unregistered word low unchanged", ram[0x11234], 0x12);
++    check_int("unregistered word high unchanged", ram[0x11235], 0x34);
++}
++
++int main(void) {
++    exercise_aliases();
++    exercise_boundaries();
++    exercise_disabled_and_non_wram();
++    cpu_set_wram_write_filter_hook(NULL);
++    if (g_failures) return 1;
++    puts("wram_write_filter_test: PASS (canonical aliases, ordered words, wrap, open bus, bypass, unregister)");
++    return 0;
++}
 diff --git a/tests/test_precise_root_timing.py b/tests/test_precise_root_timing.py
 new file mode 100644
-index 0000000..9ea9e72
+index 0000000..a07037c
 --- /dev/null
 +++ b/tests/test_precise_root_timing.py
-@@ -0,0 +1,39 @@
+@@ -0,0 +1,49 @@
 +"""Regression for opt-in native roots sharing interpreter instruction boundaries."""
 +import os
 +from pathlib import Path
@@ -594,6 +1074,16 @@ index 0000000..9ea9e72
 +            source=self.emit(roots)
 +            self.assertEqual(source.count('cpu_trace_block(cpu,'),1)
 +            self.assertNotIn('_timed(cpu,',source)
++
++    def test_long_indirect_store_reads_pointer_once(self):
++        rom=bytearray(0x100000)
++        rom[0x8000:0x8003]=bytes.fromhex('974060') # STA [$40],Y; RTS
++        with patch.dict(os.environ,{'SNESRECOMP_PRECISE_AOT_ROOTS':'018000'}):
++            source=emit_function(bytes(rom),1,0x8000,0,0)
++        self.assertEqual(source.count('cpu_read16_timed(cpu,'),1)
++        self.assertIn('_ea = (_ea + (uint32)cpu->Y) & 0xFFFFFFu;',source)
++        self.assertEqual(source.count('cpu_write16_timed(cpu,'),1)
++        self.assertIn('cpu_instruction_timing_commit(cpu);',source)
 +
 +
 +if __name__=='__main__':unittest.main()

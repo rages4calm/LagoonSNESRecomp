@@ -6,25 +6,29 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress — October 15, 2026
 
-Four additional gameplay routines now run as generated native code:
+Eight gameplay routines have been promoted in the October 15 batches:
 
 - Entity movement integration (`01:A4EB`).
 - Room-boundary clamping (`01:A56A`).
 - World-to-screen projection and visibility (`01:A5AA`).
 - Direction/speed-tier velocity selection (`02:80EA`).
+- Sprite graphics staging (`01:C579`).
+- Knockback state updates (`01:C5ED`).
+- Map/attribute quadrant sampling (`01:8385`).
+- Jump eligibility/input checks (`02:8199`).
 
 They use opt-in instruction-boundary timing and real bus-region costs. The
 7,219-frame movement/menu route matches the prior native control at all 18 dump
 tags, including framebuffer, WRAM, registers, VRAM, OAM, CGRAM and guest clock.
-Interpreted work falls from 72,427,712 to 70,655,953 instructions on that route.
-That is 2.45% less interpreted work, not a native-completion percentage.
+Interpreted work falls from the first batch's 70,655,953 to 63,863,965
+instructions on that route, another 9.61% reduction. This measures interpreted
+work on a bounded replay, not a native-completion percentage.
 
-The build generates 147 AOT variants and 18 declared LLE variants; additional
+The build generates 151 AOT variants and 18 declared LLE variants; additional
 runtime fallback remains available. The original opening-loop fix stays in place.
-The tile-row staging routine remains interpreted after a failed timing retry.
 Existing native-versus-pure-interpreter clock/state differences remain unresolved.
-Combat, progression, save/load, the full campaign and widescreen are not qualified.
-See [the evidence receipt](NATIVE-PROGRESS-2026-10-15.md) and [todo list](TODO.md).
+Combat, progression, save/load and the full campaign are not qualified.
+See [the current evidence receipt](NATIVE-BATCH2-2026-10-15.md) and [todo list](TODO.md).
 
 ## Launcher
 
@@ -34,8 +38,9 @@ Use `Start Lagoon.cmd` after building. It opens the shared
 with its existing config and save locations. The old pre-boot UI is excluded from
 the default build; it can be enabled explicitly for development.
 
-The initial Companion adapter exposes executable, ROM and native config paths.
-Display/audio/input controls and the QoL mod page still need full adapter integration.
+Companion exposes executable/ROM/config paths, native display/audio/gamepad
+settings, all nine QoL toggles and experimental widescreen aspects. Apply/Revert
+preserves unknown settings and controller bindings and detects stale edits.
 Existing native settings remain in `build/config.ini`, input in `build/keybinds.ini`,
 and saves in `build/saves`. The adapter does not migrate them.
 
@@ -72,15 +77,18 @@ rejected by this clean-ROM build. Generated C is ROM-derived and remains local.
 
 ## QoL and widescreen
 
-Existing optional walk-speed, camera and starting-stat plugins remain default-off.
-The supplied QoL BPS now decodes correctly and provides addresses for further
-work. It also contains FastROM remapping and instruction changes, so loading the
-whole patch into the interpreter alone would conflict with generated native code.
-Its data informs the implementation; it is not bundled or automatically applied.
+All nine requested QoL changes are implemented and default off. They use guarded
+ROM data changes and shared CPU write hooks, so generated native routines and
+the interpreter see the same gameplay values. The supplied BPS informed this
+work; it is not bundled or automatically applied. See
+[QoL implementation and limits](QOL-IMPLEMENTATION.md) for exact balance values
+and the distinction between synthetic tests and gameplay evidence.
 
-All requested changes, including sword reach, followers, recovery, starting stats,
-EXP, jump airtime, magic and modern widescreen aspects, are tracked in `TODO.md`.
-They are not all implemented. See `QOL-ADDRESSES.md` for the current reference.
+Optional widescreen draws additional world backgrounds in supported rooms at
+the original pixel scale, with 16:9, 16:10, 21:9, 32:9 and window-driven aspects.
+It remains experimental: off-screen NPC/enemy rendering, parallax and campaign
+coverage are unfinished. All four fixed aspects preserved guest state and native
+center pixels at 18 opening/town checkpoints. See [widescreen details](docs/WIDESCREEN.md).
 
 ## Source and publishing
 

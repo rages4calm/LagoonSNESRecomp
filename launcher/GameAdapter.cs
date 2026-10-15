@@ -24,11 +24,44 @@ public sealed class GameAdapter : JsonGameAdapterBase
             "Your clean ROM is checked before Play. The QoL-patched ROM is for analysis only."),
             new OptionDefinition("config.path", "Game", "Native settings file", OptionKind.Text,
             OptionValue.From(Path.Combine(Project, "build", "config.ini")),
-            "Uses your existing display, audio and input settings. Native saves stay beside the game.") });
+            "Select an existing file and Apply to load its settings. Native saves stay beside the game.") }.Concat(NativeSettings.Options).ToArray());
 
     public GameAdapter(string? dataRoot = null) : base(Game, new[] { new ProfileDescriptor("original", "Original", "original") }, dataRoot ??
         Environment.GetEnvironmentVariable("COMPANION_DATA_ROOT") ??
         CompanionDataPaths.DesktopRoot()) { }
+
+    public override SettingsSnapshot ReadSettings(ProfileDescriptor profile)
+    {
+        var paths = base.ReadSettings(profile);
+        foreach (var option in Definition.Options.Where(x => !NativeSettings.IsNative(x.Id)))
+            paths.Values.TryAdd(option.Id, option.DefaultValue.Clone());
+        return NativeSettings.Read(paths);
+    }
+
+    public override void ApplySettings(ProfileDescriptor profile, IReadOnlyDictionary<string, JsonElement> values, string expectedRevision)
+    {
+        var errors = OptionValidation.Validate(Definition, values).Concat(ValidateCustom(profile, values)).ToArray();
+        if (errors.Length > 0) throw new SettingsValidationException(errors);
+        Directory.CreateDirectory(ProfileDirectory(profile));
+        using var gate = new FileStream(Path.Combine(ProfileDirectory(profile), "native-settings.lock"),
+            FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        var current = ReadSettings(profile);
+        if (current.Revision != expectedRevision) throw new SettingsConflictException();
+        var stored = base.ReadSettings(profile);
+        // Changing a source path loads that file on the following refresh. Values
+        // from the previous source must never overwrite the newly selected file.
+        bool changingSource = new[] { "engine.path", "config.path" }.Any(key =>
+            values[key].GetString() != current.Values[key].GetString());
+        if (changingSource)
+            NativeSettings.ValidateSources(values);
+        var paths = stored.Values.Where(x => !NativeSettings.IsNative(x.Key))
+            .ToDictionary(x => x.Key, x => x.Value.Clone(), StringComparer.Ordinal);
+        foreach (var pair in values.Where(x => !NativeSettings.IsNative(x.Key))) paths[pair.Key] = pair.Value.Clone();
+        if (changingSource) Store(profile).Write(paths, stored.Revision);
+        else NativeSettings.Apply(current, values, () => {
+            if (ReadSettings(profile).Revision != expectedRevision) throw new SettingsConflictException();
+        }, () => Store(profile).Write(paths, stored.Revision));
+    }
 
     public override Readiness CheckReady(ProfileDescriptor profile, IReadOnlyDictionary<string, JsonElement> values)
     {
@@ -43,6 +76,7 @@ public sealed class GameAdapter : JsonGameAdapterBase
             return new(false, "Select the existing native config.ini, then Apply.");
         try
         {
+            NativeSettings.ValidateSources(values);
             using var stream = File.OpenRead(rom);
             var hash = Convert.ToHexString(SHA256.HashData(stream));
             return hash.Equals("46C811F0CACFFE8F20E1D63072D25D7C47E9BB3FD5124851FD05ACA9884D21FB", StringComparison.Ordinal)

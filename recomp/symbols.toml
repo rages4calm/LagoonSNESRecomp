@@ -142,10 +142,10 @@ note = "Sound handler, called from $02:D98E"
 name = "F_01C579"
 addr = "c579"
 bank = 1
-emit = false
+emit = true
 entry_m = 0
 entry_x = 0
-note = "Tile-row staging: remains interpreted; October 15 precise-root retry also failed clock parity. See NATIVE-PROGRESS-2026-10-15.md"
+note = "Sprite graphics staging; qualified after single pointer-read and instruction beam synchronization fixes. See NATIVE-BATCH2-2026-10-15.md"
 
 # Gameplay promotion batch, 2026-10-15. Ghidra boundaries cross-checked against
 # real route call entries (M1X0); retain the interpreter for uncovered variants.
@@ -184,3 +184,48 @@ emit = true
 entry_m = 1
 entry_x = 0
 note = "Reads direction/speed tier table into entity velocity; observed dispatcher target"
+
+[[func]]
+name = "Lagoon_Entity_UpdateKnockback"
+addr = "c5ed"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Updates transient entity movement flags, counter and velocity; JSR at 01:80BE"
+
+[[func]]
+name = "Lagoon_Map_SampleQuadrant"
+addr = "8385"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Map/attribute sample from indirect 16x16 world tables; hot observed call"
+
+[[func]]
+name = "Lagoon_Oam_StageSprite"
+addr = "8211"
+bank = 0
+emit = false
+entry_m = 1
+entry_x = 0
+note = "Interpreted: promotion failed CPU and clock parity on extended route"
+
+[[func]]
+name = "Lagoon_Entity_CheckJump"
+addr = "8199"
+bank = 2
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Checks input and initiates airborne state/velocity"
+
+[[func]]
+name = "Lagoon_Entity_UpdateProximity"
+addr = "81de"
+bank = 2
+emit = false
+entry_m = 1
+entry_x = 0
+note = "Interpreted: unproven call/continuation at 02:824A; not counted as native"

@@ -1,35 +1,44 @@
 # Lagoon continuation
 
-Owner request, October 15, 2026. Keep the interpreter safety net while moving
-measured gameplay work into generated native code. Prioritize correct execution
-and record route coverage separately from generated function counts.
+Keep the interpreter safety net and publish source in substantial, verified
+batches. Generated routine counts are not campaign completion percentages.
 
-- [x] First promotion batch: movement integration, clamping, projection and
-      velocity selection; 7,219-frame/18-tag replay matches prior native control.
-- [ ] Continue promoting gameplay routines using the Ghidra entry/call/dispatch reference;
-      measure actual interpreter work before/after and qualify matching routes.
-- [x] Replace the default SNESRecomp pre-boot UI with a basic adapter for
-      `C:\Users\crono\Desktop\Projects\CompanionLauncher`.
-- [ ] Extend Companion's adapter with native display/audio/input and QoL
-      controls. Initial adapter supports ROM/executable/config paths and Play.
-- [ ] Sword reach: right/down/left/up 28/17/28/27 -> 38/38/38/38 pixels.
-- [ ] Follower movement: 1 -> 3 pixels per applied movement frame.
-- [ ] Walking: 3 -> 5 pixels per applied movement frame. Existing optional
-      implementation needs verification against the supplied BPS.
-- [ ] Ordinary-hit protection: eight additional frames.
-- [ ] Starting stats: 18 HP, 11 base defense; recover the patch's level-2
-      growth changes rather than assuming a uniform bonus at every level.
-- [ ] Enemy and boss EXP: floor(original * 1.5).
-- [ ] Jump: eight-frame hold at the original peak, retaining movement.
-- [ ] Increase every magic power using the supplied hack's values as reference.
-- [ ] Immediate camera follow centered on Nasir; inspect existing optional
-      implementation and patch behavior, including room boundaries.
-- [ ] Optional widescreen for modern monitors: 16:9, 16:10, 21:9, 32:9 and
-      window-driven aspect within renderer limits. Study Star Fox Enhanced or
-      Mega Man X's framework integration; qualify Lagoon camera, map prefill,
-      sprite culling, HUD/dialogue, transitions and reset. Expanded view, not
-      simply stretching the original image.
+- [x] First four native roots: movement, clamping, projection and velocity.
+- [x] Second four: graphics staging, knockback, map sampling and jump checks.
+      The 7,219-frame/18-tag stock route matches the previous native control.
+- [ ] Continue native promotion from measured hot paths; resolve existing
+      native-versus-pure-interpreter timing differences. Keep 00:80E6 interpreted.
+- [x] Use CompanionLauncher 0.2.0 instead of the old pre-boot launcher.
+- [x] Native display/audio/gamepad settings, Apply/Revert, nine QoL toggles,
+      experimental widescreen aspects and preserved settings/bindings.
+- [x] Sword reach: guarded directional extents match the supplied BPS's +/-38.
+- [x] Followers: guarded ally tier-zero velocity +/-1 -> +/-3.
+- [x] Walking: Nasir-only velocity +/-3 -> +/-5; shared tier-two data and NPC/
+      enemy speeds stay stock. Measured in the actual town replay.
+- [x] Recovery: eight additional frame ticks after an ordinary hit; synthetic
+      actual-source and shared CPU write-bus checks pass.
+- [x] New-game opening: 18 HP/11 DEF; level 2 is 21 HP/13 DEF, level 3+ stock.
+      Current starting stats verified in the runtime opening route.
+- [x] Enemy/boss EXP: floor(original * 1.5), all 39/16 guarded template records.
+- [x] Jump peak hold: eight frame ticks; targeted fixture verifies the same peak
+      and landing eight frames later. Town normally disables jumping.
+- [x] Player magic: all nonzero player powers +50%, rounded down. Enemy powers
+      unchanged. This is an explicit balance choice; the BPS values are uneven.
+- [x] Immediate camera following, clamped to initialized room bounds.
+- [ ] Qualify ordinary combat, follower encounters, EXP awards, all spell casts,
+      equipment/level progression and actual jump-enabled rooms in gameplay.
+- [ ] Serialize optional hold timers for exact mid-hold save/load and rollback.
+      Current reset/load generation guards cancel stale host timers safely.
+- [x] Experimental additional world backgrounds at original pixel scale;
+      16:9, 16:10, 21:9, 32:9 and window-driven aspects.
+- [ ] Complete widescreen off-screen entity composition/graphics staging,
+      parallax, map bounds, room transitions, HUD/dialogue and campaign coverage.
+- [ ] Broader save/load, hardware controller and campaign/ending qualification.
 
-Patch reference: `C:\Users\crono\Downloads\Lagoon QoL.bps`. Analyze a private
-patched copy; preserve the clean ROM identity used by generation. Instruction
-changes must reach generated AOT code too, not only the interpreter's ROM view.
+Every QoL feature and widescreen defaults off. Exact implementation/evidence:
+[native batch](NATIVE-BATCH2-2026-10-15.md), [QoL](QOL-IMPLEMENTATION.md),
+[widescreen](docs/WIDESCREEN.md).
+
+The supplied BPS is a private reference. Keep the clean ROM identity for
+generation; runtime-only instruction patches would disagree with AOT code.
+Never publish ROMs, generated C, extracted graphics/audio, saves or captures.

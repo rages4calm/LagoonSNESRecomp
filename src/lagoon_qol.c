@@ -31,6 +31,7 @@
 #include "lagoon_qol.h"
 
 #include "mod_runtime.h"
+#include "cpu_state.h"
 #include "common_rtl.h" /* g_ram: WRAM, $7E:xxxx -> g_ram[addr] */
 
 #include <stdint.h>
@@ -55,7 +56,11 @@
  * "3 px/frame" is that value, and the dumps agree with it: 9 pixels per 7-frame
  * interval in which the direction was held for 6 frames. Tier 4 already holds
  * +-5, so "walking speed 5 px/frame" is this row, not a new number: the four
- * signed magnitudes 3, 3, -3, -3 become 5, 5, -5, -5.
+ * signed magnitudes 3, 3, -3, -3 become 5, 5, -5, -5 only in Nasir's
+ * velocity stores. The shared tier-two ROM row stays stock: enemies and NPCs
+ * also use it. The supplied BPS likewise preserves tier two and gives Nasir
+ * a separate tier-seven row. This filter avoids an instruction patch while
+ * preserving the same player-specific effect in both execution paths.
  *
  * Address in the file: bank $02 at LoROM offset 2 << 15, so bus $02:8149 is
  * file offset 0x10149.
@@ -69,22 +74,15 @@ static const uint8_t kWalkTier2Stock[16] = {
     0x00, 0x00, 0xFD, 0xFF, /* up:    vx 0, vy -3  */
 };
 
-static const uint8_t kWalkTier2Faster[16] = {
-    0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x00,
-    0xFB, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFB, 0xFF,
-};
-
 static int g_walk_speed_applied;
 
-/* Both feature flags live here because LagoonQol_OnRomLoaded, which runs first,
- * reads them for every feature; the camera one is set there from the runtime
- * query rather than from its activation callback. */
+/* Session flags reset at ROM load and enabled by feature activation. */
 static int g_camera_center;
 
 /* Declared by the package manifest, so the runtime requires it to exist. The
  * ROM patch above is the one that changes the game; this records that the
  * feature resolved, and is the place a RAM-writing feature would set its flag. */
-static void qol_walk_speed_activated(void) { g_walk_speed_applied = 1; }
+static void qol_walk_speed_activated(void) {}
 
 /* Starting and per-level maximum HP.
  *
@@ -97,10 +95,8 @@ static void qol_walk_speed_activated(void) { g_walk_speed_applied = 1; }
  * second entry is the 3 the menu shows. So level 1 is entry 1, entry 0 is unused,
  * and the owner's "Nasir starts with 18 HP" is entry 1 plus eight.
  *
- * Raising only entry 1 would leave level 2 at 17, *below* the new level 1, which
- * is why the request says "with adjusted level 2 growth": the whole curve moves by
- * eight, so every level keeps its original delta and level 2 becomes 25. The top
- * entries saturate at 255 rather than wrapping.
+ * Opening rebalance sets levels 1 and 2 to 18 and 21; level 3 remains 23.
+ * Later levels keep the original curve. This avoids a uniform end-game bonus.
  *
  * File offset: bank $01 at 1 << 15, so bus $01:E140 is file 0xE140 -- the same
  * mapping tools/dis.py uses, and confirmed by the curve and by both menus.
@@ -129,8 +125,7 @@ static const uint8_t kHpTableStock[QOL_HPTABLE_LEN] = {
  * `INC $052C`. Three tables in one page each matching a menu field is what
  * makes this a measurement.
  *
- * "11 base defense" is entry 1 plus six; the whole curve moves by six so the
- * level-to-level growth is preserved, exactly as for HP, saturating at 255.
+ * Opening defence is 11 at level 1 and 13 at level 2; level 3 onward is stock.
  */
 #define QOL_DEFTABLE_OFFSET 0xE0F8u
 #define QOL_STAT_ENTRIES 36u
@@ -145,28 +140,65 @@ static const uint16_t kDefTableStock[QOL_STAT_ENTRIES] = {
 
 static uint16_t qol_wram_read16(uint32_t addr);
 static void qol_wram_write16(uint32_t addr, uint16_t value);
-static void qol_def_frame(void);
+static uint8_t qol_filter_write(uint32_t addr, uint8_t value);
+static void qol_mechanics_frame(void);
 #define QOL_WRAM_HP 0x0520u /* party block: current HP, proven by damage and by the menu */
 #define QOL_WRAM_DEF 0x0526u /* party block: current defence, written as defence by $01:9541 */
 
 static int g_start_hp_applied;
+static int g_start_def_applied;
+static uint64_t g_qol_state_generation;
 static int g_def_written;
 
-/* $01:E0F8 is the level-up curve, not the starting value -- measured: patching it makes the
- * log report 11 while $7E:0526 still reads 5. The starting 5 comes from an initialiser that
- * has not been identified, so the delivered value is written once into the proven current-
- * defence field, after the party block exists, and is deliberately not re-asserted: a later
- * level-up recomputes defence from the shifted curve, which is the intended behaviour. */
-static void qol_start_hp_activated(void) {
-  g_def_written = 0;
-  g_start_hp_applied = 1;
-  snes_mod_register_frame_callback(qol_def_frame);
+/* New-game initialisation is recognised by the freshly cleared party block,
+ * not by a timer or by rewriting an existing save's defence. See QOL-IMPLEMENTATION.md. */
+static void qol_start_hp_activated(void) {}
+
+static int g_follower_speed, g_recovery_time, g_jump_hold;
+static int g_mechanics_registered;
+static void qol_register_mechanics(void) {
+  if (!g_mechanics_registered) {
+    snes_mod_register_frame_callback(qol_mechanics_frame);
+    g_mechanics_registered = 1;
+  }
 }
+static int g_recovery_armed, g_recovery_holding, g_recovery_frames;
+static int g_jump_armed, g_jump_holding, g_jump_frames;
+static void qol_follower_activated(void) { g_follower_speed = 1; }
+static void qol_recovery_activated(void) {
+  g_recovery_time = 1;
+  qol_register_mechanics();
+}
+static void qol_jump_activated(void) {
+  g_jump_hold = 1;
+  qol_register_mechanics();
+}
+static void qol_data_activated(void) {}
+
+void LagoonQol_ResetTransient(void) {
+  g_recovery_armed = g_recovery_holding = g_recovery_frames = 0;
+  g_jump_armed = g_jump_holding = g_jump_frames = 0;
+  g_def_written = 0;
+  g_qol_state_generation = RtlStateGeneration();
+}
+
+static void qol_check_timeline(void) {
+  if (g_qol_state_generation != RtlStateGeneration())
+    LagoonQol_ResetTransient();
+}
+
 
 void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
   g_walk_speed_applied = 0;
   g_start_hp_applied = 0;
+  g_start_def_applied = 0;
   g_camera_center = 0;
+  g_follower_speed = g_recovery_time = g_jump_hold = 0;
+  g_mechanics_registered = 0;
+  g_recovery_armed = g_recovery_holding = g_recovery_frames = 0;
+  g_jump_armed = g_jump_holding = g_jump_frames = 0;
+  LagoonQol_ResetTransient();
+  cpu_set_wram_write_filter_hook(qol_filter_write);
   /* Nothing camera-related is decided here. Its activation callback sets the flag
    * and registers the frame callback, and that runs after this hook (ROM is read
    * at host_main.c:3496, plugins are activated at 3522), so clearing here cannot
@@ -179,7 +211,7 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
   /* Each data patch is guarded on its own, so one refused patch cannot silence
    * another. With every feature off neither branch runs and the ROM image the
    * guest sees is byte-for-byte the one on disk. */
-  if (size > QOL_WALK_TIER2_OFFSET + sizeof(kWalkTier2Stock) &&
+  if (size >= QOL_WALK_TIER2_OFFSET + sizeof(kWalkTier2Stock) &&
       snes_mod_runtime_feature_enabled_c(QOL_PACKAGE_ID, "walk_speed")) {
     uint8_t *row = (uint8_t *)(uintptr_t)(rom + QOL_WALK_TIER2_OFFSET);
     if (memcmp(row, kWalkTier2Stock, sizeof(kWalkTier2Stock)) != 0) {
@@ -187,12 +219,11 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
               "lagoon.qol: walk_speed refused, $02:8149 does not hold the proven "
               "stock row\n");
     } else {
-      memcpy(row, kWalkTier2Faster, sizeof(kWalkTier2Faster));
       g_walk_speed_applied = 1;
-      fprintf(stderr, "lagoon.qol: walk_speed applied, tier 2 is now +-5 px (was +-3)\n");
+      fprintf(stderr, "lagoon.qol: walk_speed active, Nasir walks +-5 px; shared tier 2 remains stock\n");
     }
   }
-  if (size > QOL_HPTABLE_OFFSET + sizeof(kHpTableStock) &&
+  if (size >= QOL_HPTABLE_OFFSET + sizeof(kHpTableStock) &&
       snes_mod_runtime_feature_enabled_c(QOL_PACKAGE_ID, "start_hp")) {
     uint8_t *table = (uint8_t *)(uintptr_t)(rom + QOL_HPTABLE_OFFSET);
     if (memcmp(table, kHpTableStock, sizeof(kHpTableStock)) != 0) {
@@ -200,11 +231,9 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
               "lagoon.qol: start_hp refused, $01:E140 does not hold the proven "
               "stock level curve\n");
     } else {
-      /* Entry 0 is unused (the curve starts at level 1) and stays 0. */
-      for (unsigned i = 1; i < QOL_HPTABLE_LEN; i++) {
-        unsigned v = (unsigned)kHpTableStock[i] + QOL_HP_BONUS;
-        table[i] = (uint8_t)(v > 255u ? 255u : v);
-      }
+      /* Opening-only rebalance: level 3 remains the stock 23 HP. */
+      table[1] = 18;
+      table[2] = 21;
       g_start_hp_applied = 1;
       fprintf(stderr,
               "lagoon.qol: start_hp applied, level curve is now %u at level 1 and "
@@ -215,7 +244,7 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
     /* Defence is the same feature the owner described in one breath with HP, so
      * it rides the same switch, but it is guarded separately: a ROM whose defence
      * page differs still gets the HP half rather than losing both. */
-    if (size > QOL_DEFTABLE_OFFSET + sizeof(kDefTableStock)) {
+    if (size >= QOL_DEFTABLE_OFFSET + sizeof(kDefTableStock)) {
       uint8_t *dtable = (uint8_t *)(uintptr_t)(rom + QOL_DEFTABLE_OFFSET);
       int stock_matches = 1;
       for (unsigned i = 0; i < QOL_STAT_ENTRIES; i++) {
@@ -230,12 +259,11 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
                 "lagoon.qol: start_hp refused the defence curve, $01:E0F8 does not "
                 "hold the proven stock values\n");
       } else {
-        for (unsigned i = 1; i < QOL_STAT_ENTRIES; i++) {
-          unsigned v = (unsigned)kDefTableStock[i] + QOL_DEF_BONUS;
-          uint16_t w = (uint16_t)(v > 255u ? 255u : v);
-          dtable[i * 2] = (uint8_t)(w & 0xFF);
-          dtable[i * 2 + 1] = (uint8_t)(w >> 8);
-        }
+        g_start_def_applied = 1;
+        dtable[2] = 11;
+        dtable[3] = 0;
+        dtable[4] = 13;
+        dtable[5] = 0;
         fprintf(stderr,
                 "lagoon.qol: start_hp applied, defence is now %u at level 1 and "
                 "%u at level 2 (was %u and %u)\n",
@@ -245,19 +273,203 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
       }
     }
   }
+  if (snes_mod_runtime_feature_enabled_c(QOL_PACKAGE_ID, "sword_reach") && size >= 0xB710) {
+    static const uint8_t stock[32] = {
+      0,0,28,0,248,255,12,0,232,255,8,0,0,0,17,0,
+      228,255,0,0,244,255,8,0,248,255,24,0,239,255,0,0};
+    if (memcmp(rom + 0xB6F0, stock, sizeof(stock)) == 0) {
+      uint8_t *r = (uint8_t *)(uintptr_t)rom;
+      r[0xB6F2] = 38; r[0xB6FE] = 38;
+      r[0xB700] = 0xDA; r[0xB70C] = 0xDA;
+      fprintf(stderr, "lagoon.qol: sword_reach applied, directional extent 38 pixels\n");
+    } else fprintf(stderr, "lagoon.qol: sword_reach refused, stock rectangle differs\n");
+  }
+  if (snes_mod_runtime_feature_enabled_c(QOL_PACKAGE_ID, "magic_power") && size >= 0x131DE) {
+    /* Player projectile IDs 1..8; IDs 11 onward are enemy attacks, unchanged.
+     * All sixteen selected spell slots are included; zero/no-attack stays zero. */
+    static const uint16_t projectile[8] = {70,180,70,156,190,190,200,200};
+    static const uint16_t spells[16] = {0,0,240,350,0,200,300,380,0,0,320,400,0,0,350,500};
+    int matches = 1;
+    for (unsigned j=0;j<8;j++) {
+      size_t o=0xFFB9+j*2;
+      if ((uint16_t)(rom[o]|rom[o+1]<<8) != projectile[j]) matches=0;
+    }
+    for (unsigned j=0;j<16;j++) {
+      size_t o=0x131BE + j*2;
+      if ((uint16_t)(rom[o]|rom[o+1]<<8) != spells[j]) matches=0;
+    }
+    if (matches) {
+      uint8_t *r=(uint8_t *)(uintptr_t)rom;
+      for (unsigned j=0;j<24;j++) {
+        size_t o=j<8?0xFFB9+j*2:0x131BE + (j-8)*2;
+        unsigned old=j<8?projectile[j]:spells[j-8];
+        unsigned v=old+old/2;
+        r[o]=(uint8_t)v; r[o+1]=(uint8_t)(v>>8);
+      }
+      fprintf(stderr, "lagoon.qol: magic_power applied, all nonzero player powers +50%%\n");
+    } else fprintf(stderr, "lagoon.qol: magic_power refused, stock tables differ\n");
+  }
+
+  if (snes_mod_runtime_feature_enabled_c(QOL_PACKAGE_ID, "exp_boost") && size >= 0x30000) {
+    /* 018D25 copies record words +1..+11 into entity stats; the final word
+     * becomes 052A EXP, consumed by the death reward routine at 01B7E9. */
+    static const struct { uint32_t offset; uint16_t stock; } rewards[] = {
+      {0x29204, 2},
+      {0x29213, 1},
+      {0x29222, 3},
+      {0x29231, 4},
+      {0x29240, 5},
+      {0x2924F, 6},
+      {0x2925E, 5},
+      {0x2926D, 4},
+      {0x2927C, 6},
+      {0x2928B, 6},
+      {0x2929A, 7},
+      {0x292A9, 10},
+      {0x292B8, 9},
+      {0x292C7, 32},
+      {0x292D6, 20},
+      {0x292E5, 30},
+      {0x292F4, 22},
+      {0x29303, 30},
+      {0x29312, 35},
+      {0x29321, 40},
+      {0x29330, 52},
+      {0x2933F, 60},
+      {0x2934E, 80},
+      {0x2935D, 80},
+      {0x2936C, 90},
+      {0x2937B, 200},
+      {0x2938A, 120},
+      {0x29399, 160},
+      {0x293A8, 250},
+      {0x293B7, 300},
+      {0x293C6, 350},
+      {0x293D5, 130},
+      {0x293E4, 140},
+      {0x293F3, 150},
+      {0x29402, 350},
+      {0x29411, 400},
+      {0x29420, 0},
+      {0x2942F, 0},
+      {0x2943E, 0},
+      {0x2946D, 64},
+      {0x2947C, 250},
+      {0x2948B, 500},
+      {0x2949A, 800},
+      {0x294A9, 0},
+      {0x294B8, 0},
+      {0x294C7, 1500},
+      {0x294D6, 3000},
+      {0x294E5, 0},
+      {0x294F4, 0},
+      {0x29503, 0},
+      {0x29512, 0},
+      {0x29521, 0},
+      {0x29530, 0},
+      {0x2953F, 2000},
+      {0x2954E, 0},
+    };
+    int matches=1;
+    for (unsigned j=0;j<sizeof(rewards)/sizeof(rewards[0]);j++) {
+      size_t o=rewards[j].offset;
+      if ((uint16_t)(rom[o]|rom[o+1]<<8) != rewards[j].stock) matches=0;
+    }
+    if (matches) {
+      uint8_t *r=(uint8_t *)(uintptr_t)rom;
+      for (unsigned j=0;j<sizeof(rewards)/sizeof(rewards[0]);j++) {
+        size_t o=rewards[j].offset;
+        unsigned v=rewards[j].stock + rewards[j].stock/2;
+        r[o]=(uint8_t)v; r[o+1]=(uint8_t)(v>>8);
+      }
+      fprintf(stderr, "lagoon.qol: exp_boost applied, enemy/boss EXP +50%% rounded down\n");
+    } else fprintf(stderr, "lagoon.qol: exp_boost refused, stock reward words differ\n");
+  }
+
 }
 
-static void qol_def_frame(void) {
-  if (g_def_written) {
-    return;
+/* Called before canonical WRAM writes by both execution paths. No PC/register
+ * assumptions: older generated routines do not keep an architectural PC live. */
+static uint8_t qol_filter_write(uint32_t addr, uint8_t value) {
+  if (g_recovery_time || g_jump_hold || g_start_hp_applied) qol_check_timeline();
+  if (g_start_hp_applied && addr == 0x520 && value == 10 &&
+      qol_wram_read16(0x520) == 0 && g_ram[0x500] == 0xC0 &&
+      g_ram[0x52C] == 1 && g_ram[0x50B] == 0xFF &&
+      qol_wram_read16(0x522) == 0 && qol_wram_read16(0x524) == 0 &&
+      qol_wram_read16(0x526) == 0) {
+    g_def_written = 1; /* one matching new-game sequence, awaiting DEF */
+    return 18;
   }
-  if (qol_wram_read16(QOL_WRAM_HP) == 0) {
-    return; /* party block not initialised yet */
+  if (g_start_def_applied && g_def_written == 1 && addr == 0x526 && value == 5 &&
+      qol_wram_read16(0x520) == 18 && qol_wram_read16(0x524) == 10 &&
+      qol_wram_read16(0x522) == 3) {
+    g_def_written = 2;
+    return 11;
   }
-  g_def_written = 1;
-  qol_wram_write16(QOL_WRAM_DEF, (uint16_t)(5u + QOL_DEF_BONUS));
-  fprintf(stderr, "lagoon.qol: start_hp wrote defence %u (stock 5) into $7E:0526\n",
-          5u + QOL_DEF_BONUS);
+  if (g_walk_speed_applied && (addr == 0x506 || addr == 0x508) &&
+      (g_ram[0x500] & 0xC0) == 0xC0 && !(g_ram[0x501] & 0xC0) &&
+      g_ram[0x51A] == 2 && g_ram[0x50B] <= 3) {
+    /* Nasir only. Do not change the shared ROM tier used by enemies/allies,
+     * or the separately selected hurt/knockback velocity. Airborne horizontal
+     * walking remains eligible so the peak hold can extend moving jumps. */
+    if (value == 3) return 5;
+    if (value == 0xFD) return 0xFB;
+  }
+  if (g_follower_speed && addr >= 0x546 && addr < 0xD40 &&
+      ((addr - 0x500) % 0x40 == 6 || (addr - 0x500) % 0x40 == 8)) {
+    uint32_t base = 0x500 + ((addr - 0x500) / 0x40) * 0x40;
+    uint8_t mode = g_ram[base + 0x1B];
+    if (g_ram[0x4E1] && (g_ram[base] & 0xC0) == 0xC0 &&
+        g_ram[base + 0x18] == 1 && (mode == 0 || mode == 1 || mode == 3) &&
+        g_ram[base + 0x1A] == 0) {
+      /* Original tier zero has only -1,0,+1; high bytes stay FF/00. */
+      if (value == 1) return 3;
+      if (value == 0xFF) return 0xFD;
+    }
+  }
+  if (g_recovery_time) {
+    if (addr == 0x501 && (value & 0xC0) == 0x80 && !(g_ram[addr] & 0x80)) {
+      g_recovery_armed = 1;
+      g_recovery_holding = 0;
+      g_recovery_frames = 8;
+    }
+    if (addr == 0x512 && value == 6 && g_recovery_armed &&
+        (g_ram[0x501] & 0xC0) == 0x80) {
+      if (g_recovery_frames) {
+        g_recovery_holding = 1;
+        return 5; /* defer the engine's CMP #6 expiry for eight frame ticks */
+      }
+      g_recovery_armed = 0;
+    }
+  }
+  if (g_jump_hold && addr == 0x517 && (g_ram[0x501] & 0x20)) {
+    if (value == 5) {
+      g_jump_armed = 1;
+      g_jump_holding = 0;
+      g_jump_frames = 8;
+    } else if (value == 0xFF && g_ram[0x517] == 0 &&
+               g_ram[0x516] == 0x80 && g_jump_armed) {
+      if (g_jump_frames) {
+        g_jump_holding = 1;
+        g_ram[0x516] = 0; /* low byte was stored before this high-byte hook */
+        return 0;
+      }
+      g_jump_armed = 0;
+    }
+  }
+  return value;
+}
+
+static void qol_mechanics_frame(void) {
+  qol_check_timeline();
+  if (g_recovery_holding && g_recovery_frames) --g_recovery_frames;
+  if (g_jump_holding && g_jump_frames) --g_jump_frames;
+  if (!(g_ram[0x501] & 0x20)) {
+    g_jump_armed = g_jump_holding = g_jump_frames = 0;
+  }
+  if (!(g_ram[0x501] & 0x80)) {
+    g_recovery_armed = g_recovery_holding = g_recovery_frames = 0;
+  }
 }
 
 /* Immediate camera following.
@@ -331,6 +543,9 @@ static void qol_frame(void) {
   uint16_t y = qol_wram_read16(QOL_WRAM_ENTITY_Y);
   uint16_t right = qol_wram_read16(QOL_WRAM_ROOM_RIGHT);
   uint16_t bottom = qol_wram_read16(QOL_WRAM_ROOM_BOTTOM);
+  /* Keep title, uninitialised map and defeated-player screens untouched. */
+  if ((g_ram[0x500] & 0xC0) != 0xC0 || !qol_wram_read16(0x520) ||
+      right < QOL_FIELD_W || bottom < QOL_FIELD_H) return;
   uint16_t view_x = qol_clamp_view((long)x - QOL_FIELD_HALF_W, QOL_ROOM_EDGE_MARGIN,
                                    (long)right - QOL_FIELD_W);
   uint16_t view_y = qol_clamp_view((long)y - QOL_FIELD_HALF_H, QOL_ROOM_EDGE_MARGIN,
@@ -475,6 +690,12 @@ SNES_MOD_CONSTRUCTOR(lagoon_qol_register) {
                                       qol_start_hp_activated);
   snes_mod_register_activation_plugin("lagoon.qol.camera_center",
                                       qol_camera_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.exp_boost", qol_data_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.sword_reach", qol_data_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.magic_power", qol_data_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.follower_speed", qol_follower_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.recovery_time", qol_recovery_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.jump_hold", qol_jump_activated);
   snes_mod_register_activation_plugin("lagoon.qol.debug_position",
                                       qol_debug_position_activated);
 }
