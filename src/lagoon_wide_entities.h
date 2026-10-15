@@ -48,3 +48,7 @@ void LagoonWideEntities_BlankField(uint8_t *pixels, size_t pitch, unsigned width
 
 typedef struct LagoonWideSceneGate { uint64_t generation; unsigned key, fields; } LagoonWideSceneGate;
 int LagoonWideEntities_SceneSettled(LagoonWideSceneGate *gate, int ready, unsigned key, uint64_t generation);
+
+/* Mask only added pixels; native columns and row padding stay untouched. */
+void LagoonWideEntities_MaskRoomRow(uint8_t *pixels, unsigned width,
+    int world_x, int world_y, unsigned room_width, unsigned room_height);

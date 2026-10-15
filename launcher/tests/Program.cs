@@ -74,6 +74,31 @@ internal static class SettingsChecks
         try { controller.BuildLaunchPlan(); throw new Exception("Dirty Play accepted."); } catch (InvalidOperationException) { }
         controller.Reload(); Assert(!controller.HasChanges && controller.Snapshot.Values["audio.volume"].GetInt32() == 62, "Revert failed.");
         Assert(!controller.Snapshot.Values["video.widescreen"].GetBoolean(), "Experimental widescreen must default off.");
+        Assert(!controller.Snapshot.Values["video.enhanced-pixels"].GetBoolean(), "Enhanced pixels must default off.");
+        controller.SetOption("video.enhanced-pixels", OptionValue.From(true));
+        try { controller.Apply(); throw new Exception("Missing EPX files accepted."); } catch (InvalidDataException) { }
+        controller.Reload();
+        var shaderFolder = Path.Combine(root, "assets", "shaders"); Directory.CreateDirectory(shaderFolder);
+        var preset = Path.Combine(shaderFolder, "lagoon-epx.glslp"); var shader = Path.Combine(shaderFolder, "lagoon-epx.glsl");
+        File.WriteAllText(preset, "shader0=lagoon-epx.glsl\n"); File.WriteAllText(shader, "// synthetic revision fixture\n");
+        controller.Reload();
+        controller.SetOption("video.enhanced-pixels", OptionValue.From(true)); controller.Reload();
+        Assert(!controller.Snapshot.Values["video.enhanced-pixels"].GetBoolean(), "EPX Revert changed settings.");
+        var modsBeforeEpx = File.ReadAllBytes(state);
+        controller.SetOption("video.enhanced-pixels", OptionValue.From(true)); controller.Apply();
+        Assert(controller.Snapshot.Values["video.enhanced-pixels"].GetBoolean() && File.ReadAllText(config).Contains("Renderer = opengl") &&
+            File.ReadAllText(config).Contains("OutputMethod = OpenGL"), "EPX GPU selection failed.");
+        Assert(modsBeforeEpx.SequenceEqual(File.ReadAllBytes(state)), "EPX changed mod state.");
+        controller.SetOption("video.enhanced-pixels", OptionValue.From(false)); controller.Apply();
+        Assert(!File.ReadAllText(config).Contains("Shader =") && !File.ReadAllText(config).Contains("Renderer =") &&
+            !File.ReadAllText(config).Contains("OutputMethod ="), "EPX did not restore absent prior graphics keys.");
+        File.WriteAllText(config, File.ReadAllText(config).Replace("[Graphics]\r\n", "[Graphics]\r\nShader=custom-private.glslp\r\nRenderer=software\r\nOutputMethod=SDL-Software\r\n"), new UTF8Encoding(true));
+        controller.Reload(); controller.SetOption("video.enhanced-pixels", OptionValue.From(true)); controller.Apply();
+        controller.SetOption("video.enhanced-pixels", OptionValue.From(false)); controller.Apply();
+        Assert(File.ReadAllText(config).Contains("Shader = custom-private.glslp") && File.ReadAllText(config).Contains("Renderer = software") &&
+            File.ReadAllText(config).Contains("OutputMethod = SDL-Software"), "EPX did not restore custom graphics preferences.");
+        controller.SetOption("video.enhanced-pixels", OptionValue.From(true)); File.AppendAllText(shader, "// external edit\n");
+        ExpectConflict(controller); controller.Reload();
         controller.SetOption("audio.volume", OptionValue.From(35)); controller.SetOption("qol.walk_speed", OptionValue.From(true));
         controller.SetOption("video.widescreen", OptionValue.From(true)); controller.SetOption("video.wide-aspect", OptionValue.From("32:9")); controller.Apply();
         Assert(!controller.HasChanges && controller.Snapshot.Values["audio.volume"].GetInt32() == 35 && controller.Snapshot.Values["qol.walk_speed"].GetBoolean(), "Apply did not refresh committed sources.");

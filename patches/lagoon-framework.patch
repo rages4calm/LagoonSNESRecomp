@@ -314,7 +314,7 @@ index f9b1e26..8f515fe 100644
   * (DMA A-bus writes in snes_write, WMDATA $2180). wa = g_ram offset. */
  void wlog_addr_note_direct(uint32_t wa, uint8_t v, const char *via);
 diff --git a/runner/src/desktop/host_main.c b/runner/src/desktop/host_main.c
-index 3bc3905..8fbb1f5 100644
+index 3bc3905..e095dbf 100644
 --- a/runner/src/desktop/host_main.c
 +++ b/runner/src/desktop/host_main.c
 @@ -244,6 +244,29 @@ static const char *HostGetenv(const char *name) {
@@ -356,7 +356,24 @@ index 3bc3905..8fbb1f5 100644
  }
  
  // --- Scripted input ---
-@@ -2288,6 +2311,45 @@ static void SdlRenderer_EndDraw(void) {
+@@ -1482,6 +1505,16 @@ static void DrawPpuFrameWithPerf(void) {
+ 
+   ProfileEnd(kProfileCompose, profile_start);
+   profile_start = ProfileStart();
++  if (g_config.output_method == kOutputMethod_OpenGL) {
++    static int gl_display_shot_done;
++    const char *path = gl_display_shot_done ? NULL : HostGetenv("DISPLAY_SCREENSHOT");
++    const char *at = path ? HostGetenv("DISPLAY_SCREENSHOT_FRAME") : NULL;
++    if (path && (long)g_present_frame >= (at ? strtol(at, NULL, 0) : 1)) {
++      OpenGLRenderer_RequestScreenshotPath(path);
++      gl_display_shot_done = 1;
++      host_report_breadcrumb("OpenGL display screenshot requested at frame=%u",g_present_frame);
++    }
++  }
+   g_renderer_funcs.EndDraw();
+   ProfileEnd(kProfilePresent, profile_start);
+   RecordFrameTiming(g_present_frame);
+@@ -2288,6 +2321,45 @@ static void SdlRenderer_EndDraw(void) {
    /* SDL3's SDL_RenderTexture takes SDL_FRect, not SDL_Rect. */
    snesrecomp_sdl_render_texture(g_renderer, g_texture, &g_sdl_renderer_rect,
                                  &g_sdl_present_rect);
@@ -402,7 +419,7 @@ index 3bc3905..8fbb1f5 100644
    SDL_RenderPresent(g_renderer);
  }
  
-@@ -2649,14 +2711,16 @@ static void LauncherSeed(RecompLauncherCSettings *ls, RecompLauncherCGameInfo *g
+@@ -2649,14 +2721,16 @@ static void LauncherSeed(RecompLauncherCSettings *ls, RecompLauncherCGameInfo *g
    ls->enable_audio  = g_config.enable_audio;
    ls->audio_freq    = g_config.audio_freq;
    ls->volume        = g_config.volume;
@@ -423,7 +440,7 @@ index 3bc3905..8fbb1f5 100644
    ls->player_src[1] = ConfigHasPlayerSource(1) ? g_config.player_src[1]
                                                 : (g_config.enable_gamepad[1] ? 2 : 0);
    for (int seat = 2; seat < kSnesHostPadSeats && seat < RECOMP_LAUNCHER_MAX_PLAYERS; ++seat)
-@@ -2796,7 +2860,7 @@ static void LauncherCommit(const RecompLauncherCSettings *ls, const char *config
+@@ -2796,7 +2870,7 @@ static void LauncherCommit(const RecompLauncherCSettings *ls, const char *config
      /* Seats past the game's count are not on the launcher's page; keep them. */
      if (seat >= 2 && seat >= HostConfiguredSeats()) break;
      g_config.player_src[seat]     = ls->player_src[seat];
@@ -432,7 +449,7 @@ index 3bc3905..8fbb1f5 100644
    }
    g_config.gamepad_deadzone    = (ls->deadzone[0] * 32767 + 50) / 100;
    g_config.skip_launcher       = ls->skip_launcher != 0;
-@@ -3714,6 +3778,17 @@ error_reading:;
+@@ -3714,6 +3788,17 @@ error_reading:;
  
    PreparePpuFrame();
  
@@ -450,7 +467,7 @@ index 3bc3905..8fbb1f5 100644
    MkDir("saves");
    if (!g_netplay_session) RtlReadSram();
  
-@@ -4207,6 +4282,14 @@ error_reading:;
+@@ -4207,6 +4292,14 @@ error_reading:;
      bool runahead_captured = false;
      {
        const uint32 word = inputs | GetActiveControllers() | debug_server_get_controller_active_mask();
@@ -465,7 +482,7 @@ index 3bc3905..8fbb1f5 100644
        if (g_turbo || !snes_runahead_run_frame(word))
          RtlRunFrame(word);
        else
-@@ -4406,11 +4489,11 @@ error_reading:;
+@@ -4406,11 +4499,11 @@ error_reading:;
  static void PollKeyboardControls(const uint8_t *keys) {
    /* Replace the whole keyboard word so changing a seat to Gamepad/None also
     * releases keys held under its previous assignment. Hotkeys remain separate. */
@@ -480,7 +497,7 @@ index 3bc3905..8fbb1f5 100644
          ? keybinds_read_player_runner(keys, seat + 1) : 0;
  }
  
-@@ -4528,6 +4611,9 @@ static void HandleCommand(uint32 j, bool pressed) {
+@@ -4528,6 +4621,9 @@ static void HandleCommand(uint32 j, bool pressed) {
  
  static void HandleInput(int keyCode, int keyMod, bool pressed) {
    int j = FindCmdForSdlKey(keyCode, (SDL_Keymod)keyMod);
@@ -490,7 +507,7 @@ index 3bc3905..8fbb1f5 100644
    if (j != 0)
      HandleCommand(j, pressed);
  }
-@@ -4553,8 +4639,8 @@ static void RequestScreenshot(void) {
+@@ -4553,8 +4649,8 @@ static void RequestScreenshot(void) {
  
  static uint32 GetActiveControllers(void) {
    uint32 ctrl = g_script_controllers |
@@ -564,6 +581,69 @@ index 2743775..5c6bf9c 100644
    RegisterDefaultKeys();
  }
  
+diff --git a/runner/src/desktop/opengl.c b/runner/src/desktop/opengl.c
+index e9063a7..07a78e7 100644
+--- a/runner/src/desktop/opengl.c
++++ b/runner/src/desktop/opengl.c
+@@ -50,6 +50,7 @@ static unsigned int g_program, g_flash_program, g_VAO;
+ static GlTextureWithSize g_texture;
+ static GlslShader *g_glsl_shader;
+ static bool g_want_screenshot;
++static char g_screenshot_path[1024];
+ static double g_screenshot_flash_start_time = -1.0;
+ static const double kScreenshotFlashSeconds = 0.15;
+ 
+@@ -275,6 +276,13 @@ static void OpenGLRenderer_GetOutputSize(int *width, int *height) {
+ }
+ 
+ void OpenGLRenderer_RequestScreenshot(void) {
++  g_screenshot_path[0] = 0;
++  g_want_screenshot = true;
++}
++
++void OpenGLRenderer_RequestScreenshotPath(const char *path) {
++  if (!path || !*path || strlen(path) >= sizeof(g_screenshot_path)) return;
++  snprintf(g_screenshot_path, sizeof(g_screenshot_path), "%s", path);
+   g_want_screenshot = true;
+ }
+ 
+@@ -300,8 +308,9 @@ static void SaveScreenshotBmp(int width, int height) {
+   else
+     memset(&tm_snapshot, 0, sizeof(tm_snapshot));
+ 
+-  char path[256];
+-  snprintf(path, sizeof(path),
++  char path[1024];
++  if (g_screenshot_path[0]) snprintf(path, sizeof(path), "%s", g_screenshot_path);
++  else snprintf(path, sizeof(path),
+            "screenshots/screenshot_%04d%02d%02d_%02d%02d%02d.bmp",
+            tm_snapshot.tm_year + 1900, tm_snapshot.tm_mon + 1,
+            tm_snapshot.tm_mday, tm_snapshot.tm_hour, tm_snapshot.tm_min,
+@@ -337,7 +346,10 @@ static void SaveScreenshotBmp(int width, int height) {
+     fwrite(pixels, 1, pixel_size, f);
+     fclose(f);
+     printf("Screenshot saved: %s\n", path);
+-    g_screenshot_flash_start_time = MonotonicSeconds();
++    if (g_screenshot_path[0])
++      printf("Display screenshot: wrote %s (%dx%d) fullscreen=%d\n", path,
++             width, height, !!(SDL_GetWindowFlags(g_window) & SDL_WINDOW_FULLSCREEN));
++    else g_screenshot_flash_start_time = MonotonicSeconds();
+   } else {
+     fprintf(stderr, "Screenshot: couldn't open '%s' for writing\n", path);
+   }
+diff --git a/runner/src/desktop/opengl.h b/runner/src/desktop/opengl.h
+index e7ed472..40b41c0 100644
+--- a/runner/src/desktop/opengl.h
++++ b/runner/src/desktop/opengl.h
+@@ -24,6 +24,8 @@ void snesrecomp_opengl_set_viewport(void (*compute)(int, int, int, int,
+ 
+ /* Capture the next fully composited OpenGL frame to screenshots/*.bmp. */
+ void OpenGLRenderer_RequestScreenshot(void);
++/* Opt-in diagnostic capture to a caller-owned path, without the user flash. */
++void OpenGLRenderer_RequestScreenshotPath(const char *path);
+ 
+ #ifdef __cplusplus
+ }
 diff --git a/runner/src/host_args.c b/runner/src/host_args.c
 index b1c580a..2350ae1 100644
 --- a/runner/src/host_args.c

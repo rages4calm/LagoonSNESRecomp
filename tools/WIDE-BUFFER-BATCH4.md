@@ -83,7 +83,7 @@ deep margins x<-16 or x>=272, and added pixels are always transparent in the
 native256 columns. Unsupported live native objects in deep margins and
 capacity overflow disable the far producer for that frame.
 
-## Background and transient scope
+## Background and transient scope at batch 4 acceptance
 
 Exact resource fingerprints, not PPU layout alone, authorize expansion:
 
@@ -130,3 +130,16 @@ resource gates, pitch padding/native-center preservation and scene settlement.
 They complement runtime evidence; they do not certify all entities/campaign.
 Remaining scope includes special/death/boss forms, additional kinds/rooms,
 full campaign save/load visits, parallax, room edge policy and wider UI layout.
+
+
+## Batch 5 exterior extension
+
+The batch4 guard-exterior fallback above is historical. Current room2 support
+uses its exact BG128000/OBJ1A8000/definitions068E90/mapping fingerprint and
+requires DP53=DP55=64, a512x512 extent. A read-only beam raster observer records
+actual per-row scroll; the official mutable presentation compositor removes
+only added pixels outside that extent. Native columns are bit-preserved.
+Settlement, modal/loading fallback, captured-blank authority and atlas ownership
+are retained. See `docs/WIDESCREEN.md` for current evidence and limitations.
+The all-input outdoor route has no RAM writes; its town doorway works naturally.
+The cave-entry transient route retains its explicitly declared guard fixture.

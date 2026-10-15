@@ -398,10 +398,10 @@ note = "Batch 4 qualified M1/X0 precise root; bounded damage/boss evidence in NA
 name = "Lagoon_Death_StopVelocity"
 addr = "92f1"
 bank = 1
-emit = false
+emit = true
 entry_m = 1
 entry_x = 0
-note = "Kept interpreted: branch-arrival routine did not enter the generated body in measured death fixtures"
+note = "Batch5 qualified: actual boss defeat JSR9306 supplies genuine native call entry"
 
 [[func]]
 name = "Lagoon_Boss_ProjectFrameOffset"
@@ -434,10 +434,10 @@ note = "Batch 4 qualified M1/X0 precise root; bounded damage/boss evidence in NA
 name = "Lagoon_Boss_UpdateQuake"
 addr = "ddad"
 bank = 1
-emit = false
+emit = true
 entry_m = 1
 entry_x = 0
-note = "Kept interpreted: D8F6 JMP arrival has no native call-frame contract; compiled candidate showed no native execution"
+note = "Batch5 qualified: exact room-dispatch table and D8DA caller root supply native tail arrival"
 
 [[func]]
 name = "Lagoon_Combat_SelectHitDirection"
@@ -447,3 +447,39 @@ emit = true
 entry_m = 1
 entry_x = 0
 note = "Batch 4 qualified M1/X0 precise root and both tail targets; complete four-word table, horizontal/vertical real-hit parity"
+
+[[func]]
+name = "Lagoon_Room_UpdateHazards"
+addr = "d8da"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch5 qualified: complete room dispatch table; only first-boss quake handler compiled"
+
+[[func]]
+name = "Lagoon_Boss_BeginDeathAnimation"
+addr = "9346"
+bank = 1
+emit = false
+entry_m = 1
+entry_x = 0
+note = "Deferred: unresolved shared renderer return widths; remains interpreted"
+
+[[func]]
+name = "Lagoon_Combat_CalculateDamage"
+addr = "ba6b"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch5 qualified: LLE HP wrapper, live return-width dispatch; damage/revival/boss parity"
+
+[[func]]
+name = "Lagoon_Boss_CheckPlayerContact"
+addr = "b730"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch5 qualified: LLE player-hit wrapper, live return-width dispatch; damage/revival/boss parity"

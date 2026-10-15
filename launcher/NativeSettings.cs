@@ -47,10 +47,25 @@ internal static class NativeSettings
         new("audio.soundtrack-folder", "Audio", "Imported X68000 music folder", OptionKind.Text, OptionValue.From(""),
             "Select the folder produced by the VGZ importer. No MP3 files are needed. See the soundtrack setup guide for your local pack location.")
     };
-    internal static IEnumerable<OptionDefinition> Options => Fields.Select(x => x.Option).Concat(SoundtrackOptions).Concat(Features.Select(id =>
+    private static readonly OptionDefinition EnhancedPixels = new("video.enhanced-pixels", "Display", "Enhanced original pixels (EPX)", OptionKind.Boolean,
+        OptionValue.From(false), "Crisper diagonal edges with the original colors and readable HUD. Selects the OpenGL GPU renderer; turning it off restores previous shader/renderer settings. Restart after Apply. This does not redraw artwork or change movement.");
+    private static readonly string[] EpxKeys = { "Shader", "Renderer", "OutputMethod", "LinearFiltering" };
+    private const string EpxBackupKey = "EpxPreviousGraphicsV1";
+    private static string EpxPreset(IReadOnlyDictionary<string, JsonElement> values) =>
+        Path.Combine(Path.GetDirectoryName(values["engine.path"].GetString()!)!, "assets", "shaders", "lagoon-epx.glslp");
+    private static bool IsEpx(Document ini, IReadOnlyDictionary<string, JsonElement> values)
+    {
+        var shader = ini.IniValue("Graphics", "Shader")?.Replace('\\', '/');
+        return shader != null && (shader.Equals("assets/shaders/lagoon-epx.glslp", StringComparison.OrdinalIgnoreCase) ||
+            shader.Equals(EpxPreset(values).Replace('\\', '/'), StringComparison.OrdinalIgnoreCase));
+    }
+    private static byte[] GraphicsRevision(IReadOnlyDictionary<string, JsonElement> values) => Encoding.UTF8.GetBytes(
+        Hash(ReadBytes(EpxPreset(values))) + Hash(ReadBytes(Path.ChangeExtension(EpxPreset(values), ".glsl"))));
+    internal static IEnumerable<OptionDefinition> Options => Fields.Take(3).Select(x => x.Option).Append(EnhancedPixels)
+        .Concat(Fields.Skip(3).Select(x => x.Option)).Concat(SoundtrackOptions).Concat(Features.Select(id =>
         new OptionDefinition("qol." + id, "Quality of life", FeatureLabel(id), OptionKind.Boolean, OptionValue.From(false),
             id == "start_hp" ? "New-game starting stats and level-two growth. Does not rewrite an existing save." : "Optional native gameplay change. Restart the game after Apply.")));
-    internal static bool IsNative(string id) => Fields.Any(x => x.Id == id) || SoundtrackOptions.Any(x => x.Id == id) || Features.Any(feature => id == "qol." + feature);
+    internal static bool IsNative(string id) => id == EnhancedPixels.Id || Fields.Any(x => x.Id == id) || SoundtrackOptions.Any(x => x.Id == id) || Features.Any(feature => id == "qol." + feature);
     private static string Config(IReadOnlyDictionary<string, JsonElement> values) => values["config.path"].GetString()!;
     private static string State(IReadOnlyDictionary<string, JsonElement> values) =>
         Path.Combine(Path.GetDirectoryName(values["engine.path"].GetString()!)!, "mods", "preloaded", "state.toml");
@@ -59,7 +74,7 @@ internal static class NativeSettings
     private static string SoundtrackManifest(IReadOnlyDictionary<string, JsonElement> values) =>
         Path.Combine(Path.GetDirectoryName(State(values))!, "packages", "lagoon.soundtrack", "1.0.0", "manifest.toml");
     private static byte[] ManifestRevision(IReadOnlyDictionary<string, JsonElement> values) => Encoding.UTF8.GetBytes(
-        Hash(ReadBytes(Manifest(values))) + Hash(ReadBytes(SoundtrackManifest(values))));
+        Hash(ReadBytes(Manifest(values))) + Hash(ReadBytes(SoundtrackManifest(values))) + Hash(GraphicsRevision(values)));
     private static string Hash(byte[]? bytes) => bytes == null ? "missing" : Convert.ToHexString(SHA256.HashData(bytes));
     private static string Revision(string launcher, string config, byte[]? ini, string state, byte[]? mods, byte[]? manifest) =>
         Hash(Encoding.UTF8.GetBytes(string.Join("\n", launcher, config, Hash(ini), state, Hash(mods), Hash(manifest))));
@@ -77,6 +92,7 @@ internal static class NativeSettings
         foreach (var id in Features) paths.Values["qol." + id] = OptionValue.From(mods.Feature(id) ?? false);
         paths.Values["audio.soundtrack"] = OptionValue.From(mods.Feature("x68000", "lagoon.soundtrack") == true ? "x68000" : "snes");
         paths.Values["audio.soundtrack-folder"] = OptionValue.From(mods.SoundtrackFolder() ?? "");
+        paths.Values[EnhancedPixels.Id] = OptionValue.From(IsEpx(ini, paths.Values));
         return new(paths.Values, Revision(paths.Revision, config, ini.Original, state, mods.Original, manifest));
     }
     private static JsonElement Parse(OptionDefinition option, string value)
@@ -101,6 +117,13 @@ internal static class NativeSettings
                 throw new InvalidDataException(error);
         foreach (var id in Features) _ = state.Feature(id);
         _ = state.Feature("x68000", "lagoon.soundtrack"); _ = state.SoundtrackFolder();
+        if (values.TryGetValue(EnhancedPixels.Id, out var enhanced) && enhanced.GetBoolean())
+        {
+            if (!File.Exists(EpxPreset(values)) || !File.Exists(Path.ChangeExtension(EpxPreset(values), ".glsl")))
+                throw new InvalidDataException("The selected native build is missing its EPX shader files. Install the matching assets/shaders folder.");
+            if (values["video.filter"].GetBoolean())
+                throw new InvalidDataException("Turn Smooth scaling off when selecting enhanced pixels; EPX uses exact original colors.");
+        }
         if (values.TryGetValue("audio.soundtrack", out var soundtrack) && soundtrack.GetString() == "x68000")
         {
             var package = Document.Read(SoundtrackManifest(values));
@@ -134,6 +157,33 @@ internal static class NativeSettings
                     OptionKind.Boolean => values[field.Id].GetBoolean() ? "1" : "0",
                     OptionKind.Integer => values[field.Id].GetInt32().ToString(System.Globalization.CultureInfo.InvariantCulture),
                     _ => values[field.Id].GetString()! });
+        if (values[EnhancedPixels.Id].GetBoolean() != current.Values[EnhancedPixels.Id].GetBoolean())
+        {
+            if (values[EnhancedPixels.Id].GetBoolean())
+            {
+                var previous = EpxKeys.ToDictionary(key => key, key => ini.IniValue("Graphics", key));
+                ini.SetIni("Lagoon", EpxBackupKey, Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(previous))));
+                ini.SetIni("Graphics", "Shader", EpxPreset(values).Replace('\\', '/'));
+                ini.SetIni("Graphics", "Renderer", "opengl");
+                ini.SetIni("Graphics", "OutputMethod", "OpenGL");
+                ini.SetIni("Graphics", "LinearFiltering", "0");
+            }
+            else
+            {
+                if (ini.IniValue("Lagoon", EpxBackupKey) is { } encoded)
+                {
+                    Dictionary<string, string?> previous;
+                    try { previous = JsonSerializer.Deserialize<Dictionary<string, string?>>(Convert.FromBase64String(encoded))!;
+                        if (previous == null || previous.Count != EpxKeys.Length || EpxKeys.Any(key => !previous.ContainsKey(key)) ||
+                            previous.Values.Any(value => value != null && (value.Contains('\n') || value.Contains('\r')))) throw new FormatException(); }
+                    catch (Exception ex) when (ex is FormatException or JsonException) { throw new InvalidDataException("Invalid saved EPX graphics preferences; config was not changed.", ex); }
+                    foreach (var key in EpxKeys)
+                        if (previous[key] is { } value) ini.SetIni("Graphics", key, value); else ini.RemoveIni("Graphics", key);
+                    ini.RemoveIni("Lagoon", EpxBackupKey);
+                }
+                else ini.SetIni("Graphics", "Shader", "");
+            }
+        }
         foreach (var id in Features)
             if (values["qol." + id].GetRawText() != current.Values["qol." + id].GetRawText())
                 mods.SetFeature(id, values["qol." + id].GetBoolean());
@@ -265,6 +315,10 @@ internal static class NativeSettings
                 else lines.Insert(start + 1, key + " = " + value);
             }
             Changed = true;
+        }
+        internal void RemoveIni(string section, string key)
+        {
+            foreach (var index in IniMatches(section, key).OrderDescending()) { lines.RemoveAt(index); Changed = true; }
         }
         private (int Start, int End)? FeatureBlock(string id, string packageId = "lagoon.quality")
         {

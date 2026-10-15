@@ -42,6 +42,21 @@
       "route_sha256": "5213a6fa4633f2306fb325a03ac2b521ada0b43205d9ce4c9a5a1a5828c450f0",
       "png_sha256": "e2a8d067f3c2858ab215a5a6a72121d9993922c7177399977e7781a984f07dcf",
       "capture": "SDL renderer output readback before Present; lossless BMP to PNG"
+    },
+    {
+      "file": "atland-epx-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "aspect": "16:9",
+      "frame": 1750,
+      "fullscreen": true,
+      "video_driver": "windows",
+      "camera_center": true,
+      "exe_sha256": "13ce550c4ccdf0f5fc214abe9067e89e5dbbce31e70d1d8734922e063b35e439",
+      "route_sha256": "d4cc012887defcf60001b2d2ccb8fc5226ee2da7c526d2628ed57151cb3157f2",
+      "png_sha256": "524a7e5cb5b2d42b5d3c7737b5d20d359fd9998c60612793a4e1f719f3739c37",
+      "capture": "Actual OpenGL post-EPX readback before Swap; lossless BMP to PNG, no scale",
+      "treatment": "EPX; source colors; sharp bottom HUD"
     }
   ],
   "accepted_build_exe_sha256": "904d218f875e4ebd877e9f5df4b85aecf901efbdc70fd7b04c26d9822fcf752b",

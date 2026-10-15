@@ -11,16 +11,17 @@ This renders additional world tiles at their original pixel scale. It does not
 stretch the native image. BG3 text/HUD remains centered at native size. Titles,
 menus with other PPU layouts, parallax rooms, BG1/BG2 mosaic, and unsupported map modes keep
 their native field. Expansion is currently enabled only for the exact resource
-combinations qualified in Atland (room0) and Gold Cave (room3). Matching PPU
+combinations qualified in Atland (room 0), the guard exterior (room 2), and Gold
+Cave (room 3). Matching PPU
 layout alone is insufficient. Other rooms use a clean centered native fallback.
 Room loading (`$100E`) and BG3 modal overlays also force that fallback; actual
 VRAM-write observation catches loading/menu changes within a simulated frame.
 The official presentation compositor also blanks only the margins whenever the
-completed frame selected native fallback, preserving all256 native columns.
+completed frame selected native fallback, preserving all 256 native columns.
 RAM can name the next room while the completed raster still shows the previous
 room, so expansion requires three consecutive ready resource observations (two
 prior completed boundaries). Loading, resource changes and timeline jumps reset
-that settlement. A391-present cave-entry audit includes the previously corrupt
+that settlement. A 391-present cave-entry audit includes the previously corrupt
 single frame and checks clean fallback throughout the unsupported exterior,
 then expansion once the cave raster is settled.
 
@@ -150,13 +151,13 @@ atlas load safely hides far actors.
 
 Deep-margin objects share the game's unsigned ground-Y order and entity-index
 tie order. The near seam preserves exact original OAM slots, and added objects
-have zero opacity throughout the native256 pixels. Unsupported native objects
+have zero opacity throughout the native 256 pixels. Unsupported native objects
 in the deep margin or an over-capacity buffer disable the far producer for that
 frame. Death, bosses, special/player packs, unrecognized kinds, more rooms and
 complete campaign coverage remain unfinished.
 
-Actual32:9 walking captures include a far-right NPC with216/216 opaque source
-pixels matching current VRAM/CGRAM colors, and a far-left cave enemy with476/476
+Actual32:9 walking captures include a far-right NPC with 216/216 opaque source
+pixels matching current VRAM/CGRAM colors, and a far-left cave enemy with 476/476
 matching pixels. Their origins are beyond the native[-96,352) horizontal active
 buffer. Town/cave/menu paired routes cover63 tags with exact native framebuffer,
 WRAM, registers, VRAM, OAM, CGRAM, SRAM and guest clock. The cave route declares
@@ -169,10 +170,10 @@ Inventory and Start overlays now keep clean native margins, including when the
 menu writes its BG3 map after the frame starts. A stable inventory/open/return
 route additionally checks that expanded scenery resumes after closing.
 
-The guard exterior (room2) exposed patterned white out-of-room fill and colored
-edge corruption during room loading. It is outside the qualified resource set
-and now uses native fallback. This does not claim an outdoor-map decoder repair.
-Future room expansion needs its own map/graphics/bounds and transition proof.
+The guard exterior (room 2) exposed patterned white out-of-room fill and colored
+edge corruption during batch 4. Its original native fallback is now superseded
+by the bounded exterior support below. Other room expansion still needs its
+own map/graphics/bounds and transition proof.
 
 ## Reproduce the map check
 
@@ -213,8 +214,75 @@ the framework's `docs/WIDESCREEN_PATTERNS.md` invariants during that work.
 The bounded menu/far-actor/transition checks bind to
 `lagoon-batch4-settled.exe`, SHA256
 `904d218f875e4ebd877e9f5df4b85aecf901efbdc70fd7b04c26d9822fcf752b`.
-The63 tag comparison includes seven binary components plus guest clock; the
+The 63 tag comparison includes seven binary components plus guest clock; the
 391-present audit separately preserves the native center and checks transient
 margins. The ROM-free regressions cover native-center/pitch padding preservation
 and scene settlement across room/load/timeline changes. Public fullscreen
 captures have their separate source/display provenance in `docs/screenshots`.
+
+## Guard exterior boundaries (batch 5)
+
+The 512 by 512 guard exterior now shows additional scenery inside its real room
+extent. Pixels beyond that extent are black in the added margins; the native
+256 columns remain unchanged. This prevents the opaque patterned fill 29 from
+appearing as white/yellow garbage beyond the map. Black outside the small room
+on an ultrawide display represents its actual boundary.
+
+The exact room 2 sources are BG128000, OBJ1A8000, definitions068E90 for both
+layers, and maps7F0000/7F4000. Direct-page words53/55 specify dimensions in 8-pixel
+units; this fingerprint requires both 64. The existing beam-driver read-only
+observer records actual horizontal/vertical scroll on every rendered line.
+The final compositor masks added pixels using these raster coordinates and the
+real extent, including the SNES scrollY+1 first output row. Missing raster rows
+or an unsupported layer/resource combination retain clean native fallback.
+The three-field settlement, loader/menu gates, atlas ownership and actor rules
+from batch 4 remain in place.
+
+`tools/script_wide_outdoor.txt` uses ordinary input for both horizontal bounds,
+Start/inventory, closing, the town door in both directions and reset. It has no
+RAM writes or debug positions. The separate cave-entry transient fixture still
+declares its original guard bypass before entering the cave.
+
+Three scenery samples account for 161,952 added pixels inside the map:
+161,920 match independently decoded map/VRAM/CGRAM background colors; the other
+32 are the exact pixels and actual colors of uploaded guard OAM slots 0/1,
+whose Y242 wraps across the output top. Their coordinate-set hashes match all
+32 background occlusions. This is bounded source/pixel evidence, not full
+campaign coverage or new art.
+
+The qualification harness now disables physical keyboard/gamepad seats only
+in each private run config. Script input remains active. This prevents live
+controller presses from contaminating replays. `--live-input` explicitly opts
+into merged input, and `--input-trace` records actual guest input words; the
+receipt records the isolation setting and effective config hash.
+
+Reproduce the outdoor check with private inputs:
+
+```
+python -P tools/qualify_native.py --exe <candidate.exe> --manifest <matching-manifest.json> --route tools/script_wide_outdoor.txt --frames 10000 --features camera_center --config <private-wide.ini> --env LAGOON_WIDE_ASPECT=32:9 --env LAGOON_WIDE_ENTITY_REPORT=entities.txt --input-trace --screenshot-range 2650 3100 --out <new-private-output>
+python -P tools/verify_wide_outdoor.py --run <wide-output> --bounds <wide-output>/entities.txt.bounds.tsv --control <normal-output> --rom <private.sfc> --texture-tag outdoor-left --texture-tag outdoor-right --texture-tag outdoor-middle --out <private-report.json>
+```
+
+The trace contains captured row anchors and the checks fail rather than guess
+if these fixtures gain nonuniform per-line scrolling. The renderer itself
+retains each row's coordinate separately. Inventory remains native-width;
+redesigning title/intro/menu layout is separate unfinished work.
+
+Batch 5 presentation acceptance binds to `lagoon-batch5-top.exe`, SHA256
+`13ce550c4ccdf0f5fc214abe9067e89e5dbbce31e70d1d8734922e063b35e439`.
+The isolated ordinary-input route has 35 checkpoints matching all seven binary
+components and guest clock with widescreen off/on and the retained 904d baseline.
+The cave transient has 40 matching checkpoints against its retained isolated
+normal control. All 2,505 actual presentation captures preserve the native center:
+451 walking, 922 menu, 741 doorway and 391 cave-entry captures. Across those runs,
+102,875,872 margin pixel observations required to be black by room bounds or
+native fallback are black. These are repeated observations, not unique assets.
+The previously corrupt frame 2864 is included. Start/inventory are visibly open
+at full brightness with black margins; closing restores 57,344 mapped margin
+pixels. Both ordinary town-door directions and reset are exercised.
+
+`tools/test_wide_entities.ps1` additionally applies the production bounds mask
+to actual PPU-rendered pixels, preserving in-map colors and every native column
+while removing out-of-map colors. The source captures above precede optional GPU
+visual filters; fullscreen/display provenance is recorded separately. Failed
+probes that merged physical input with scripts are excluded from acceptance.

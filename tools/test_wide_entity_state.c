@@ -63,6 +63,24 @@ static void modal(void) {
   LagoonWideEntities_BlankMargins(depth,272,213,213);
   for(unsigned i=0;i<800;++i)assert(depth[i]==((i>=59&&i<272)||(i>=528&&i<741)?0x0500:0x9999));
 }
+static void room_bounds(void) {
+  uint8_t pixels[344*4];
+  for(int world_x=-4;world_x<=260;world_x+=132)for(int world_y=-1;world_y<=512;world_y+=513) {
+    memset(pixels,0x91,sizeof(pixels));
+    LagoonWideEntities_MaskRoomRow(pixels,342,world_x,world_y,512,512);
+    for(unsigned x=0;x<344;++x)for(unsigned b=0;b<4;++b) {
+      int sx=(int)x-43;
+      int clipped=x<342 && (sx<0 || sx>=256) &&
+          (world_y<0 || world_y>=512 || world_x+sx<0 || world_x+sx>=512);
+      assert(pixels[x*4+b]==(clipped?0:0x91));
+    }
+  }
+  memset(pixels,0x91,sizeof(pixels));
+  LagoonWideEntities_MaskRoomRow(pixels,342,0,511,512,512);
+  assert(pixels[0]==0 && pixels[43*4]==0x91 && pixels[341*4]==0x91);
+  LagoonWideEntities_MaskRoomRow(pixels,342,256,511,512,512);
+  assert(pixels[299*4]==0 && pixels[298*4]==0x91 && pixels[342*4]==0x91);
+}
 static void scene_settlement(void) {
   LagoonWideSceneGate g={0};
   assert(!LagoonWideEntities_SceneSettled(&g,1,1,7));
@@ -85,10 +103,11 @@ static void field_fallback(void) {
 }
 static void audited_rooms(void) {
   assert(LagoonWideEntities_AuditedRoom(0,0x138000,0x198000,0x068000,0x068000,0x7f0000,0x7f4000));
+  assert(LagoonWideEntities_AuditedRoom(2,0x128000,0x1a8000,0x068e90,0x068e90,0x7f0000,0x7f4000));
   assert(LagoonWideEntities_AuditedRoom(3,0x128b77,0x1d8000,0x069298,0x069298,0x7f0000,0x7f4000));
   assert(!LagoonWideEntities_AuditedRoom(2,0x138000,0x198000,0x068000,0x068000,0x7f0000,0x7f4000));
   assert(!LagoonWideEntities_AuditedRoom(0,0x128b77,0x198000,0x068000,0x068000,0x7f0000,0x7f4000));
   assert(!LagoonWideEntities_AuditedRoom(0,0x138000,0x198000,0x068000,0x069298,0x7f0000,0x7f4000));
   assert(!LagoonWideEntities_AuditedRoom(3,0x128b77,0x1d8000,0x069298,0x069298,0x7f0000,0x7f8000));
 }
-int main(void){animation();ownership();modal();audited_rooms();field_fallback();scene_settlement();puts("wide actor state: pure post-frame/step, idle/variant/refusal, segmented atlas, partial/wrong-room/overwrite/reset PASS");return 0;}
+int main(void){animation();ownership();modal();audited_rooms();field_fallback();scene_settlement();room_bounds();puts("wide actor state: pure post-frame/step, idle/variant/refusal, segmented atlas, partial/wrong-room/overwrite/reset PASS");return 0;}

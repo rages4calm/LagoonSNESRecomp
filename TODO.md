@@ -10,7 +10,9 @@ batches. Generated routine counts are not campaign completion percentages.
       level 2, gold saturation, temporary bonus and equipment comparisons.
 - [x] Six more roots: horizontal/vertical player hit direction and boss drawing
       helpers. Real player damage/death and first-boss damage retain exact parity.
-- [ ] Promote HP subtraction, death/revival and boss phase/quake orchestration
+- [x] Native damage calculation, boss player-contact, death-stop velocity and
+      room-hazard/first-boss quake dispatch; exact damage/revival/defeat parity.
+- [ ] Promote HP subtraction, death/revival and remaining boss-phase orchestration
       only after proving their indirect and nonlocal stack continuations.
 - [ ] Continue native promotion from measured hot paths; resolve existing
       native-versus-pure-interpreter timing differences. Keep 00:80E6 interpreted.
@@ -42,10 +44,9 @@ batches. Generated routine counts are not campaign completion percentages.
       16:9, 16:10, 21:9, 32:9 and window-driven aspects.
 - [ ] Complete widescreen off-screen entity composition/graphics staging,
       parallax, map bounds, room transitions, HUD/dialogue and campaign coverage.
-- [ ] Reconstruct the outdoor room-2 scenery resources before enabling its
-      wider field; mask beyond its real 512×512 extent instead of exposing fill
-      metatile 29. Dimensions are DP53/55 words multiplied by 8. Retain clean
-      native fallback while its margin data is unproven.
+- [x] Expand audited outdoor room 2 using actual raster scroll anchors and
+      mask beyond its real 512 by 512 extent. Natural walking, menu, doors and
+      reset checks preserve native center/state/timing; unknown resources fallback.
 - [ ] Adapt title/intro backdrops, the Start/status menu and inventory layout
       for wider displays. Their current native-width fallback is intentional.
 - [x] Reconstruct OAM-matched normal NPC and enemy margin cells; reject stale
@@ -53,10 +54,13 @@ batches. Generated routine counts are not campaign completion percentages.
 - [x] Import all 40 user-supplied X68000 VGZ tracks privately with loop points.
 - [ ] Finish optional soundtrack scene mappings and campaign transition/audio
       qualification. Initial replacement covers only opening, Atland and cave.
+- [x] Optional original-art EPX smoothing with sharp HUD, reversible Companion
+      settings and actual full-HD GPU capture checks. Full retexture shelved.
+- [ ] Broader EPX menu, GPU and monitor qualification.
 - [ ] Broader save/load, hardware controller and campaign/ending qualification.
 
 Every QoL feature and widescreen defaults off. Exact implementation/evidence:
-[native batch](NATIVE-BATCH4-2026-10-15.md), [QoL](QOL-IMPLEMENTATION.md),
+[native batch](NATIVE-BATCH5-2026-10-15.md), [QoL](QOL-IMPLEMENTATION.md),
 [widescreen](docs/WIDESCREEN.md).
 
 The supplied BPS is a private reference. Keep the clean ROM identity for

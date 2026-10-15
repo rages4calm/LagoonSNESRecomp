@@ -6,7 +6,7 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress — October 15, 2026
 
-Twenty-seven gameplay roots have been promoted in the October 15 batches.
+Thirty-two gameplay roots have been promoted in the October 15 batches.
 The first eight cover:
 
 - Entity movement integration (`01:A4EB`).
@@ -35,14 +35,20 @@ Six more cover player hit-direction dispatch/handlers and boss sprite offsets,
 palette selection and jump-anchor projection. Real player damage/death and a
 first-boss sword hit match the previous build at 924 checkpoints and all 15,123
 presentations. Boss HP falls from 96 to 94 in a fixture using the sword-reach
-option and explicit player positioning/equipment setup. Boss victory, rewards
-and the complete damage/death orchestration still need qualification.
+option and explicit player positioning/equipment setup. A later bounded fixture now covers actual boss defeat and rewards; natural
+post-boss story progression and complete damage/death orchestration remain open.
 
-The build generates 170 AOT variants and 18 declared LLE variants; additional
+Five further roots cover player damage calculation, boss contact, death-stop
+velocity, room hazards and the first boss quake. Four targeted routes match the
+previous build at 953 checkpoints and 15,939 complete presentations, including
+real damage, consumable revival and boss defeat/rewards. HP/death wrappers remain
+interpreted; native callers dispatch using the actual returned CPU widths.
+
+The build generates 175 AOT variants and 18 declared LLE variants; additional
 runtime fallback remains available. The original opening-loop fix stays in place.
 Existing native-versus-pure-interpreter clock/state differences remain unresolved.
 Bounded combat/progression evidence does not certify every encounter or save.
-See [the current evidence receipt](NATIVE-BATCH4-2026-10-15.md) and [todo list](TODO.md).
+See [the current evidence receipt](NATIVE-BATCH5-2026-10-15.md) and [todo list](TODO.md).
 
 ## Fullscreen screenshots
 
@@ -111,10 +117,19 @@ Optional widescreen draws additional world backgrounds in supported rooms at
 the original pixel scale, with 16:9, 16:10, 21:9, 32:9 and window-driven aspects.
 Witnessed ordinary NPC/enemy forms can also appear beyond the game's original
 off-screen actor buffer, using resident graphics and read-only presentation
-animation. Current scenery support is limited to audited Atland and Gold Cave
-resources. Other rooms, titles, intro and menus keep clean native-width layouts.
+animation. Current scenery support covers audited Atland, Gold Cave and the
+outdoor guard exterior (room 2), clipped to its actual world bounds. Other rooms, titles, intro and menus keep clean native-width layouts.
 Special actors, parallax and campaign coverage remain unfinished. All four fixed aspects preserved guest state and native
 center pixels at 18 opening/town checkpoints. See [widescreen details](docs/WIDESCREEN.md).
+
+## Optional enhanced original pixels
+
+Companion's Display page offers **Enhanced original pixels (EPX)**. It rounds
+pixel diagonals using the original colors and keeps the bottom HUD sharp.
+This follows the original-art treatment used in Secret of the Stars; the full
+retexture experiment is shelved. EPX defaults off, requires OpenGL, and restores
+your previous graphics settings when disabled. See [the implementation and
+bounded GPU checks](docs/ENHANCED-PIXELS.md).
 
 ## Optional X68000 soundtrack
 

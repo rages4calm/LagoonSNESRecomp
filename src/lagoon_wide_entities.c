@@ -151,6 +151,19 @@ int LagoonWideEntities_SceneSettled(LagoonWideSceneGate *g,int ready,unsigned ke
   return g->fields>=3;
 }
 
+void LagoonWideEntities_MaskRoomRow(uint8_t *pixels,unsigned width,
+    int world_x,int world_y,unsigned room_width,unsigned room_height) {
+  if(!pixels || width<256)return;
+  int left=(int)(width-256)/2;
+  for(unsigned x=0;x<width;++x) {
+    int screen_x=(int)x-left;
+    if(screen_x>=0 && screen_x<256)continue;
+    int64_t map_x=(int64_t)world_x+screen_x;
+    if(map_x<0 || (uint64_t)map_x>=room_width || world_y<0 || (unsigned)world_y>=room_height)
+      memset(pixels+x*4,0,4);
+  }
+}
+
 void LagoonWideEntities_BlankField(uint8_t *pixels,size_t pitch,unsigned width,unsigned height) {
   if(!pixels || width<256 || pitch<(size_t)width*4)return;
   unsigned left=(width-256)/2,right=width-256-left;
@@ -164,7 +177,8 @@ int LagoonWideEntities_AuditedRoom(unsigned room,unsigned bg,unsigned obj,
     unsigned d0,unsigned d1,unsigned m0,unsigned m1) {
   if(m0!=0x7f0000 || m1!=0x7f4000 || d0!=d1)return 0;
   return (room==0 && bg==0x138000 && obj==0x198000 && d0==0x068000) ||
-         (room==3 && bg==0x128b77 && obj==0x1d8000 && d0==0x069298);
+         (room==3 && bg==0x128b77 && obj==0x1d8000 && d0==0x069298) ||
+         (room==2 && bg==0x128000 && obj==0x1a8000 && d0==0x068e90);
 }
 
 int LagoonWideEntities_MenuOverlay(const uint16_t *vram,unsigned map,unsigned chars) {

@@ -34,6 +34,7 @@
 
 #include "game_rtl.h"
 #include "lagoon_soundtrack.h"
+#include "lagoon_widescreen.h"
 
 #include "beam_frame_driver.h"
 
@@ -44,7 +45,7 @@ void GameRunOneFrame(void)
 
 void GameDrawPpuFrame(void)
 {
-    snes_beam_frame_driver_draw_ppu_frame();
+    snes_beam_frame_driver_draw_ppu_frame_observed(LagoonWide_ObserveRaster, NULL);
 }
 
 void GameSessionReset(void)

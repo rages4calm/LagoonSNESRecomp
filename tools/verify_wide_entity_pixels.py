@@ -7,6 +7,7 @@ The bounded Lagoon checks use OBSEL2, brightness15 and no color math.
 """
 import argparse
 import csv
+import hashlib
 import json
 import struct
 from pathlib import Path
@@ -47,6 +48,8 @@ def main():
         x |= (high & 1) << 8
         if x >= 384:
             x -= 512  # bounded ordinary native-active range
+        if y >= 224:
+            y -= 256  # OAM Y wraps; validated cells may straddle output top
         size = 16 if high & 2 else 8
         cells.append((x, y, tile, size))
     for x, y, tile, size in cells:
@@ -69,7 +72,8 @@ def main():
                 rgb15 = palette[128 + ((tile >> 9) & 7) * 16 + color]
                 rgb = tuple((((rgb15 >> shift) & 31) << 3) | (((rgb15 >> shift) & 31) >> 2) for shift in (0, 5, 10))
                 expected.setdefault((xx, yy), rgb)  # earlier OAM slot wins
-    result = dict(frame=regs['frame'], slots=slots, cell_frame=args.cell_frame, emitted_cells=len(cells), source_opaque=dict(left=0, right=0), visible_exact_color=dict(left=0, right=0))
+    coordinate_digest=hashlib.sha256(json.dumps(sorted(map(list,expected),key=lambda q:(q[1],q[0])),separators=(',',':')).encode()).hexdigest()
+    result = dict(frame=regs['frame'], source_pixel_coordinates_sha256=coordinate_digest, slots=slots, cell_frame=args.cell_frame, emitted_cells=len(cells), source_opaque=dict(left=0, right=0), visible_exact_color=dict(left=0, right=0))
     for (x, y), color in expected.items():
         side = 'left' if x < 0 else 'right'
         result['source_opaque'][side] += 1

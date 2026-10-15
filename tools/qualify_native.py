@@ -17,6 +17,8 @@ def main():
     parser.add_argument('--frames',type=int,default=6245)
     parser.add_argument('--out',required=True,type=Path)
     parser.add_argument('--coverage',action='store_true')
+    parser.add_argument('--live-input',action='store_true',help='Opt in to merging physical keyboard/gamepads into the script; default uses only scripted guest input')
+    parser.add_argument('--input-trace',action='store_true',help='Log actual guest input words for isolation checks')
     parser.add_argument('--visible',action='store_true',help='Use the real SDL display for fullscreen screenshot checks; saves/config remain isolated')
     parser.add_argument('--display-screenshot-frame',type=int,help='Capture the actual SDL output at this frame; requires --visible')
     parser.add_argument('--features',default='',help='Comma-separated lagoon.quality feature ids; creates a private mod catalog')
@@ -67,6 +69,7 @@ def main():
     env.update(SDL_AUDIODRIVER='dummy',
                SNESRECOMP_RUN_FRAMES=str(args.frames),SNESRECOMP_DUMP_DIR=str(out/'dumps'),
                SNESRECOMP_PRESENT_LOG=str(out/'presents.csv'))
+    if args.input_trace:env['SNESRECOMP_INPUT_TRACE']='1'
     if args.visible:env.pop('SDL_VIDEODRIVER',None)
     else:env['SDL_VIDEODRIVER']='dummy'
     if args.coverage:env.update(SNESRECOMP_TIER2_CAPTURE='1',SNESRECOMP_COVERAGE_DIR=str(out/'coverage'))
@@ -137,7 +140,19 @@ def main():
     delay=0 if args.visible else 1
     config=re.sub(r'(?m)^DisableFrameDelay\s*=.*$', f'DisableFrameDelay = {delay}', config)
     receipt['effective_disable_frame_delay']=delay
+    receipt['input_trace']=args.input_trace
+    receipt['script_only_input']=not args.live_input
+    if not args.live_input:
+        # The host ORs physical input with script input even with dummy video.
+        # Disable every human seat/device only in this run's copied config.
+        # These existing settings work in retained binaries; no host patch or
+        # owner settings change is required. Script controller masks remain.
+        config+='\n# Qualification: physical input isolated from the replay.\n[Controller]\n'
+        config+=''.join(f'SourceP{seat} = 0\n'for seat in range(1,9))
+        config+='\n[GamepadMap]\n'
+        config+=''.join(f'EnableGamepad{seat} = false\n'for seat in range(1,9))
     (out/'config.ini').write_text(config,encoding='utf-8')
+    receipt['effective_config_sha256']=sha(out/'config.ini')
     started=time.monotonic()
     with (out/'stdout.log').open('w') as stdout,(out/'stderr.log').open('w') as stderr:
         result=subprocess.run([str(exe),'--no-launcher','--config',str(out/'config.ini'),'--rom',str(rom),'--save-root','../saves',

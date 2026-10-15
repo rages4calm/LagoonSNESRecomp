@@ -33,6 +33,21 @@ int main(void) {
     cell.tile=1; /* never sample the dynamically staged player graphics */
     assert(!LagoonWideEntities_Pixels(p.vram,p.cgram,0x4000,0x5000,&cell,decoded,1));
   }
-  puts("wide entity pixels: actual PPU equivalence for four flips, native-center clipping, dynamic-player refusal PASS");
+  /* Apply the production extent mask to pixels from the real PPU above.
+   * The same actual right-margin object is preserved when in map and hidden
+   * when its world position exceeds512, while native pixels stay bit exact. */
+  uint32_t before[448];unsigned opaque=0;
+  for(unsigned y=0;y<16;++y) {
+    uint32_t *row=wide_frame+y*448;memcpy(before,row,sizeof(before));
+    for(unsigned x=352;x<448;++x)opaque+=row[x]!=0;
+    LagoonWideEntities_MaskRoomRow((uint8_t*)row,448,0,(int)y,512,512);
+    assert(memcmp(row+96,before+96,256*4)==0);
+    assert(memcmp(row+352,before+352,96*4)==0);
+    LagoonWideEntities_MaskRoomRow((uint8_t*)row,448,256,(int)y,512,512);
+    assert(memcmp(row+96,before+96,256*4)==0);
+    for(unsigned x=352;x<448;++x)assert(row[x]==0);
+  }
+  assert(opaque>0);
+  puts("wide entity pixels: actual PPU equivalence for four flips, native-center clipping, dynamic-player refusal, actual PPU room-bound/native preservation PASS");
   return 0;
 }

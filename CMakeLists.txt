@@ -86,6 +86,7 @@ endif()
 # it is now also enforced: a project with packages that never calls this fails
 # to configure.
 snesrecomp_target_mod_catalog(LagoonSNESRecomp ${CMAKE_SOURCE_DIR}/mods/preloaded)
+snesrecomp_target_stage_dir(LagoonSNESRecomp ${CMAKE_SOURCE_DIR}/assets/shaders assets/shaders)
 # Any other directory the game reads exe-relative (a translations/ table, ...)
 # is staged with snesrecomp_target_stage_dir, never with a separate ALL target.
 

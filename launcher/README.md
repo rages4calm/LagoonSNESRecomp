@@ -20,6 +20,16 @@ changed native controls; restart the game to use them. Selecting another executa
 or INI and applying loads that source's settings without writing the previous
 source's values into it. Make further setting edits after that refresh.
 
+**Enhanced original pixels (EPX)** is optional and defaults off. It smooths diagonal
+edges using original colors while keeping the HUD sharp. Apply selects the OpenGL
+GPU renderer and the matching `assets/shaders/lagoon-epx.glslp` preset; Smooth
+scaling must be off. Turning EPX off restores the previous shader, renderer,
+output method and filtering preferences stored in native INI metadata. Other
+settings, bindings, mod selections and saves remain in place. Both EPX shader
+files must accompany the selected executable. Restart after Apply. This is a
+pixel treatment, not replacement artwork or smoother gameplay motion. See
+[enhanced pixel details and bounded checks](../docs/ENHANCED-PIXELS.md).
+
 Experimental widescreen defaults off and offers 16:9, 16:10, 21:9, 32:9 and follow
 window choices through `[Graphics] Widescreen` and `[Lagoon] WideAspect`. It expands
 backgrounds; off-screen NPC/enemy rendering and some rooms remain unfinished.

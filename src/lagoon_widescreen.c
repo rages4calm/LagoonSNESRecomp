@@ -17,6 +17,11 @@ static double s_aspect = 16.0 / 9.0; /* 0 means drawable aspect */
 static int s_was_active;
 static int s_native_fallback;
 static int s_present_fallback;
+static int s_outdoor_frame;
+static int s_outdoor_present;
+static int s_row_world_x[224],s_row_world_y[224];
+static uint8_t s_row_known[224];
+static unsigned s_extent_width,s_extent_height;
 static LagoonWideSceneGate s_scene_gate;
 static unsigned s_room_key;
 static uint64_t s_state_generation;
@@ -106,13 +111,16 @@ void LagoonWide_Reset(void) {
   LagoonWideEntities_Reset();
   WsShadowReset();
   s_was_active = 0;
+  s_outdoor_frame=s_outdoor_present=0;
+  memset(s_row_known,0,sizeof(s_row_known));
   memset(&s_scene_gate,0,sizeof(s_scene_gate));
   s_room_key = 0;
   s_state_generation = RtlStateGeneration();
 }
 
 static int audited_room_ready(void) {
-  return !g_ram[0x100e] && LagoonWideEntities_AuditedRoom(word(0x48e),pointer(0x57),pointer(0x5d),
+  return !g_ram[0x100e] && (word(0x48e)!=2 || (word(0x53)==64 && word(0x55)==64)) &&
+      LagoonWideEntities_AuditedRoom(word(0x48e),pointer(0x57),pointer(0x5d),
       pointer(0x69),pointer(0x75),pointer(0x88),pointer(0x8b));
 }
 static int has_modal_ui(void) {
@@ -150,6 +158,8 @@ void LagoonWide_BeginFrame(unsigned number) {
   if (s_state_generation != RtlStateGeneration()) LagoonWide_Reset();
   if (!g_ppu) return;
   s_native_fallback=0;
+  s_outdoor_frame=0;
+  memset(s_row_known,0,sizeof(s_row_known));
   int modal_ui=has_modal_ui();
   PpuSetWidescreenLineEnhancer(g_ppu,NULL,NULL);
   /* Lagoon parks unused OAM at x=320, leaving old tile/y bytes intact. The
@@ -183,6 +193,8 @@ void LagoonWide_BeginFrame(unsigned number) {
   s_room_key = key;
   LagoonWideEntities_BeginFrame(active);
   if (!active) { if(g_config.widescreen)native_ui_frame(); return; }
+  s_outdoor_frame=word(0x48e)==2;
+  s_extent_width=word(0x53)*8;s_extent_height=word(0x55)*8;
   PpuSetWidescreenLayerMask(g_ppu, 3);
   PpuSetWidescreenShadowNativeExactMask(g_ppu, 3);
   PpuSetWidescreenLayerClamp(g_ppu, 12); /* BG3 HUD remains native centered */
@@ -213,17 +225,58 @@ void LagoonWide_BeginFrame(unsigned number) {
   }
 }
 
+/* Observe the actual raster, without adding a PPU line enhancer (which has
+ * its own BG viewport semantics). SNES output row0 samples scrollY+1. */
+void LagoonWide_ObserveRaster(const Ppu *ppu,unsigned line,void *context) {
+  (void)context;
+  if(!s_outdoor_frame || line<1 || line>224)return;
+  if(!audited_room_ready() || word(0x48e)!=2 ||
+      ppu->hScroll[0]!=ppu->hScroll[1] || ppu->vScroll[0]!=ppu->vScroll[1])return;
+  int camera_x=(int)word(0x480),camera_y=(int)word(0x482);
+  int sx=ppu->hScroll[0]&1023,sy=ppu->vScroll[0]&1023;
+  s_row_world_x[line-1]=camera_x+((sx-camera_x+512)&1023)-512;
+  s_row_world_y[line-1]=camera_y+((sy-camera_y+512)&1023)-512+(int)line;
+  s_row_known[line-1]=1;
+}
+
+static void report_outdoor(unsigned frame) {
+  const char *base=getenv("LAGOON_WIDE_ENTITY_REPORT");
+  if(!base || (!s_outdoor_frame && word(0x48e)!=2))return;
+  char path[1200];if(snprintf(path,sizeof(path),"%s.bounds.tsv",base)>=(int)sizeof(path))return;
+  FILE *f=fopen(path,"ab");if(!f)return;
+  fseek(f,0,SEEK_END);
+  if(ftell(f)==0)fprintf(f,"frame\troom\tfallback\tmask\tsettled\tknown\tx0\ty0\tx223\ty223\txchanges\tychanges\twidth\theight\n");
+  unsigned known=0,xc=0,yc=0;
+  for(unsigned y=0;y<224;++y) {
+    known+=s_row_known[y]!=0;
+    if(y && s_row_world_x[y]!=s_row_world_x[0])++xc;
+    if(s_row_world_y[y]!=s_row_world_y[0]+(int)y)++yc;
+  }
+  fprintf(f,"%u\t%u\t%d\t%d\t%u\t%u\t%d\t%d\t%d\t%d\t%u\t%u\t%u\t%u\n",
+      frame,word(0x48e),s_present_fallback,s_outdoor_present,s_scene_gate.fields,known,
+      s_row_world_x[0],s_row_world_y[0],s_row_world_x[223],s_row_world_y[223],xc,yc,
+      s_extent_width,s_extent_height);
+  fclose(f);
+}
+
 /* Keep the completed field's policy with the presentation boundary. The
  * source field is const; the official compositor owns mutable destination. */
 void LagoonWide_EndFrame(const uint8_t *field,unsigned number) {
-  (void)field;(void)number;
+  (void)field;
   s_present_fallback=s_native_fallback || !audited_room_ready() || has_modal_ui();
+  s_outdoor_present=s_outdoor_frame && !s_present_fallback;
+  if(s_outdoor_present)for(unsigned y=0;y<224;++y)
+    if(!s_row_known[y]) {s_present_fallback=1;s_outdoor_present=0;break;}
+  report_outdoor(number);
 }
 int LagoonWide_DrawFrame(uint8_t *dst,size_t pitch,const uint8_t *field,
     int width,int height,double alpha) {
   (void)alpha;
-  if(!g_config.widescreen || !s_present_fallback)return 0;
+  if(!g_config.widescreen || (!s_present_fallback && !s_outdoor_present))return 0;
   RtlWidescreenPresent(dst,pitch,field,width,height);
-  LagoonWideEntities_BlankField(dst,pitch,(unsigned)width,(unsigned)height);
+  if(s_present_fallback)LagoonWideEntities_BlankField(dst,pitch,(unsigned)width,(unsigned)height);
+  else for(unsigned y=0;y<(unsigned)height && y<224;++y)
+    LagoonWideEntities_MaskRoomRow(dst+y*pitch,(unsigned)width,
+        s_row_world_x[y],s_row_world_y[y],s_extent_width,s_extent_height);
   return 1;
 }

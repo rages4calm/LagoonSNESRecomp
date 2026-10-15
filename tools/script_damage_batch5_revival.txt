@@ -1,0 +1,946 @@
+# Natural traversal probe; no RAM writes, no debug positioning, all features off.
+# Same prefix as combat2 so the enemy is at (1472,1440) at f2664; then teleport to
+# 16 px left of it and swing right, into it.
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+wait 20
+press a 4
+dump town
+press up 12
+dump north-first-00
+press up 12
+dump north-first-01
+press up 12
+dump north-first-02
+press up 12
+dump north-first-03
+press up 12
+dump north-first-04
+press up 12
+dump north-first-05
+press up 12
+dump north-first-06
+press up 12
+dump north-first-07
+wait 300
+dump north-first-settled
+press up 12
+dump north-second-00
+press up 12
+dump north-second-01
+press up 12
+dump north-second-02
+press up 12
+dump north-second-03
+press up 12
+dump north-second-04
+press up 12
+dump north-second-05
+press up 12
+dump north-second-06
+press up 12
+dump north-second-07
+press up 12
+dump north-second-08
+press up 12
+dump north-second-09
+press up 12
+dump north-second-10
+press up 12
+dump north-second-11
+press up 12
+dump north-second-12
+press up 12
+dump north-second-13
+wait 300
+dump north-second-settled
+press right 64
+dump aligned-corridor
+press up 12
+dump gate-00
+press up 12
+dump gate-01
+press up 12
+dump gate-02
+press up 12
+dump gate-03
+press up 12
+dump gate-04
+press up 12
+dump gate-05
+press up 12
+dump gate-06
+press up 12
+dump gate-07
+# TARGETED FIXTURE: bypass solid north guards, do not alter story flags.
+# The destination is still entered through its real map transition.
+poke 0502 60017800
+press up 72
+wait 300
+dump cave-entered
+# BATCH5 REVIVAL FIXTURE: guard bypass above; place Nasir near the ordinary bat.
+# No HP, defence, enemy, reward, timer or damage-result edits. Do not attack.
+# Select valid revival item25 before actual lethal damage; no HP writes.
+poke 0536 25
+poke 0502 d005a005
+press right 1
+dump damage-before
+wait 1
+dump damage-000
+wait 1
+dump damage-001
+wait 1
+dump damage-002
+wait 1
+dump damage-003
+wait 1
+dump damage-004
+wait 1
+dump damage-005
+wait 1
+dump damage-006
+wait 1
+dump damage-007
+wait 1
+dump damage-008
+wait 1
+dump damage-009
+wait 1
+dump damage-010
+wait 1
+dump damage-011
+wait 1
+dump damage-012
+wait 1
+dump damage-013
+wait 1
+dump damage-014
+wait 1
+dump damage-015
+wait 1
+dump damage-016
+wait 1
+dump damage-017
+wait 1
+dump damage-018
+wait 1
+dump damage-019
+wait 1
+dump damage-020
+wait 1
+dump damage-021
+wait 1
+dump damage-022
+wait 1
+dump damage-023
+wait 1
+dump damage-024
+wait 1
+dump damage-025
+wait 1
+dump damage-026
+wait 1
+dump damage-027
+wait 1
+dump damage-028
+wait 1
+dump damage-029
+wait 1
+dump damage-030
+wait 1
+dump damage-031
+wait 1
+dump damage-032
+wait 1
+dump damage-033
+wait 1
+dump damage-034
+wait 1
+dump damage-035
+wait 1
+dump damage-036
+wait 1
+dump damage-037
+wait 1
+dump damage-038
+wait 1
+dump damage-039
+wait 1
+dump damage-040
+wait 1
+dump damage-041
+wait 1
+dump damage-042
+wait 1
+dump damage-043
+wait 1
+dump damage-044
+wait 1
+dump damage-045
+wait 1
+dump damage-046
+wait 1
+dump damage-047
+wait 1
+dump damage-048
+wait 1
+dump damage-049
+wait 1
+dump damage-050
+wait 1
+dump damage-051
+wait 1
+dump damage-052
+wait 1
+dump damage-053
+wait 1
+dump damage-054
+wait 1
+dump damage-055
+wait 1
+dump damage-056
+wait 1
+dump damage-057
+wait 1
+dump damage-058
+wait 1
+dump damage-059
+wait 1
+dump damage-060
+wait 1
+dump damage-061
+wait 1
+dump damage-062
+wait 1
+dump damage-063
+wait 1
+dump damage-064
+wait 1
+dump damage-065
+wait 1
+dump damage-066
+wait 1
+dump damage-067
+wait 1
+dump damage-068
+wait 1
+dump damage-069
+wait 1
+dump damage-070
+wait 1
+dump damage-071
+wait 1
+dump damage-072
+wait 1
+dump damage-073
+wait 1
+dump damage-074
+wait 1
+dump damage-075
+wait 1
+dump damage-076
+wait 1
+dump damage-077
+wait 1
+dump damage-078
+wait 1
+dump damage-079
+wait 1
+dump damage-080
+wait 1
+dump damage-081
+wait 1
+dump damage-082
+wait 1
+dump damage-083
+wait 1
+dump damage-084
+wait 1
+dump damage-085
+wait 1
+dump damage-086
+wait 1
+dump damage-087
+wait 1
+dump damage-088
+wait 1
+dump damage-089
+wait 1
+dump damage-090
+wait 1
+dump damage-091
+wait 1
+dump damage-092
+wait 1
+dump damage-093
+wait 1
+dump damage-094
+wait 1
+dump damage-095
+wait 1
+dump damage-096
+wait 1
+dump damage-097
+wait 1
+dump damage-098
+wait 1
+dump damage-099
+wait 1
+dump damage-100
+wait 1
+dump damage-101
+wait 1
+dump damage-102
+wait 1
+dump damage-103
+wait 1
+dump damage-104
+wait 1
+dump damage-105
+wait 1
+dump damage-106
+wait 1
+dump damage-107
+wait 1
+dump damage-108
+wait 1
+dump damage-109
+wait 1
+dump damage-110
+wait 1
+dump damage-111
+wait 1
+dump damage-112
+wait 1
+dump damage-113
+wait 1
+dump damage-114
+wait 1
+dump damage-115
+wait 1
+dump damage-116
+wait 1
+dump damage-117
+wait 1
+dump damage-118
+wait 1
+dump damage-119
+wait 1
+dump damage-120
+wait 1
+dump damage-121
+wait 1
+dump damage-122
+wait 1
+dump damage-123
+wait 1
+dump damage-124
+wait 1
+dump damage-125
+wait 1
+dump damage-126
+wait 1
+dump damage-127
+wait 1
+dump damage-128
+wait 1
+dump damage-129
+wait 1
+dump damage-130
+wait 1
+dump damage-131
+wait 1
+dump damage-132
+wait 1
+dump damage-133
+wait 1
+dump damage-134
+wait 1
+dump damage-135
+wait 1
+dump damage-136
+wait 1
+dump damage-137
+wait 1
+dump damage-138
+wait 1
+dump damage-139
+wait 1
+dump damage-140
+wait 1
+dump damage-141
+wait 1
+dump damage-142
+wait 1
+dump damage-143
+wait 1
+dump damage-144
+wait 1
+dump damage-145
+wait 1
+dump damage-146
+wait 1
+dump damage-147
+wait 1
+dump damage-148
+wait 1
+dump damage-149
+wait 1
+dump damage-150
+wait 1
+dump damage-151
+wait 1
+dump damage-152
+wait 1
+dump damage-153
+wait 1
+dump damage-154
+wait 1
+dump damage-155
+wait 1
+dump damage-156
+wait 1
+dump damage-157
+wait 1
+dump damage-158
+wait 1
+dump damage-159
+wait 1
+dump damage-160
+wait 1
+dump damage-161
+wait 1
+dump damage-162
+wait 1
+dump damage-163
+wait 1
+dump damage-164
+wait 1
+dump damage-165
+wait 1
+dump damage-166
+wait 1
+dump damage-167
+wait 1
+dump damage-168
+wait 1
+dump damage-169
+wait 1
+dump damage-170
+wait 1
+dump damage-171
+wait 1
+dump damage-172
+wait 1
+dump damage-173
+wait 1
+dump damage-174
+wait 1
+dump damage-175
+wait 1
+dump damage-176
+wait 1
+dump damage-177
+wait 1
+dump damage-178
+wait 1
+dump damage-179
+wait 1
+dump damage-180
+wait 1
+dump damage-181
+wait 1
+dump damage-182
+wait 1
+dump damage-183
+wait 1
+dump damage-184
+wait 1
+dump damage-185
+wait 1
+dump damage-186
+wait 1
+dump damage-187
+wait 1
+dump damage-188
+wait 1
+dump damage-189
+wait 1
+dump damage-190
+wait 1
+dump damage-191
+wait 1
+dump damage-192
+wait 1
+dump damage-193
+wait 1
+dump damage-194
+wait 1
+dump damage-195
+wait 1
+dump damage-196
+wait 1
+dump damage-197
+wait 1
+dump damage-198
+wait 1
+dump damage-199
+wait 1
+dump damage-200
+wait 1
+dump damage-201
+wait 1
+dump damage-202
+wait 1
+dump damage-203
+wait 1
+dump damage-204
+wait 1
+dump damage-205
+wait 1
+dump damage-206
+wait 1
+dump damage-207
+wait 1
+dump damage-208
+wait 1
+dump damage-209
+wait 1
+dump damage-210
+wait 1
+dump damage-211
+wait 1
+dump damage-212
+wait 1
+dump damage-213
+wait 1
+dump damage-214
+wait 1
+dump damage-215
+wait 1
+dump damage-216
+wait 1
+dump damage-217
+wait 1
+dump damage-218
+wait 1
+dump damage-219
+wait 1
+dump damage-220
+wait 1
+dump damage-221
+wait 1
+dump damage-222
+wait 1
+dump damage-223
+wait 1
+dump damage-224
+wait 1
+dump damage-225
+wait 1
+dump damage-226
+wait 1
+dump damage-227
+wait 1
+dump damage-228
+wait 1
+dump damage-229
+wait 1
+dump damage-230
+wait 1
+dump damage-231
+wait 1
+dump damage-232
+wait 1
+dump damage-233
+wait 1
+dump damage-234
+wait 1
+dump damage-235
+wait 1
+dump damage-236
+wait 1
+dump damage-237
+wait 1
+dump damage-238
+wait 1
+dump damage-239
+wait 1
+dump damage-240
+wait 1
+dump damage-241
+wait 1
+dump damage-242
+wait 1
+dump damage-243
+wait 1
+dump damage-244
+wait 1
+dump damage-245
+wait 1
+dump damage-246
+wait 1
+dump damage-247
+wait 1
+dump damage-248
+wait 1
+dump damage-249
+wait 1
+dump damage-250
+wait 1
+dump damage-251
+wait 1
+dump damage-252
+wait 1
+dump damage-253
+wait 1
+dump damage-254
+wait 1
+dump damage-255
+wait 1
+dump damage-256
+wait 1
+dump damage-257
+wait 1
+dump damage-258
+wait 1
+dump damage-259
+wait 1
+dump damage-260
+wait 1
+dump damage-261
+wait 1
+dump damage-262
+wait 1
+dump damage-263
+wait 1
+dump damage-264
+wait 1
+dump damage-265
+wait 1
+dump damage-266
+wait 1
+dump damage-267
+wait 1
+dump damage-268
+wait 1
+dump damage-269
+wait 1
+dump damage-270
+wait 1
+dump damage-271
+wait 1
+dump damage-272
+wait 1
+dump damage-273
+wait 1
+dump damage-274
+wait 1
+dump damage-275
+wait 1
+dump damage-276
+wait 1
+dump damage-277
+wait 1
+dump damage-278
+wait 1
+dump damage-279
+wait 1
+dump damage-280
+wait 1
+dump damage-281
+wait 1
+dump damage-282
+wait 1
+dump damage-283
+wait 1
+dump damage-284
+wait 1
+dump damage-285
+wait 1
+dump damage-286
+wait 1
+dump damage-287
+wait 1
+dump damage-288
+wait 1
+dump damage-289
+wait 1
+dump damage-290
+wait 1
+dump damage-291
+wait 1
+dump damage-292
+wait 1
+dump damage-293
+wait 1
+dump damage-294
+wait 1
+dump damage-295
+wait 1
+dump damage-296
+wait 1
+dump damage-297
+wait 1
+dump damage-298
+wait 1
+dump damage-299
+wait 1
+dump damage-300
+wait 1
+dump damage-301
+wait 1
+dump damage-302
+wait 1
+dump damage-303
+wait 1
+dump damage-304
+wait 1
+dump damage-305
+wait 1
+dump damage-306
+wait 1
+dump damage-307
+wait 1
+dump damage-308
+wait 1
+dump damage-309
+wait 1
+dump damage-310
+wait 1
+dump damage-311
+wait 1
+dump damage-312
+wait 1
+dump damage-313
+wait 1
+dump damage-314
+wait 1
+dump damage-315
+wait 1
+dump damage-316
+wait 1
+dump damage-317
+wait 1
+dump damage-318
+wait 1
+dump damage-319
+wait 1
+dump damage-320
+wait 1
+dump damage-321
+wait 1
+dump damage-322
+wait 1
+dump damage-323
+wait 1
+dump damage-324
+wait 1
+dump damage-325
+wait 1
+dump damage-326
+wait 1
+dump damage-327
+wait 1
+dump damage-328
+wait 1
+dump damage-329
+wait 1
+dump damage-330
+wait 1
+dump damage-331
+wait 1
+dump damage-332
+wait 1
+dump damage-333
+wait 1
+dump damage-334
+wait 1
+dump damage-335
+wait 1
+dump damage-336
+wait 1
+dump damage-337
+wait 1
+dump damage-338
+wait 1
+dump damage-339
+wait 1
+dump damage-340
+wait 1
+dump damage-341
+wait 1
+dump damage-342
+wait 1
+dump damage-343
+wait 1
+dump damage-344
+wait 1
+dump damage-345
+wait 1
+dump damage-346
+wait 1
+dump damage-347
+wait 1
+dump damage-348
+wait 1
+dump damage-349
+wait 1
+dump damage-350
+wait 1
+dump damage-351
+wait 1
+dump damage-352
+wait 1
+dump damage-353
+wait 1
+dump damage-354
+wait 1
+dump damage-355
+wait 1
+dump damage-356
+wait 1
+dump damage-357
+wait 1
+dump damage-358
+wait 1
+dump damage-359
+wait 120
+dump damage-after
+quit

@@ -13,3 +13,6 @@ void LagoonWide_EndFrame(const uint8_t *field, unsigned number);
 
 int LagoonWide_DrawFrame(uint8_t *dst, size_t pitch, const uint8_t *field,
     int width, int height, double alpha);
+
+struct Ppu;
+void LagoonWide_ObserveRaster(const struct Ppu *ppu, unsigned line, void *context);
