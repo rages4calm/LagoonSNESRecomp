@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net8.0-windows7.0": {
+      "Companion.Launcher.Core": {
+        "type": "Direct",
+        "requested": "[0.2.0, 0.2.0]",
+        "resolved": "0.2.0",
+        "contentHash": "dA4SogrbRrQzt+lz3ZrhtKfLL1gPGhnqqTTkDIpdvDZt/JCHGxVeEIP3IVL4SWrHg30JDHbaz74/stR7Eemixw=="
+      },
+      "Companion.Launcher.Windows": {
+        "type": "Direct",
+        "requested": "[0.2.0, 0.2.0]",
+        "resolved": "0.2.0",
+        "contentHash": "yJKqghLKVDccEO7CrxJ1TxcWRTF70gaK8U1ZP3E/M3jix3wKcPS3d5uU7YPLgghWCzmZlqJhAmnR/3fxYRzvSA==",
+        "dependencies": {
+          "Companion.Launcher.Core": "0.2.0"
+        }
+      }
+    }
+  }
+}

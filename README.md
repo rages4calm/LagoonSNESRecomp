@@ -1,260 +1,95 @@
 # Lagoon Recomp
 
-A standalone Windows executable built on
-[snesrecomp](https://github.com/RetroPortingToolKit/snesrecomp), using both
-recompiled game routines and the framework's 65816 interpreter fallback.
-It is a work in progress, not a completed or 100% ahead-of-time native port.
-Mesen is used only as an independent development test reference; the Lagoon
-executable does not launch, link, or require Mesen.
+A work-in-progress Windows port of Lagoon (USA), using SNESRecomp's generated
+native routines alongside its 65816 interpreter safety net. Your own clean ROM
+is required. The executable does not depend on Mesen; it is a development reference.
 
-No ROM data is distributed. Generate the game code locally from your own ROM.
+## Current progress — October 15, 2026
 
-## Status
+Four additional gameplay routines now run as generated native code:
 
-The October 14, 2026 build fixes the return to the opening screens after the
-old man's dialogue. The regression route now enters Atland, moves the player,
-opens the status/item menu with Start, and closes it with B.
-Only this opening route has been verified for this fix. The full campaign,
-combat, progression, saving/loading, and ending are not qualified.
-The existing `dist/lagoon-0.1.0-windows-x86_64.zip` predates this fix; use the
-rebuilt `build/LagoonSNESRecomp.exe`.
+- Entity movement integration (`01:A4EB`).
+- Room-boundary clamping (`01:A56A`).
+- World-to-screen projection and visibility (`01:A5AA`).
+- Direction/speed-tier velocity selection (`02:80EA`).
 
-The reset was caused by an incomplete authorization at the long-indirect
-routine dispatcher `$00:80E6`. Its two known targets omitted `$01:807A`, the
-main gameplay routine. The generated default case popped the guest call frame
-and skipped the routine, allowing `$00:9366` to restart the opening loop.
-`recomp/bank00.cfg` now keeps this dispatcher on the interpreter tier, which
-executes the live ROM target instead of discarding gameplay calls. Other proven
-routines remain recompiled. A clean default generation currently emits 143
-AOT variants and 18 LLE variants; these counts are not a gameplay-coverage
-percentage, and additional runtime fallback can still occur.
+They use opt-in instruction-boundary timing and real bus-region costs. The
+7,219-frame movement/menu route matches the prior native control at all 18 dump
+tags, including framebuffer, WRAM, registers, VRAM, OAM, CGRAM and guest clock.
+Interpreted work falls from 72,427,712 to 70,655,953 instructions on that route.
+That is 2.45% less interpreted work, not a native-completion percentage.
 
-The previously advertised interpreter-floor comparison was not independent:
-`tools/regen.sh --cfg-dir recomp-floor` ignored its argument and generated from
-`recomp/`. That option is now honored, and `build/lagoon-floor.exe` was rebuilt
-from the actual floor configuration.
+The build generates 147 AOT variants and 18 declared LLE variants; additional
+runtime fallback remains available. The original opening-loop fix stays in place.
+The tile-row staging routine remains interpreted after a failed timing retry.
+Existing native-versus-pure-interpreter clock/state differences remain unresolved.
+Combat, progression, save/load, the full campaign and widescreen are not qualified.
+See [the evidence receipt](NATIVE-PROGRESS-2026-10-15.md) and [todo list](TODO.md).
 
-## Qualification
+## Launcher
 
-Evidence for this bounded fix is recorded in `FIX-TITLE-LOOP-2026-10-14.md`.
+Use `Start Lagoon.cmd` after building. It opens the shared
+[Companion Launcher](https://github.com/rages4calm/companion-launcher), using pinned
+0.2.0 packages. The Lagoon adapter verifies your ROM and starts the native game
+with its existing config and save locations. The old pre-boot UI is excluded from
+the default build; it can be enabled explicitly for development.
 
-| Check | Result |
-|---|---|
-| Original failure | Reproduced; trace reached `$00:9366` and `$00:9304` at frame 4213 |
-| Corrected opening route | Atland visible by frame 4657; player movement and menu open/close verified |
-| Regression script | `tools/script_gameplay_regression.txt`, 6239 frames, isolated fresh save roots |
-| Genuine interpreter floor | Rebuilt from `recomp-floor`; also reaches town and responds to input |
-| Gameplay snapshots versus floor | Town/moved/menu/back framebuffer, VRAM, OAM and CGRAM match byte for byte |
-| Full route parity | Not exact: 193 differing presentations across 6239 frames; WRAM/register differences remain, including stale stack bytes |
-| Save protection | Existing 36 save files copied and SHA-256 verified before diagnosis; tests used separate save roots |
+The initial Companion adapter exposes executable, ROM and native config paths.
+Display/audio/input controls and the QoL mod page still need full adapter integration.
+Existing native settings remain in `build/config.ini`, input in `build/keybinds.ini`,
+and saves in `build/saves`. The adapter does not migrate them.
 
-The former claim of zero differing frames and identical state is withdrawn.
-Agreement between two builds of this framework is useful for finding
-recompilation errors, but does not establish correct SNES behavior. Independent
-emulator comparisons are development evidence, not a dependency of the port.
-## ROM identity
+## Build from source
 
-| | |
-|---|---|
-| File | `Lagoon (USA).sfc` |
-| Publisher | — |
-| Developer | — |
-| Year | — |
-| Mapping | lorom |
-| Region | USA (North America) |
-| Coprocessor | none |
-| CRC32 | `d2554270` |
-| SHA-256 | `46c811f0cacffe8f20e1d63072d25d7c47e9bb3fd5124851fd05aca9884d21fb` |
-
-`tools/regen.sh` refuses to run against anything else, so a mismatched
-revision fails immediately instead of producing subtly wrong output.
-
-## Build
+Install the Windows toolchain/dependencies documented by
+[SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp): Python 3.10+,
+Rust, CMake, Ninja, a supported C/C++ toolchain, SDL3 and zlib. Use a configured
+build shell. Generate locally from your own original USA ROM:
 
 ```sh
 git submodule update --init --recursive
-bash tools/regen.sh --rom /path/to/Lagoon (USA).sfc
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+python -P tools/apply_framework_patch.py
+bash tools/regen.sh --rom "/path/to/Lagoon (USA).sfc"
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ```
 
-The ROM does not have to live in the repository — keeping it on your own
-drive is the better habit, and `SNESRECOMP_ROM` sets the path once for a
-shell. Without either, `tools/regen.sh` finds `Lagoon (USA).sfc` at the repo root,
-then the path the setup wizard recorded in `rom.cfg`; `.gitignore` blocks
-both from ever being committed.
+On Windows, use Git's Bash rather than an unconfigured WSL stub. `regen.sh` also
+applies/checks the required framework patch. `framework_pins.txt` records the
+upstream baseline; `patches/lagoon-framework.patch` carries the local compatibility
+and precise-root timing changes. The public submodule pin is reachable upstream.
 
-`tools/regen.sh` verifies the ROM, generates `src/gen/*.c`, and re-syncs
-`recomp/funcs.h`. Re-run it whenever you change anything under `recomp/`.
+Build CompanionLauncher 0.2.0's local NuGet packages, then:
 
-## Run
-
-```sh
-./build/LagoonSNESRecomp                     # launcher picks the ROM
-./build/LagoonSNESRecomp /path/to/Lagoon (USA).sfc # or name it and skip the launcher
+```powershell
+powershell -File scripts/build_launcher.ps1 -CompanionRoot C:\path\to\CompanionLauncher
 ```
 
-With no ROM on the command line the build opens the recomp-ui launcher: a ROM
-picker with a verification badge, plus display / audio / input settings. Your
-choice is cached in `rom.cfg` beside the executable, so the next launch opens
-on it and "Skip launcher on boot" makes it immediate. If the launcher is not
-built in (`--no-recomp-ui`), the host falls back to a native file picker.
+The game expects SHA256
+`46c811f0cacffe8f20e1d63072d25d7c47e9bb3fd5124851fd05aca9884d21fb`,
+CRC32 `d2554270`, a 1 MiB unheadered USA LoROM. Patched ROMs are deliberately
+rejected by this clean-ROM build. Generated C is ROM-derived and remains local.
 
-Either way the ROM is checked against the digests above before anything boots
-— a dump that could not have produced this build is refused at the door rather
-than mis-executing ten frames in.
+## QoL and widescreen
 
-## Quality-of-life options
+Existing optional walk-speed, camera and starting-stat plugins remain default-off.
+The supplied QoL BPS now decodes correctly and provides addresses for further
+work. It also contains FastROM remapping and instruction changes, so loading the
+whole patch into the interpreter alone would conflict with generated native code.
+Its data informs the implementation; it is not bundled or automatically applied.
 
-The nine changes the owner asked for are tracked in
-[QOL-ADDRESSES.md](QOL-ADDRESSES.md), which records for each one the address it lives at
-and how that address was proved. They ship through the framework's mod catalog as the
-built-in package `lagoon.quality`
-(`mods/preloaded/packages/lagoon.quality/1.0.0/manifest.toml`), every one of them
-**default off**, so the faithful game remains the default. A feature is a static plugin
-compiled into the executable plus data in the manifest — behaviour cannot live in the
-`.snesmod` archive — and it must be a RAM write or a ROM *data* patch, because an
-*instruction* patch would be silently undone by a later ahead-of-time promotion of the
-routine that holds it.
+All requested changes, including sword reach, followers, recovery, starting stats,
+EXP, jump airtime, magic and modern widescreen aspects, are tracked in `TODO.md`.
+They are not all implemented. See `QOL-ADDRESSES.md` for the current reference.
 
-Five of the nine are shipped and measured — walk speed, camera centring, and 18 HP with
-11 defence — counted here as three rows because HP and defence are one feature. Four are not
-shipped yet.
+## Source and publishing
 
-| feature | state |
-|---|---|
-| Walk speed 3 → 5 px/frame | **shipped** — replaces the 16-byte tier-2 movement row at `$02:8149`. Off: +9 px per 7-frame interval. On: +15, on all eight intervals of the walk route. |
-| Immediate camera following | **shipped** — writes the engine's own camera `$0480/$0482` at the frame boundary, clamped to the room. Off: screen x 112 while the player drifts to screen y 179. On: screen x 128, the field centre, y held at 105–115. |
-| Start at 18 HP | **shipped** — adds eight to the per-level maximum-HP curve at `$01:E140`, which `$01:957F` loads into `$0370` using Nasir's level `$052C`. Off: `$7E:0520 = 10`. On: `18`, MP/STR/DEF/GOLD untouched. Level 2 becomes 25 where it was 17, so every delta is preserved. |
-| 11 base defence | **shipped** (same feature as 18 HP) — the starting value is not read from the `$01:E0F8` curve, so it is written once into the proven current-defence field `$7E:0526` after the party block exists; the curve is also shifted by six so level-ups keep their growth. Off: `DEF 5`. On: `11`, MP/STR/GOLD untouched |
-| Sword reach 28,17,28,27 → 38,38,38,38 | not shipped — those four values are not present in the ROM as bytes or words; combat is now reachable, but a landed hit is still needed to identify the reach |
-| Follower speed 1 → 3 px/frame | not shipped — needs a route that puts a follower on the overworld |
-| +8 recovery frames after an ordinary hit | not shipped — `$02:81CB` is the engine's own "start a protection period" decision (`$0501` bit `$20`, timer `$0516/$0517`); which field carries the length is not yet proved |
-| Enemy and boss EXP +50%, rounded down | not shipped — needs a victory route |
-| 8-frame hold at the original jump peak | not shipped |
-| Raise all magic power for the end game | not shipped |
+This repository contains source, build configuration and development tools. It
+excludes ROMs, generated ROM-derived C, private decompilation exports, extracted
+assets, saves, states, screenshots and test captures. No playable release is being
+published with this source snapshot. GitHub updates are deliberate batch snapshots,
+not an automatic per-feature sync.
 
-With every feature off, a 6 245-frame route replays bit-identically to the
-interpreter-floor build on every captured component *including* `master_clock` — the gate
-under Qualification — so "the unmodified game is unchanged" is a measurement, not an
-assumption.
-
-To turn a feature on in a built tree: set `enabled = true` for it in
-`build/mods/preloaded/state.toml` and start the game. The launcher's mod list is meant to
-be the player-facing route for this, and has not been qualified yet, so the file is the
-documented method for now.
-
-**Development hook, not a player feature.** `debug_position` (off by default) moves Nasir to a
-world position at a chosen frame when `LAGOON_DEBUG_AT="x,y[,frame];..."` is set, and writes
-nothing at all when it is not. It exists because route work is a positioning problem: one
-tile off from a door or an NPC changes the outcome, and scripted presses land on whatever the
-collision grid allows. With the rebuilt port it took the route from Atland to a fight in Gold
-Cave down to about 45 seconds per experiment. `CAMPAIGN-ROUTE.md` documents how to use it and
-what it cannot do.
-
-## Layout
-
-| Path | What lives there |
-|---|---|
-| `recomp/` | Analysis input: `bank*.cfg`, `symbols.toml`, generated `funcs.h` |
-| `rom_identity.txt` | ROM digests — read by the build, `tools/regen.sh` and CI |
-| `src/` | Host code you own: `main.c`, `game_rtl.c` |
-| `src/gen/` | Generated C. Never committed — regenerate locally |
-| `snesrecomp/` | Framework submodule (owns `lib/recomp-net`, `lib/retcomm-rbengine`) |
-| `tools/` | `regen.sh` (ROM → C), the headless rig, and the qualification tools below |
-| `recomp-floor/` | Analysis config for the interpreter-floor reference build |
-| `scripts/` | `package_release.sh` — player-facing zip |
-| `framework_pins.txt` | Exact framework commits this project was scaffolded against |
-
-### The day-to-day loop
-
-```sh
-# 1. Drive a route and record what the interpreter is still doing.
-./tools/headless.ps1 -Frames 2900 -Script tools/script_move.txt -Tag cov -Coverage -CleanSaves
-
-# 2. Read the capture: what falls back, with the targets actually observed.
-python tools/coverage_report.py build/coverage-cov
-python tools/dispatch_hints.py  build/coverage-cov     # the cfg lines the evidence supports
-
-# 3. Write it down in recomp/, regenerate.
-bash tools/regen.sh --cfg-roots --profile <capture.json> --profile <capture.jsonl> \
-                    --historical-profile <older.json> --historical-profile <older.jsonl>
-cmake --build build -j
-
-# 4. Prove the promotion changed nothing.
-./tools/replay_parity.ps1 -Script tools/script_move.txt -Frames 2760 -Dumps -Tag mv
-```
-
-`tools/find_refs.py` answers "who transfers here, and with what calling
-convention", which is how a dispatch's `return:`/`frame:` semantics get decided
-instead of guessed. `tools/bin_diff.py` names the addresses where two snapshots
-disagree, when a framedump comparison says "different" but not "where". A capture
-from an older build never merges with a newer one — costs and build identity do
-not cross a build boundary — so it goes in as `--historical-profile`, which
-contributes evidence without letting a stale build shrink the program.
-
-## Porting from here
-
-The scaffold stops where the game-specific work starts. In rough order:
-
-1. **Make it boot.** `src/game_rtl.c` holds the frame driver. It starts on
-   the framework's beam-aligned driver (`snesrecomp/runner/src/beam_frame_driver.h`):
-   one frame per PPU field, interrupts taken where the beam latches them,
-   the field rasterized from the raster journal. A title whose main loop it
-   does not fit replaces those calls with its own driver.
-2. **Name things.** Add entries to `recomp/symbols.toml` as you identify
-   routines, then re-run `tools/regen.sh`. Set `emit = true` to promote one
-   into ahead-of-time analysis; leave it false to keep it interpreted.
-   Regen synchronizes the marked blocks in each bank cfg, creating missing
-   configs. Only proven variants become AOT code. See `recomp/README.md`.
-3. **Resolve dispatch misses.** After every run, deal with unresolved
-   indirect targets before anything else — they are the reason a port
-   diverges, and they are cheap to fix early.
-4. **Never synthesise a result** to get past uncovered code, and never edit
-   `src/gen/` by hand. Fix the config or the framework and regenerate.
-
-## Multiplayer
-
-Single player.
-
-## License
-
-This project's own source is under the license in `LICENSE`. The framework
-carries its own terms — see `snesrecomp/LICENSE` and
-`snesrecomp/THIRD_PARTY_ATTRIBUTION.md`. Neither covers the game data, which
-is not distributed here.
-
-## Four separate claims, stated separately
-
-These are deliberately not merged, because they are different kinds of promise and each fails
-differently.
-
-**What is compiled.** A static 65816-to-C recompiler plus an interpreter floor in one
-executable, an SDL runner, and the `lagoon.quality` plugin compiled in as a static package. The
-shipping configuration emits 10 ahead-of-time declarations for the opening route; everything
-else, including the `$80E6` dispatcher, runs interpreted (`force_lle 0080e6`). The plugin
-catalog declares four features -- `walk_speed`, `camera_center`, `start_hp` (which carries both
-the HP and the defence change) and the development-only `debug_position` -- all default off.
-
-**What is correct, and on which route.** One route: the 6 245-frame opening run
-(`tools/script_gameplay_regression.txt`), from title through Atland, a walk, the field menu and
-its close. On it the ahead-of-time build and a genuine `recomp-floor` build are bit-identical
-across 9 checkpoints in framebuffer, WRAM, registers, VRAM, OAM, CGRAM **and `master_clock`**
-(`build/dumps-qol9-off` against `build/dumps-qreg-floor4`, and also against the earlier
-`build/dumps-qreg-floor2`). Correctness does not extend past the last frame of that route, and
-no amount of passing it says anything about combat, dialogue or a dungeon, because that route
-touches none of them.
-
-**What is campaign-complete.** Nothing. The route reaches Atland and, separately, Gold Cave; a
-fight, damage and death have been reached and measured; the field menu opens. No checkpoint
-exists yet for room transitions as a gate, item use, equipment, dialogue, save/load, existing
-save entry or reset. Reaching a place is not the same as a gated checkpoint through it.
-
-**What is not.** Six of the nine requested changes are unshipped: sword reach, follower speed,
-+8 recovery frames, EXP +50%, the jump-peak hold and magic power. Ahead-of-time coverage is
-where the evidence put it, no further: the cost-model mismatch is diagnosed (interpreter prices
-internal cycles at 6, translated blocks at 8, because Lagoon never writes `$2181`) and is
-unobservable on the only gated route, so fixing it and promoting gameplay routines are one task
-gated together. The CompanionLauncher adapter, `-AudioDriver directsound` pacing and widescreen
-are untouched. The starting-defence initialiser is still unidentified, so that number is
-delivered by a field write rather than by the game's own path.
+Retain the included licenses: the SNESRecomp foundation and its derivatives use
+PolyForm Noncommercial; Companion Launcher and the Lagoon launcher adapter use MIT.
+Public source availability does not remove the framework's noncommercial terms.

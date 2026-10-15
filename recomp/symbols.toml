@@ -43,7 +43,7 @@ bank = 0
 emit = true
 entry_m = 1
 entry_x = 0
-note = "SFX glue, called from $02:EFFA"
+note = "Bank-01 routine dispatcher; includes gameplay, not only sound"
 
 [[func]]
 name = "F_0080B9"
@@ -52,7 +52,7 @@ bank = 0
 emit = true
 entry_m = 1
 entry_x = 0
-note = "SFX glue, called from $00:935C"
+note = "Bank-02 routine dispatcher; includes title and gameplay"
 
 [[func]]
 name = "F_028277"
@@ -117,8 +117,9 @@ entry_m = 1
 entry_x = 0
 note = "Sound handler, called from $02:D98E"
 
-# First routine attempted from the gameplay route rather than the sound path,
-# and rejected by the replay gate — kept declared so the evidence stays here.
+# First routine attempted from the gameplay route rather than the sound path.
+# Initially rejected; the October 15 instruction-boundary timing work below
+# addresses that failure. Historical evidence is retained for review.
 # Evidence (build/coverage-qreg-cov, exe 3359E55275BE718A): 12 775 interpreter
 # entries from `JSR $C579` at $01:C4DE, arriving M0X0 with a 16-bit accumulator.
 # Body is a leaf: PHY/PHX, scale A and $48 by 5, copy 16 words from $118000,x
@@ -144,4 +145,42 @@ bank = 1
 emit = false
 entry_m = 0
 entry_x = 0
-note = "Tile-row staging: copies 16 words from $118000,x to page-zero $40,y, JSR'd from $01:C4DE; rejected on cycle-accounting grounds, see the note above"
+note = "Tile-row staging: remains interpreted; October 15 precise-root retry also failed clock parity. See NATIVE-PROGRESS-2026-10-15.md"
+
+# Gameplay promotion batch, 2026-10-15. Ghidra boundaries cross-checked against
+# real route call entries (M1X0); retain the interpreter for uncovered variants.
+[[func]]
+name = "Lagoon_Entity_IntegrateMovement"
+addr = "a4eb"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Adds entity velocity to position; handles airborne movement; JSR at 01:A4D3"
+
+[[func]]
+name = "Lagoon_Entity_ClampPosition"
+addr = "a56a"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Clamps entity world position to room limits; JSR at 01:A4D6"
+
+[[func]]
+name = "Lagoon_Entity_ProjectToScreen"
+addr = "a5aa"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Computes world minus camera coordinates and visibility mask; JSR at 01:A4E5"
+
+[[func]]
+name = "Lagoon_Entity_SelectVelocity"
+addr = "80ea"
+bank = 2
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Reads direction/speed tier table into entity velocity; observed dispatcher target"

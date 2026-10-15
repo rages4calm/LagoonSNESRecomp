@@ -1,0 +1,666 @@
+diff --git a/recompiler/v2/emit_function.py b/recompiler/v2/emit_function.py
+index 1f5de57..20f9d73 100644
+--- a/recompiler/v2/emit_function.py
++++ b/recompiler/v2/emit_function.py
+@@ -612,7 +612,13 @@ def emit_function(rom: bytes, bank: int, start: int,
+     # cfg directive, no auto-recovery). v2_regen hard-fails on any.
+     if unresolved_indirect_collector is not None:
+         unresolved_indirect_collector.extend(graph.unresolved_indirects)
+-    cfg = build_cfg(graph, instruction_blocks=get_rom_mapping() == ROM_MAP_SA1)
++    # Opt-in instruction boundaries for newly qualified native roots. Timing
++    # includes real bus regions plus six-clock internal cycles; keep the
++    # historical block model for all other roots during staged adoption.
++    precise_roots = {int(p, 16) for p in os.environ.get(
++        'SNESRECOMP_PRECISE_AOT_ROOTS', '').replace(',', ' ').split()}
++    precise_timing = ((bank << 16) | (start & 0xffff)) in precise_roots
++    cfg = build_cfg(graph, instruction_blocks=precise_timing or get_rom_mapping() == ROM_MAP_SA1)
+ 
+     # A tight, side-effect-free memory poll cannot execute atomically under
+     # the LLE frame scheduler: the value it observes is commonly changed by
+@@ -828,7 +834,7 @@ def emit_function(rom: bytes, bank: int, start: int,
+     # Returns a dict {skip:int, pla_start_ir_idx:int, pla_count:int}
+     # so the emit loop can preserve setup ops, skip just the PLAs, and
+     # set _pending_skip before the terminator.
+-    import os, sys as _sys
++    import sys as _sys
+     _NLR_DEBUG = os.environ.get('SNESRECOMP_NLR_DEBUG') == '1'
+     def _detect_nlr(key: DecodeKey):
+         def _dbg(msg):
+@@ -1344,6 +1350,8 @@ def emit_function(rom: bytes, bank: int, start: int,
+         # Axis-5: master-clocks-per-CPU-cycle for this block's code region, used
+         # to weight the dynamic (D.l/page-cross/branch-taken) master charges.
+         _blk_spd_expr, _blk_spd_const = _block_speed(bank, key.pc)
++        if precise_timing:
++            _blk_spd_expr, _blk_spd_const = '6', 6
+ 
+         # Iterate the pre-lowered (Insn, [IROp]) pairs. Calling lower()
+         # again here would mint fresh Value-ids and break codegen's
+@@ -2158,11 +2166,18 @@ def emit_function(rom: bytes, bank: int, start: int,
+         if _cyc_const:
+             src.append(f'    cpu->cycles += {_cyc_const};')
+             _spd_expr, _spd_const = _block_speed(bank, key.pc)
+-            if _spd_const is not None:
++            if precise_timing:
++                insn = cfg.blocks[key].insns[0].insn
++                src.append(f'    cpu->master_cycles += {_cyc_const * 6} + '
++                           f'{insn.length} * ({_spd_expr} - 6);')
++            elif _spd_const is not None:
+                 src.append(f'    cpu->master_cycles += {_cyc_const * _spd_const};')
+             else:
+                 src.append(f'    cpu->master_cycles += {_cyc_const} * {_spd_expr};')
+         for ln in block_lines[key]:
++            if precise_timing:
++                for access in ('read8', 'read16', 'write8', 'write16'):
++                    ln = ln.replace('cpu_' + access + '(', 'cpu_' + access + '_timed(')
+             # Inject a stack-auditor pop before any return so the shadow
+             # stack stays balanced. An LLE yield unwind is NOT a return: the
+             # bounce site resumes the interpreter mid-routine with pushed
+diff --git a/runner/src/cpu_state.h b/runner/src/cpu_state.h
+index f9b1e26..78f8740 100644
+--- a/runner/src/cpu_state.h
++++ b/runner/src/cpu_state.h
+@@ -417,6 +417,27 @@ void   cpu_write16(CpuState *cpu, uint8 bank, uint16 addr, uint16 v);
+  * interpreter's bridge shims use the plain accessors (they account
+  * transfers themselves). */
+ uint32_t  cpu_region_speed(uint32_t adr);
++/* Precise-root codegen already charges six clocks per CPU cycle. These
++ * accessors add only the addressed bus region's excess over that baseline.
++ * ABI bookkeeping outside emitted instruction bodies stays unpaced. */
++static inline uint8 cpu_read8_timed(CpuState *cpu, uint8 bank, uint16 addr) {
++    cpu->master_cycles += cpu_region_speed(((uint32)bank << 16) | addr) - 6;
++    return cpu_read8(cpu, bank, addr);
++}
++static inline uint16 cpu_read16_timed(CpuState *cpu, uint8 bank, uint16 addr) {
++    cpu->master_cycles += cpu_region_speed(((uint32)bank << 16) | addr) - 6;
++    cpu->master_cycles += cpu_region_speed(((uint32)bank << 16) | (uint16)(addr + 1)) - 6;
++    return cpu_read16(cpu, bank, addr);
++}
++static inline void cpu_write8_timed(CpuState *cpu, uint8 bank, uint16 addr, uint8 v) {
++    cpu->master_cycles += cpu_region_speed(((uint32)bank << 16) | addr) - 6;
++    cpu_write8(cpu, bank, addr, v);
++}
++static inline void cpu_write16_timed(CpuState *cpu, uint8 bank, uint16 addr, uint16 v) {
++    cpu->master_cycles += cpu_region_speed(((uint32)bank << 16) | addr) - 6;
++    cpu->master_cycles += cpu_region_speed(((uint32)bank << 16) | (uint16)(addr + 1)) - 6;
++    cpu_write16(cpu, bank, addr, v);
++}
+ /* SNESRECOMP_WLOG_ADDR hook for direct-WRAM stores that bypass cpu_write8/16
+  * (DMA A-bus writes in snes_write, WMDATA $2180). wa = g_ram offset. */
+ void wlog_addr_note_direct(uint32_t wa, uint8_t v, const char *via);
+diff --git a/runner/src/desktop/host_main.c b/runner/src/desktop/host_main.c
+index 3bc3905..addf677 100644
+--- a/runner/src/desktop/host_main.c
++++ b/runner/src/desktop/host_main.c
+@@ -244,6 +244,29 @@ static const char *HostGetenv(const char *name) {
+   return NULL;
+ }
+ 
++/* SNESRECOMP_INPUT_TRACE=1 — the debug surface for "I pressed a key and nothing
++ * happened". That complaint lives exactly where the automated rigs cannot see:
++ * an input script injects a pad word BELOW the event layer (TickScript() ORs it
++ * into the frame), so a run can drive the guest perfectly while SDL, the
++ * keybinds store, or the [Controller] seat drops every real press. Three lines
++ * say which layer lost it: the SDL event and what it resolved to, the keyboard
++ * word as seats and bindings compose it, and the word the guest is handed.
++ * Off by default; it costs a getenv the first time. */
++static bool InputTraceEnabled(void) {
++  static int on = -1;
++  if (on < 0) on = HostGetenv("INPUT_TRACE") ? 1 : 0;
++  return on == 1;
++}
++
++/* A seat's keyboard half: [Controller] SourceP* is 0 none, 1 keyboard, 2
++ * gamepad, 3 both (see ParsePlayerSource). Anything reading the keyboard as
++ * "that seat's device" has to accept 3 as well, or the seat that owns both
++ * silently loses the half that was there first. */
++static bool SeatHasKeyboard(int seat) {
++  int s = g_config.player_src[seat];
++  return s == 1 || s == 3;
++}
++
+ static uint32 g_win_flags = SDL_WINDOW_RESIZABLE;
+ static SDL_Window *g_window;
+ 
+@@ -2649,14 +2672,16 @@ static void LauncherSeed(RecompLauncherCSettings *ls, RecompLauncherCGameInfo *g
+   ls->enable_audio  = g_config.enable_audio;
+   ls->audio_freq    = g_config.audio_freq;
+   ls->volume        = g_config.volume;
+-  /* [Controller] SourceP1/SourceP2 is the real three-way answer (0 none,
+-   * 1 keyboard, 2 gamepad) and matches the launcher's row exactly.
++  /* [Controller] SourceP1/SourceP2 is the real answer (0 none, 1 keyboard,
++   * 2 gamepad, 3 keyboard and gamepad) and matches the launcher's row.
+    * EnableGamepadN is the older, lossier spelling and only decides the
+    * seed when the file predates the Source keys -- deriving from it
+    * unconditionally is what turned "player 2 on the keyboard" into
+-   * "player 2 unassigned" on every relaunch. */
++   * "player 2 unassigned" on every relaunch. A file that had the pad on and
++   * never named a source wanted both devices on player 1, which is what the
++   * default seat says today. */
+   ls->player_src[0] = ConfigHasPlayerSource(0) ? g_config.player_src[0]
+-                                               : (g_config.enable_gamepad[0] ? 2 : 1);
++                                               : (g_config.enable_gamepad[0] ? 3 : 1);
+   ls->player_src[1] = ConfigHasPlayerSource(1) ? g_config.player_src[1]
+                                                : (g_config.enable_gamepad[1] ? 2 : 0);
+   for (int seat = 2; seat < kSnesHostPadSeats && seat < RECOMP_LAUNCHER_MAX_PLAYERS; ++seat)
+@@ -2796,7 +2821,7 @@ static void LauncherCommit(const RecompLauncherCSettings *ls, const char *config
+     /* Seats past the game's count are not on the launcher's page; keep them. */
+     if (seat >= 2 && seat >= HostConfiguredSeats()) break;
+     g_config.player_src[seat]     = ls->player_src[seat];
+-    g_config.enable_gamepad[seat] = ls->player_src[seat] == 2;
++    g_config.enable_gamepad[seat] = ls->player_src[seat] >= 2;
+   }
+   g_config.gamepad_deadzone    = (ls->deadzone[0] * 32767 + 50) / 100;
+   g_config.skip_launcher       = ls->skip_launcher != 0;
+@@ -3714,6 +3739,17 @@ error_reading:;
+ 
+   PreparePpuFrame();
+ 
++  /* --save-root has to land before the card is read: the battery-backed save is
++   * part of the starting state, and a harness that runs a route twice (two
++   * builds, or a build twice in a row) measures the previous run's saved game
++   * unless each run gets its own. Netplay switches the root later, for its own
++   * reason, and is not reading a card here anyway. */
++  if (args.save_root) {
++    RtlSetSaveRoot(args.save_root);
++    MkDir(args.save_root);
++    host_report_breadcrumb("save root: %s", args.save_root);
++  }
++
+   MkDir("saves");
+   if (!g_netplay_session) RtlReadSram();
+ 
+@@ -4207,6 +4243,14 @@ error_reading:;
+     bool runahead_captured = false;
+     {
+       const uint32 word = inputs | GetActiveControllers() | debug_server_get_controller_active_mask();
++      if (InputTraceEnabled()) {
++        static uint32 last_word = 0xFFFFFFFFu;
++        if ((word & 0xFFFFFFu) != last_word) {
++          last_word = word & 0xFFFFFFu;
++          fprintf(stderr, "[input_trace] frame %u guest word %06x\n", frameCtr, word & 0xFFFFFFu);
++          fflush(stderr);
++        }
++      }
+       if (g_turbo || !snes_runahead_run_frame(word))
+         RtlRunFrame(word);
+       else
+@@ -4406,11 +4450,11 @@ error_reading:;
+ static void PollKeyboardControls(const uint8_t *keys) {
+   /* Replace the whole keyboard word so changing a seat to Gamepad/None also
+    * releases keys held under its previous assignment. Hotkeys remain separate. */
+-  uint32 p1 = g_config.player_src[0] == 1 ? keybinds_read_player_runner(keys, 1) : 0;
+-  uint32 p2 = g_config.player_src[1] == 1 ? keybinds_read_player_runner(keys, 2) : 0;
++  uint32 p1 = (g_config.player_src[0] == 1 || g_config.player_src[0] == 3) ? keybinds_read_player_runner(keys, 1) : 0;
++  uint32 p2 = (g_config.player_src[1] == 1 || g_config.player_src[1] == 3) ? keybinds_read_player_runner(keys, 2) : 0;
+   g_input_state = p1 | (p2 << 12);
+   for (int seat = 2; seat < kSnesHostPadSeats; ++seat)
+-    g_seat_keys[seat] = g_config.player_src[seat] == 1
++    g_seat_keys[seat] = (g_config.player_src[seat] == 1 || g_config.player_src[seat] == 3)
+         ? keybinds_read_player_runner(keys, seat + 1) : 0;
+ }
+ 
+@@ -4528,6 +4572,9 @@ static void HandleCommand(uint32 j, bool pressed) {
+ 
+ static void HandleInput(int keyCode, int keyMod, bool pressed) {
+   int j = FindCmdForSdlKey(keyCode, (SDL_Keymod)keyMod);
++  if (InputTraceEnabled())
++    fprintf(stderr, "[input_trace] key 0x%x mod 0x%x -> cmd %d %s\n", keyCode,
++            keyMod, j, pressed ? "down" : "up");
+   if (j != 0)
+     HandleCommand(j, pressed);
+ }
+@@ -4553,8 +4600,8 @@ static void RequestScreenshot(void) {
+ 
+ static uint32 GetActiveControllers(void) {
+   uint32 ctrl = g_script_controllers |
+-                (g_config.player_src[0] == 1 ? 1u : 0u) |
+-                (g_config.player_src[1] == 1 ? 2u : 0u);
++                (SeatHasKeyboard(0) ? 1u : 0u) |
++                (SeatHasKeyboard(1) ? 2u : 0u);
+   ctrl |= g_gamepad[0].joystick_id != -1 ? 1 : 0;
+   ctrl |= g_gamepad[1].joystick_id != -1 ? 2 : 0;
+   return ctrl << 30;
+diff --git a/runner/src/desktop/mmx_config.c b/runner/src/desktop/mmx_config.c
+index 2743775..5c6bf9c 100644
+--- a/runner/src/desktop/mmx_config.c
++++ b/runner/src/desktop/mmx_config.c
+@@ -417,12 +417,19 @@ static bool ParseVSync(const char *value, uint8 *result) {
+   return true;
+ }
+ 
+-/* [Controller] SourceP1/SourceP2: which device drives each player, matching
+- * the launcher's three-way row -- 0 none, 1 keyboard, 2 gamepad. EnableGamepadN
+- * cannot carry this: it has no way to say "player 2 is on the keyboard". */
++/* [Controller] SourceP1/SourceP2: which device drives each player -- 0 none,
++ * 1 keyboard, 2 gamepad, 3 keyboard and gamepad. EnableGamepadN cannot carry
++ * this: it has no way to say "player 2 is on the keyboard".
++ *
++ * 3 exists because of a one-player game. A player plugs in a pad, the pad gets
++ * seated on player 2 by the launcher or an older config.ini, and every press is
++ * delivered faithfully to a slot the game never reads -- the controller works
++ * and the game is stone dead, with nothing in the window to explain it. "Your
++ * keyboard OR your pad" also meant reaching for the keyboard mid-game was a
++ * settings change, not a decision. */
+ static bool ParsePlayerSource(int player, const char *value) {
+   long v = strtol(value, (char **)NULL, 10);
+-  if (v < 0 || v > 2) return false;
++  if (v < 0 || v > 3) return false;
+   g_config.player_src[player] = (int)v;
+   s_player_src_seen[player] = true;
+   return true;
+@@ -678,8 +685,14 @@ void ParseConfigFile(const char *filename) {
+    * section behaves exactly as it did before the section existed: player 1 on
+    * the keyboard, player 2 silent until someone assigns it a device. Leaving
+    * these zero would have read as "no slot uses the keyboard" and taken the
+-   * keyboard away from every existing install. */
+-  g_config.player_src[0] = 1;   /* keyboard */
++   * keyboard away from every existing install.
++   * Player 1 is seeded keyboard-and-gamepad rather than keyboard: the pad has to
++   * be seated on the player the game reads for a controller to do anything, and
++   * a fresh install cannot know whether this game is one player or two. Nothing
++   * is lost by having both live -- the keyboard keeps working exactly as it did,
++   * and a second pad still cannot reach player 1 because player 2's seat is the
++   * only thing that can claim it. */
++  g_config.player_src[0] = 3;   /* keyboard and gamepad */
+   g_config.player_src[1] = 0;   /* none */
+   /* Multitap seats 3.. start with no device and no gamepad claim, so an
+    * extra controller never lands on a seat nobody asked for. */
+@@ -708,6 +721,17 @@ void ParseConfigFile(const char *filename) {
+     filename = "config.ini";
+   if (!ParseOneConfigFile(filename, 0))
+     fprintf(stderr, "Warning: Unable to read config file %s\n", filename);
++  /* SourceP* is the truth about the seats and EnableGamepadN is the older
++   * spelling of part of it, so a file that names a source gets its pad-enables
++   * derived here -- the launcher has done exactly this since the section
++   * existed, which is why a launcher-written config.ini and a hand-edited one
++   * used to disagree about whether a pad could open at all. Files that predate
++   * [Controller] keep what EnableGamepadN said, untouched. */
++  for (int i = 0; i < 2; i++) {
++    if (ConfigHasPlayerSource(i))
++      g_config.enable_gamepad[i] = (g_config.player_src[i] == 2 ||
++                                    g_config.player_src[i] == 3);
++  }
+   RegisterDefaultKeys();
+ }
+ 
+diff --git a/runner/src/host_args.c b/runner/src/host_args.c
+index b1c580a..2350ae1 100644
+--- a/runner/src/host_args.c
++++ b/runner/src/host_args.c
+@@ -35,6 +35,9 @@ void snesrecomp_host_args_usage(const char *program, const char *extra) {
+           "  --framedump <dir>     write frames to this directory.\n"
+           "  --resume-state <path> load this save state before the first frame,\n"
+           "                        then delete it (the in-game launcher's restart).\n"
++          "  --save-root <dir>     read and write the battery-backed card here,\n"
++          "                        not in saves/. A harness run wants its own:\n"
++          "                        the card is part of the starting state.\n"
+           "  --help, -h            this message.\n");
+   if (extra && extra[0]) fprintf(stderr, "%s", extra);
+ }
+@@ -67,6 +70,7 @@ int snesrecomp_host_args_parse(int *argc_io, char ***argv_io,
+   const char *script_raw = NULL;
+   const char *framedump_raw = NULL;
+   const char *resume_raw = NULL;
++  const char *save_root_raw = NULL;
+ 
+   /* Single order-independent pass. argv[0] is kept; everything this function
+    * does not claim is compacted back into argv in its original order. */
+@@ -99,7 +103,7 @@ int snesrecomp_host_args_parse(int *argc_io, char ***argv_io,
+      * used to behave. */
+     if (strcmp(a, "--rom") == 0 || strcmp(a, "--config") == 0 ||
+         strcmp(a, "--script") == 0 || strcmp(a, "--framedump") == 0 ||
+-        strcmp(a, "--resume-state") == 0) {
++        strcmp(a, "--resume-state") == 0 || strcmp(a, "--save-root") == 0) {
+       if (i + 1 >= argc || !argv[i + 1]) {
+         fprintf(stderr, "%s requires a path\n\n", a);
+         snesrecomp_host_args_usage(program, NULL);
+@@ -110,6 +114,7 @@ int snesrecomp_host_args_parse(int *argc_io, char ***argv_io,
+       else if (strcmp(a, "--config") == 0) config_raw = v;
+       else if (strcmp(a, "--script") == 0) script_raw = v;
+       else if (strcmp(a, "--resume-state") == 0) resume_raw = v;
++      else if (strcmp(a, "--save-root") == 0) save_root_raw = v;
+       else framedump_raw = v;
+       continue;
+     }
+@@ -147,6 +152,10 @@ int snesrecomp_host_args_parse(int *argc_io, char ***argv_io,
+                                   sizeof(out->framedump_buf));
+   out->resume_state = absolutize(resume_raw, out->resume_buf,
+                                  sizeof(out->resume_buf));
++  /* Not absolutized: RtlSetSaveRoot and ensure_save_root build this relative to
++   * the cwd the host anchors beside the executable, so "saves" stays where it
++   * has always been and a harness root lands beside the build. */
++  out->save_root = save_root_raw;
+   tier2_capture_configure(out->expose_coverage_mod, -1, out->coverage_capture);
+   return 1;
+ }
+diff --git a/runner/src/host_args.h b/runner/src/host_args.h
+index 01dbd36..c9fcb6c 100644
+--- a/runner/src/host_args.h
++++ b/runner/src/host_args.h
+@@ -61,6 +61,10 @@ typedef struct SnesrecompHostArgs {
+   /* --resume-state <path>: a save state to load before the first frame and then
+    * delete. Written by the in-game launcher when an edit needs a restart. */
+   const char *resume_state;
++  /* --save-root <dir>: where the battery-backed card and save states live
++   * (default "saves"). Two runs of the same route are only comparable when they
++   * start from the same card, so a harness gives each run its own. */
++  const char *save_root;
+   int start_paused;           /* --paused */
+   int force_launcher;         /* --launcher */
+   int no_launcher;            /* --no-launcher */
+@@ -74,6 +78,7 @@ typedef struct SnesrecompHostArgs {
+   char script_buf[SNESRECOMP_HOST_ARGS_PATH_MAX];
+   char framedump_buf[SNESRECOMP_HOST_ARGS_PATH_MAX];
+   char resume_buf[SNESRECOMP_HOST_ARGS_PATH_MAX];
++  char save_root_buf[SNESRECOMP_HOST_ARGS_PATH_MAX];
+ } SnesrecompHostArgs;
+ 
+ /* Consume the engine-owned arguments from *argc / *argv, in place.
+diff --git a/runner/src/snes/interp_bridge.c b/runner/src/snes/interp_bridge.c
+index c1e48eb..8985861 100644
+--- a/runner/src/snes/interp_bridge.c
++++ b/runner/src/snes/interp_bridge.c
+@@ -522,6 +522,12 @@ static int      s_lle_unwind_is_deadline = 0;
+ static int      s_lle_next_unwind_is_deadline = 0;
+ static uint32_t s_lle_resume_pc24   = 0;
+ static int      s_interp_pctrace    = 0;
++/* How many steps of each bridge run the pctrace covers. 4 was hardcoded, which
++ * is enough to see where a run starts but not what it does: a run that yields
++ * after a handful of steps (the quiescent-spin yield) leaves its whole body
++ * untraced, and the histogram of those 4-step prefixes reads as a "spin loop"
++ * at whatever PC each run resumed on. SNESRECOMP_PCTRACE_STEPS=<n> widens it. */
++static long     s_interp_pctrace_steps = 4;
+ static int      s_lle_wai_yield     = 0;
+ static int      s_lle_quiescent_yield = 0;
+ static uint64_t s_lle_master_deadline = 0;
+@@ -1623,7 +1629,9 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+         { static long pct = -1;
+           if (pct < 0) { const char *e = getenv("SNESRECOMP_INTERP_PCTRACE");
+                          pct = e ? atol(e) : 0; if (pct < 0) pct = 0;
+-                         s_interp_pctrace = pct != 0; }
++                         s_interp_pctrace = pct != 0;
++                         const char *st = getenv("SNESRECOMP_PCTRACE_STEPS");
++                         if (st) { long v = atol(st); if (v > 0) s_interp_pctrace_steps = v; } }
+           if (pct && (steps % pct) == 0)
+             fprintf(stderr, "[pctrace] step=%ld pc=%06X op=%02X\n", steps,
+                     (unsigned)pc_before, bridge_bus_read(cpu, pc_before)); }
+@@ -1659,9 +1667,26 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+             bridge_apu_flush(cpu);
+             return 1;
+         }
+-        if (auto_quiescent && s_lle_master_deadline &&
+-            cpu->master_cycles >= s_lle_master_deadline) {
++        if (s_lle_master_deadline &&
++            cpu->master_cycles >= s_lle_master_deadline &&
++            (auto_quiescent || s_lle_sched_depth > 0)) {
+             lle_resume_set(pc_before, INTERP_RESUME_SITE_DEADLINE, in.sp);
++            if (!auto_quiescent) {
++                /* Bounded run: generated code handed a dispatch or a call
++                 * landing to the interpreter and is waiting for it to finish.
++                 * The host deadline still binds. Ignoring it here meant a
++                 * hardware-poll loop inside that gap ran to the step cap and
++                 * came back unresolved, over and over, while the interrupt the
++                 * loop is waiting for could not be delivered — the scheduler
++                 * only takes NMI/IRQ back once the bridge returns. Lagoon's SFX
++                 * dispatcher is exactly that shape: its handler ends in
++                 * `LDA $023C / BNE`, and $023C is written by the vblank NMI.
++                 * Arm the same deadline unwind a compiled block arms, so the
++                 * sentinel keeps propagating until the scheduler publishes the
++                 * suspended PC and runs the field boundary it asked for. */
++                lle_unwind_arm(pc_before, s_interp_bridge_depth, 1,
++                               INTERP_RESUME_SITE_DEADLINE, in.sp);
++            }
+             sync_interp_to_cpu(&in,cpu);
+             bridge_apu_flush(cpu);
+             return 1;
+@@ -2435,16 +2460,19 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+         if (wlog_state_sync)
+             sync_interp_to_cpu(&in, cpu);
+         cpu->coprocessor_master_cycles = cpu->master_cycles;
+-        if (s_interp_pctrace && steps < 4)
+-            fprintf(stderr, "[pctrace] step=%ld pre-runOpcode pc=%06X\n",
+-                    steps, (unsigned)pc_before);
++        if (s_interp_pctrace && steps < s_interp_pctrace_steps)
++            fprintf(stderr, "[pctrace] step=%ld pre-runOpcode pc=%06X op=%02X "
++                    "k=%02X db=%02X d=%04X sp=%04X m=%d x=%d a=%04X\n",
++                    steps, (unsigned)pc_before, (unsigned)op, (unsigned)in.k,
++                    (unsigned)in.db, (unsigned)in.dp, (unsigned)in.sp,
++                    (int)in.mf, (int)in.xf, (unsigned)in.a);
+         if (g_interp_bridge_pc_hook)
+             g_interp_bridge_pc_hook(pc_before & 0xFFFFFFu,
+                                     in.mf ? 1 : 0, in.xf ? 1 : 0);
+         int _cyc = interp816_runOpcode(&in);   /* executes the opcode; pushes/pops frames */
+-        if (s_interp_pctrace && steps < 4)
+-            fprintf(stderr, "[pctrace] step=%ld post-runOpcode cyc=%d pc=%02X:%04X\n",
+-                    steps, _cyc, in.k, in.pc);
++        if (s_interp_pctrace && steps < s_interp_pctrace_steps)
++            fprintf(stderr, "[pctrace] step=%ld post-runOpcode cyc=%d pc=%02X:%04X a=%04X\n",
++                    steps, _cyc, in.k, in.pc, (unsigned)in.a);
+         s_interp_bus_timing_active=0;
+         if (dtrace && in.dp != dp_before) {
+             extern int snes_frame_counter;
+diff --git a/runner/src/snes/snes.c b/runner/src/snes/snes.c
+index 5c03cfe..0c8c2e0 100644
+--- a/runner/src/snes/snes.c
++++ b/runner/src/snes/snes.c
+@@ -625,14 +625,22 @@ uint8_t snes_readReg(Snes* snes, uint16_t adr) {
+       // Beam-driven hosts latch independently of NMITIMEN. Keep accepting
+       // inNmi for existing frame hosts which explicitly deliver each NMI.
+       val |= (snes->rdnmiPending || snes->inNmi) << 7;
+-      // Real hardware clears the NMI-pending latch on read. Without this
+-      // a stale `inNmi=true` would persist across NMI handler exit and
+-      // produce a spurious second-read=true if anything re-reads $4210
+-      // before the next NMI fires. (SMW happens to discard the loaded
+-      // value, but a hardware-correct read-clear costs one store and
+-      // is the right contract for game #2.)
++      // Reading $4210 observes the NMI-pending latch but does NOT consume it.
++      // The latch belongs to the vblank window: the beam raises it entering
++      // V=225 and drops it at V=0 (snes_advance_master_cycles), so no reader
++      // can lose an edge by looking at it. A read-clear is invisible to a
++      // game that samples $4210 once per frame and fatal to one whose NMI
++      // handler samples it first: Lagoon's handler runs `CMP $4210` at
++      // $00:87C3 on every NMI, so a consuming read left the flag low for the
++      // `LDA $4210 / BPL $8148` wait its frame loop ends with, and the game
++      // never got past its first frame — a black screen at 60 fps with the
++      // CPU otherwise running happily (the wait loop, not a hang, is what
++      // the PC histogram shows: the flag only rose after the field walk,
++      // when the handler was already consuming it again).
++      // The host-side inNmi flag is a different thing: hosts that deliver
++      // each NMI themselves (SMW's frame host) set it and never clear it, so
++      // a stale one would read back as a second pending NMI forever.
+       snes->inNmi = false;
+-      snes->rdnmiPending = false;
+       return val;
+     }
+     case 0x4211: {
+@@ -665,6 +673,12 @@ uint8_t snes_readReg(Snes* snes, uint16_t adr) {
+       uint8_t val = (snes->autoJoyTimer > 0);
+       val |= (snes->hPos >= 1024) << 6;
+       val |= (snes->inVblank || snes->vPos >= 225) << 7;
++      /* Reading $4212 does not consume the $4210 NMI-pending latch either:
++       * the latch is the vblank window, not a message addressed to whoever
++       * reads a register first. Games read $4210 and $4212 in the same
++       * vblank they are servicing (Lagoon's frame loop reads both), and the
++       * frame loop's `LDA $4210 / BPL` wait has to see the flag the NMI
++       * handler's earlier `CMP $4210` could not take away. */
+       return val;
+     }
+     case 0x4213:
+diff --git a/runner/src/state_dump.c b/runner/src/state_dump.c
+index 7779dd0..5c8e906 100644
+--- a/runner/src/state_dump.c
++++ b/runner/src/state_dump.c
+@@ -88,6 +88,32 @@ static void write_regs(const char *dir, const char *tag, uint32_t frame) {
+   if (!f || !g_ppu) { if (f) fclose(f); return; }
+   const Ppu *p = g_ppu;
+   fprintf(f, "{\n  \"frame\": %u,\n", frame);
++  /* There are two CPU states in this host and the scene dump recorded neither.
++   * "The picture went back to the boot logo" is answered by PC and nothing
++   * else: the game re-entering its own initialisation code and the host
++   * restarting the guest look identical in the framebuffer.
++   *   `cpu`        -- the core the interpreter and the LLE handlers drive. PC is
++   *                   live here in an interpreter build.
++   *   `recomp_cpu` -- the core the ahead-of-time functions drive. It has no PC
++   *                   field at all: ahead-of-time code carries its position in
++   *                   the generated blocks, so in an ahead-of-time dump read
++   *                   `cpu.pc` as the last value the interpreters left, not as
++   *                   this frame's. That asymmetry is the honest shape of the
++   *                   data, so both are written rather than one invented. */
++  {
++    const Cpu *r = (g_snes && g_snes->cpu) ? g_snes->cpu : NULL;
++    fprintf(f, "  \"cpu\": {\"pc\": \"%02X:%04X\", \"a\": %u, \"x\": %u, \"y\": %u, "
++               "\"sp\": %u, \"dp\": %u, \"db\": %u, \"e\": %d, "
++               "\"n\": %d, \"v\": %d, \"d\": %d, \"i\": %d, \"z\": %d, \"c\": %d},\n",
++            r ? r->k : 0, r ? r->pc : 0, r ? r->a : 0, r ? r->x : 0, r ? r->y : 0,
++            r ? r->sp : 0, r ? r->dp : 0, r ? r->db : 0, r ? (r->e ? 1 : 0) : 0,
++            r ? (r->n ? 1 : 0) : 0, r ? (r->v ? 1 : 0) : 0, r ? (r->d ? 1 : 0) : 0,
++            r ? (r->i ? 1 : 0) : 0, r ? (r->z ? 1 : 0) : 0, r ? (r->c ? 1 : 0) : 0);
++  }
++  fprintf(f, "  \"recomp_cpu\": {\"a\": %u, \"x\": %u, \"y\": %u, \"sp\": %u, \"dp\": %u, "
++             "\"db\": %u, \"pb\": %u, \"p\": %u, \"m\": %u, \"xwidth\": %u, \"e\": %u},\n",
++          g_cpu.A, g_cpu.X, g_cpu.Y, g_cpu.S, g_cpu.D, g_cpu.DB, g_cpu.PB, g_cpu.P,
++          g_cpu.m_flag, g_cpu.x_flag, g_cpu.emulation);
+   fprintf(f, "  \"inidisp\": %u, \"obsel\": %u, \"bgmode\": %u, \"mosaic\": %u,\n",
+           p->inidisp, p->obsel, p->bgmode, p->mosaic);
+   fprintf(f, "  \"bgsc\": [%u, %u, %u, %u], \"bg_tile_adr\": %u,\n",
+diff --git a/tests/dma/rdnmi_test.c b/tests/dma/rdnmi_test.c
+index 98ce817..bc7c0f7 100644
+--- a/tests/dma/rdnmi_test.c
++++ b/tests/dma/rdnmi_test.c
+@@ -32,7 +32,15 @@ int main(void) {
+     assert(!s.inNmi); // latching does not claim an interrupt was serviced
+     assert(snes_readReg(&other,0x4210)==2); // no process-global latch
+     assert(snes_readReg(&s,0x4210)==0x82);
+-    assert(snes_readReg(&s,0x4210)==2);
++    // Observing $4210 does not consume the latch, and neither does $4212:
++    // the flag belongs to the vblank window, not to the first reader. A
++    // game whose NMI handler samples $4210 and $4212 before its main loop
++    // waits on the flag (Lagoon: `CMP $4210` at $00:87C3, then the
++    // `LDA $4210 / BPL $8148` wait) needs it to still be set when the wait
++    // runs; a consuming read left the title wedged on its first frame.
++    assert(snes_readReg(&s,0x4210)==0x82);
++    assert(snes_readReg(&s,0x4212)&0x80); // still in vblank
++    assert(snes_readReg(&s,0x4210)==0x82);
+   }
+   vblank(&s);s.hPos=1360;s.vPos=261;snes_advance_master_cycles(&s,8);
+   assert(snes_readReg(&s,0x4210)==2); // unread flag expires next field
+@@ -55,6 +63,6 @@ int main(void) {
+     }
+   }
+   s.rdnmiPending=true;snes_reset(&s,false);assert(!s.rdnmiPending);
+-  puts("RDNMI: disabled/enabled NMI, read-clear, field expiry, instance isolation, host compatibility, v9/v10 snapshots and reset PASS");
++  puts("RDNMI: disabled/enabled NMI, non-consuming $4210/$4212 reads, field expiry, instance isolation, host compatibility, v9/v10 snapshots and reset PASS");
+   return 0;
+ }
+diff --git a/tests/test_precise_root_timing.py b/tests/test_precise_root_timing.py
+new file mode 100644
+index 0000000..9ea9e72
+--- /dev/null
++++ b/tests/test_precise_root_timing.py
+@@ -0,0 +1,39 @@
++"""Regression for opt-in native roots sharing interpreter instruction boundaries."""
++import os
++from pathlib import Path
++import sys
++import unittest
++from unittest.mock import patch
++
++sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'recompiler'))
++from v2.emit_function import emit_function
++
++
++class PreciseTimingChecks(unittest.TestCase):
++    def emit(self,roots):
++        rom=bytearray(0x100000)
++        # LDA abs,X; CLC; ADC abs,X; STA abs,X; RTS. Native M0/X0.
++        rom[0x8000:0x800b]=bytes.fromhex('bd0205187d06059d020560')
++        with patch.dict(os.environ,{'SNESRECOMP_PRECISE_AOT_ROOTS':roots}):
++            return emit_function(bytes(rom),1,0x8000,0,0)
++
++    def test_precise_root_yields_at_every_instruction(self):
++        source=self.emit('018000')
++        self.assertEqual(source.count('cpu_trace_block(cpu,'),5)
++        self.assertIn('cpu_read16_timed(cpu,',source)
++        self.assertIn('cpu_write16_timed(cpu,',source)
++        # Fetch/internal baseline: LDA abs,X M0X0 = 6 cycles, 3 fetch bytes.
++        self.assertIn('cpu->master_cycles += 36 + 3 * (',source)
++        # ABI return-address inspection is host bookkeeping, not guest traffic.
++        prologue=source.split('cpu_trace_block(cpu,')[0]
++        self.assertIn('cpu_read8(cpu,',prologue)
++        self.assertNotIn('cpu_read8_timed(cpu,',prologue)
++
++    def test_other_roots_retain_existing_model(self):
++        for roots in ('','028000'):
++            source=self.emit(roots)
++            self.assertEqual(source.count('cpu_trace_block(cpu,'),1)
++            self.assertNotIn('_timed(cpu,',source)
++
++
++if __name__=='__main__':unittest.main()
+diff --git a/tools/sdk_generate.py b/tools/sdk_generate.py
+index e23031d..1f81248 100644
+--- a/tools/sdk_generate.py
++++ b/tools/sdk_generate.py
+@@ -62,6 +62,7 @@ def generate(
+     no_host_root_scan: bool = False,
+     source_roots: Optional[Sequence[pathlib.Path]] = None,
+     profile_manifests: Optional[Sequence[pathlib.Path]] = None,
++    historical_profile_manifests: Optional[Sequence[pathlib.Path]] = None,
+     legacy_profile_rom_sha256: Optional[str] = None,
+     analysis_backend: str = "native",
+     expected_crc32: Optional[str] = None,
+@@ -119,6 +120,16 @@ def generate(
+     for manifest in profile_manifests or ():
+         emit_args.extend(
+             ["--profile-manifest", str(pathlib.Path(manifest).resolve())])
++    # A capture taken by an earlier build cannot be merged with a current one
++    # (costs and build identity never cross a build boundary), but its analysis
++    # seeds and conservative exclusions are exactly what keeps a regenerated
++    # program from shrinking when the new capture is shorter. v2_emit calls
++    # those inputs historical; without forwarding them the CLI could only ever
++    # regenerate from the single newest capture.
++    for manifest in historical_profile_manifests or ():
++        emit_args.extend(
++            ["--historical-profile-manifest",
++             str(pathlib.Path(manifest).resolve())])
+     if legacy_profile_rom_sha256:
+         emit_args.extend(["--legacy-profile-rom-sha256", legacy_profile_rom_sha256])
+ 
+@@ -237,6 +248,10 @@ def generate_command(args: argparse.Namespace, progress: ProgressReporter) -> in
+                 _resolve_under(project_root, m)
+                 for m in getattr(args, "profile_manifest", []) or []
+             ],
++            historical_profile_manifests=[
++                _resolve_under(project_root, m)
++                for m in getattr(args, "historical_profile_manifest", []) or []
++            ],
+             legacy_profile_rom_sha256=getattr(args, "legacy_profile_rom_sha256", None),
+             analysis_backend=args.analysis_backend,
+             expected_crc32=args.expected_crc32,
+@@ -312,6 +327,13 @@ def add_generate_parser(subparsers) -> None:
+         help="tier-2 coverage manifest to seed optional AOT roots from "
+              "(repeatable); clean call landings only, bails excluded",
+     )
++    generate_parser.add_argument(
++        "--historical-profile-manifest",
++        action="append",
++        default=[],
++        help="coverage manifest from an earlier build (repeatable): its seeds "
++             "and exclusions carry forward without merging costs across builds",
++    )
+     generate_parser.add_argument(
+         "--legacy-profile-rom-sha256",
+         help="explicitly associate an unbound v1 profile with this ROM SHA-256",
+diff --git a/tools/v2_emit.py b/tools/v2_emit.py
+index c8308c0..c1dcb41 100644
+--- a/tools/v2_emit.py
++++ b/tools/v2_emit.py
+@@ -328,7 +328,7 @@ def _generate(args, parser, cfg_dir, *, symbol_roots=()):
+         # value as enabled to match emit_function.py's codegen guard.
+         deny_gate = bool(os.environ.get("SNESRECOMP_EMIT_AOT_DENY_GATE"))
+         return hashlib.sha256(
+-            f"{tree_digest}\0aot_deny_gate={int(deny_gate)}".encode()
++            f"{tree_digest}\0aot_deny_gate={int(deny_gate)}\0precise_roots={os.environ.get('SNESRECOMP_PRECISE_AOT_ROOTS', '')}".encode()
+         ).hexdigest()
+ 
+     generator_digest = generator_digest_for()

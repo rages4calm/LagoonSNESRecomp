@@ -6,6 +6,11 @@
 *.sfc
 *.smc
 *.srm
+*.sav
+*.state
+*.mss
+*.cdl
+*.bps
 
 # Build trees and packaged output
 /build/

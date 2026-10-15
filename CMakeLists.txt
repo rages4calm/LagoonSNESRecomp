@@ -105,6 +105,10 @@ snesrecomp_target_desktop_host(LagoonSNESRecomp)
 # opens on that dump rather than asking for one.
 snesrecomp_target_rom_cache(LagoonSNESRecomp)
 
+# Companion is the normal entry point. Retain the old UI only as an explicit
+# development option; it is not linked into the default game executable.
+option(LAGOON_ENABLE_LEGACY_LAUNCHER "Build the legacy SNESRecomp pre-boot UI" OFF)
+if(LAGOON_ENABLE_LEGACY_LAUNCHER)
 # Shared Dear ImGui pre-boot launcher (ROM picker, verification, display /
 # audio / input settings). Self-contained: it brings its own ImGui, GL link and
 # staged assets, and defines RECOMP_LAUNCHER so src/main.c compiles its GUI path.
@@ -132,6 +136,7 @@ target_sources(LagoonSNESRecomp PRIVATE
 target_include_directories(LagoonSNESRecomp PRIVATE
     ${SNESRECOMP_ROOT}/host
     ${RECOMP_UI_ROOT}/src)
+endif()
 
 # Netplay is not built into this target.
 # No multitap: two seats, one controller per port.

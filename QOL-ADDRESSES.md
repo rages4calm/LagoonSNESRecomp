@@ -1,5 +1,40 @@
 # QoL feature addresses: what the ROM actually does
 
+## October 15 correction: supplied BPS now decoded
+
+`tools/bps_apply.py` was rewritten to use the BPS1 action order: SourceRead,
+TargetRead, SourceCopy, TargetCopy. The old implementation's mode mapping was
+wrong; its assertion that different writers disagree was unsupported. The
+old investigation below is historical, not the current parser status.
+
+The owner's patch applies to the clean USA ROM with source, target and patch
+CRCs all verified. It changes 1,190 bytes across 963 runs. Of those, 893 runs
+are single-byte high-bank remaps consistent with FastROM. The remaining runs
+include reset/vector glue, a pointer-dispatch shim, camera/movement code,
+reach data and reward-like tables. Do not transplant all changes blindly.
+
+Useful concrete leads (CPU addresses use the upper half of each LoROM bank):
+
+- Reach-related data changes at `01:B6F2`, `01:B6FE`, `01:B700`, `01:B70C`:
+  28/17/-28/-17 become 38/38/-38/-38. Identify the record layout and sprite
+  origin before equating these raw offsets with every effective hitbox extent.
+- Movement hook at `02:80EF` jumps to new code at `02:F400`; the velocity
+  reads move from the stock table to `02:E427`. Initial speed/state setup also
+  changes at `02:D9DD`. These include instruction changes, not only data.
+- Camera dispatch changes at `02:806B` to new code at `02:F440`.
+- Candidate reward-table changes include `01:FFBB` and `02:B1C2`; example
+  words 180 -> 270 and 240 -> 360 match floor(1.5 * original). Their consumers
+  and complete record coverage must be confirmed before implementation.
+
+The patch does not change the known `01:E140` HP or `01:E0F8` defense curves.
+The owner's exact starting/level-2 balance, recovery, jump hold and magic
+requirements still need separate implementation/verification. A patch is an
+address reference, not proof that it contains every requested feature.
+
+The private patched ROM and full byte diff stay outside the public repository.
+Instruction-level changes must also affect generated AOT code; runtime-only ROM
+instruction patching would silently leave native code using old behavior.
+
 Derived 2026-10-14. Every address here was produced by the game's own behaviour,
 not by a guess: the port's framedump series identifies variables by how they move,
 and a Mesen instruction trace names the code that moves them. Claims say what they

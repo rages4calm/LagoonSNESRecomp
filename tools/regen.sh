@@ -60,6 +60,8 @@ if [ -z "$PYTHON" ]; then
   exit 1
 fi
 
+"$PYTHON" -P "$ROOT/tools/apply_framework_patch.py"
+
 # The framework parses rom_identity.txt (the same parser CI uses), so this
 # script carries no copy of a digest to forget on a revision bump.
 IDENTITY="$SNESRECOMP_ROOT/tools/rom_identity.py"
@@ -90,6 +92,12 @@ fi
 
 GEN_ARGS=(--rom "$ROM" --cfg-dir "$CFGDIR" --out-dir src/gen
           --funcs-h recomp/funcs.h --project-root "$ROOT")
+# Per-root instruction-boundary timing is staged independently of promotion.
+if [ -f "$CFGDIR/precise-timing.txt" ]; then
+  export SNESRECOMP_PRECISE_AOT_ROOTS="$(cat "$CFGDIR/precise-timing.txt")"
+else
+  unset SNESRECOMP_PRECISE_AOT_ROOTS
+fi
 if [ "$CFG_ROOTS" -eq 1 ]; then GEN_ARGS+=(--cfg-roots); fi
 if [ "${#PROFILE_ARGS[@]}" -gt 0 ]; then GEN_ARGS+=("${PROFILE_ARGS[@]}"); fi
 if [ "$VERIFY" -eq 1 ]; then GEN_ARGS+=("${VERIFY_ARGS[@]}"); fi
