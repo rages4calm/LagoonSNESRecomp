@@ -563,3 +563,46 @@ to actual PPU-rendered pixels, preserving in-map colors and every native column
 while removing out-of-map colors. The source captures above precede optional GPU
 visual filters; fullscreen/display provenance is recorded separately. Failed
 probes that merged physical input with scripts are excluded from acceptance.
+
+
+## Batch 12: guarded room 01 interior
+
+Room `$01` now uses the existing source-map widescreen path. The original room
+catalogue/loader (`$01:8B84`, `$01:C87B`, `$01:8C54`) identifies a finite
+512×768 world with background `$13:9A7A`, object source `$1A:8000`, definitions
+`$06:89E0` on both planes, and retained maps `$7F:0000` / `$7F:4000`. All of
+these resources and the exact dimensions must match; this does not enable
+arbitrary interiors. The existing raster geometry, character ownership,
+original native tilemap and completed-upload checks still apply. Retained
+outgoing-scene validation now admits this destination too. Room edges remain
+black, BG3 remains centered, and the actual 256-pixel native image is untouched.
+
+Private frozen-326 checks (before integration with the next native selection):
+
+- Original-loader room-01 fixture: 861 fields, all four complete checkpoint
+  components/CPU/guest clocks exact against the prior executable, and every
+  native-center image exact. There are 572 newly expanded room fields.
+- Independent ROM-map + actual VRAM/palette decoding matches all 57,088
+  in-bounds margin pixels at each of four checkpoints. These are actual added
+  nonblack world pixels compared with the prior black margins.
+- A second 1,313-field route walks up/left/right, opens and closes Start status,
+  then exits naturally back to Atland. All seven complete checkpoints and
+  guest clocks, and every native-center image, remain exact. All 57,344
+  in-bounds margin pixels at four walking/resumed checkpoints match the
+  independent source decoder. All 47,408,064 tested outside-world/fallback
+  margin pixels are black. The seven existing helper/real-PPU tests pass.
+
+The room-01 Start menu changes characters needed by the room map, so its 34
+observed modal fields deliberately retain the native fallback. Closing it
+restores wide gameplay. This is a documented remaining menu gap, not a reason
+to bypass character ownership. Only the existing audited actor atlas/producer
+rules may add actors; this change does not certify every room-01 NPC pose.
+The custom scene renderer remains Atland-only. Final integrated executable
+qualification is recorded separately from these frozen-326 presentation checks.
+
+`verify_wide_outdoor.py --texture-frame TAG:HOST_FRAME` supports save-state
+fixtures whose guest frame counter differs from presentation numbering. It
+requires the selected presentation center to equal the actual dump framebuffer
+before using its VRAM/palette snapshot; an explicit number alone is not proof.
+
+Final integrated batch-12 executable `24452e86bcac15964f0668ad6108d6fffd34ebd22cd2ed59735c1c69a3ed6919` repeats both room-01 checks: 2,174 native centers, 11 checkpoints and eight source-decoded samples pass. Native regression uses a separate matched narrow room-01 pair; intentional wide-margin CRC changes remain explicit. See [batch 12](../NATIVE-BATCH12-2026-10-17.md).

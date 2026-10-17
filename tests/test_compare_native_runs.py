@@ -64,6 +64,12 @@ class StrictComparisonTests(unittest.TestCase):
         self.assertFalse(result['passed'])
         self.assertEqual(result['checkpoints'][0]['components']['wram.bin']['different_bytes'], 1)
 
+    def test_sram_change_fails_comparison(self):
+        (self.b / 'dumps/one.sram.bin').write_bytes(b'\x01\x01')
+        result = compare.compare_runs(self.a, self.b)
+        self.assertFalse(result['passed'])
+        self.assertEqual(result['checkpoints'][0]['components']['sram.bin']['different_bytes'], 1)
+
     def test_register_semantic_and_raw_differences_reported(self):
         (self.b / 'dumps/one.regs.json').write_text('{"cpu":{"sp":510}}')
         result = compare.compare_runs(self.a, self.b)

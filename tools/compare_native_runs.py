@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 
 
-COMPONENTS = ('fb.bmp', 'wram.bin', 'vram.bin', 'oam.bin', 'cgram.bin', 'regs.json')
+COMPONENTS = ('fb.bmp', 'wram.bin', 'vram.bin', 'oam.bin', 'cgram.bin', 'sram.bin', 'regs.json')
 FATAL = ('[brk]', '[interp_cap]', '[interp_low_exec]', '[cpu_halt]', 'assertion failed')
 INPUT_KEYS = ('rom_sha256', 'route_sha256', 'frames', 'input_config_sha256',
               'effective_config_sha256', 'enabled_features', 'enabled_package_features',

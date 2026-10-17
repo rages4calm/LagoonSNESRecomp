@@ -107,3 +107,16 @@ but did not resolve Ella's remaining clock differences. Applied to the smaller
 candidate with bank `$00` exclusions, it changed nothing on four additional boss
 routes. That experimental bus behavior remains disabled. Its evidence narrows
 future investigation; it does not replace strict qualification.
+
+
+## Batch 12 continuation
+
+The selected program is now 341 variants, retaining all 326 earlier modes.
+Fifteen new exact modes use precise instruction/transfer timing. The HP/MP cap
+leaf and balanced hit-selector prefix now run natively; the unresolved selector
+jump and broader sword/death continuations retain interpreter ownership.
+Three new audio modes and two camera entries remain interpreted in addition to
+the prior 22 deferrals. Strict comparison now requires SRAM too. Audio event
+journals/full APU state are outside this comparator's equality contract.
+See [batch 12](../NATIVE-BATCH12-2026-10-17.md) for the 99 accepted comparisons
+and the separately qualified intentional room-01 widescreen margin changes.

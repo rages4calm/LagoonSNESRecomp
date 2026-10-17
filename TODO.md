@@ -18,6 +18,8 @@ batches. Generated routine counts are not campaign completion percentages.
       four complete replay comparisons confirm actual native execution.
 - [x] Native HP-subtraction prefix and bounded death initialization/HUD tails,
       with exact damage, consumable revival and boss-defeat replay comparisons.
+- [x] Batch 12: native HP/MP caps and actor-hit setup plus 13 further variants;
+      all 326 prior modes retained, SRAM-aware replay checks and room-01 scenery.
 - [ ] Promote full death/revival and remaining boss-phase orchestration
       only after proving their indirect and nonlocal stack continuations.
 - [ ] Continue native promotion from measured hot paths; resolve existing

@@ -8,8 +8,8 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 This is a playable development port with generated native routines and an
 interpreter safety net. It is **not a fully native or fully qualified campaign**.
-The selected program has **326 AOT variants, 121 declared LLE variants and
-215 analysis roots**, preserving the earlier 190 native variants and adding 136.
+The selected program has **341 AOT variants, 126 declared LLE variants and
+230 analysis roots**, preserving all 326 previously selected native variants and adding 15.
 Native work includes movement, room/actor loading, actor updates, combat helpers,
 damage arithmetic, EXP/gold/level progression, first-boss logic and bounded
 HP/death HUD tails. Remaining death, boss and dispatch paths retain fallback.
@@ -35,18 +35,21 @@ Canonical coverage is ingested through the SDK with identity, journal-loss and
 runtime-failure checks; feature-patched ROM captures remain separate.
 
 The larger candidate's Ella rendering glitch and native handoff timing failures
-are resolved in this narrower selected program. **95 frozen replay comparisons**
-match the prior control at all **135,478 ordered presentations and 1,704 complete
-checkpoints**, including guest clocks and beam position. Twenty new bank-00 modes
-and two isolated actor-event/graphics modes retain the interpreter safety net.
+are resolved in this narrower selected program. **99 frozen replay comparisons**
+match the prior control at all **151,417 ordered presentations and 2,657 complete
+checkpoints**, including guest clocks and beam position. The prior timing exclusions
+remain interpreted, together with new audio and camera seams. Native work now
+includes the HP/MP cap lookup during real revival and an actor-hit selector prefix.
+SRAM is included in strict comparisons. Room 01 uses a fresh matched narrow pair
+for native checks because its new wide margins intentionally change pictures.
 Public analysis seeds and timing selectors reproduce the program without private
-captures. See [batch 11](NATIVE-BATCH11-2026-10-17.md),
+captures. See [batch 12](NATIVE-BATCH12-2026-10-17.md),
 [timing details](tools/NATIVE-TIMING.md), [current status](docs/DEVELOPMENT-STATUS.md),
 [boss checks](tools/CAMPAIGN-BOSSES.md), [endgame checks](tools/CAMPAIGN-ENDGAME.md)
 and [coverage workflow](tools/CAMPAIGN-COVERAGE.md).
 
 Widescreen supports 16:9, 16:10, 21:9, 32:9 and window-driven aspects in audited
-areas. Supported town dialogue, Items/Magic, outdoor scenery and Gold Cave rooms
+areas. Supported town dialogue, Items/Magic, room-01 interior scenery, outdoor scenery and Gold Cave rooms
 have guarded expansion. Outgoing fades retain proven old scenery until the real
 PPU changes resources. Unsupported areas and effects retain reference output;
 remaining menu, scripted-scene and transition gaps are still being tracked.

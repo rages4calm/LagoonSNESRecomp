@@ -189,8 +189,10 @@ void LagoonWideEntities_BlankField(uint8_t *pixels,size_t pitch,unsigned width,u
   }
 }
 
+/* Room 01 uses the ordinary map producer, with its authored finite extent. */
 int LagoonWideEntities_BoundedRoom(unsigned room,unsigned width,unsigned height) {
-  return (room==2 && width==512 && height==512) ||
+  return (room==1 && width==512 && height==768) ||
+      (room==2 && width==512 && height==512) ||
       (room==4 && width==768 && height==256) ||
       (room==5 && width==1536 && height==1280) ||
       (room==6 && width==512 && height==256);
@@ -201,6 +203,7 @@ int LagoonWideEntities_AuditedRoom(unsigned room,unsigned bg,unsigned obj,
   if(m0!=0x7f0000 || m1!=0x7f4000 || d0!=d1)return 0;
   return (room==0 && bg==0x138000 && obj==0x198000 && d0==0x068000) ||
          (room>=3 && room<=6 && bg==0x128b77 && obj==0x1d8000 && d0==0x069298) ||
+         (room==1 && bg==0x139a7a && obj==0x1a8000 && d0==0x0689e0) ||
          (room==2 && bg==0x128000 && obj==0x1a8000 && d0==0x068e90);
 }
 

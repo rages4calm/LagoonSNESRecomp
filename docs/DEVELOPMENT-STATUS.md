@@ -1,76 +1,71 @@
 # Current development checkpoint — October 17, 2026
 
-Native batch 11 is selected. Resume from its timing policy and receipts rather
-than repeating the initial campaign research. See [batch 11](../NATIVE-BATCH11-2026-10-17.md).
+Native and widescreen batch 12 is selected. Read [batch 12](../NATIVE-BATCH12-2026-10-17.md)
+and the parent HANDOFF-NATIVE-BATCH12-2026-10-17.md before continuing.
 
-## Selected playable program
+## Selected program
 
-`build/LagoonSNESRecomp.exe`, frozen as `build/lagoon-native-batch11.exe`, SHA256
-`864bcaf8dbb4b4c9f2d0ab8f54cb00e5d4c4bfa54162eba6419f3c391e8ab495`.
-Manifest SHA256:
-`8b783324ff54638f2fe92dd97d0a1474db0bd267dae5c2c64d9a024495bf72ac`.
-It has **326 AOT variants, 121 declared LLE variants and 215 analysis roots**.
-All 190 previously selected native bodies remain, with 136 additional variants.
-The interpreter safety net and original opening-dispatch repair remain enabled.
-The campaign warp facility is disabled during ordinary play.
+`build/LagoonSNESRecomp.exe`, also frozen as `build/lagoon-native-batch12.exe`.
+Executable SHA256: `24452e86bcac15964f0668ad6108d6fffd34ebd22cd2ed59735c1c69a3ed6919`.
+Manifest SHA256: `5f56797fb866bfaaf6405430f34d02787c0bf7ffe8a760235cc583e5779dd817`.
+**341 AOT / 126 declared LLE / 230 analysis roots**, preserving all 326 prior
+native modes and adding 15. Interpreter fallback and the opening repair remain.
 
-## Fixes and evidence
+New native work includes the original HP/MP cap leaf during consumable revival
+and boss healing, actor-hit selector setup, actor setup/clamping, collision
+direction, event flags and endgame WRAM copying. Broader sword scanning and
+death/revival orchestration still use their interpreted continuations. All 22
+prior exact timing deferrals, three newly observed audio modes and two camera
+entry exclusions stay interpreted. No host HP or victory replacement is used.
 
-Precise native code previously double-charged interpreter-owned indirect
-instructions and entered callees before synchronizing completed transfer timing.
-The staged timing policy fixes both native and paired-interpreter call boundaries.
-Ella's transient rendering difference is resolved in the selected program.
-The centered-camera guard also now permits an unrelated safe actor helper.
-See [timing contracts](../tools/NATIVE-TIMING.md).
+## Evidence and limits
 
-Twenty newly proposed bank-00 modes remain interpreted, together with
-`01C2CD:M1X0` (actor events/sound) and `02D1C5:M1X0` (graphics). Those exact
-modes still alter interrupt/beam timing when promoted. Qualified native siblings
-are preserved. Selection uses real generated exclusions, with no runtime deny
-override or comparison masks.
+99 strict replay pairs pass: 151,417 ordered pictures and 2,657 checkpoints,
+including framebuffer, WRAM, VRAM, OAM, palette memory, SRAM, registers, clocks
+and beam position. Counts include repeated fixtures. Room 01 is compared in a
+fresh matched narrow pair; its historical wide margins intentionally differ.
+Separate final-binary widescreen checks preserve all 2,174 native centers and
+11 checkpoints, with eight independently decoded original-map samples.
 
-**95/95 strict replay comparisons** match the prior selected program across
-**135,478 ordered presentations and 1,704 complete checkpoints**, including
-registers, WRAM, VRAM, OAM, palette memory, guest clocks and beam position. This includes
-73 room entries, seven main-boss wins and seven player deaths, the six guardians,
-endgame fixtures and the original fresh-start first-boss route. Fixtures reuse
-explicit teleports, bounded player-stat cheats and prerequisite flags; these
-checks are not an uninterrupted natural playthrough or independent hardware parity.
+Room 01's exact resources and 512×768 extent are guarded. Status temporarily
+uses native fallback when font uploads invalidate world characters, then wide
+gameplay resumes. Unsupported areas, actor poses and effects retain fallback.
+The custom renderer still covers stable Atland only. No new locked-60-FPS claim.
 
-The 79 fresh canonical stock-ROM coverage captures were actually collected and
-ingested by the SDK with zero journal loss or audit warnings. They contain
-779,504,296 interpreted instructions and 2,617,808,165 interpreted guest cycles.
-Compared with the same prior fixtures, interpreted instructions fall by
-45,022,423. This is fixture-specific work, not a completion percentage.
-Cloud's script-only room 2A entry, record 3F classification and the full credits
-sequence remain unqualified. See [coverage workflow](../tools/CAMPAIGN-COVERAGE.md),
-[boss checks](../tools/CAMPAIGN-BOSSES.md) and [endgame checks](../tools/CAMPAIGN-ENDGAME.md).
+45 project Python tests, seven helper/real-PPU tests and the camera build guard
+pass. The actual public regeneration script reproduces the exact program
+manifest and bank/dispatch C. Its module build-lineage digest can differ from
+the private CLI's selector whitespace; this does not change the program digest.
+The tested executable itself is preserved exactly. Owner saves/settings remain
+unchanged. No public binary release, ROM, generated C, audio or raw capture.
 
-Public generation policy includes reviewed analysis roots and two timing lists;
-private coverage files are not needed to reproduce the program. The cumulative
-framework patch reconstructs all 47 affected source paths from upstream pin
-`a6be9756285f26ccc74539c811d4d23d57d8c33d`. All 44 project Python tests, the
-production QoL C test and 23 focused Python tests plus the C mode parser on a
-fresh reconstruction pass. Seven protected owner save/settings files are unchanged.
+All 79 fresh canonical stock-ROM captures were ingested with zero loss/warnings:
+779,468,994 interpreted instructions and 2,617,679,683 guest cycles, removing
+35,302 interpreted instructions versus matched326 fixtures. Room 01's narrow
+host-config exception is recorded. Separate targeted accounting proves
+nonreturn work removal for 12 of 15 new modes; two have no observed savings
+and one is return-only. No per-variant count implies complete native coverage.
 
-## Next work
+Fixtures explicitly use teleports, bounded player stats, item selection and
+prerequisite flags. Original damage, revival-item consumption, healing, boss
+deaths, rewards and progress run normally. These are assisted checks against
+the prior selected program, not a natural full campaign, independent-console
+parity, pure-interpreter timing parity or full APU-state/audio qualification.
 
-1. Investigate the 22 deferred modes with instruction-level timing traces;
-   retain fallback until their interrupt/display contracts are proven.
-2. Continue measured native death/revival and remaining boss orchestration.
-   Keep `00:80E6` interpreted; observed targets alone do not prove return contracts.
-3. Expand source-proven custom rendering and widescreen transition coverage.
-   Stable Atland uses the live renderer; other scenes still use reference output.
-   Measure frame-time spikes without capture logging or concurrent tests.
-4. Qualify natural progression, script-only cloud entry, credits and more hardware.
-   The optional source-backed in-game map remains on TODO after coverage priorities.
+## Next priorities
 
-State format 3 and both raster journals remain mandatory. Smooth scaling stays
-removed; Enhanced original pixels is optional. Full retexturing remains shelved.
-No new locked-60-FPS or campaign-wide renderer claim is made by this batch.
+1. Continue source-proven HP subtraction, death/revival and boss orchestration;
+   resolve indirect/nonlocal stack contracts before promoting broader routines.
+2. Investigate the 22 old timing modes and new audio seams with instruction-level
+   traces. Preserve the 00:80E6 opening floor and camera patch exclusions.
+3. Broaden widescreen room/menu/transition and actor-source coverage; keep font,
+   raster, upload and map-bound guards. Expand custom rendering from measured needs.
+4. Natural campaign, script-only cloud entry, record 3F, credits, controller/GPU
+   hardware and isolated real-time frame-spike qualification. Optional map later.
 
-The local framework has deliberate history and dirty source: do not reset or
-bootstrap it. The public submodule pin remains unchanged. Private receipts and
-the parent handoff preserve the old selected build and exact tested binary.
-Publish substantial verified source batches only; no ROM, generated C, audio,
-saves, raw captures or test binaries belong in the public tree.
+Smooth stays removed; Enhanced original pixels remains optional. State format 3
+and both raster journals remain required. The full retexture remains shelved.
+Public SDK pin remains a6be9756285f26ccc74539c811d4d23d57d8c33d (latest upstream
+verified this batch). Its cumulative 47-path patch is unchanged. Preserve local
+SDK HEAD 273d075a4e7f55e61816e98f91d1ed29f596525c and dirty/staged source; never
+reset/bootstrap or stage its gitlink. Publish substantial verified source batches.

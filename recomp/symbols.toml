@@ -299,10 +299,10 @@ note = "Batch 3 qualified M1/X0 precise root; bounded combat/progression/equipme
 name = "Lagoon_Progress_LoadHpMpCaps"
 addr = "957f"
 bank = 1
-emit = false
+emit = true
 entry_m = 1
 entry_x = 0
-note = "Kept interpreted: no runtime invocation in qualified routes"
+note = "Reviewed nine-instruction HP/MP cap leaf with balanced PHY/PLY; gameplay qualification documented in batch12"
 
 [[func]]
 name = "Lagoon_Progress_AwardExperience"

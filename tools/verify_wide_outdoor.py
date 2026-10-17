@@ -19,6 +19,8 @@ def main():
     p.add_argument('--control',type=Path)
     p.add_argument('--rom',type=Path)
     p.add_argument('--texture-tag',action='append',default=[])
+    p.add_argument('--texture-frame',action='append',default=[],metavar='TAG:HOST_FRAME',
+                   help='Explicit presentation frame for a dump after loadstate; center pixels must match the dump')
     p.add_argument('--fallback-range',type=int,nargs=2,action='append',default=[],metavar=('FIRST','LAST'),help='Require native fallback throughout a known resource transition')
     p.add_argument('--out',required=True,type=Path)
     a=p.parse_args()
@@ -72,14 +74,17 @@ def main():
             result['inside_nonblack']+=inside_nonblack
             if outside_nonblack and len(result['errors'])<20:
                 result['errors'].append([frame,mx0,mx1,outside_nonblack])
+    texture_frames={tag:int(frame) for tag,frame in (item.rsplit(':',1) for item in a.texture_frame)}
     for tag in a.texture_tag:
         assert a.rom
         prefix=a.run/'dumps'/tag
         read=lambda suffix:Path(str(prefix)+suffix).read_bytes()
         ram=read('.wram.bin');vram=struct.unpack('<32768H',read('.vram.bin'));pal=struct.unpack('<256H',read('.cgram.bin'));regs=json.loads(read('.regs.json'));rom=a.rom.read_bytes()
         assert regs['inidisp']==15 and regs['cgadsub']==0 and regs['tm']&3==3
-        b=bounds[regs['frame']];assert b['mask'] and b['xchanges']==b['ychanges']==0
-        entry=frame_images[regs['frame']];im=Image.open(a.run/'frames'/('present_%06d.ppm'%int(entry['present']))).convert('RGB');e=(im.width-256)//2
+        capture_frame=texture_frames.get(tag,regs['frame'])
+        b=bounds[capture_frame];assert b['mask'] and b['xchanges']==b['ychanges']==0
+        entry=frame_images[capture_frame];im=Image.open(a.run/'frames'/('present_%06d.ppm'%int(entry['present']))).convert('RGB');e=(im.width-256)//2
+        assert im.crop((e,0,e+256,224)).tobytes()==Image.open(Path(str(prefix)+'.fb.bmp')).convert('RGB').tobytes(), 'Presentation/dump center mismatch'
         ptr=lambda q:int.from_bytes(ram[q:q+3],'little')
         def byte(addr):
             bank=addr>>16;off=addr&65535

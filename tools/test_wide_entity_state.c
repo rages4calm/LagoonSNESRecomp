@@ -102,6 +102,14 @@ static void field_fallback(void) {
     assert(pixels[y*344*4+x]==((y<2 && (x<43*4 || (x>=299*4 && x<342*4)))?0:0x91));
 }
 static void audited_rooms(void) {
+  /* Room 01 is a finite ordinary world, not a menu or an arbitrary interior. */
+  assert(LagoonWideEntities_BoundedRoom(1,512,768));
+  assert(!LagoonWideEntities_BoundedRoom(1,512,512));
+  assert(LagoonWideEntities_AuditedRoom(1,0x139a7a,0x1a8000,0x0689e0,0x0689e0,0x7f0000,0x7f4000));
+  assert(!LagoonWideEntities_AuditedRoom(1,0x139a7a,0x1a8000,0x0689e0,0x068000,0x7f0000,0x7f4000));
+  assert(!LagoonWideEntities_AuditedRoom(1,0x138000,0x1a8000,0x0689e0,0x0689e0,0x7f0000,0x7f4000));
+  assert(!LagoonWideEntities_AuditedRoom(1,0x139a7a,0x198000,0x0689e0,0x0689e0,0x7f0000,0x7f4000));
+  assert(!LagoonWideEntities_AuditedRoom(1,0x139a7a,0x1a8000,0x0689e0,0x0689e0,0x7e0000,0x7f4000));
   assert(LagoonWideEntities_BoundedRoom(4,768,256));
   assert(LagoonWideEntities_BoundedRoom(5,1536,1280));
   assert(LagoonWideEntities_BoundedRoom(6,512,256));

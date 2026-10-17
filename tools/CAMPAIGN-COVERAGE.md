@@ -243,3 +243,20 @@ instructions than the prior 190-variant build. This is measured work within
 these assisted fixtures, not a campaign completion percentage. Raw profiles and
 their receipt bindings remain private. Public roots and timing selectors reproduce
 the selected generated program without distributing those captures.
+
+## Batch 12 refresh
+
+The 341-variant executable's 79 canonical stock-ROM captures were collected and
+ingested by the SDK: 779,468,994 interpreted instructions, 2,617,679,683 guest
+cycles, 8,412 PC/mode variants (8,403 addresses), 518 transfers and 12,723 unique
+raw records. All four loss counters are zero and audit warnings are empty.
+Against the matched326 fixture set, interpreted instructions fall by 35,302.
+
+The original room-01 wide capture intentionally changes presentation margins.
+Its strict historical CRC comparison remains a difference. Canonical room-01
+qualification uses a fresh matched326/341 narrow host config pair with the same
+guest route, seed, setup and features. That presentation-config exception is
+explicit in the registry. Other canonical fixtures retain their original
+matched inputs. These remain assisted replays; only the known script-only2A
+and record3F scenario gaps are listed by this static suite. This is not complete
+natural campaign, audio, credits or hardware certification.
