@@ -25,7 +25,8 @@ IDENTITY = ('rom_sha256', 'module_id', 'mapper', 'program_digest', 'build_digest
 DROP_FIELDS = ('overflowed_tuples', 'dropped_cost_samples', 'journal_write_failures', 'ram_routines_overflow')
 FATAL_RUNTIME = re.compile(
     r'\[(?:brk|interp_cap|interp_low_exec)\]|\bcpu_halt\b|'
-    r'\bassert(?:ion)?[^\r\n]{0,512}\b(?:failed|failure)\b', re.IGNORECASE)
+    r'\bassert(?:ion)?[^\r\n]{0,512}\b(?:failed|failure)\b|'
+    r'(?:lagoon\.qol:|\[lagoon-qol\])[^\r\n]*\brefused\b', re.IGNORECASE)
 
 
 def sha(raw):

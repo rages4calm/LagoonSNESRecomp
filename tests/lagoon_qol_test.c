@@ -18,7 +18,7 @@ uint8_t LagoonFastMenus_Filter(uint32_t a,uint8_t v,const CpuWramReadContext *c,
   (void)a;(void)c;(void)r; return v;
 }
 const char *cpu_dispatch_entry_reason(uint32_t pc, uint8_t mx) {
-  return camera_aot_conflict && pc==(camera_aot_conflict==2 ? 0x01807A : 0x0183D8) && mx==2
+  return camera_aot_conflict && pc==(camera_aot_conflict==3 ? 0x018158 : camera_aot_conflict==2 ? 0x01807A : 0x0183D8) && mx==2
     ? "compiled_entry_available_check_policy" : "missing_entry";
 }
 uint64_t RtlStateGeneration(void) { return state_generation; }
@@ -182,6 +182,10 @@ int main(int argc, char **argv) {
   assert(!g_camera_center && rom[0x8408]==192 && rom[0x87F6]==112);
   camera_aot_conflict=2; LagoonQol_OnRomLoaded(rom,0x100000);
   assert(!g_camera_center && !memcmp(rom+0x809D,stock+0x809D,3));
+  /* The later actor helper cannot overlap the dispatcher operands. */
+  camera_aot_conflict=3; memcpy(rom,stock,0x100000);
+  LagoonQol_OnRomLoaded(rom,0x100000);
+  assert(g_camera_center && rom[0x8408]==128 && rom[0x87F6]==128);
   camera_aot_conflict=0;
   /* Each altered wrapper/callsite guard refuses every camera byte. */
   const unsigned camera_guards[]={0x809D,0x80C7,0x80CA,0x83D8,0x83FA};

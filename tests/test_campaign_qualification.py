@@ -27,4 +27,38 @@ class SetupTests(unittest.TestCase):
             with self.subTest(script=script),self.assertRaises(ValueError):
                 qualify.campaign_setup_writes(script)
 
+class RuntimeFailureTests(unittest.TestCase):
+    def test_requested_camera_cannot_silently_refuse(self):
+        line='lagoon.qol: camera_center refused, affected camera code has an AOT entry'
+        self.assertEqual(qualify.runtime_failure_lines(line),[line])
+        self.assertEqual(qualify.runtime_failure_lines('[lagoon-qol] recovery_time refused: code differs'),
+                         ['[lagoon-qol] recovery_time refused: code differs'])
+
+    def test_successful_features_and_ordinary_words_are_not_failures(self):
+        self.assertEqual(qualify.runtime_failure_lines('lagoon.qol: camera_center applied\nnot refused by a game patch'),[])
+
+class DiagnosticRangeTests(unittest.TestCase):
+    def test_frame_range_decimal_endpoints_and_single_frame(self):
+        for value in ('0-0','1-1','0-10000000','0001-0002','630-632'):
+            with self.subTest(value=value):
+                qualify.validate_diagnostic_range('SNESRECOMP_AOTBLK',value)
+
+    def test_pc_range_hex_endpoints_and_case(self):
+        for value in ('0-ffffff','FFFFFF-FFFFFF','00aBcD-00ABCE','1-1','0192AE-0192BF'):
+            with self.subTest(value=value):
+                qualify.validate_diagnostic_range('SNESRECOMP_CYC_WATCH',value)
+
+    def test_frame_range_rejects_reversed_out_of_bounds_or_non_decimal(self):
+        for value in ('2-1','0-10000001','-1-2','1','1-2-3','1.0-2','0x1-0x2',
+                      '1-A','+1-2',' 1-2','1-2 ','1 -2','1-2\n','1-2;anything'):
+            with self.subTest(value=value),self.assertRaises(SystemExit):
+                qualify.validate_diagnostic_range('SNESRECOMP_AOTBLK',value)
+
+    def test_pc_range_rejects_reversed_long_prefixed_or_malformed(self):
+        for value in ('ffffff-0','0-1000000','0000000-0000001','-1-2','0x10-0x20',
+                      '$10-$20','00:8000-00:9000','GG-FF','1','1-2-3',' 1-2','1-2\n'):
+            with self.subTest(value=value),self.assertRaises(SystemExit):
+                qualify.validate_diagnostic_range('SNESRECOMP_CYC_WATCH',value)
+
+
 if __name__=='__main__':unittest.main()

@@ -1,75 +1,76 @@
 # Current development checkpoint — October 17, 2026
 
-The accelerated campaign batch is complete. Resume from its receipts and the
-remaining candidate regressions, rather than repeating the first-town research.
+Native batch 11 is selected. Resume from its timing policy and receipts rather
+than repeating the initial campaign research. See [batch 11](../NATIVE-BATCH11-2026-10-17.md).
 
 ## Selected playable program
 
-`build/LagoonSNESRecomp.exe`, frozen as `build/lagoon-campaign-door.exe`, SHA256
-`5b17f7704f6b8ea8eb2231f9addd68b5582ef917c37f7a6d51cc69540f1262bc`.
+`build/LagoonSNESRecomp.exe`, frozen as `build/lagoon-native-batch11.exe`, SHA256
+`864bcaf8dbb4b4c9f2d0ab8f54cb00e5d4c4bfa54162eba6419f3c391e8ab495`.
 Manifest SHA256:
-`b8720505d6b6b1f57c04b9dbac7abeba56c3e02f3f99485801dc416be78f934e`.
-It retains 190 AOT variants, 18 declared LLE variants and 47 promoted gameplay
-roots. The new campaign warp facility is disabled during ordinary play.
+`8b783324ff54638f2fe92dd97d0a1474db0bd267dae5c2c64d9a024495bf72ac`.
+It has **326 AOT variants, 121 declared LLE variants and 215 analysis roots**.
+All 190 previously selected native bodies remain, with 136 additional variants.
+The interpreter safety net and original opening-dispatch repair remain enabled.
+The campaign warp facility is disabled during ordinary play.
 
-The debug-disabled original first-boss fixture matches the prior build at 100
-checkpoints and all 4,521 ordered presentations, including guest memory and
-clocks. Saves and settings remain protected. The interpreter safety net remains.
+## Fixes and evidence
 
-## New coverage
+Precise native code previously double-charged interpreter-owned indirect
+instructions and entered callees before synchronizing completed transfer timing.
+The staged timing policy fixes both native and paired-interpreter call boundaries.
+Ella's transient rendering difference is resolved in the selected program.
+The centered-camera guard also now permits an unrelated safe actor helper.
+See [timing contracts](../tools/NATIVE-TIMING.md).
 
-- All 73 rooms with ordinary incoming doors load and settle in isolated tests.
-  Cloud's script-only entry and record 3F remain outside that static entry sweep.
-- Seven main bosses show real HP loss, death, original rewards and completion
-  flags. Separate fixtures capture actual player deaths in all seven encounters.
-- Six endgame phases exercise Shell, Green Spirit, Zerah, Thor, Bird and Red
-  Spirit. Original transformations, eight orbs and earned completion bits are
-  recorded. Red's independent entry uses disclosed prerequisite flags.
-- All six Thimale guardians die and unlock the boss. Canonical stock-ROM
-  coverage proves six executions of both PLA instructions and the counter
-  increment in the exceptional nonlocal death escape.
+Twenty newly proposed bank-00 modes remain interpreted, together with
+`01C2CD:M1X0` (actor events/sound) and `02D1C5:M1X0` (graphics). Those exact
+modes still alter interrupt/beam timing when promoted. Qualified native siblings
+are preserved. Selection uses real generated exclusions, with no runtime deny
+override or comparison masks.
 
-These are explicit cheat-assisted encounter fixtures, not an uninterrupted
-natural campaign. No enemy HP or victory result is written in accepted kills.
-Credits beyond entry into the ending handler remain unqualified.
+**95/95 strict replay comparisons** match the prior selected program across
+**135,478 ordered presentations and 1,704 complete checkpoints**, including
+registers, WRAM, VRAM, OAM, palette memory, guest clocks and beam position. This includes
+73 room entries, seven main-boss wins and seven player deaths, the six guardians,
+endgame fixtures and the original fresh-start first-boss route. Fixtures reuse
+explicit teleports, bounded player-stat cheats and prerequisite flags; these
+checks are not an uninterrupted natural playthrough or independent hardware parity.
 
-See [boss evidence](../tools/CAMPAIGN-BOSSES.md),
-[endgame evidence](../tools/CAMPAIGN-ENDGAME.md),
-[warp contract](../tools/CAMPAIGN-WARPS.md) and
-[coverage ingestion](../tools/CAMPAIGN-COVERAGE.md).
+The 79 fresh canonical stock-ROM coverage captures were actually collected and
+ingested by the SDK with zero journal loss or audit warnings. They contain
+779,504,296 interpreted instructions and 2,617,808,165 interpreted guest cycles.
+Compared with the same prior fixtures, interpreted instructions fall by
+45,022,423. This is fixture-specific work, not a completion percentage.
+Cloud's script-only room 2A entry, record 3F classification and the full credits
+sequence remain unqualified. See [coverage workflow](../tools/CAMPAIGN-COVERAGE.md),
+[boss checks](../tools/CAMPAIGN-BOSSES.md) and [endgame checks](../tools/CAMPAIGN-ENDGAME.md).
 
-## Native candidate: not selected
-
-The clean room coverage was actually ingested and used to generate and compile
-a private 348-AOT candidate, preserving the 190 existing variants. Structural
-camera and interpreter gates pass. A small SDK patch adds mode-qualified timing
-selection while retaining byte-identical legacy generation.
-
-Runtime research fails strict CPU/memory/clock equality, and an Ella route has
-one different presentation. No crash occurred in the five bounded probes, but
-that does not qualify the candidate. Do not copy it over the playable build or
-claim 348 variants are deployed. Raw coverage and generated C remain private.
+Public generation policy includes reviewed analysis roots and two timing lists;
+private coverage files are not needed to reproduce the program. The cumulative
+framework patch reconstructs all 47 affected source paths from upstream pin
+`a6be9756285f26ccc74539c811d4d23d57d8c33d`. All 44 project Python tests, the
+production QoL C test and 23 focused Python tests plus the C mode parser on a
+fresh reconstruction pass. Seven protected owner save/settings files are unchanged.
 
 ## Next work
 
-1. Isolate the candidate's first timing difference and Ella frame mismatch.
-   Keep the known program as control and promote only reproducible changes.
-2. Use the expanded canonical coverage to target native death/revival and boss
-   work with actual entry modes and proven stack continuations. Keep 00:80E6
-   interpreted; observed targets alone do not prove return contracts.
-3. Continue source-proven renderer and widescreen transition coverage. The live
-   custom renderer still covers stable Atland; reference rendering covers other
-   scenes. Verify frame-time spikes without image logging or overlapping tests.
-4. Qualify natural progression, the script-only cloud scene, credits and more
-   hardware. An optional in-game map is on TODO after coverage priorities.
+1. Investigate the 22 deferred modes with instruction-level timing traces;
+   retain fallback until their interrupt/display contracts are proven.
+2. Continue measured native death/revival and remaining boss orchestration.
+   Keep `00:80E6` interpreted; observed targets alone do not prove return contracts.
+3. Expand source-proven custom rendering and widescreen transition coverage.
+   Stable Atland uses the live renderer; other scenes still use reference output.
+   Measure frame-time spikes without capture logging or concurrent tests.
+4. Qualify natural progression, script-only cloud entry, credits and more hardware.
+   The optional source-backed in-game map remains on TODO after coverage priorities.
 
 State format 3 and both raster journals remain mandatory. Smooth scaling stays
 removed; Enhanced original pixels is optional. Full retexturing remains shelved.
-No visible accelerated test windows were opened.
+No new locked-60-FPS or campaign-wide renderer claim is made by this batch.
 
-The public framework pin stays `a6be9756285f26ccc74539c811d4d23d57d8c33d`.
-The cumulative patch reconstructs 38 paths from that clean pin. The local
-framework has deliberate history and dirty source: do not reset/bootstrap it.
-The project-parent resume pointer and campaign handoff contain private receipt
-paths. Publish only substantial verified source batches; no ROM, generated C,
-audio, saves or raw captures belong in the public tree.
+The local framework has deliberate history and dirty source: do not reset or
+bootstrap it. The public submodule pin remains unchanged. Private receipts and
+the parent handoff preserve the old selected build and exact tested binary.
+Publish substantial verified source batches only; no ROM, generated C, audio,
+saves, raw captures or test binaries belong in the public tree.

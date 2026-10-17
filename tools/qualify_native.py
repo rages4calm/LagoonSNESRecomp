@@ -10,6 +10,21 @@ import subprocess
 import time
 
 
+DIAGNOSTIC_RANGES={'SNESRECOMP_AOTBLK': (10,10000000),
+                   'SNESRECOMP_CYC_WATCH': (16,0xffffff)}
+
+
+def validate_diagnostic_range(key,value):
+    """Validate the framework's bounded decimal-frame or hex-PC trace pair."""
+    base,maximum=DIAGNOSTIC_RANGES[key]
+    pattern=r'[0-9]+-[0-9]+' if base==10 else r'[0-9a-fA-F]{1,6}-[0-9a-fA-F]{1,6}'
+    if not re.fullmatch(pattern,value):
+        raise SystemExit('Diagnostic range must be an ordered lo-hi pair: '+key+'='+value)
+    lo,hi=(int(v,base) for v in value.split('-'))
+    if not 0<=lo<=hi<=maximum:
+        raise SystemExit('Diagnostic range outside supported bounds: '+key+'='+value)
+
+
 def campaign_setup_writes(data):
     """Record explicit WRAM cheats and refuse the observed invalid-HP fixture.
 
@@ -31,6 +46,13 @@ def campaign_setup_writes(data):
         writes.append(dict(line=number,operation=parts[0],address=address,hex=payload.hex(),
                            frames=parts[3] if parts[0]=='pokefor' and len(parts)>3 else None))
     return writes
+
+
+def runtime_failure_lines(text):
+    fatal_markers=('[brk]','[interp_cap]','[interp_low_exec]','[cpu_halt]','assertion failed')
+    return [line.strip() for line in text.splitlines()
+            if any(marker in line.lower() for marker in fatal_markers)
+            or re.search(r'(?:lagoon\.qol:|\[lagoon-qol\])[^\r\n]*\brefused\b',line,re.IGNORECASE)]
 
 
 def main():
@@ -152,10 +174,11 @@ def main():
                       'SNESRECOMP_APURAM_TRACE_FILE','SNESRECOMP_DSPREG_TRACE_FILE',
                       'SNESRECOMP_FRAME_TIMING'}
     diagnostic_numbers={'SNESRECOMP_HOST_PROFILE','SNESRECOMP_HOST_PROFILE_START_FRAME'}
+    diagnostic_ranges=DIAGNOSTIC_RANGES
     overrides={}
     for spec in args.env:
         key,sep,value=spec.partition('=')
-        if not sep or key not in diagnostic_paths|diagnostic_numbers|{'LAGOON_WIDE_ASPECT','LAGOON_SCENE_RENDERER'}:
+        if not sep or key not in diagnostic_paths|diagnostic_numbers|diagnostic_ranges.keys()|{'LAGOON_WIDE_ASPECT','LAGOON_SCENE_RENDERER'}:
             raise SystemExit('Unsupported diagnostic override: '+spec)
         if key in diagnostic_paths:
             p=Path(value);p=(p if p.is_absolute() else out/p).resolve()
@@ -166,6 +189,8 @@ def main():
                 raise SystemExit('Diagnostic numeric overrides must be unsigned integers <=1000000')
             if key=='SNESRECOMP_HOST_PROFILE' and value not in {'0','1'}:
                 raise SystemExit('HOST_PROFILE must be 0 or 1')
+        elif key in diagnostic_ranges:
+            validate_diagnostic_range(key,value)
         elif key=='LAGOON_SCENE_RENDERER':
             if value not in {'off','verify','auto'}:
                 raise SystemExit('Unsupported scene renderer mode: '+value)
@@ -242,9 +267,7 @@ def main():
                    dump_tags=sorted(p.name.removesuffix('.wram.bin') for p in (out/'dumps').glob('*.wram.bin')))
     # A bounded guest can hit architectural BRK/step caps yet let the host exit
     # successfully. Such output is diagnostic evidence, never a passing replay.
-    fatal_markers=('[brk]','[interp_cap]','[interp_low_exec]','[cpu_halt]','assertion failed')
-    receipt['runtime_failures']=[line.strip() for line in (out/'stderr.log').read_text(encoding='utf-8',errors='replace').splitlines()
-                                 if any(marker in line.lower() for marker in fatal_markers)]
+    receipt['runtime_failures']=runtime_failure_lines((out/'stderr.log').read_text(encoding='utf-8',errors='replace'))
     receipt['qualification_passed']=not result.returncode and bool(receipt['dump_tags']) and not receipt['runtime_failures']
     (out/'receipt.json').write_text(json.dumps(receipt,indent=2),encoding='utf-8')
     summary={k:receipt[k] for k in ('exe_sha256','exit_code','elapsed_seconds')}

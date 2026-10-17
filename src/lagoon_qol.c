@@ -78,7 +78,11 @@ static int g_camera_center;
  * entry in either affected range has acquired an AOT variant. The generation
  * contract separately excludes enclosing bodies that cover these operands. */
 static int qol_camera_has_aot_conflict(void) {
-  static const uint32_t ranges[][2] = {{0x01807A,0x018184},{0x0183D8,0x0184A7},{0x0187D0,0x018834}};
+  /* The main dispatcher patches bank-selector operands at $809D/$80CA.
+   * $8158 is a separate actor helper; its native entry cannot cover those
+   * earlier operands. Whole-body overlap remains checked from the manifest
+   * by check_camera_patch_safety.py before every generated build. */
+  static const uint32_t ranges[][2] = {{0x01807A,0x0180CD},{0x0183D8,0x0184A7},{0x0187D0,0x018834}};
   for (unsigned range=0; range<sizeof(ranges)/sizeof(ranges[0]); ++range) {
     for (uint32_t pc=ranges[range][0]; pc<ranges[range][1]; ++pc) {
       for (uint8_t mx=0; mx<4; ++mx) {

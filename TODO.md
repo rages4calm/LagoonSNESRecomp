@@ -89,8 +89,11 @@ batches. Generated routine counts are not campaign completion percentages.
       guardian escapes. Original outcomes and explicit cheats are recorded.
 - [x] Audit and ingest canonical campaign coverage with build/ROM identity,
       journal-loss, duplicate-session, bounds and guest-failure checks.
-- [ ] Resolve private expanded-native candidate's state/clock differences and
-      single Ella presentation mismatch before selecting any new native bodies.
+- [x] Resolve the expanded candidate's Ella and handoff timing regressions;
+      select 326 native variants (+136), qualified through 95 strict replays.
+- [ ] Investigate 22 deferred exact modes: 20 bank-00 interrupt/display paths,
+      actor-event sound timing at 01C2CD:M1X0 and graphics timing at 02D1C5:M1X0.
+      Preserve qualified sibling modes and the interpreter until proven safe.
 - [ ] Natural campaign progression, cloud script-only entry, alias/unreachable
       room classification and complete credits qualification.
 - [ ] Optional in-game map showing Nasir, visited rooms, doors and key locations;

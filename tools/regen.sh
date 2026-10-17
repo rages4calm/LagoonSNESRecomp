@@ -92,11 +92,23 @@ fi
 
 GEN_ARGS=(--rom "$ROM" --cfg-dir "$CFGDIR" --out-dir src/gen
           --funcs-h recomp/funcs.h --project-root "$ROOT")
+# Public analysis seeds reproduce campaign coverage without private capture files.
+# They do not declare extra function boundaries or bypass ROM analysis/LLE gates.
+if [ -f "$CFGDIR/campaign-roots.txt" ]; then
+  GEN_ARGS+=(--analysis-roots-file "$CFGDIR/campaign-roots.txt")
+fi
 # Per-root instruction-boundary timing is staged independently of promotion.
 if [ -f "$CFGDIR/precise-timing.txt" ]; then
   export SNESRECOMP_PRECISE_AOT_ROOTS="$(cat "$CFGDIR/precise-timing.txt")"
 else
   unset SNESRECOMP_PRECISE_AOT_ROOTS
+fi
+# Commit precise guest transfers before entering older aggregate native bodies.
+# Keep the historical native set on its established timing policy for now.
+if [ -f "$CFGDIR/transfer-timing.txt" ]; then
+  export SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS="$(cat "$CFGDIR/transfer-timing.txt")"
+else
+  unset SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS
 fi
 if [ "$CFG_ROOTS" -eq 1 ]; then GEN_ARGS+=(--cfg-roots); fi
 if [ "${#PROFILE_ARGS[@]}" -gt 0 ]; then GEN_ARGS+=("${PROFILE_ARGS[@]}"); fi

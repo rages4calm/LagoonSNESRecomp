@@ -1,5 +1,170 @@
+diff --git a/recompiler-rs/src/bin/analyze.rs b/recompiler-rs/src/bin/analyze.rs
+index 2014052cc709efe939964b4513ebf207fd61fd94..fff990676c0b54722225116d9b9ee570b0ac2bf7 100644
+--- a/recompiler-rs/src/bin/analyze.rs
++++ b/recompiler-rs/src/bin/analyze.rs
+@@ -118,6 +118,7 @@ struct Inputs {
+     data_regions: Vec<(u32, u32, u32)>,
+     exclude_ranges: HashMap<u32, Vec<(u32, u32)>>,
+     force_lle: BTreeSet<u32>,
++    force_lle_variants: BTreeSet<VariantKey>,
+     indirect_dispatch: HashMap<u32, IndirectDispatchSite>,
+     hle_dispatch: HashMap<u32, String>,
+     inline_skip: HashMap<u32, i32>,
+@@ -266,6 +267,7 @@ fn load_inputs(cfg_dir: &Path, rom: &mut Vec<u8>, all_cfg_roots: bool) -> Result
+     let mut data_regions = Vec::new();
+     let mut exclude_ranges = HashMap::new();
+     let mut force_lle = BTreeSet::new();
++    let mut force_lle_variants = BTreeSet::new();
+     let mut indirect_dispatch = HashMap::new();
+     let mut hle_dispatch = HashMap::new();
+     let mut inline_skip = HashMap::new();
+@@ -290,6 +292,12 @@ fn load_inputs(cfg_dir: &Path, rom: &mut Vec<u8>, all_cfg_roots: bool) -> Result
+                 force_lle.insert(mirror);
+             }
+         }
++        for &(pc24, m, x) in &cfg.force_lle_variants {
++            force_lle_variants.insert(VariantKey::new(pc24, m, x));
++            if let Some(mirror) = mirror_pc24(mapping, pc24) {
++                force_lle_variants.insert(VariantKey::new(mirror, m, x));
++            }
++        }
+         for (&start, raw) in &cfg.authority_insns {
+             let mut banks = vec![bank];
+             if start >= 0x8000 {
+@@ -503,6 +511,7 @@ fn load_inputs(cfg_dir: &Path, rom: &mut Vec<u8>, all_cfg_roots: bool) -> Result
+         data_regions,
+         exclude_ranges,
+         force_lle,
++        force_lle_variants,
+         indirect_dispatch,
+         hle_dispatch,
+         inline_skip,
+@@ -514,7 +523,7 @@ fn load_inputs(cfg_dir: &Path, rom: &mut Vec<u8>, all_cfg_roots: bool) -> Result
+ }
+ 
+ fn target_is_code(key: VariantKey, inputs: &Inputs, rom: &[u8], mapping: RomMapping) -> bool {
+-    if inputs.force_lle.contains(&key.pc24) {
++    if inputs.force_lle.contains(&key.pc24) || inputs.force_lle_variants.contains(&key) {
+         return false;
+     }
+     let bank = (key.pc24 >> 16) & 0xFF;
+@@ -569,6 +578,11 @@ fn summarize(
+ ) -> NodeSummary {
+     let mut edges = BTreeSet::new();
+     let mut reasons = BTreeSet::new();
++    if inputs.force_lle_variants.contains(&key) {
++        // Decode and retain proven exits/demands, but emit no callable native
++        // body for this variant. A sibling width remains independently eligible.
++        reasons.insert("forced_lle_variant".to_string());
++    }
+     let mut pcs = Vec::new();
+     let mut poison_reasons = BTreeSet::new();
+ 
+@@ -762,7 +776,8 @@ fn summarize(
+         reasons.insert("truncated_call_continuation".to_string());
+     }
+ 
+-    let disposition = if reasons.contains("structural_poison")
++    let disposition = if reasons.contains("forced_lle_variant")
++        || reasons.contains("structural_poison")
+         || reasons.contains("unproven_callee_exit")
+         || reasons.contains("unstable_exit_fact")
+         || reasons.contains("truncated_call_continuation")
+diff --git a/recompiler-rs/src/cfg.rs b/recompiler-rs/src/cfg.rs
+index e3ed0913a812b4e45f9d3da60f36d425030bf6b0..9cc7198f02206450125ee9e5f742ab1ae2754a2e 100644
+--- a/recompiler-rs/src/cfg.rs
++++ b/recompiler-rs/src/cfg.rs
+@@ -110,6 +110,8 @@ pub struct BankCfg {
+     pub symbols: Vec<NameDecl>,
+     /// Exact 24-bit executable function boundaries which must remain LLE.
+     pub force_lle: BTreeSet<u32>,
++    /// Defer only the named PC/M/X variant, preserving sibling widths.
++    pub force_lle_variants: BTreeSet<(u32, u8, u8)>,
+     pub exclude_ranges: Vec<(u32, u32)>,
+     pub authority_insns: BTreeMap<u32, Vec<u8>>,
+     pub authority_data: Vec<(u32, u32)>,
+@@ -365,6 +367,28 @@ pub fn parse_bank_cfg(text: &str, path: &str) -> Result<BankCfg, String> {
+             cfg.hle_func.insert(pc16, c_name.to_string());
+             continue;
+         }
++        if head == "force_lle_variant" {
++            if tokens.len() != 2 {
++                return Err(format!("{path}: force_lle_variant needs <pc24:M0X0>"));
++            }
++            let (pc_text, mode) = tokens[1].split_once(':')
++                .ok_or_else(|| format!("{path}: force_lle_variant needs <pc24:M0X0>"))?;
++            let mode = mode.to_ascii_uppercase();
++            let bytes = mode.as_bytes();
++            if pc_text.is_empty() || pc_text.len() > 6
++                || !pc_text.bytes().all(|c| c.is_ascii_hexdigit())
++                || bytes.len() != 4 || bytes[0] != b'M' || bytes[2] != b'X'
++                || !matches!(bytes[1], b'0' | b'1') || !matches!(bytes[3], b'0' | b'1') {
++                return Err(format!("{path}: force_lle_variant needs <pc24:M0X0>"));
++            }
++            let pc24 = parse_hex(pc_text)?;
++            let key = (pc24, bytes[1] - b'0', bytes[3] - b'0');
++            if !cfg.force_lle_variants.insert(key) {
++                return Err(format!("{path}: force_lle_variant duplicate {}", tokens[1]));
++            }
++            continue;
++        }
++
+         // force_lle <pc24>
+         if head == "force_lle" {
+             if tokens.len() != 2 {
+@@ -1315,6 +1339,17 @@ exit_mx_set 028000 M0X0 M0X1
+         .is_err());
+     }
+ 
++    #[test]
++    fn force_lle_variant_preserves_width_and_rejects_malformed() {
++        let cfg = parse_bank_cfg("bank = 00\nforce_lle_variant 0084E9:M1X1\nforce_lle_variant 0084E9:m0x0\n", "t").unwrap();
++        assert_eq!(cfg.force_lle_variants, BTreeSet::from([(0x0084E9, 1, 1), (0x0084E9, 0, 0)]));
++        assert!(cfg.force_lle.is_empty());
++        for value in ["0084E9", "0084E9:M2X0", "0084E9:M1X1junk", "1000000:M1X0", "0084E9:M1X0 extra", "0x0084E9:M1X0"] {
++            assert!(parse_bank_cfg(&format!("bank = 00\nforce_lle_variant {value}\n"), "t").is_err(), "{value}");
++        }
++        assert!(parse_bank_cfg("bank = 00\nforce_lle_variant 0084E9:M1X0\nforce_lle_variant 0084e9:m1x0\n", "t").is_err());
++    }
++
+     #[test]
+     fn force_lle_parses_absolute_boundary_and_rejects_duplicates() {
+         let cfg = parse_bank_cfg("bank = 00\nforce_lle 038DA0\n", "t").unwrap();
+diff --git a/recompiler/v2/cfg_loader.py b/recompiler/v2/cfg_loader.py
+index a93de875cf0631b9f95ed74350973d01fad53f06..60f2733c365ce60a3209c1fc609a25406175aad8 100644
+--- a/recompiler/v2/cfg_loader.py
++++ b/recompiler/v2/cfg_loader.py
+@@ -89,6 +89,9 @@ class BankCfg:
+     # rely on behavior (for example return-stack rewriting) that the native
+     # callable ABI cannot represent.
+     force_lle: set = field(default_factory=set)
++    # `force_lle_variant PC:M0X0`: unlike force_lle, preserve other
++    # architectural widths at the same PC; each tuple is (pc24, m, x).
++    force_lle_variants: set = field(default_factory=set)
+     exclude_ranges: List[Tuple[int, int]] = field(default_factory=list)
+     authority_insns: dict[int, bytes] = field(default_factory=dict)
+     authority_data: List[Tuple[int, int]] = field(default_factory=list)
+@@ -429,6 +432,18 @@ def load_bank_cfg(path: str) -> BankCfg:
+                 cfg.force_lle.add(pc24)
+                 continue
+ 
++            if head == 'force_lle_variant':
++                if len(tokens) != 2:
++                    raise ValueError(f"{path}: force_lle_variant needs <pc24:M0X0>")
++                match = re.fullmatch(r'([0-9a-fA-F]{1,6}):[mM]([01])[xX]([01])', tokens[1])
++                if match is None:
++                    raise ValueError(f"{path}: force_lle_variant needs <pc24:M0X0>, got {tokens[1]!r}")
++                key = (int(match[1], 16), int(match[2]), int(match[3]))
++                if key in cfg.force_lle_variants:
++                    raise ValueError(f"{path}: force_lle_variant duplicate {tokens[1]!r}")
++                cfg.force_lle_variants.add(key)
++                continue
++
+             # force_variant_at <site_pc24> <m> <x> — pin the variant
+             # called at the named direct JSR/JSL site. See BankCfg
+             # field doc for use as a diagnostic for suspected m-flag
 diff --git a/recompiler/v2/codegen.py b/recompiler/v2/codegen.py
-index 43091e6..792cd45 100644
+index 43091e60bbe24eb0a1c8f88de573281fc8e620c9..792cd45314423b3a593d363adbff64b74ac54893 100644
 --- a/recompiler/v2/codegen.py
 +++ b/recompiler/v2/codegen.py
 @@ -629,16 +629,34 @@ def _segref_addr_expr(seg: SegRef) -> tuple:
@@ -38,7 +203,7 @@ index 43091e6..792cd45 100644
      """Emit a 16-bit read of A/X/Y/etc. For A, X, Y we route through
      cpu_read_{a,x,y}16 helpers — same value, but the helper name carries
 diff --git a/recompiler/v2/emit_function.py b/recompiler/v2/emit_function.py
-index 1f5de57..f0be47e 100644
+index 1f5de57500d7423744836ec5e3b438a4aef25147..7c13dd2dfbad2e35c25fbda712e9912d7630c6e1 100644
 --- a/recompiler/v2/emit_function.py
 +++ b/recompiler/v2/emit_function.py
 @@ -20,6 +20,7 @@ string.
@@ -49,7 +214,7 @@ index 1f5de57..f0be47e 100644
  
  _THIS_DIR = pathlib.Path(__file__).resolve().parent
  _RECOMPILER_DIR = _THIS_DIR.parent
-@@ -53,6 +54,26 @@ from v2.ir import (  # noqa: E402
+@@ -53,12 +54,68 @@ from v2.ir import (  # noqa: E402
  )
  
  
@@ -76,7 +241,49 @@ index 1f5de57..f0be47e 100644
  def _label_for(key: DecodeKey) -> str:
      """C label name for a block keyed by (pc, m, x)."""
      pc = key.pc & 0xFFFF
-@@ -612,7 +633,13 @@ def emit_function(rom: bytes, bank: int, start: int,
+     return f"L_{pc:04X}_M{key.m}X{key.x}"
+ 
+ 
++def _commit_paired_interpreter_calls(line: str) -> str:
++    """Sequence completed native JSR/JSL timing before paired LLE targets.
++
++    Keep the helper(cpu, ...) call itself intact for textual ABI consumers.
++    Arguments can contain nested expressions, so find the matching close rather
++    than truncating a call at its first parenthesis.
++    """
++    pattern = re.compile(r'\b(?:interp_tier_run_call_frame|interp_tier_run_call)\(cpu,')
++    calls = []
++    for match in pattern.finditer(line):
++        opening = line.index('(', match.start())
++        depth, cursor, quote = 1, opening + 1, None
++        while cursor < len(line) and depth:
++            char = line[cursor]
++            if quote:
++                if char == '\\':
++                    cursor += 2
++                    continue
++                if char == quote:
++                    quote = None
++            elif char in ('"', "'"):
++                quote = char
++            elif char == '(':
++                depth += 1
++            elif char == ')':
++                depth -= 1
++            cursor += 1
++        if depth:
++            raise ValueError('Unbalanced generated paired interpreter call')
++        calls.append((match.start(), cursor))
++    for start, end in reversed(calls):
++        line = (line[:start] + '(cpu_instruction_timing_commit(cpu), '
++                + line[start:end] + ')' + line[end:])
++    return line
++
++
+ def _block_cycle_const(pairs) -> int:
+     """Static (gen-time) 65816 CPU-cycle cost of a block's instructions.
+ 
+@@ -612,7 +669,20 @@ def emit_function(rom: bytes, bank: int, start: int,
      # cfg directive, no auto-recovery). v2_regen hard-fails on any.
      if unresolved_indirect_collector is not None:
          unresolved_indirect_collector.extend(graph.unresolved_indirects)
@@ -87,11 +294,18 @@ index 1f5de57..f0be47e 100644
 +    precise_timing = _precise_root_enabled(
 +        os.environ.get('SNESRECOMP_PRECISE_AOT_ROOTS', ''),
 +        (bank << 16) | (start & 0xffff), entry_m, entry_x)
++    # A precise caller can enter a historical aggregate-timed callee. Commit
++    # its fully executed transfer instruction before the C callee starts, as
++    # the interpreter does before an AOT bounce. Stage adoption independently
++    # so already qualified historical roots retain their timing contract.
++    precise_transfers = precise_timing and _precise_root_enabled(
++        os.environ.get('SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS', ''),
++        (bank << 16) | (start & 0xffff), entry_m, entry_x)
 +    cfg = build_cfg(graph, instruction_blocks=precise_timing or get_rom_mapping() == ROM_MAP_SA1)
  
      # A tight, side-effect-free memory poll cannot execute atomically under
      # the LLE frame scheduler: the value it observes is commonly changed by
-@@ -828,7 +855,7 @@ def emit_function(rom: bytes, bank: int, start: int,
+@@ -828,7 +898,7 @@ def emit_function(rom: bytes, bank: int, start: int,
      # Returns a dict {skip:int, pla_start_ir_idx:int, pla_count:int}
      # so the emit loop can preserve setup ops, skip just the PLAs, and
      # set _pending_skip before the terminator.
@@ -100,7 +314,15 @@ index 1f5de57..f0be47e 100644
      _NLR_DEBUG = os.environ.get('SNESRECOMP_NLR_DEBUG') == '1'
      def _detect_nlr(key: DecodeKey):
          def _dbg(msg):
-@@ -1344,6 +1371,8 @@ def emit_function(rom: bytes, bank: int, start: int,
+@@ -1337,6 +1407,7 @@ def emit_function(rom: bytes, bank: int, start: int,
+             f"target outside this bank's import range */"
+         )
+ 
++    interpreted_instruction_blocks = set()
+     for key in block_order:
+         block = cfg.blocks[key]
+         lines: List[str] = []
+@@ -1344,6 +1415,8 @@ def emit_function(rom: bytes, bank: int, start: int,
          # Axis-5: master-clocks-per-CPU-cycle for this block's code region, used
          # to weight the dynamic (D.l/page-cross/branch-taken) master charges.
          _blk_spd_expr, _blk_spd_const = _block_speed(bank, key.pc)
@@ -109,7 +331,35 @@ index 1f5de57..f0be47e 100644
  
          # Iterate the pre-lowered (Insn, [IROp]) pairs. Calling lower()
          # again here would mint fresh Value-ids and break codegen's
-@@ -2111,6 +2140,8 @@ def emit_function(rom: bytes, bank: int, start: int,
+@@ -1493,10 +1566,23 @@ def emit_function(rom: bytes, bank: int, start: int,
+                         f"inlined into synthesized dispatch below */"
+                     )
+                 continue
+-            # Axis-2 step C dynamics: charge runtime-only modifiers (D.l != 0,
+-            # abs,X/Y read page-cross) for this instruction before its effect.
+-            for _ln in _dynamic_charge_lines(di_insn, _blk_spd_expr):
+-                lines.append(_ln)
++            # An unresolved terminal indirect jump is re-executed from its
++            # own PC by LLE. In instruction-block timing the interpreter owns
++            # its fetch, pointer reads and cycles; charging it here as well
++            # advances the guest clock twice before the same instruction.
++            delegated_to_lle = (
++                precise_timing and any(isinstance(op, IndirectGoto) for op in ir_ops)
++                and not getattr(di_insn, 'dispatch_entries', None)
++                and (not hle_dispatch
++                     or (di_insn.addr & 0xFFFF) not in hle_dispatch
++                     or (hle_dispatch.get(di_insn.addr & 0xFFFF) == '__balanced_interp__'
++                         and not getattr(di_insn, 'dispatch_pushed_call', False))))
++            if delegated_to_lle:
++                interpreted_instruction_blocks.add(key)
++            # Axis-2 step C dynamics belong to the tier executing the opcode.
++            if not delegated_to_lle:
++                for _ln in _dynamic_charge_lines(di_insn, _blk_spd_expr):
++                    lines.append(_ln)
+             for op in ir_ops:
+                 if isinstance(op, CondBranch):
+                     # Cond branch: block has TWO successors: fall-through (0)
+@@ -2111,6 +2197,8 @@ def emit_function(rom: bytes, bank: int, start: int,
      src.append(f'  if (g_recomp_stack_top >= 1) g_cpu_entry_s[g_recomp_stack_top - 1] = _entry_s;')
      for i, key in enumerate(block_order):
          src.append(f"  {_label_for(key)}:")
@@ -118,7 +368,13 @@ index 1f5de57..f0be47e 100644
          # Trace block entry — gives us the SNES PC chain in the trace ring.
          block_pc24 = (bank << 16) | (key.pc & 0xFFFF)
          src.append(f'    cpu_trace_block(cpu, 0x{block_pc24:06X});')
-@@ -2158,11 +2189,18 @@ def emit_function(rom: bytes, bank: int, start: int,
+@@ -2154,15 +2242,31 @@ def emit_function(rom: bytes, bank: int, start: int,
+         # (D.l/page-cross/branch-taken) are charged dynamically in block_lines.
+         # Axis-5: also charge the region-weighted MASTER clocks (CPU cycles x
+         # code-region speed) into cpu->master_cycles, which paces the SPC700.
+-        _cyc_const = _block_cycle_const(block_per_insn_ir.get(key, []))
++        _cyc_const = (0 if key in interpreted_instruction_blocks else
++                      _block_cycle_const(block_per_insn_ir.get(key, [])))
          if _cyc_const:
              src.append(f'    cpu->cycles += {_cyc_const};')
              _spd_expr, _spd_const = _block_speed(bank, key.pc)
@@ -135,10 +391,18 @@ index 1f5de57..f0be47e 100644
 +            if precise_timing:
 +                for access in ('read8', 'read16', 'write8', 'write16'):
 +                    ln = ln.replace('cpu_' + access + '(', 'cpu_' + access + '_timed(')
++            if precise_transfers:
++                # Native variant symbols always carry their architectural
++                # width suffix. Sequence the commit before the call, after
++                # guest JSR/JSL frame writes and PB changes. Keep callee(cpu)
++                # intact for declaration and link-closure scanners.
++                ln = re.sub(r'\b(\w+_M[01]X[01])\(cpu\)',
++                            r'(cpu_instruction_timing_commit(cpu), \1(cpu))', ln)
++                ln = _commit_paired_interpreter_calls(ln)
              # Inject a stack-auditor pop before any return so the shadow
              # stack stays balanced. An LLE yield unwind is NOT a return: the
              # bounce site resumes the interpreter mid-routine with pushed
-@@ -2170,6 +2208,8 @@ def emit_function(rom: bytes, bank: int, start: int,
+@@ -2170,6 +2274,8 @@ def emit_function(rom: bytes, bank: int, start: int,
              # imbalance. Pop it without recording a balance figure.
              stripped = ln.strip()
              if stripped.startswith("return"):
@@ -148,7 +412,7 @@ index 1f5de57..f0be47e 100644
                          if "interp_bridge_lle_yield_unwind" in stripped
                          else "RecompStackPop")
 diff --git a/recompiler/v2/emitter_helpers.py b/recompiler/v2/emitter_helpers.py
-index 76d99e3..9ce0adf 100644
+index 76d99e347fd9c3a2af20afca2ffa4b8e02f9e4dc..9ce0adfefe449ecf96a78dbb43912d764301ccdc 100644
 --- a/recompiler/v2/emitter_helpers.py
 +++ b/recompiler/v2/emitter_helpers.py
 @@ -171,7 +171,9 @@ def pb_save_restore_envelope(
@@ -175,8 +439,41 @@ index 76d99e3..9ce0adf 100644
      ]
      return [
          *bank_enter,
+diff --git a/recompiler/v2/program_emit.py b/recompiler/v2/program_emit.py
+index 485dde85147c751f9e1f33a259644c3d8bab5778..5a8e828c30f0654a87a261560954a76fd2f01644 100644
+--- a/recompiler/v2/program_emit.py
++++ b/recompiler/v2/program_emit.py
+@@ -435,6 +435,28 @@ def discover_host_roots(parsed, source_roots: Iterable[pathlib.Path],
+     return tuple(sorted(roots))
+ 
+ 
++def load_analysis_roots(paths: Iterable[pathlib.Path]) -> tuple[VariantKey, ...]:
++    """Read explicit analysis seeds without declaring guest function boundaries.
++
++    These owner-reviewed PC/mode addresses are not runtime coverage and carry
++    no instruction bytes, timings, call outcomes or qualification claims.
++    They still pass through the ordinary ROM analyzer and LLE eligibility.
++    """
++    roots = set()
++    for path in paths:
++        path = pathlib.Path(path)
++        for line_number, raw in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), 1):
++            token = raw.partition("#")[0].strip()
++            if not token:
++                continue
++            match = re.fullmatch(r"([0-9a-fA-F]{1,6}):M([01])X([01])", token, re.IGNORECASE)
++            if not match:
++                raise ValueError(f"{path}:{line_number}: expected PC24:M0X0 analysis root, got {token!r}")
++            pc24, m, x = match.groups()
++            roots.add(VariantKey(int(pc24, 16), int(m), int(x)))
++    return tuple(sorted(roots))
++
++
+ def discover_profile_roots(manifest_paths: Iterable[pathlib.Path],
+                            declared_entry_pcs: Iterable[int] = (),
+                            force_lle_out: set[int] | None = None,
 diff --git a/runner/runner.cmake b/runner/runner.cmake
-index a95cc69..77cd633 100644
+index a95cc696f2a12290b46b016710d4524a30239b0b..77cd63356559b0672760016280128c6278b19175 100644
 --- a/runner/runner.cmake
 +++ b/runner/runner.cmake
 @@ -739,7 +739,9 @@ function(snesrecomp_target_mod_catalog target preloaded_dir)
@@ -191,7 +488,7 @@ index a95cc69..77cd633 100644
              COMMAND ${CMAKE_COMMAND}
                  "-DSNES_MOD_DEST=$<TARGET_FILE_DIR:${target}>/${SNESRECOMP_MOD_CATALOG_DEST}"
 diff --git a/runner/snes_check_mod_catalog.cmake b/runner/snes_check_mod_catalog.cmake
-index a240b9d..d77f9b2 100644
+index a240b9d3c99f9ffa30bffcd1bbeb3467a2dab899..d77f9b24d1008250e8a9d9944d9dc60e257c4d23 100644
 --- a/runner/snes_check_mod_catalog.cmake
 +++ b/runner/snes_check_mod_catalog.cmake
 @@ -2,7 +2,7 @@
@@ -215,7 +512,7 @@ index a240b9d..d77f9b2 100644
  foreach(_id IN LISTS _ids)
      if(NOT IS_DIRECTORY "${SNES_MOD_DEST}/${_id}")
 diff --git a/runner/src/beam_frame_driver.c b/runner/src/beam_frame_driver.c
-index d6086b3..095ca10 100644
+index d6086b35636afd4f484e1e757af5e3938721f3ac..095ca108760030940250042421fb221633320d11 100644
 --- a/runner/src/beam_frame_driver.c
 +++ b/runner/src/beam_frame_driver.c
 @@ -269,3 +269,16 @@ void snes_beam_frame_driver_reset(void) {
@@ -236,7 +533,7 @@ index d6086b3..095ca10 100644
 +  return 1;
 +}
 diff --git a/runner/src/beam_frame_driver.h b/runner/src/beam_frame_driver.h
-index 60804fc..2f1a0ad 100644
+index 60804fca8b5abd63c6cd13b7c9775ac98477e4ab..2f1a0adcafa6cadac159dfef409dcdb0ef5a037c 100644
 --- a/runner/src/beam_frame_driver.h
 +++ b/runner/src/beam_frame_driver.h
 @@ -28,5 +28,14 @@ void snes_beam_frame_driver_draw_ppu_frame_observed(
@@ -255,7 +552,7 @@ index 60804fc..2f1a0ad 100644
  
  #endif /* SNESRECOMP_BEAM_FRAME_DRIVER_H */
 diff --git a/runner/src/common_rtl.c b/runner/src/common_rtl.c
-index a56966b..80737e7 100644
+index a56966b7cdac38c97b4d6c3bb828ce0662156fba..80737e71f7481f3698fd59743560fd706e981ec8 100644
 --- a/runner/src/common_rtl.c
 +++ b/runner/src/common_rtl.c
 @@ -1292,6 +1292,22 @@ static bool s_loaded_execution_valid;
@@ -306,7 +603,7 @@ index a56966b..80737e7 100644
  
  
 diff --git a/runner/src/common_rtl.h b/runner/src/common_rtl.h
-index 40d7f2b..695acc0 100644
+index 40d7f2b37df27e26abdcb619a3a9cc9829f23e8d..695acc07ab8d1863515ef30429eca6fa0d522851 100644
 --- a/runner/src/common_rtl.h
 +++ b/runner/src/common_rtl.h
 @@ -289,6 +289,8 @@ enum {
@@ -328,7 +625,7 @@ index 40d7f2b..695acc0 100644
   * Lets game chunks distinguish historical layouts without probing past EOF. */
  size_t RtlStateBytesRemaining(struct SaveLoadInfo *sli);
 diff --git a/runner/src/cpu_state.c b/runner/src/cpu_state.c
-index 57fe6bc..86980d7 100644
+index 57fe6bc0df2bd2e0a6d25f6d9a0c77cbfe07c20c..86980d7d63532773ed87e1c79fc796aa68c6313d 100644
 --- a/runner/src/cpu_state.c
 +++ b/runner/src/cpu_state.c
 @@ -29,6 +29,7 @@
@@ -434,7 +731,7 @@ index 57fe6bc..86980d7 100644
          if (g_stage_window_store_hook) {
              if ((off >= 0x1E72 && off <= 0x1E79) ||
 diff --git a/runner/src/cpu_state.h b/runner/src/cpu_state.h
-index f9b1e26..5ddf987 100644
+index f9b1e26dda03e3da0cc54cca14209a7d55815353..5ddf98778828a2e5c0e596004a524ea35b65b22d 100644
 --- a/runner/src/cpu_state.h
 +++ b/runner/src/cpu_state.h
 @@ -33,6 +33,28 @@ extern "C" {
@@ -504,7 +801,7 @@ index f9b1e26..5ddf987 100644
  uint32 interp_bridge_lle_resume_pc(void);
  void interp_bridge_set_lle_bounce_exclusions(const uint32 *targets,
 diff --git a/runner/src/desktop/host_main.c b/runner/src/desktop/host_main.c
-index 3bc3905..91e289c 100644
+index 3bc390535a40b5829dde5687429bbee843024499..91e289ca72980c0ba5c3bf866af3156ac3b712f9 100644
 --- a/runner/src/desktop/host_main.c
 +++ b/runner/src/desktop/host_main.c
 @@ -244,6 +244,29 @@ static const char *HostGetenv(const char *name) {
@@ -1073,7 +1370,7 @@ index 3bc3905..91e289c 100644
    ctrl |= g_gamepad[1].joystick_id != -1 ? 2 : 0;
    return ctrl << 30;
 diff --git a/runner/src/desktop/mmx_config.c b/runner/src/desktop/mmx_config.c
-index 2743775..5c6bf9c 100644
+index 27437759e35a6cd8a275eefdd3db9d39055cefa5..5c6bf9cdc0d3bfd0f69af89ab5c1daba7a244503 100644
 --- a/runner/src/desktop/mmx_config.c
 +++ b/runner/src/desktop/mmx_config.c
 @@ -417,12 +417,19 @@ static bool ParseVSync(const char *value, uint8 *result) {
@@ -1136,7 +1433,7 @@ index 2743775..5c6bf9c 100644
  }
  
 diff --git a/runner/src/desktop/opengl.c b/runner/src/desktop/opengl.c
-index e9063a7..07a78e7 100644
+index e9063a7414ac6dd16469731c13bf930b31d17876..07a78e70a6b6c77dc58a9022cea7b78f4576c758 100644
 --- a/runner/src/desktop/opengl.c
 +++ b/runner/src/desktop/opengl.c
 @@ -50,6 +50,7 @@ static unsigned int g_program, g_flash_program, g_VAO;
@@ -1186,7 +1483,7 @@ index e9063a7..07a78e7 100644
      fprintf(stderr, "Screenshot: couldn't open '%s' for writing\n", path);
    }
 diff --git a/runner/src/desktop/opengl.h b/runner/src/desktop/opengl.h
-index e7ed472..40b41c0 100644
+index e7ed4729f8998d5f726e17976ebfd25faf2d8806..40b41c05cd58ec07d7dc5ecd7da95a3bb583411b 100644
 --- a/runner/src/desktop/opengl.h
 +++ b/runner/src/desktop/opengl.h
 @@ -24,6 +24,8 @@ void snesrecomp_opengl_set_viewport(void (*compute)(int, int, int, int,
@@ -1199,7 +1496,7 @@ index e7ed472..40b41c0 100644
  #ifdef __cplusplus
  }
 diff --git a/runner/src/host_args.c b/runner/src/host_args.c
-index b1c580a..2350ae1 100644
+index b1c580a68b8760311904045771b72553240eadcb..2350ae1465feabf941173347ab66b06e09a2987c 100644
 --- a/runner/src/host_args.c
 +++ b/runner/src/host_args.c
 @@ -35,6 +35,9 @@ void snesrecomp_host_args_usage(const char *program, const char *extra) {
@@ -1249,7 +1546,7 @@ index b1c580a..2350ae1 100644
    return 1;
  }
 diff --git a/runner/src/host_args.h b/runner/src/host_args.h
-index 01dbd36..c9fcb6c 100644
+index 01dbd36e3aa0c78810cb273e2d125a34f0b843ca..c9fcb6c320bb2942b06f978fd0326b1cd83deb86 100644
 --- a/runner/src/host_args.h
 +++ b/runner/src/host_args.h
 @@ -61,6 +61,10 @@ typedef struct SnesrecompHostArgs {
@@ -1271,8 +1568,49 @@ index 01dbd36..c9fcb6c 100644
  } SnesrecompHostArgs;
  
  /* Consume the engine-owned arguments from *argc / *argv, in place.
+diff --git a/runner/src/snes/aot_deny_key.h b/runner/src/snes/aot_deny_key.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..3bce15cf9628331e4bc0ad32a3de6b983b19b71f
+--- /dev/null
++++ b/runner/src/snes/aot_deny_key.h
+@@ -0,0 +1,35 @@
++/* Exact-mode target keys for opt-in AOT differential denial. */
++#ifndef SNESRECOMP_AOT_DENY_KEY_H
++#define SNESRECOMP_AOT_DENY_KEY_H
++#include <ctype.h>
++#include <stdint.h>
++#include <stdlib.h>
++#include <errno.h>
++static inline uint32_t aot_deny_variant_key(uint32_t pc, unsigned m, unsigned x) {
++    return 0x10000000u | ((pc & 0xffffffu) << 2) | ((m & 1u) << 1) | (x & 1u);
++}
++/* 1 valid token, 0 blank/comment, -1 malformed. Plain PCs keep all-mode meaning. */
++static inline int aot_deny_parse_key(const char *line, uint32_t *out) {
++    while (isspace((unsigned char)*line)) line++;
++    if (!*line || *line == '#') return 0;
++    if (*line == '-' || *line == '+') return -1;
++    errno = 0;
++    char *end;
++    unsigned long pc = strtoul(line, &end, 16);
++    if (errno || end == line || pc > 0xfffffful) return -1;
++    uint32_t key = (uint32_t)pc;
++    if (*end == ':') {
++        end++;
++        if ((end[0] != 'M' && end[0] != 'm') ||
++            (end[1] != '0' && end[1] != '1') ||
++            (end[2] != 'X' && end[2] != 'x') ||
++            (end[3] != '0' && end[3] != '1')) return -1;
++        key = aot_deny_variant_key(key, (unsigned)(end[1]-'0'), (unsigned)(end[3]-'0'));
++        end += 4;
++    }
++    while (isspace((unsigned char)*end)) end++;
++    if (*end && *end != '#') return -1;
++    *out = key;
++    return 1;
++}
++#endif
 diff --git a/runner/src/snes/dma.c b/runner/src/snes/dma.c
-index 9fb6639..9719165 100644
+index 9fb6639673075d183c6c772b0d11ea0f515ea7a1..9719165c87d5c4e166e372e977c50a6af2bf4517 100644
 --- a/runner/src/snes/dma.c
 +++ b/runner/src/snes/dma.c
 @@ -15,6 +15,11 @@
@@ -1299,7 +1637,7 @@ index 9fb6639..9719165 100644
      dma->dmaTimer += dma->dmaBusy ? 16 : 0; // 12-24 cycle overhead for entire dma transfer
      /* Diagnostic: log ALL DMA triggers with source addresses */
 diff --git a/runner/src/snes/dma.h b/runner/src/snes/dma.h
-index f55baf8..ec56156 100644
+index f55baf89191fac1ef5e59eec02e3f193ce32457a..ec561563775a5d232a649d21cedde15fff7b8a46 100644
 --- a/runner/src/snes/dma.h
 +++ b/runner/src/snes/dma.h
 @@ -38,6 +38,12 @@ typedef struct DmaChannel {
@@ -1316,7 +1654,7 @@ index f55baf8..ec56156 100644
    Snes* snes;
    /* Transient state for channels enabled between frame initializations. Keep
 diff --git a/runner/src/snes/interp_bridge.c b/runner/src/snes/interp_bridge.c
-index c1e48eb..06a70a5 100644
+index c1e48ebb1dbfe00207474015d4e7539f83450d64..26b5be50a642cee7f692c54a9e3c00f5cf4a09d2 100644
 --- a/runner/src/snes/interp_bridge.c
 +++ b/runner/src/snes/interp_bridge.c
 @@ -522,6 +522,12 @@ static int      s_lle_unwind_is_deadline = 0;
@@ -1332,7 +1670,54 @@ index c1e48eb..06a70a5 100644
  static int      s_lle_wai_yield     = 0;
  static int      s_lle_quiescent_yield = 0;
  static uint64_t s_lle_master_deadline = 0;
-@@ -799,6 +805,7 @@ static int bridge_cooperative_yield(CpuState *cpu, const Interp816 *in,
+@@ -617,6 +623,7 @@ static size_t   s_lle_bounce_exclusion_count;
+  * (unlike the 16-slot programmatic list) so a whole seeded root set can be
+  * disabled at once for structural-vs-execution bisection, editable between runs
+  * with no rebuild. Sorted for bsearch; masked to 24 bits. */
++#include "aot_deny_key.h"
+ static uint32_t *s_interp_file_targets;
+ static size_t    s_interp_file_count;
+ static int interp_file_target_cmp(const void *a, const void *b) {
+@@ -638,16 +645,22 @@ static void ensure_interp_file_targets_loaded(void) {
+     uint32_t *arr = (uint32_t *)malloc(cap * sizeof *arr);
+     char line[64];
+     while (arr && fgets(line, sizeof line, f)) {
+-        char *end = NULL;
+-        unsigned long pc = strtoul(line, &end, 16);
+-        if (end == line) continue;
++        uint32_t key;
++        int parsed = aot_deny_parse_key(line, &key);
++        if (parsed == 0) continue;
++        if (parsed < 0) {
++            fprintf(stderr, "[aot_deny] invalid target token: %s", line);
++            fclose(f);
++            free(arr);
++            exit(EXIT_FAILURE);
++        }
+         if (n == cap) {
+             cap *= 2;
+             uint32_t *g = (uint32_t *)realloc(arr, cap * sizeof *arr);
+             if (!g) break;
+             arr = g;
+         }
+-        arr[n++] = (uint32_t)(pc & 0xFFFFFFu);
++        arr[n++] = key;
+     }
+     fclose(f);
+     if (arr && n) {
+@@ -668,6 +681,11 @@ int rtl_aot_node_denied(uint32 pc24) {
+     ensure_interp_file_targets_loaded();
+     if (!s_interp_file_count) return 0;
+     uint32_t key = (uint32_t)pc24 & 0xFFFFFFu;
++    if (bsearch(&key, s_interp_file_targets, s_interp_file_count,
++                sizeof key, interp_file_target_cmp)) return 1;
++    /* The runtime singleton holds the live entry M/X for both the direct
++     * generated body guard and the synchronized interpreter bounce gate. */
++    key = aot_deny_variant_key(key, g_cpu.m_flag, g_cpu.x_flag);
+     return bsearch(&key, s_interp_file_targets, s_interp_file_count,
+                    sizeof key, interp_file_target_cmp) != NULL;
+ }
+@@ -799,6 +817,7 @@ static int bridge_cooperative_yield(CpuState *cpu, const Interp816 *in,
      return 1;
  }
  uint32 interp_bridge_lle_resume_pc(void) { return s_lle_resume_pc24; }
@@ -1340,7 +1725,21 @@ index c1e48eb..06a70a5 100644
  void interp_bridge_set_lle_resume_pc(uint32_t pc) {
      lle_resume_set(pc, INTERP_RESUME_SITE_EXTERNAL, 0);
  }
-@@ -1623,7 +1630,9 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -1094,12 +1113,7 @@ static int lle_bounce_target_excluded(uint32_t target_pc24) {
+             (s_lle_bounce_exclusions[i] & 0x7FFFFFu))
+             return 1;
+     }
+-    if (s_interp_file_count) {
+-        uint32_t key = target_pc24 & 0xFFFFFFu;
+-        if (bsearch(&key, s_interp_file_targets, s_interp_file_count,
+-                    sizeof key, interp_file_target_cmp))
+-            return 1;
+-    }
++    if (rtl_aot_node_denied(target_pc24)) return 1;
+     return 0;
+ }
+ 
+@@ -1623,7 +1637,9 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
          { static long pct = -1;
            if (pct < 0) { const char *e = getenv("SNESRECOMP_INTERP_PCTRACE");
                           pct = e ? atol(e) : 0; if (pct < 0) pct = 0;
@@ -1351,7 +1750,7 @@ index c1e48eb..06a70a5 100644
            if (pct && (steps % pct) == 0)
              fprintf(stderr, "[pctrace] step=%ld pc=%06X op=%02X\n", steps,
                      (unsigned)pc_before, bridge_bus_read(cpu, pc_before)); }
-@@ -1659,9 +1668,26 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -1659,9 +1675,26 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
              bridge_apu_flush(cpu);
              return 1;
          }
@@ -1380,7 +1779,7 @@ index c1e48eb..06a70a5 100644
              sync_interp_to_cpu(&in,cpu);
              bridge_apu_flush(cpu);
              return 1;
-@@ -2435,16 +2461,30 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2435,16 +2468,30 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
          if (wlog_state_sync)
              sync_interp_to_cpu(&in, cpu);
          cpu->coprocessor_master_cycles = cpu->master_cycles;
@@ -1419,7 +1818,7 @@ index c1e48eb..06a70a5 100644
          if (dtrace && in.dp != dp_before) {
              extern int snes_frame_counter;
 diff --git a/runner/src/snes/ppu.c b/runner/src/snes/ppu.c
-index 25dcfe0..fc830f5 100644
+index 25dcfe03b6615138c04c376ec83f7a52ca5fe5de..fc830f5f97b50b44565233aecd7d4b6298ec0e6d 100644
 --- a/runner/src/snes/ppu.c
 +++ b/runner/src/snes/ppu.c
 @@ -167,6 +167,12 @@ void ppu_rb_residue_set(Ppu *ppu, const PpuRollbackResidue *in) {
@@ -1565,7 +1964,7 @@ index 25dcfe0..fc830f5 100644
    memcpy(f->regs, &ppu->inidisp, PPU_SAVESTATE_REGS_SIZE);
    f->scrollPrev = ppu->scrollPrev;
 diff --git a/runner/src/snes/ppu.h b/runner/src/snes/ppu.h
-index 7e092bb..b4eae35 100644
+index 7e092bb3c353ff66c3d4b2569c59b99d4020e57d..b4eae35d57699b348190c349c7470de0b3a7a7ba 100644
 --- a/runner/src/snes/ppu.h
 +++ b/runner/src/snes/ppu.h
 @@ -8,6 +8,7 @@
@@ -1627,7 +2026,7 @@ index 7e092bb..b4eae35 100644
  // Capture one native 256-pixel Mode 2 background layer before it is combined
  // with the other layers. This lets a game frontend synthesize presentation-
 diff --git a/runner/src/snes/snes.c b/runner/src/snes/snes.c
-index 5c03cfe..0c8c2e0 100644
+index 5c03cfe6bff0be64c1d39519a0b6b76f5c5e42f8..0c8c2e0e7ce21f9849f59e9f2e468e83b62e19a2 100644
 --- a/runner/src/snes/snes.c
 +++ b/runner/src/snes/snes.c
 @@ -625,14 +625,22 @@ uint8_t snes_readReg(Snes* snes, uint16_t adr) {
@@ -1674,7 +2073,7 @@ index 5c03cfe..0c8c2e0 100644
      }
      case 0x4213:
 diff --git a/runner/src/state_dump.c b/runner/src/state_dump.c
-index 7779dd0..5c8e906 100644
+index 7779dd010c88fc94f108db4150d5716b0c47b107..5c8e9063e7ed3eac9faf5abe67d773e2c901fa6a 100644
 --- a/runner/src/state_dump.c
 +++ b/runner/src/state_dump.c
 @@ -88,6 +88,32 @@ static void write_regs(const char *dir, const char *tag, uint32_t frame) {
@@ -1710,8 +2109,62 @@ index 7779dd0..5c8e906 100644
    fprintf(f, "  \"inidisp\": %u, \"obsel\": %u, \"bgmode\": %u, \"mosaic\": %u,\n",
            p->inidisp, p->obsel, p->bgmode, p->mosaic);
    fprintf(f, "  \"bgsc\": [%u, %u, %u, %u], \"bg_tile_adr\": %u,\n",
+diff --git a/snesrecomp_cli.py b/snesrecomp_cli.py
+index 491d6025f02d7d85fc03d98d8942f2438f1a06f8..b2a0fe405d706db8ca82b81eff324094cf1c8470 100644
+--- a/snesrecomp_cli.py
++++ b/snesrecomp_cli.py
+@@ -150,6 +150,7 @@ def run_emit(rom: pathlib.Path, cfg_dir: pathlib.Path, out_dir: pathlib.Path,
+              no_host_root_scan: bool = False,
+              source_roots: list[str] | None = None,
+              profile_manifests: list[str] | None = None,
++             analysis_roots_files: list[str] | None = None,
+              legacy_profile_rom_sha256: str | None = None) -> None:
+     """Generate C from a ROM plus its bank configs. Raises on failure."""
+     resolved = resolve_analyzer(backend)
+@@ -173,6 +174,8 @@ def run_emit(rom: pathlib.Path, cfg_dir: pathlib.Path, out_dir: pathlib.Path,
+     # all -- SuperMetroidRecomp's tools/regen.sh had to call v2_emit
+     # directly, and a template sync that pointed it here silently dropped
+     # its profile and changed the emitted C.
++    for path in analysis_roots_files or []:
++        arguments.extend(["--analysis-roots-file", path])
+     for manifest in profile_manifests or []:
+         arguments.extend(["--profile-manifest", manifest])
+     if legacy_profile_rom_sha256:
+diff --git a/tests/aot_deny_modes_test.c b/tests/aot_deny_modes_test.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..20fa5e78e65ab0c37095f8206e04c0b290654662
+--- /dev/null
++++ b/tests/aot_deny_modes_test.c
+@@ -0,0 +1,27 @@
++#include <assert.h>
++#include <stdint.h>
++#include <stdio.h>
++#include "snes/aot_deny_key.h"
++int main(void) {
++    uint32_t key = 0;
++    assert(aot_deny_parse_key("0084E9", &key) == 1 && key == 0x84e9u);
++    assert(aot_deny_parse_key("  0x0084E9 # legacy all-mode\n", &key) == 1 && key == 0x84e9u);
++    assert(aot_deny_parse_key("0084E9:M1X1\n", &key) == 1);
++    assert(key == aot_deny_variant_key(0x84e9, 1, 1));
++    assert(key != aot_deny_variant_key(0x84e9, 1, 0));
++    assert(aot_deny_parse_key("00871c:m0x1 # exact mode", &key) == 1);
++    assert(key == aot_deny_variant_key(0x871c, 0, 1));
++    for (unsigned m = 0; m < 2; m++) for (unsigned x = 0; x < 2; x++) {
++        char text[40]; snprintf(text, sizeof text, "FFFFFF:M%uX%u", m, x);
++        assert(aot_deny_parse_key(text, &key) == 1);
++        assert(key == aot_deny_variant_key(0xffffff, m, x));
++        assert(key > 0xffffffu);
++    }
++    const char *invalid[] = {"1000000", "-1", "+1", "0084E9:M2X0", "0084E9:M0X2",
++        "0084E9:M", "0084E9:M0", "0084E9:M0X", "0084E9:", "0084E9:M0X0extra", "0084E9junk"};
++    for (unsigned i = 0; i < sizeof invalid / sizeof *invalid; i++)
++        assert(aot_deny_parse_key(invalid[i], &key) == -1);
++    assert(aot_deny_parse_key(" # comment", &key) == 0);
++    assert(aot_deny_parse_key("\r\n", &key) == 0);
++    puts("AOT deny exact-mode parser: PASS");
++}
 diff --git a/tests/dma/rdnmi_test.c b/tests/dma/rdnmi_test.c
-index 98ce817..bc7c0f7 100644
+index 98ce81772631bdd18ece5dfb2ad7ec846ff10c45..bc7c0f79dc2c5007190cfd18452037ba426edf76 100644
 --- a/tests/dma/rdnmi_test.c
 +++ b/tests/dma/rdnmi_test.c
 @@ -32,7 +32,15 @@ int main(void) {
@@ -1741,7 +2194,7 @@ index 98ce817..bc7c0f7 100644
  }
 diff --git a/tests/ppu/ppu_raster_state_test.c b/tests/ppu/ppu_raster_state_test.c
 new file mode 100644
-index 0000000..e68f988
+index 0000000000000000000000000000000000000000..e68f988d47c7b38d7cde7239c67ce278c5216f45
 --- /dev/null
 +++ b/tests/ppu/ppu_raster_state_test.c
 @@ -0,0 +1,114 @@
@@ -1861,7 +2314,7 @@ index 0000000..e68f988
 +}
 diff --git a/tests/ppu/ppu_shadow_authoritative_map_test.c b/tests/ppu/ppu_shadow_authoritative_map_test.c
 new file mode 100644
-index 0000000..1f7c676
+index 0000000000000000000000000000000000000000..1f7c676d5232c32cbc7190abf54ccae4ca29a602
 --- /dev/null
 +++ b/tests/ppu/ppu_shadow_authoritative_map_test.c
 @@ -0,0 +1,62 @@
@@ -1929,7 +2382,7 @@ index 0000000..1f7c676
 +}
 diff --git a/tests/ppu/ppu_shadow_native_boundary_test.c b/tests/ppu/ppu_shadow_native_boundary_test.c
 new file mode 100644
-index 0000000..3487480
+index 0000000000000000000000000000000000000000..34874807f8ccf78babeb2f69f8a40d7e815fc712
 --- /dev/null
 +++ b/tests/ppu/ppu_shadow_native_boundary_test.c
 @@ -0,0 +1,100 @@
@@ -2035,7 +2488,7 @@ index 0000000..3487480
 +}
 diff --git a/tests/ppu/run_shadow_native_boundary_test.ps1 b/tests/ppu/run_shadow_native_boundary_test.ps1
 new file mode 100644
-index 0000000..157d166
+index 0000000000000000000000000000000000000000..157d166254de38903b9dd83c973551acd2b746e2
 --- /dev/null
 +++ b/tests/ppu/run_shadow_native_boundary_test.ps1
 @@ -0,0 +1,11 @@
@@ -2052,7 +2505,7 @@ index 0000000..157d166
 +if ($LASTEXITCODE -ne 0) { throw 'PPU native-boundary regression failed' }
 diff --git a/tests/runtime_dispatch/dma_start_observer_test.c b/tests/runtime_dispatch/dma_start_observer_test.c
 new file mode 100644
-index 0000000..3ebf8e4
+index 0000000000000000000000000000000000000000..3ebf8e475d2ef97afd293538ee5bb61b44711d6a
 --- /dev/null
 +++ b/tests/runtime_dispatch/dma_start_observer_test.c
 @@ -0,0 +1,47 @@
@@ -2105,7 +2558,7 @@ index 0000000..3ebf8e4
 +}
 diff --git a/tests/runtime_dispatch/run_wram_read_filter_test.ps1 b/tests/runtime_dispatch/run_wram_read_filter_test.ps1
 new file mode 100644
-index 0000000..308b161
+index 0000000000000000000000000000000000000000..308b161b22bfbf499d566ffce54a98aa1ca9fb4d
 --- /dev/null
 +++ b/tests/runtime_dispatch/run_wram_read_filter_test.ps1
 @@ -0,0 +1,17 @@
@@ -2128,7 +2581,7 @@ index 0000000..308b161
 +if ($LASTEXITCODE -ne 0) { throw 'WRAM read filter regression failed' }
 diff --git a/tests/runtime_dispatch/run_wram_write_filter_test.ps1 b/tests/runtime_dispatch/run_wram_write_filter_test.ps1
 new file mode 100644
-index 0000000..89ed45b
+index 0000000000000000000000000000000000000000..89ed45bac6399d5b20857cebc9fd2926d9bb817b
 --- /dev/null
 +++ b/tests/runtime_dispatch/run_wram_write_filter_test.ps1
 @@ -0,0 +1,17 @@
@@ -2151,7 +2604,7 @@ index 0000000..89ed45b
 +if ($LASTEXITCODE -ne 0) { throw 'WRAM filter regression failed' }
 diff --git a/tests/runtime_dispatch/wram_read_filter_test.c b/tests/runtime_dispatch/wram_read_filter_test.c
 new file mode 100644
-index 0000000..30296af
+index 0000000000000000000000000000000000000000..30296af254c38b2700808c41fa6642073a609249
 --- /dev/null
 +++ b/tests/runtime_dispatch/wram_read_filter_test.c
 @@ -0,0 +1,78 @@
@@ -2235,7 +2688,7 @@ index 0000000..30296af
 +}
 diff --git a/tests/runtime_dispatch/wram_write_filter_test.c b/tests/runtime_dispatch/wram_write_filter_test.c
 new file mode 100644
-index 0000000..28b6a45
+index 0000000000000000000000000000000000000000..28b6a457033a4966a309f433bcdc14d294cace59
 --- /dev/null
 +++ b/tests/runtime_dispatch/wram_write_filter_test.c
 @@ -0,0 +1,128 @@
@@ -2367,9 +2820,182 @@ index 0000000..28b6a45
 +    puts("wram_write_filter_test: PASS (canonical aliases, ordered words, wrap, open bus, bypass, unregister)");
 +    return 0;
 +}
+diff --git a/tests/test_analysis_roots_file.py b/tests/test_analysis_roots_file.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..d920eeaa65310ab4ba716faa0d57a424f1ff8076
+--- /dev/null
++++ b/tests/test_analysis_roots_file.py
+@@ -0,0 +1,88 @@
++"""Explicit seed metadata must preserve mode identity and CLI/cache provenance."""
++import argparse
++import os
++from pathlib import Path
++import sys
++import tempfile
++import unittest
++from unittest.mock import Mock, patch
++
++SDK = Path(__file__).resolve().parents[1]
++sys.path[:0] = [str(SDK), str(SDK/'recompiler')]
++from v2.program_emit import load_analysis_roots
++from v2.program_analysis import VariantKey
++from tools import sdk_generate
++from tools.v2_emit import _analysis_input_digest, _codegen_environment_digest
++
++
++class AnalysisRootFileTests(unittest.TestCase):
++    def test_exact_variants_comments_bom_and_deduplication(self):
++        with tempfile.TemporaryDirectory() as temp:
++            a=Path(temp)/'roots.txt';b=Path(temp)/'more.txt'
++            a.write_text('\ufeff# Declared seeds, no instruction data\n0084E9:M1X1 # alternate mode\n84e9:m1x0\n',encoding='utf-8')
++            b.write_text('0084E9:M1X1\n018158:M1X0\n')
++            self.assertEqual(load_analysis_roots([a,b]),(
++                VariantKey(0x84e9,1,0),VariantKey(0x84e9,1,1),VariantKey(0x18158,1,0)))
++
++    def test_malformed_line_fails_with_location(self):
++        with tempfile.TemporaryDirectory() as temp:
++            p=Path(temp)/'bad.txt'
++            for bad in ('0084E9','0x0084E9:M1X1','1000000:M1X1','0084E9:M2X1',
++                        '0084E9:M1X9','0084E9:M1X1 trailing','0084E9:M1X1,018158:M1X0'):
++                with self.subTest(bad=bad):
++                    p.write_text('# valid comment\n'+bad+'\n')
++                    with self.assertRaisesRegex(ValueError,r'bad\.txt:2: expected PC24:M0X0'):
++                        load_analysis_roots([p])
++
++    def test_missing_file_fails_instead_of_silently_dropping_seeds(self):
++        with tempfile.TemporaryDirectory() as temp:
++            with self.assertRaises(FileNotFoundError):
++                load_analysis_roots([Path(temp)/'missing.txt'])
++
++    def test_generate_cli_forwards_resolved_root_files(self):
++        with tempfile.TemporaryDirectory() as temp:
++            root=Path(temp);parser=argparse.ArgumentParser();sub=parser.add_subparsers(dest='command')
++            sdk_generate.add_generate_parser(sub)
++            args=parser.parse_args(['generate','--rom','game.sfc','--cfg-dir','cfg','--out-dir','gen',
++                '--project-root',str(root),'--analysis-roots-file','roots.txt',
++                '--analysis-roots-file','more.txt'])
++            with patch.object(sdk_generate,'generate') as generate:
++                self.assertEqual(args.handler(args,Mock()),0)
++                self.assertEqual(generate.call_args.kwargs['analysis_roots_files'],
++                                 [(root/'roots.txt').resolve(),(root/'more.txt').resolve()])
++
++    def test_sdk_forwards_root_file_without_cfg_roots_or_profile(self):
++        with tempfile.TemporaryDirectory() as temp:
++            root=Path(temp);cfg=root/'cfg';cfg.mkdir();(cfg/'bank00.cfg').write_text('bank = 0\n')
++            roots=root/'roots.txt';roots.write_text('0084E9:M1X1\n')
++            identity={'path':str(root/'game.sfc'),'crc32':'00000000','sha256':'0'*64,'size':32768}
++            with patch.object(sdk_generate,'verify_rom',return_value=identity),patch.object(sdk_generate,'run_tool',return_value=0)as run:
++                sdk_generate.generate(rom=root/'game.sfc',cfg_dir=cfg,out_dir=root/'gen',
++                    analysis_roots_files=[roots],progress=Mock(json_progress=False))
++                args=run.call_args.args[1]
++                index=args.index('--analysis-roots-file')
++                self.assertEqual(args[index+1],str(roots.resolve()))
++                self.assertNotIn('--cfg-roots',args)
++                self.assertNotIn('--profile-manifest',args)
++
++    def test_transfer_timing_selector_invalidates_body_cache(self):
++        with patch.dict(os.environ,{},clear=True):
++            control=_codegen_environment_digest('same-source')
++            os.environ['SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS']='018158:M1X0'
++            native=_codegen_environment_digest('same-source')
++            os.environ['SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS']='018158:M1X1'
++            self.assertNotEqual(_codegen_environment_digest('same-source'),native)
++            self.assertNotEqual(control,native)
++            del os.environ['SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS']
++            self.assertEqual(_codegen_environment_digest('same-source'),control)
++
++    def test_seed_content_participates_in_analysis_cache_identity(self):
++        kwargs=dict(rom=b'rom',generator_digest='g',config_digest='c',force_lle=(),cfg_roots=False,
++            analysis_backend='native',enable_hle=True,max_insns=4096,max_nodes=100000,
++            shard_threshold_bytes=4096,shard_pc_span=2048)
++        a=_analysis_input_digest(additional_roots=[VariantKey(0x84e9,1,0)],**kwargs)
++        b=_analysis_input_digest(additional_roots=[VariantKey(0x84e9,1,1)],**kwargs)
++        self.assertNotEqual(a,b)
++
++
++if __name__=='__main__':unittest.main()
+diff --git a/tests/test_force_lle_variant.py b/tests/test_force_lle_variant.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e64cd8bd924bdc774e1e684e24c5cb024ac90901
+--- /dev/null
++++ b/tests/test_force_lle_variant.py
+@@ -0,0 +1,73 @@
++"""A timing-unsafe new mode must not remove established native sibling modes."""
++import json
++from pathlib import Path
++import subprocess
++import sys
++import tempfile
++import unittest
++
++REPO = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(REPO / 'recompiler'))
++from v2.cfg_loader import load_bank_cfg
++
++
++class ForceLleVariantTests(unittest.TestCase):
++    def test_python_parser_keeps_modes_separate(self):
++        with tempfile.TemporaryDirectory() as temp:
++            path = Path(temp) / 'bank00.cfg'
++            path.write_text('bank = 00\nforce_lle_variant 0084E9:M1X1\nforce_lle_variant 0084e9:m0x0\n')
++            cfg = load_bank_cfg(str(path))
++            self.assertEqual(cfg.force_lle_variants, {(0x84e9, 1, 1), (0x84e9, 0, 0)})
++            self.assertFalse(cfg.force_lle)
++
++    def test_python_parser_fails_closed(self):
++        values = ('0084E9', '0084E9:M2X0', '0084E9:M1X1junk', '1000000:M1X0',
++                  '0084E9:M1X0 extra', '0x0084E9:M1X0',
++                  '0084E9:M1X0\nforce_lle_variant 0084e9:m1x0')
++        with tempfile.TemporaryDirectory() as temp:
++            path = Path(temp) / 'bank00.cfg'
++            for value in values:
++                with self.subTest(value=value):
++                    path.write_text('bank = 00\nforce_lle_variant ' + value + '\n')
++                    with self.assertRaises(ValueError):
++                        load_bank_cfg(str(path))
++
++    def test_native_manifest_and_dispatch_defer_only_exact_mode_and_mirror(self):
++        with tempfile.TemporaryDirectory() as temp:
++            root = Path(temp)
++            rom = bytearray([0xff] * 0x8000)
++            rom[0:9] = bytes.fromhex('201080e23020108060')  # JSR M1X0; SEP X; JSR M1X1; RTS
++            rom[0x10] = 0x60
++            rom[0x20] = 0x60
++            (root / 'test.sfc').write_bytes(rom)
++            cfg = root / 'cfg'; cfg.mkdir()
++            (cfg / 'bank00.cfg').write_text(
++                'bank = 00\nfunc Main 8000 end:8009 entry_mx:1,0\n'
++                'func Shared 8010 end:8011 entry_mx:1,0\n'
++                'func DeferredRoot 8020 end:8021 entry_mx:1,1\n'
++                'force_lle_variant 808010:M1X1\n'
++                'force_lle_variant 008020:M1X1\n')
++            out = root / 'gen'
++            command = [sys.executable, '-P', str(REPO / 'tools/v2_emit.py'),
++                '--rom', str(root / 'test.sfc'), '--cfg-dir', str(cfg), '--out-dir', str(out),
++                '--cfg-roots', '--no-host-root-scan']
++            completed = subprocess.run(command, capture_output=True, text=True)
++            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
++            manifest = json.loads((out / 'program_manifest.json').read_text())
++            self.assertEqual(manifest['nodes']['008010:M1X0']['disposition'], 'aot_eligible')
++            deferred = manifest['nodes']['008020:M1X1']
++            self.assertEqual(deferred['disposition'], 'lle_only')
++            self.assertIn('forced_lle_variant', deferred['reasons'])
++            caller = manifest['nodes']['008000:M1X0']
++            edge = next(e for e in caller['demands'] if e['target'] and e['target']['pc24'] == 0x8010 and e['target']['x'] == 1)
++            self.assertEqual(edge['resolution'], 'lle_exact')
++            dispatch = (out / 'dispatch_v2.c').read_text()
++            row = next(line for line in dispatch.splitlines() if '{ 0x008010u,' in line)
++            self.assertIn('{ NULL, NULL, Shared_M1X0, NULL }', row)
++            bank = (out / 'bank00_v2.c').read_text()
++            self.assertIn('RecompReturn Shared_M1X0(CpuState *cpu) {', bank)
++            self.assertNotIn('RecompReturn Shared_M1X1(CpuState *cpu) {', bank)
++
++
++if __name__ == '__main__':
++    unittest.main()
 diff --git a/tests/test_jsl_yield_bank.py b/tests/test_jsl_yield_bank.py
 new file mode 100644
-index 0000000..5c41622
+index 0000000000000000000000000000000000000000..5c41622d6c9ab7acc1e5b2ce5b0dc3b7116a7cbc
 --- /dev/null
 +++ b/tests/test_jsl_yield_bank.py
 @@ -0,0 +1,59 @@
@@ -2434,10 +3060,10 @@ index 0000000..5c41622
 +if __name__=='__main__':unittest.main()
 diff --git a/tests/test_precise_root_timing.py b/tests/test_precise_root_timing.py
 new file mode 100644
-index 0000000..a40fd92
+index 0000000000000000000000000000000000000000..22c06b35e475935c15b65c0ac82faff9912f7098
 --- /dev/null
 +++ b/tests/test_precise_root_timing.py
-@@ -0,0 +1,72 @@
+@@ -0,0 +1,232 @@
 +"""Regression for opt-in native roots sharing interpreter instruction boundaries."""
 +import os
 +from pathlib import Path
@@ -2508,21 +3134,191 @@ index 0000000..a40fd92
 +        self.assertEqual(source.count('cpu_write16_timed(cpu,'),1)
 +        self.assertIn('cpu_instruction_timing_commit(cpu);',source)
 +
++    def test_unresolved_indirect_jump_is_charged_only_by_interpreter(self):
++        rom=bytearray(0x100000)
++        # A real native LDA followed by an unresolved JMP ($1234).
++        rom[0x8000:0x8006]=bytes.fromhex('a9016c3412ea')
++        with patch.dict(os.environ,{'SNESRECOMP_PRECISE_AOT_ROOTS':'018000'}):
++            source=emit_function(bytes(rom),1,0x8000,1,0)
++        first,jump=source.split('  L_8002_M1X0:')
++        self.assertIn('cpu->cycles += 2;',first)
++        self.assertIn('cpu->master_cycles += 12 + 2 * (',first)
++        self.assertIn('unresolved IndirectGoto -> interpreter tier',jump)
++        self.assertNotIn('cpu->cycles +=',jump)
++        self.assertNotIn('cpu->master_cycles +=',jump)
++        with patch.dict(os.environ,{'SNESRECOMP_PRECISE_AOT_ROOTS':''}):
++            coarse=emit_function(bytes(rom),1,0x8000,1,0)
++        # Historical aggregate blocks remain unchanged during staged adoption.
++        self.assertIn('cpu->cycles += 7;',coarse)
++
++    def test_balanced_terminal_jump_also_delegates_instruction_timing(self):
++        rom=bytearray(0x100000)
++        rom[0x8000:0x8003]=bytes.fromhex('6c3412')
++        with patch.dict(os.environ,{'SNESRECOMP_PRECISE_AOT_ROOTS':'018000'}):
++            source=emit_function(bytes(rom),1,0x8000,1,0,
++                                 hle_dispatch={0x8000:'__balanced_interp__'})
++        self.assertIn('balanced_interp_dispatch',source)
++        self.assertNotIn('cpu->cycles +=',source)
++        self.assertNotIn('cpu->master_cycles +=',source)
++
++    def test_opt_in_native_transfer_commits_after_jsl_frame(self):
++        from v2 import codegen
++        rom=bytearray(0x100000)
++        rom[0x8000:0x8005]=bytes.fromhex('2200810160') # JSL $01:8100; RTS
++        rom[0x8100]=0x6b
++        def emit(transfers,precise='018000'):
++            with patch.dict(os.environ,{'SNESRECOMP_PRECISE_AOT_ROOTS':precise,
++                    'SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS':transfers}), \
++                 patch.object(codegen,'_NAME_RESOLVER',{0x018100:'TransferTarget'}), \
++                 patch.object(codegen,'_VALID_VARIANTS',{0x018100:{(1,0)}}), \
++                 patch.object(codegen,'_VALID_VARIANTS_AUTHORITATIVE',True):
++                return emit_function(bytes(rom),1,0x8000,1,0)
++        legacy=emit('')
++        self.assertEqual(emit('028000:M1X0'),legacy)
++        opted=emit('018000:M1X0')
++        call='(cpu_instruction_timing_commit(cpu), TransferTarget_M1X0(cpu))'
++        self.assertIn(call,opted)
++        from v2.translation_units import _with_referenced_variant_declarations
++        from v2.link_closure import _CALL_RE
++        declared=_with_referenced_variant_declarations(
++            '/* Forward declarations for in-bank entries. */\n'+opted)
++        self.assertIn('RecompReturn TransferTarget_M1X0(CpuState *cpu);',declared)
++        self.assertIn('TransferTarget_M1X0',_CALL_RE.findall(opted))
++        self.assertLess(opted.index('cpu_write8_timed(cpu, 0x00, cpu->S'),opted.index(call))
++        self.assertLess(opted.index('cpu->host_return_valid = 3;'),opted.index(call))
++        self.assertIn('TransferTarget_M1X0(cpu)',legacy)
++        self.assertNotIn(call,emit('018000:M1X0',precise=''))
++
++    def test_opt_in_native_tail_transfer_commits_without_extra_cycles(self):
++        from v2 import codegen
++        rom=bytearray(0x100000)
++        rom[0x8000:0x8004]=bytes.fromhex('5c008101') # JML $01:8100
++        rom[0x8100]=0x6b
++        with patch.dict(os.environ,{'SNESRECOMP_PRECISE_AOT_ROOTS':'018000',
++                'SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS':'018000:M1X0'}), \
++             patch.object(codegen,'_NAME_RESOLVER',{0x018100:'TailTarget'}), \
++             patch.object(codegen,'_VALID_VARIANTS',{0x018100:{(1,0)}}), \
++             patch.object(codegen,'_VALID_VARIANTS_AUTHORITATIVE',True):
++            source=emit_function(bytes(rom),1,0x8000,1,0)
++        self.assertIn('(cpu_instruction_timing_commit(cpu), TailTarget_M1X0(cpu))',source)
++        self.assertEqual(source.count('cpu->cycles += 4;'),1)
++
++    def test_committed_transfer_cross_bank_c11_compile_and_execution(self):
++        import re, shutil, subprocess, tempfile
++        from v2 import codegen
++        from v2.translation_units import _with_referenced_variant_declarations
++        compiler=os.environ.get('CC') or shutil.which('clang') or shutil.which('gcc')
++        if not compiler:self.skipTest('C11 compiler unavailable')
++        rom=bytearray(0x100000)
++        rom[0x8000:0x8005]=bytes.fromhex('2200810160')
++        rom[0x8100]=0x6b
++        with patch.dict(os.environ,{'SNESRECOMP_PRECISE_AOT_ROOTS':'018000',
++                'SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS':'018000:M1X0'}), \
++             patch.object(codegen,'_NAME_RESOLVER',{0x018100:'TransferTarget'}), \
++             patch.object(codegen,'_VALID_VARIANTS',{0x018100:{(1,0)}}), \
++             patch.object(codegen,'_VALID_VARIANTS_AUTHORITATIVE',True):
++            emitted=emit_function(bytes(rom),1,0x8000,1,0)
++        expression=re.search(r'case 2: _r = (.*?); break;',emitted)[1]
++        header='typedef struct { int master, beam; } CpuState; typedef int RecompReturn;\n'
++        caller=header+'void cpu_instruction_timing_commit(CpuState *cpu);\n'
++        caller+='/* Forward declarations for in-bank entries. */\n'
++        caller+='RecompReturn Caller(CpuState *cpu) { return '+expression+'; }\n'
++        caller=_with_referenced_variant_declarations(caller)
++        target=header+'''#include <assert.h>
++extern RecompReturn Caller(CpuState *cpu);
++void cpu_instruction_timing_commit(CpuState *cpu) { cpu->beam=cpu->master; }
++RecompReturn TransferTarget_M1X0(CpuState *cpu) { assert(cpu->beam==cpu->master); return 17; }
++int main(void) { CpuState cpu={62,0}; assert(Caller(&cpu)==17); return 0; }
++'''
++        with tempfile.TemporaryDirectory() as directory:
++            directory=Path(directory);a=directory/'caller.c';b=directory/'target.c'
++            a.write_text(caller);b.write_text(target);exe=directory/'transfer.exe'
++            result=subprocess.run([compiler,'-std=c11','-Werror=implicit-function-declaration',
++                str(a),str(b),'-o',str(exe)],capture_output=True,text=True)
++            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
++            subprocess.run([str(exe)],check=True,capture_output=True)
++
++    def test_paired_lle_target_transfer_commits_after_frame_and_keeps_call_shape(self):
++        from v2 import codegen
++        rom=bytearray(0x100000)
++        rom[0x8000:0x8005]=bytes.fromhex('2200810160')
++        rom[0x8100]=0x6b
++        with patch.dict(os.environ,{'SNESRECOMP_PRECISE_AOT_ROOTS':'018000',
++                'SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS':'018000:M1X0'}), \
++             patch.object(codegen,'_NAME_RESOLVER',{0x018100:'UnavailableTarget'}), \
++             patch.object(codegen,'_VALID_VARIANTS',{}), \
++             patch.object(codegen,'_VALID_VARIANTS_AUTHORITATIVE',True):
++            source=emit_function(bytes(rom),1,0x8000,1,0)
++        call='(cpu_instruction_timing_commit(cpu), interp_tier_run_call_frame(cpu,'
++        self.assertIn(call,source)
++        self.assertLess(source.index('cpu_write8_timed(cpu, 0x00, cpu->S'),source.index(call))
++        self.assertLess(source.index('cpu->host_return_valid = 3;'),source.index(call))
++        self.assertNotIn('UnavailableTarget_M1X0(cpu)',source)
++        import re, shutil, subprocess, tempfile
++        compiler=os.environ.get('CC') or shutil.which('clang') or shutil.which('gcc')
++        if compiler:
++            expression=re.search(r'case 2: _r = (.*?); break;',source)[1]
++            header='''#include <stddef.h>
++typedef unsigned uint32; typedef unsigned char uint8;
++typedef struct { unsigned PB; int master, beam; } CpuState;
++typedef int RecompReturn;
++'''
++            caller=header+'''void cpu_instruction_timing_commit(CpuState *cpu);
++RecompReturn interp_tier_run_call_frame(CpuState *, uint32, uint32, uint8, void *);
++'''+ 'RecompReturn Caller(CpuState *cpu) { return '+expression+'; }\n'
++            target=header+'''#include <assert.h>
++extern RecompReturn Caller(CpuState *cpu);
++void cpu_instruction_timing_commit(CpuState *cpu) { cpu->beam=cpu->master; }
++RecompReturn interp_tier_run_call_frame(CpuState *cpu, uint32 target,
++    uint32 source, uint8 frame, void *result) {
++  assert(cpu->beam==cpu->master && target==0x18100 && source==0x18000);
++  assert(frame==3 && result==NULL); return 17;
++}
++int main(void) { CpuState cpu={1,62,0}; assert(Caller(&cpu)==17); return 0; }
++'''
++            with tempfile.TemporaryDirectory() as directory:
++                directory=Path(directory);a=directory/'caller.c';b=directory/'helper.c'
++                a.write_text(caller);b.write_text(target);exe=directory/'transfer.exe'
++                result=subprocess.run([compiler,'-std=c11','-Werror=implicit-function-declaration',
++                    str(a),str(b),'-o',str(exe)],capture_output=True,text=True)
++                self.assertEqual(result.returncode,0,result.stdout+result.stderr)
++                subprocess.run([str(exe)],check=True,capture_output=True)
++
++
++    def test_paired_lle_commit_handles_nested_arguments(self):
++        from v2.emit_function import _commit_paired_interpreter_calls
++        call='interp_tier_run_call_frame(cpu, ((unsigned)cpu->PB << 16) | (0x8100u), 0x8000u, 3, NULL)'
++        before='case 2: _r = '+call+'; break;'
++        self.assertEqual(_commit_paired_interpreter_calls(before),
++            'case 2: _r = (cpu_instruction_timing_commit(cpu), '+call+'); break;')
++        self.assertEqual(_commit_paired_interpreter_calls('cpu_read8(cpu, 0, 1);'),
++                         'cpu_read8(cpu, 0, 1);')
++
 +
 +if __name__=='__main__':unittest.main()
 diff --git a/tools/sdk_generate.py b/tools/sdk_generate.py
-index e23031d..1f81248 100644
+index e23031d1cc015a212753ee3461e5b630e6cded82..b1a3e9e83fc5a7048e1af47ac720d226d9ffa094 100644
 --- a/tools/sdk_generate.py
 +++ b/tools/sdk_generate.py
-@@ -62,6 +62,7 @@ def generate(
+@@ -62,6 +62,8 @@ def generate(
      no_host_root_scan: bool = False,
      source_roots: Optional[Sequence[pathlib.Path]] = None,
      profile_manifests: Optional[Sequence[pathlib.Path]] = None,
++    analysis_roots_files: Optional[Sequence[pathlib.Path]] = None,
 +    historical_profile_manifests: Optional[Sequence[pathlib.Path]] = None,
      legacy_profile_rom_sha256: Optional[str] = None,
      analysis_backend: str = "native",
      expected_crc32: Optional[str] = None,
-@@ -119,6 +120,16 @@ def generate(
+@@ -111,6 +113,8 @@ def generate(
+         emit_args.append("--no-host-root-scan")
+     for root in source_roots or ():
+         emit_args.extend(["--source-root", str(pathlib.Path(root).resolve())])
++    for path in analysis_roots_files or ():
++        emit_args.extend(["--analysis-roots-file", str(pathlib.Path(path).resolve())])
+     # Tier-2 coverage profile (the burn-down loop's promote step). Influences
+     # only materialization: bailed observations are excluded, the LLE fallback
+     # is never removed, and only hardware call landings or independently
+@@ -119,6 +123,16 @@ def generate(
      for manifest in profile_manifests or ():
          emit_args.extend(
              ["--profile-manifest", str(pathlib.Path(manifest).resolve())])
@@ -2539,7 +3335,15 @@ index e23031d..1f81248 100644
      if legacy_profile_rom_sha256:
          emit_args.extend(["--legacy-profile-rom-sha256", legacy_profile_rom_sha256])
  
-@@ -237,6 +248,10 @@ def generate_command(args: argparse.Namespace, progress: ProgressReporter) -> in
+@@ -233,10 +247,18 @@ def generate_command(args: argparse.Namespace, progress: ProgressReporter) -> in
+             source_roots=[
+                 _resolve_under(project_root, root) for root in args.source_root
+             ],
++            analysis_roots_files=[
++                _resolve_under(project_root, p)
++                for p in getattr(args, "analysis_roots_file", []) or []
++            ],
+             profile_manifests=[
                  _resolve_under(project_root, m)
                  for m in getattr(args, "profile_manifest", []) or []
              ],
@@ -2550,7 +3354,18 @@ index e23031d..1f81248 100644
              legacy_profile_rom_sha256=getattr(args, "legacy_profile_rom_sha256", None),
              analysis_backend=args.analysis_backend,
              expected_crc32=args.expected_crc32,
-@@ -312,6 +327,13 @@ def add_generate_parser(subparsers) -> None:
+@@ -305,6 +327,10 @@ def add_generate_parser(subparsers) -> None:
+         default=[],
+         help="extra host source root for root discovery (repeatable)",
+     )
++    generate_parser.add_argument(
++        "--analysis-roots-file", action="append", default=[],
++        help="PC24:M0X0 analysis seeds without function boundary declarations (repeatable)",
++    )
+     generate_parser.add_argument(
+         "--profile-manifest",
+         action="append",
+@@ -312,6 +338,13 @@ def add_generate_parser(subparsers) -> None:
          help="tier-2 coverage manifest to seed optional AOT roots from "
               "(repeatable); clean call landings only, bails excluded",
      )
@@ -2565,15 +3380,70 @@ index e23031d..1f81248 100644
          "--legacy-profile-rom-sha256",
          help="explicitly associate an unbound v1 profile with this ROM SHA-256",
 diff --git a/tools/v2_emit.py b/tools/v2_emit.py
-index c8308c0..c1dcb41 100644
+index c8308c0a165b9da9d4bb83cc427c3091eb4056b0..35f08aed170162ac6f8bc812b6284c8a12aa3c0e 100644
 --- a/tools/v2_emit.py
 +++ b/tools/v2_emit.py
-@@ -328,7 +328,7 @@ def _generate(args, parser, cfg_dir, *, symbol_roots=()):
+@@ -30,6 +30,7 @@ from v2.program_emit import (  # noqa: E402
+     discover_host_roots,
+     discover_authority_roots,
+     discover_profile_roots,
++    load_analysis_roots,
+     emit_program,
+     validate_module_identity,
+ )
+@@ -64,6 +65,16 @@ def _tree_digest(paths) -> str:
+     return digest.hexdigest()
+ 
+ 
++def _codegen_environment_digest(tree_digest: str) -> str:
++    """Bind every opt-in body schedule/guard to analysis and output caches."""
++    deny_gate = bool(os.environ.get("SNESRECOMP_EMIT_AOT_DENY_GATE"))
++    return hashlib.sha256(
++        (f"{tree_digest}\0aot_deny_gate={int(deny_gate)}"
++         f"\0precise_roots={os.environ.get('SNESRECOMP_PRECISE_AOT_ROOTS', '')}"
++         f"\0precise_transfer_roots={os.environ.get('SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS', '')}").encode()
++    ).hexdigest()
++
++
+ def _config_digest(parsed) -> str:
+     digest = hashlib.sha256()
+     cfg_dirs = set()
+@@ -178,6 +189,9 @@ def main() -> int:
+         "--profile-manifest", action="append", default=[],
+         help="tier2 coverage manifest whose clean targets become optional "
+              "AOT roots (repeatable)")
++    parser.add_argument(
++        "--analysis-roots-file", action="append", default=[],
++        help="owner-reviewed PC24:M0X0 analysis seeds, one per line; does not declare function boundaries (repeatable)")
+     parser.add_argument("--legacy-profile-rom-sha256", help="Explicitly associate legacy profiles with this ROM digest")
+     parser.add_argument(
+         "--historical-profile-manifest", action="append", default=[],
+@@ -295,6 +309,7 @@ def _generate(args, parser, cfg_dir, *, symbol_roots=()):
+     }
+     try:
+         profile_force_lle = set()
++        explicit_roots = load_analysis_roots(args.analysis_roots_file)
+         profile_roots = discover_profile_roots(
+             args.profile_manifest, declared_entry_pcs, profile_force_lle,
+             expected_rom=rom_sha256_hex, expected_module=args.module_id,
+@@ -308,7 +323,7 @@ def _generate(args, parser, cfg_dir, *, symbol_roots=()):
+         # explicitly qualified targets reach AOT eligibility.
+         parsed[0][2].force_lle.update(profile_force_lle)
+     additional_roots = tuple(sorted(
+-        set(host_roots) | set(profile_roots) | set(ram_routine_roots) | set(symbol_roots)
++        set(host_roots) | set(profile_roots) | set(explicit_roots) | set(ram_routine_roots) | set(symbol_roots)
+         | (set(discover_authority_roots(parsed)) if args.disassembly_entry_modes else set())))
+ 
+     def generator_digest_for():
+@@ -326,10 +341,7 @@ def _generate(args, parser, cfg_dir, *, symbol_roots=()):
+         # This environment switch changes every emitted AOT body, so it must
+         # participate in the published-output cache key.  Treat any non-empty
          # value as enabled to match emit_function.py's codegen guard.
-         deny_gate = bool(os.environ.get("SNESRECOMP_EMIT_AOT_DENY_GATE"))
-         return hashlib.sha256(
+-        deny_gate = bool(os.environ.get("SNESRECOMP_EMIT_AOT_DENY_GATE"))
+-        return hashlib.sha256(
 -            f"{tree_digest}\0aot_deny_gate={int(deny_gate)}".encode()
-+            f"{tree_digest}\0aot_deny_gate={int(deny_gate)}\0precise_roots={os.environ.get('SNESRECOMP_PRECISE_AOT_ROOTS', '')}".encode()
-         ).hexdigest()
+-        ).hexdigest()
++        return _codegen_environment_digest(tree_digest)
  
      generator_digest = generator_digest_for()
+     config_digest = _config_digest(parsed)

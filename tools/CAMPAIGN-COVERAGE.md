@@ -211,6 +211,35 @@ The project framework patch accepts exact timing selectors such as
 to select every mode at that entry exactly as before. Exact selectors allow a
 newly observed mode to use precise instruction timing without changing a
 historical sibling's coarse timing. Invalid mode selectors fail generation.
-The legacy no-profile output is byte-identical in the recorded test. This
-feature does not make the expanded candidate qualified; its runtime regressions
-remain open.
+The legacy no-profile output is byte-identical in the recorded test. The timing
+selector alone did not qualify the earlier larger candidate. Batch 11 below
+records acceptance of the narrower program after its timing fixes and deferrals.
+
+## Strict replay comparison
+
+Use `python -P tools/compare_native_runs.py BASELINE_RUN CANDIDATE_RUN --out REPORT.json`
+for two isolated `qualify_native.py` runs. Exit 0 means exact, 1 means a measured
+difference, and 2 means invalid evidence. Inputs and frozen files must match;
+all ordered presentations, full checkpoint RAM/VRAM/OAM/palettes/registers and
+clock metadata must match. Stack bytes and beam positions are included.
+Requested features that refuse activation invalidate qualification, even when
+the host exits successfully. Executable/program identities are recorded
+separately because a candidate intentionally differs from its control.
+
+Campaign roots now also have a reviewed public source policy in
+`recomp/campaign-roots.txt`; `tools/regen.sh` applies it without needing private
+captures. This does not grant automatic native eligibility to later profiles.
+
+
+## Batch 11 selected-program refresh
+
+All 79 canonical stock-ROM captures were rerun on the selected 326-variant
+program and strictly compared with their prior controls before collection.
+Actual SDK ingestion accepted 779,504,296 interpreted instructions,
+2,617,808,165 interpreted guest cycles, 8,463 PC/mode variants (8,454 addresses)
+and 535 transfers. All four loss counters were zero, with no warnings or reused
+capture IDs. The same fixture set executes 45,022,423 fewer interpreted
+instructions than the prior 190-variant build. This is measured work within
+these assisted fixtures, not a campaign completion percentage. Raw profiles and
+their receipt bindings remain private. Public roots and timing selectors reproduce
+the selected generated program without distributing those captures.
