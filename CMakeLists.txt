@@ -50,6 +50,7 @@ add_executable(LagoonSNESRecomp
     src/lagoon_widescreen.c
     src/lagoon_wide_entities.c
     src/lagoon_scene_renderer.c
+    src/lagoon_campaign_debug.c
 )
 
 # ROM identity. rom_identity.txt is the one place the digests live: the build
@@ -66,12 +67,14 @@ snesrecomp_rom_identity(LagoonSNESRecomp ${CMAKE_SOURCE_DIR}/rom_identity.txt)
 # That is what release zips contain; the player's machine produces the
 # playable binary from their own ROM. Without the option an empty src/gen/ is
 # still a hard error (the framework owns the message).
-snesrecomp_target_generated_code(LagoonSNESRecomp ${CMAKE_SOURCE_DIR}/src/gen)
-if(EXISTS "${CMAKE_SOURCE_DIR}/src/gen/program_manifest.json")
+set(LAGOON_GENERATED_DIR "${CMAKE_SOURCE_DIR}/src/gen" CACHE PATH
+    "Generated program directory; use a private path for coverage candidates")
+snesrecomp_target_generated_code(LagoonSNESRecomp ${LAGOON_GENERATED_DIR})
+if(EXISTS "${LAGOON_GENERATED_DIR}/program_manifest.json")
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     add_custom_target(lagoon_camera_patch_safety
         COMMAND "${Python3_EXECUTABLE}" -P "${CMAKE_SOURCE_DIR}/tools/check_camera_patch_safety.py"
-            "${CMAKE_SOURCE_DIR}/src/gen/program_manifest.json"
+            "${LAGOON_GENERATED_DIR}/program_manifest.json"
         VERBATIM)
     add_dependencies(LagoonSNESRecomp lagoon_camera_patch_safety)
 endif()

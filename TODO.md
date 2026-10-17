@@ -84,6 +84,17 @@ batches. Generated routine counts are not campaign completion percentages.
 - [ ] Broaden custom renderer scene/HUD coverage and reduce its measured CPU cost.
       Choose graphics API from measured needs; keep reference output.
 - [ ] Broader save/load, hardware controller and campaign/ending qualification.
+- [x] Accelerated entry into all 73 rooms with ordinary incoming doors, seven
+      main-boss wins and player deaths, six endgame phases and six real Thimale
+      guardian escapes. Original outcomes and explicit cheats are recorded.
+- [x] Audit and ingest canonical campaign coverage with build/ROM identity,
+      journal-loss, duplicate-session, bounds and guest-failure checks.
+- [ ] Resolve private expanded-native candidate's state/clock differences and
+      single Ella presentation mismatch before selecting any new native bodies.
+- [ ] Natural campaign progression, cloud script-only entry, alias/unreachable
+      room classification and complete credits qualification.
+- [ ] Optional in-game map showing Nasir, visited rooms, doors and key locations;
+      build from source-proven room data after broad campaign coverage.
 
 Every QoL feature and widescreen defaults off. Exact implementation/evidence:
 [native batch](NATIVE-BATCH9-2026-10-15.md), [QoL](QOL-IMPLEMENTATION.md),

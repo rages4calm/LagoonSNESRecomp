@@ -10,6 +10,29 @@ import subprocess
 import time
 
 
+def campaign_setup_writes(data):
+    """Record explicit WRAM cheats and refuse the observed invalid-HP fixture.
+
+    Lagoon's player HP maximum is byte-sized (level growth at 01:E140).
+    A nonzero high HP byte can overrun the original HUD's assumptions; it is
+    not a useful invulnerability cheat. Enemy HP is deliberately not capped.
+    """
+    writes=[]
+    for number,line in enumerate(data.decode('utf-8-sig').splitlines(),1):
+        parts=line.split('#',1)[0].split()
+        if not parts or parts[0] not in {'poke','pokefor','forcepoke'}:continue
+        if len(parts)<3:raise ValueError(f'Malformed setup write on line {number}')
+        try:address=int(parts[1],16);payload=bytes.fromhex(parts[2])
+        except ValueError as e:raise ValueError(f'Malformed setup bytes on line {number}') from e
+        if address<0 or not payload or address+len(payload)>0x20000:
+            raise ValueError(f'Out-of-WRAM setup write on line {number}')
+        if address<=0x521<address+len(payload) and payload[0x521-address]:
+            raise ValueError(f'Player HP above 255 on line {number}; use valid HP and bounded defense instead')
+        writes.append(dict(line=number,operation=parts[0],address=address,hex=payload.hex(),
+                           frames=parts[3] if parts[0]=='pokefor' and len(parts)>3 else None))
+    return writes
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--exe',required=True,type=Path)
@@ -17,6 +40,7 @@ def main():
     parser.add_argument('--frames',type=int,default=6245)
     parser.add_argument('--out',required=True,type=Path)
     parser.add_argument('--coverage',action='store_true')
+    parser.add_argument('--campaign-warps',type=Path,help='Development-only scheduled real-descriptor warps; frozen privately and recorded as cheats')
     parser.add_argument('--no-present-log',action='store_true',help='Performance-only: omit per-field CRC/luma logging and fflush; default qualification keeps the log')
     parser.add_argument('--live-input',action='store_true',help='Opt in to merging physical keyboard/gamepads into the script; default uses only scripted guest input')
     parser.add_argument('--input-trace',action='store_true',help='Log actual guest input words for isolation checks')
@@ -35,6 +59,8 @@ def main():
     parser.add_argument('--manifest',type=Path,help='Manifest belonging to this executable; required for old retained binaries')
     args=parser.parse_args()
     if args.visible and args.offscreen:parser.error('Choose visible OR offscreen')
+    if args.campaign_warps and (args.visible or args.offscreen or args.live_input):
+        parser.error('Campaign warps require an isolated headless scripted run')
     if args.no_present_log and args.screenshot_range:
         parser.error('--no-present-log cannot use --screenshot-range, which creates its own per-field CRC log')
     if (args.display_screenshot_frame or args.display_screenshot_range) and not (args.visible or args.offscreen):
@@ -45,6 +71,7 @@ def main():
     # Freeze input bytes before launch: another investigation may edit its source
     # script while the game process is starting. Receipts must describe what ran.
     route_bytes=route.read_bytes()
+    setup_writes=campaign_setup_writes(route_bytes) if args.campaign_warps else None
     frozen_route=out/'route.txt';frozen_route.write_bytes(route_bytes)
     for name in ('saves','dumps','coverage'):(out/name).mkdir()
     seeded=[]
@@ -94,6 +121,14 @@ def main():
     else:env['SDL_VIDEODRIVER']='dummy'
     if args.offscreen:env['SNESRECOMP_HIDDEN_WINDOW']='1'
     if args.coverage:env.update(SNESRECOMP_TIER2_CAPTURE='1',SNESRECOMP_COVERAGE_DIR=str(out/'coverage'))
+    campaign_plan=None
+    if args.campaign_warps:
+        plan=args.campaign_warps.resolve()
+        frozen=out/'campaign-warps.txt';data=plan.read_bytes()
+        frozen.write_bytes(data)
+        env['LAGOON_CAMPAIGN_WARPS']=str(frozen)
+        campaign_plan=dict(source=str(plan),frozen=str(frozen),sha256=hashlib.sha256(data).hexdigest(),
+                           explicit_cheat=True,mechanism='Scheduled actual room loader using existing ROM door destination descriptors')
     if args.screenshot_frame:
         env.update(SNESRECOMP_SCREENSHOT=str(out/'presentation.ppm'),
                    SNESRECOMP_SCREENSHOT_FRAME=str(args.screenshot_frame))
@@ -157,6 +192,8 @@ def main():
     receipt.update(enabled_features=sorted(enabled),enabled_package_features=sorted(selected),
                    diagnostic_overrides=overrides,private_mod_state=state,private_working_directory=str(host))
     receipt['seeded_save_files']=seeded
+    receipt['campaign_warps']=campaign_plan
+    receipt['campaign_setup_writes']=setup_writes
     receipt['visible_display']=args.visible
     receipt['offscreen_gpu']=args.offscreen
     receipt['display_screenshot_range']=args.display_screenshot_range
@@ -203,11 +240,17 @@ def main():
                                '--script',str(frozen_route)],cwd=host,env=env,stdout=stdout,stderr=stderr,timeout=240)
     receipt.update(exit_code=result.returncode,elapsed_seconds=round(time.monotonic()-started,2),
                    dump_tags=sorted(p.name.removesuffix('.wram.bin') for p in (out/'dumps').glob('*.wram.bin')))
-    (out/'receipt.json').write_text(json.dumps(receipt,indent=2))
+    # A bounded guest can hit architectural BRK/step caps yet let the host exit
+    # successfully. Such output is diagnostic evidence, never a passing replay.
+    fatal_markers=('[brk]','[interp_cap]','[interp_low_exec]','[cpu_halt]','assertion failed')
+    receipt['runtime_failures']=[line.strip() for line in (out/'stderr.log').read_text(encoding='utf-8',errors='replace').splitlines()
+                                 if any(marker in line.lower() for marker in fatal_markers)]
+    receipt['qualification_passed']=not result.returncode and bool(receipt['dump_tags']) and not receipt['runtime_failures']
+    (out/'receipt.json').write_text(json.dumps(receipt,indent=2),encoding='utf-8')
     summary={k:receipt[k] for k in ('exe_sha256','exit_code','elapsed_seconds')}
     summary['dump_count']=len(receipt['dump_tags'])
     print(json.dumps(summary,indent=2))
-    if result.returncode or not receipt['dump_tags']:raise SystemExit('route failed or produced no dump evidence')
+    if not receipt['qualification_passed']:raise SystemExit('route failed, reported a guest execution failure, or produced no dump evidence')
 
 
 if __name__=='__main__':main()

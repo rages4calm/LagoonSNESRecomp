@@ -4,118 +4,68 @@ A work-in-progress Windows port of Lagoon (USA), using SNESRecomp's generated
 native routines alongside its 65816 interpreter safety net. Your own clean ROM
 is required. The executable does not depend on Mesen; it is a development reference.
 
-## Current progress — October 15, 2026
+## Current progress — October 17, 2026
 
-The latest tested build includes a live custom renderer for supported stable
-Atland fields, guarded widescreen room fades and native damage/death HUD tails.
-The custom renderer preserves the original appearance: every replacement must
-match the reference renderer pixel for pixel. Caves and unsupported effects
-continue through reference rendering. The interpreter safety net remains active.
-The latest hidden 32:9/Enhanced check averaged 60.10 FPS, with occasional spikes;
-this is not a locked-60 or full-campaign claim.
+This is a playable development port with generated native routines and an
+interpreter safety net. It is **not a fully native or fully qualified campaign**.
+The selected program still has **190 AOT variants, 18 declared LLE variants and
+47 promoted gameplay roots**. Native work includes movement, combat helpers,
+damage arithmetic, EXP/gold/level progression, first-boss logic and bounded
+HP/death HUD tails. Remaining death, boss and dispatch paths retain fallback.
+Counts are not completion percentages.
 
-Development is paused at this verified checkpoint. See
-[current status and next steps](docs/DEVELOPMENT-STATUS.md) before continuing.
+The new accelerated campaign checks use explicit teleports, player stat cheats
+and some progression setup, then run original room loading, combat and outcomes:
 
-Forty-seven gameplay roots have been promoted in the October 15 batches.
-The first eight cover:
+- **73 of 75 room records** reached through genuine door loading. The cloud
+  script-only entry and unused/alias record remain separate coverage gaps.
+- **Seven main bosses** defeated with original rewards and completion flags;
+  Nasir also dies to each in separate fixtures.
+- **Six endgame combat phases** exercise the shell, Green Spirit, Zerah,
+  Thor, bird transformation and Red Spirit through original death/creation code.
+  The ending handler is reached; the full credits sequence is not qualified.
+- All six Thimale guardians die through actual sword hits and unlock the boss.
+  Stock-ROM coverage proves six executions of the unusual nonlocal death escape.
 
-- Entity movement integration (`01:A4EB`).
-- Room-boundary clamping (`01:A56A`).
-- World-to-screen projection and visibility (`01:A5AA`).
-- Direction/speed-tier velocity selection (`02:80EA`).
-- Sprite graphics staging (`01:C579`).
-- Knockback state updates (`01:C5ED`).
-- Map/attribute quadrant sampling (`01:8385`).
-- Jump eligibility/input checks (`02:8199`).
+These are assisted encounter checks, not an uninterrupted natural playthrough.
+No accepted victory is inferred merely from a missing actor. Frozen private
+receipts distinguish cheats from real HP changes, rewards and progression.
+Canonical coverage is ingested through the SDK with identity, journal-loss and
+runtime-failure checks; feature-patched ROM captures remain separate.
 
-Thirteen more cover hit eligibility/rectangles, enemy defeat marking, gold and
-EXP awards, level/stat recalculation and regeneration. Real bat combat,
-level-up, gold saturation, temporary stat bonuses and equipment fixtures match
-the previous native control. These fixtures explicitly seed a few setup values;
-natural story progression and the full campaign still need qualification.
+A private coverage-generated program with 348 AOT variants was built and probed.
+It remains **unselected**: strict state/clock comparisons differ, and one Ella
+presentation differs from the control. The tested 190-variant program remains
+the playable build. See [current status](docs/DEVELOPMENT-STATUS.md),
+[boss checks](tools/CAMPAIGN-BOSSES.md), [endgame checks](tools/CAMPAIGN-ENDGAME.md)
+and [coverage workflow](tools/CAMPAIGN-COVERAGE.md).
 
-They use opt-in instruction-boundary timing and real bus-region costs. The
-7,219-frame movement/menu route matches the prior native control at all 18 dump
-tags, including framebuffer, WRAM, registers, VRAM, OAM, CGRAM and guest clock.
-Interpreted work falls from the first batch's 70,655,953 to 63,863,965
-instructions on that route, another 9.61% reduction. This measures interpreted
-work on a bounded replay, not a native-completion percentage.
+Widescreen supports 16:9, 16:10, 21:9, 32:9 and window-driven aspects in audited
+areas. Supported town dialogue, Items/Magic, outdoor scenery and Gold Cave rooms
+have guarded expansion. Outgoing fades retain proven old scenery until the real
+PPU changes resources. Unsupported areas and effects retain reference output;
+remaining menu, scripted-scene and transition gaps are still being tracked.
 
-Six more cover player hit-direction dispatch/handlers and boss sprite offsets,
-palette selection and jump-anchor projection. Real player damage/death and a
-first-boss sword hit match the previous build at 924 checkpoints and all 15,123
-presentations. Boss HP falls from 96 to 94 in a fixture using the sword-reach
-option and explicit player positioning/equipment setup. A later bounded fixture now covers actual boss defeat and rewards; natural
-post-boss story progression and complete damage/death orchestration remain open.
+The [live custom renderer](docs/CUSTOM-RENDERER.md) independently draws supported
+stable Atland fields from copied maps, tiles, palettes and actors. Every output
+pixel must match the reference before replacement. The reference PPU still runs;
+caves and other unsupported fields use it. Visual similarity is expected.
+This is original artwork, not a full retexture or a D3D12 backend.
 
-Five further roots cover player damage calculation, boss contact, death-stop
-velocity, room hazards and the first boss quake. Four targeted routes match the
-previous build at 953 checkpoints and 15,939 complete presentations, including
-real damage, consumable revival and boss defeat/rewards. HP/death wrappers remain
-interpreted; native callers dispatch using the actual returned CPU widths.
+The last normally paced hidden 32:9/Enhanced measurement averaged **60.10 FPS**,
+with occasional spikes. Composition fell from 1.473 ms to 0.356 ms after caching;
+this does not prove locked 60 FPS, a rendering speedup over reference alone, or
+physical-display cadence. See [performance evidence](docs/PERFORMANCE.md).
 
-Two further roots cover HP addition/clamping and the revival healing entry.
-Four targeted combat routes again match at 953 checkpoints and 15,939
-presentations. The cooperative JSL suspension now preserves the live callee
-bank; at that stage HP subtraction, death and boss orchestration retained fallback.
+Smooth/bilinear scaling was removed at the user's request. Enhanced original
+pixels remains optional. Fresh version-3 states preserve live execution, PPU
+ports and both raster journals; old/incomplete states refuse cleanly. See
+[save-state details](docs/SAVE-STATES.md). The optional Faster menus toggle trims
+Items/Magic fade delays while preserving resource loading.
 
-Four further roots cover paired actor dispatch, boss-type dispatch, the first
-boss phase and player-hit handling. Those four routes still match at 953
-checkpoints and 15,939 presentations. The first boss phase genuinely executes
-natively; other boss-type handlers and HP/death tails retain fallback.
-
-Six further roots cover actor/boss bounds dispatch, first-boss position clamps,
-motion dispatch and landing state. The four combat routes match again at 953
-checkpoints and 15,939 presentations, removing another 348,910 interpreted
-instructions across those captures. See [batch 8 evidence](tools/DAMAGE-BATCH8.md).
-
-The HP-subtraction arithmetic prefix now also runs natively, with explicit
-interpreted exits for the original HUD and death/revival tails. All four routes
-still match at 953 checkpoints and 15,939 presentations; the seven new roots
-remove 349,093 interpreted instructions across these captures. No new CPU-width
-contract is guessed for the complicated tails.
-
-Two bounded death/HUD tails now also execute natively. Five replay comparisons
-match at 1,350 checkpoints and 19,603 presentations, including real damage,
-consumable revival and boss defeat. The remaining death and boss orchestration
-still uses the safety net. See [batch 9 evidence](tools/DAMAGE-BATCH9.md).
-
-The build generates 190 AOT variants and 18 declared LLE variants; additional
-runtime fallback remains available. The original opening-loop fix stays in place.
-Existing native-versus-pure-interpreter clock/state differences remain unresolved.
-Bounded combat/progression evidence does not certify every encounter or save.
-See [the current evidence receipt](NATIVE-BATCH9-2026-10-15.md) and [todo list](TODO.md).
-
-Camera centering now follows completed collision/movement, including stopping
-and turning. Audited town dialogue and Start keep the wider world visible;
-Items and Magic reflow original border art without stretching text. Gold Cave
-rooms 4, 5 and 6 extend the audited scenery set. Unknown scenes retain fallback. The first Atland world now expands from its
-first visible fade field, including while its loader flag remains active.
-Audited cave fades now wait for proven completed torch uploads and can expand
-before the visible fade begins. Supported cold-loaded scenes can restore their
-wide margins immediately after exact restored-map and character checks.
-Audited outgoing room fades can retain the completed old scenery until the
-actual PPU switches maps. Exact map, character and actor ownership checks
-prevent destination scenery from appearing early.
-
-Smooth/bilinear scaling has been removed. Enhanced original pixels remains
-optional. The optional Faster menus toggle trims 60 fade fields (about one
-second) when opening Items or Magic, while preserving asset loading.
-
-Fresh states now preserve live execution, PPU ports and both raster journals.
-This fixes a cold-load bug that alternated the world with black frames. Earlier
-development states are refused cleanly; start fresh and save with this build. See [save-state details](docs/SAVE-STATES.md).
-
-Sustained Atland checks run at about 60 FPS, with occasional frame-time spikes
-still under investigation. See [timing evidence](docs/PERFORMANCE.md) for
-fullscreen and hidden-GPU measurements, hardware and test limits.
-
-An [experimental live custom scene renderer](docs/CUSTOM-RENDERER.md) now draws
-supported Atland fields from immutable map, tile, palette and actor packets.
-It replaces a field only after every output pixel matches the reference PPU.
-Unsupported scenes and failed checks keep reference output. The reference PPU
-and interpreter safety net remain active while coverage expands.
+The original opening-dispatch interpreter repair remains in place. Existing
+native-versus-pure-interpreter timing differences and broad campaign/hardware
+qualification remain open. See the [todo list](TODO.md).
 
 ## Fullscreen screenshots
 

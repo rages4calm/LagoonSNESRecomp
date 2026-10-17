@@ -36,11 +36,13 @@
 #include "lagoon_soundtrack.h"
 #include "lagoon_state.h"
 #include "lagoon_widescreen.h"
+#include "lagoon_campaign_debug.h"
 
 #include "beam_frame_driver.h"
 
 void GameRunOneFrame(void)
 {
+    LagoonCampaignDebug_BeforeFrame();
     snes_beam_frame_driver_run_frame();
 }
 

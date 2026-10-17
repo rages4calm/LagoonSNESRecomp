@@ -38,10 +38,45 @@ index 43091e6..792cd45 100644
      """Emit a 16-bit read of A/X/Y/etc. For A, X, Y we route through
      cpu_read_{a,x,y}16 helpers — same value, but the helper name carries
 diff --git a/recompiler/v2/emit_function.py b/recompiler/v2/emit_function.py
-index 1f5de57..a5ec24a 100644
+index 1f5de57..f0be47e 100644
 --- a/recompiler/v2/emit_function.py
 +++ b/recompiler/v2/emit_function.py
-@@ -612,7 +612,13 @@ def emit_function(rom: bytes, bank: int, start: int,
+@@ -20,6 +20,7 @@ string.
+ import os
+ import sys
+ import pathlib
++import re
+ 
+ _THIS_DIR = pathlib.Path(__file__).resolve().parent
+ _RECOMPILER_DIR = _THIS_DIR.parent
+@@ -53,6 +54,26 @@ from v2.ir import (  # noqa: E402
+ )
+ 
+ 
++def _precise_root_enabled(tokens: str, pc24: int, entry_m: int, entry_x: int) -> bool:
++    """Match legacy PC-wide roots or an exact PC:M0X0 architectural variant.
++
++    Parse the complete option before matching so malformed tokens cannot silently
++    select coarse timing merely because an earlier token matched another root.
++    Legacy plain hexadecimal tokens retain their original int(token, 16) syntax.
++    """
++    plain = set()
++    variants = set()
++    for token in tokens.replace(',', ' ').split():
++        if ':' not in token:
++            plain.add(int(token, 16))
++            continue
++        match = re.fullmatch(r'((?:0[xX])?[0-9a-fA-F]{1,6}):[mM]([01])[xX]([01])', token)
++        if match is None:
++            raise ValueError(f'Invalid precise AOT root variant: {token!r}; expected PC24:M0X0')
++        variants.add((int(match[1], 16), int(match[2]), int(match[3])))
++    return pc24 in plain or (pc24, entry_m, entry_x) in variants
++
++
+ def _label_for(key: DecodeKey) -> str:
+     """C label name for a block keyed by (pc, m, x)."""
+     pc = key.pc & 0xFFFF
+@@ -612,7 +633,13 @@ def emit_function(rom: bytes, bank: int, start: int,
      # cfg directive, no auto-recovery). v2_regen hard-fails on any.
      if unresolved_indirect_collector is not None:
          unresolved_indirect_collector.extend(graph.unresolved_indirects)
@@ -49,14 +84,14 @@ index 1f5de57..a5ec24a 100644
 +    # Opt-in instruction boundaries for newly qualified native roots. Timing
 +    # includes real bus regions plus six-clock internal cycles; keep the
 +    # historical block model for all other roots during staged adoption.
-+    precise_roots = {int(p, 16) for p in os.environ.get(
-+        'SNESRECOMP_PRECISE_AOT_ROOTS', '').replace(',', ' ').split()}
-+    precise_timing = ((bank << 16) | (start & 0xffff)) in precise_roots
++    precise_timing = _precise_root_enabled(
++        os.environ.get('SNESRECOMP_PRECISE_AOT_ROOTS', ''),
++        (bank << 16) | (start & 0xffff), entry_m, entry_x)
 +    cfg = build_cfg(graph, instruction_blocks=precise_timing or get_rom_mapping() == ROM_MAP_SA1)
  
      # A tight, side-effect-free memory poll cannot execute atomically under
      # the LLE frame scheduler: the value it observes is commonly changed by
-@@ -828,7 +834,7 @@ def emit_function(rom: bytes, bank: int, start: int,
+@@ -828,7 +855,7 @@ def emit_function(rom: bytes, bank: int, start: int,
      # Returns a dict {skip:int, pla_start_ir_idx:int, pla_count:int}
      # so the emit loop can preserve setup ops, skip just the PLAs, and
      # set _pending_skip before the terminator.
@@ -65,7 +100,7 @@ index 1f5de57..a5ec24a 100644
      _NLR_DEBUG = os.environ.get('SNESRECOMP_NLR_DEBUG') == '1'
      def _detect_nlr(key: DecodeKey):
          def _dbg(msg):
-@@ -1344,6 +1350,8 @@ def emit_function(rom: bytes, bank: int, start: int,
+@@ -1344,6 +1371,8 @@ def emit_function(rom: bytes, bank: int, start: int,
          # Axis-5: master-clocks-per-CPU-cycle for this block's code region, used
          # to weight the dynamic (D.l/page-cross/branch-taken) master charges.
          _blk_spd_expr, _blk_spd_const = _block_speed(bank, key.pc)
@@ -74,7 +109,7 @@ index 1f5de57..a5ec24a 100644
  
          # Iterate the pre-lowered (Insn, [IROp]) pairs. Calling lower()
          # again here would mint fresh Value-ids and break codegen's
-@@ -2111,6 +2119,8 @@ def emit_function(rom: bytes, bank: int, start: int,
+@@ -2111,6 +2140,8 @@ def emit_function(rom: bytes, bank: int, start: int,
      src.append(f'  if (g_recomp_stack_top >= 1) g_cpu_entry_s[g_recomp_stack_top - 1] = _entry_s;')
      for i, key in enumerate(block_order):
          src.append(f"  {_label_for(key)}:")
@@ -83,7 +118,7 @@ index 1f5de57..a5ec24a 100644
          # Trace block entry — gives us the SNES PC chain in the trace ring.
          block_pc24 = (bank << 16) | (key.pc & 0xFFFF)
          src.append(f'    cpu_trace_block(cpu, 0x{block_pc24:06X});')
-@@ -2158,11 +2168,18 @@ def emit_function(rom: bytes, bank: int, start: int,
+@@ -2158,11 +2189,18 @@ def emit_function(rom: bytes, bank: int, start: int,
          if _cyc_const:
              src.append(f'    cpu->cycles += {_cyc_const};')
              _spd_expr, _spd_const = _block_speed(bank, key.pc)
@@ -103,7 +138,7 @@ index 1f5de57..a5ec24a 100644
              # Inject a stack-auditor pop before any return so the shadow
              # stack stays balanced. An LLE yield unwind is NOT a return: the
              # bounce site resumes the interpreter mid-routine with pushed
-@@ -2170,6 +2187,8 @@ def emit_function(rom: bytes, bank: int, start: int,
+@@ -2170,6 +2208,8 @@ def emit_function(rom: bytes, bank: int, start: int,
              # imbalance. Pop it without recording a balance figure.
              stripped = ln.strip()
              if stripped.startswith("return"):
@@ -2399,10 +2434,10 @@ index 0000000..5c41622
 +if __name__=='__main__':unittest.main()
 diff --git a/tests/test_precise_root_timing.py b/tests/test_precise_root_timing.py
 new file mode 100644
-index 0000000..a07037c
+index 0000000..a40fd92
 --- /dev/null
 +++ b/tests/test_precise_root_timing.py
-@@ -0,0 +1,49 @@
+@@ -0,0 +1,72 @@
 +"""Regression for opt-in native roots sharing interpreter instruction boundaries."""
 +import os
 +from pathlib import Path
@@ -2411,16 +2446,39 @@ index 0000000..a07037c
 +from unittest.mock import patch
 +
 +sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'recompiler'))
-+from v2.emit_function import emit_function
++from v2.emit_function import emit_function, _precise_root_enabled
 +
 +
 +class PreciseTimingChecks(unittest.TestCase):
-+    def emit(self,roots):
++    def emit(self,roots,m=0,x=0):
 +        rom=bytearray(0x100000)
 +        # LDA abs,X; CLC; ADC abs,X; STA abs,X; RTS. Native M0/X0.
 +        rom[0x8000:0x800b]=bytes.fromhex('bd0205187d06059d020560')
 +        with patch.dict(os.environ,{'SNESRECOMP_PRECISE_AOT_ROOTS':roots}):
-+            return emit_function(bytes(rom),1,0x8000,0,0)
++            return emit_function(bytes(rom),1,0x8000,m,x)
++
++    def test_exact_variant_preserves_nonmatching_historical_coarse_body(self):
++        coarse=self.emit('')
++        self.assertEqual(self.emit('018000:M1X1'),coarse)
++        self.assertEqual(self.emit('018000:M0X0'),self.emit('018000'))
++        self.assertEqual(self.emit('018000:M1X1',1,1),self.emit('018000',1,1))
++        self.assertEqual(self.emit('018000:M1X0',1,1),self.emit('',1,1))
++
++    def test_mixed_tokens_and_legacy_hex_syntax(self):
++        for tokens in ('018000,028000', '0x018000\n028000:M1X1',
++                       '028000:M1X0, 018000:M0X0', '018000:m0x0'):
++            self.assertEqual(self.emit(tokens),self.emit('018000'))
++        for m in (0,1):
++            for x in (0,1):
++                self.assertTrue(_precise_root_enabled('018000',0x018000,m,x))
++                self.assertEqual(self.emit('018000',m,x),self.emit('0x018000,028000',m,x))
++
++    def test_invalid_variant_fails_closed_even_after_matching_token(self):
++        for token in ('018000:M2X0','018000:M0X2','018000:M0',
++                      '018000:M00X0','018000:M0X0:extra','1000000:M0X0',
++                      '-1:M0X0',':M0X0','018000:','018000:foo'):
++            with self.subTest(token=token),self.assertRaises(ValueError):
++                self.emit('018000,'+token)
 +
 +    def test_precise_root_yields_at_every_instruction(self):
 +        source=self.emit('018000')
