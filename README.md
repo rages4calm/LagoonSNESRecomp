@@ -8,8 +8,8 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 This is a playable development port with generated native routines and an
 interpreter safety net. It is **not a fully native or fully qualified campaign**.
-The selected program has **341 AOT variants, 126 declared LLE variants and
-230 analysis roots**, preserving all 326 previously selected native variants and adding 15.
+The selected program has **346 AOT variants, 123 declared LLE variants and
+232 analysis roots**, preserving all 341 previously selected native variants and adding five.
 Native work includes movement, room/actor loading, actor updates, combat helpers,
 damage arithmetic, EXP/gold/level progression, first-boss logic and bounded
 HP/death HUD tails. Remaining death, boss and dispatch paths retain fallback.
@@ -18,8 +18,8 @@ Counts are not completion percentages.
 The new accelerated campaign checks use explicit teleports, player stat cheats
 and some progression setup, then run original room loading, combat and outcomes:
 
-- **73 of 75 room records** reached through genuine door loading. The cloud
-  script-only entry and unused/alias record remain separate coverage gaps.
+- **73 of 75 room records** reached through genuine door loading. Records 2A and 3F
+  have no ordinary incoming door and remain separate classification/entry gaps.
 - **Seven main bosses** defeated with original rewards and completion flags;
   Nasir also dies to each in separate fixtures.
 - **Six endgame combat phases** exercise the shell, Green Spirit, Zerah,
@@ -39,11 +39,13 @@ are resolved in this narrower selected program. **99 frozen replay comparisons**
 match the prior control at all **151,417 ordered presentations and 2,657 complete
 checkpoints**, including guest clocks and beam position. The prior timing exclusions
 remain interpreted, together with new audio and camera seams. Native work now
-includes the HP/MP cap lookup during real revival and an actor-hit selector prefix.
+includes the original guardian-death escape, revival wrapper, recovery prefixes,
+the HP/MP cap lookup and actor-hit selector setup. Broader recovery loops still
+use the interpreter after their cooperative wait.
 SRAM is included in strict comparisons. Room 01 uses a fresh matched narrow pair
 for native checks because its new wide margins intentionally change pictures.
 Public analysis seeds and timing selectors reproduce the program without private
-captures. See [batch 12](NATIVE-BATCH12-2026-10-17.md),
+captures. See [batch 13](NATIVE-BATCH13-2026-10-17.md),
 [timing details](tools/NATIVE-TIMING.md), [current status](docs/DEVELOPMENT-STATUS.md),
 [boss checks](tools/CAMPAIGN-BOSSES.md), [endgame checks](tools/CAMPAIGN-ENDGAME.md)
 and [coverage workflow](tools/CAMPAIGN-COVERAGE.md).
@@ -52,7 +54,10 @@ Widescreen supports 16:9, 16:10, 21:9, 32:9 and window-driven aspects in audited
 areas. Supported town dialogue, Items/Magic, room-01 interior scenery, outdoor scenery and Gold Cave rooms
 have guarded expansion. Outgoing fades retain proven old scenery until the real
 PPU changes resources. Unsupported areas and effects retain reference output;
-remaining menu, scripted-scene and transition gaps are still being tracked.
+Room 01 status and its audited destination fade now retain wide scenery through
+verified torch animations. Remaining menu, scripted-scene and transition gaps
+are still being tracked. The [area-map references](docs/MAP-REFERENCES.md) help
+plan coverage routes.
 
 The [live custom renderer](docs/CUSTOM-RENDERER.md) independently draws supported
 stable Atland fields from copied maps, tiles, palettes and actors. Every output

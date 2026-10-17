@@ -120,3 +120,25 @@ the prior 22 deferrals. Strict comparison now requires SRAM too. Audio event
 journals/full APU state are outside this comparator's equality contract.
 See [batch 12](../NATIVE-BATCH12-2026-10-17.md) for the 99 accepted comparisons
 and the separately qualified intentional room-01 widescreen margin changes.
+
+
+## Batch 13 death and cooperative recovery
+
+Original92A0 nonlocal guardian escape is native under the existing paired-call
+ABI; its parent9266 remains interpreted. Six actual double-PLA escapes preserve
+guest PC/SP, memory, clocks and pictures. D481 and recovery entries/prefixes use
+source-specific940D normal-return closure, with no generic HUD contract change.
+Additional post-wait roots did not gain native execution: current LLE dispatch
+bounces at real calls, not arbitrary jumps/fallthroughs. SPC-poll937C similarly
+remains inside its interpreted parent and is excluded from native gain claims.
+Native recovery after the first yield needs a proven continuation ABI, rather
+than more entry declarations. See [batch13](../NATIVE-BATCH13-2026-10-17.md).
+
+The strict comparator additionally checks declared APURAM/DSP-register/PCM
+outputs by SHA256, length and run-relative output path. All other diagnostics
+retain exact input semantics. Full captures must exist inside their isolated
+run. Optional PCM is s16 stereo and must have complete four-byte sample frames.
+Current DSPOUT reads retained host-ring samples: accelerated ring overflow can
+discard samples differently even for the same executable. Those experiments
+fail strict comparison and provide no audio parity acceptance. No audio runtime
+behavior changed in this batch.

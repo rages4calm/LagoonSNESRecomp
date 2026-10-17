@@ -65,15 +65,16 @@ int LagoonWideBackground_Begin(LagoonWideBackground *background,uint64_t generat
     unsigned room,unsigned source,unsigned bank,unsigned address,unsigned destination,unsigned length);
 void LagoonWideBackground_Write(LagoonWideBackground *background,unsigned address,uint8_t value);
 
-/* The cave's three real six-character torch frames, uploaded by $00:8F19.
+/* Audited room01 two-frame / cave three-frame torches, uploaded by $00:8F19.
  * Only completed, byte-verified transfers in this room/timeline are witnesses. */
-enum { kLagoonWideTorchBytes=0xC0, kLagoonWideTorchAddress=0x7600 };
+enum { kLagoonWideTorchBytes=0xC0, kLagoonWideTorchMaxBytes=0x180, kLagoonWideTorchAddress=0x7600 };
 typedef struct LagoonWideTorches {
-  uint8_t bytes[3][kLagoonWideTorchBytes];
-  uint8_t pending[kLagoonWideTorchBytes];
+  uint8_t bytes[3][kLagoonWideTorchMaxBytes];
+  uint8_t pending[kLagoonWideTorchMaxBytes];
   uint64_t generation;
   unsigned room, source, next, left, frame, seen;
 } LagoonWideTorches;
+unsigned LagoonWideTorches_Bytes(unsigned room,unsigned source);
 void LagoonWideTorches_Reset(LagoonWideTorches *torches);
 int LagoonWideTorches_Begin(LagoonWideTorches *torches,uint64_t generation,
     unsigned room,unsigned source,unsigned bank,unsigned address,unsigned destination,unsigned length);

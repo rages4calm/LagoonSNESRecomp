@@ -260,3 +260,19 @@ explicit in the registry. Other canonical fixtures retain their original
 matched inputs. These remain assisted replays; only the known script-only2A
 and record3F scenario gaps are listed by this static suite. This is not complete
 natural campaign, audio, credits or hardware certification.
+
+## Batch 13 refresh
+
+All 79 canonical stock-ROM captures were strictly compared, collected and
+ingested for the selected 346-variant executable. The SDK accepted 779,468,826
+interpreted instructions, 2,617,679,029 interpreted guest cycles, 8,389 PC/mode
+variants (8,380 addresses), 517 transfers and 12,718 unique raw records.
+All four loss counters are zero; IDs are unique and audit warnings are empty.
+Compared with the matched 341-variant set, this removes 168 interpreted
+instructions and 654 interpreted guest cycles. It does not measure host FPS.
+
+Room 01 retains its matched narrow host configuration for native parity;
+new widescreen output has independent source and runtime verification. No
+code is automatically promoted from these observations. Records 2A/3F remain
+entry gaps: the older script-only/alias labels above are hypotheses, rather
+than established classifications. Map crops alone cannot resolve their IDs.

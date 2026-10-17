@@ -213,7 +213,7 @@ static int retained_scene_matches(void) {
       RtlStateGeneration(),s_retained.room,s_retained.bg_source);
   for(unsigned tile=0;tile<1024;++tile)if(s_retained.used[tile] &&
       memcmp(vram+tile*16,s_retained.characters+tile*16,32) &&
-      !(tile>=944 && tile<=949 && torch_frame>=0))return 0;
+      !(tile>=944 && tile<944+LagoonWideTorches_Bytes(s_retained.room,s_retained.bg_source)/32 && torch_frame>=0))return 0;
   uint16_t expected[720];
   for(unsigned layer=0;layer<2;++layer) {
     int cx=s_retained.camera[layer*2],cy=s_retained.camera[layer*2+1];
@@ -261,18 +261,19 @@ static int capture_world_characters(const uint8_t *upload) {
       for(unsigned y=0;y<th;++y)for(unsigned x=0;x<tw;++x)
         s_world_char_used[map_tile(layer,(int)x*8,(int)y*8)&1023]=1;
     }
+    unsigned torch_bytes=LagoonWideTorches_Bytes(word(0x48e),pointer(0x57));
     if(upload) {
       for(unsigned tile=kLagoonWideBackgroundBytes/32;tile<1024;++tile)
-        if(s_world_char_used[tile] && (tile<944 || tile>949))return 0;
+        if(s_world_char_used[tile] && (tile<944 || tile>=944+torch_bytes/32))return 0;
       memset(s_world_chars,0,sizeof(s_world_chars));
       memcpy(s_world_chars,upload,kLagoonWideBackgroundBytes);
       int torches=0;
-      for(unsigned tile=944;tile<=949;++tile)torches|=s_world_char_used[tile];
+      for(unsigned tile=944;tile<944+torch_bytes/32;++tile)torches|=s_world_char_used[tile];
       if(torches) {
         int frame=LagoonWideTorches_Match(&s_torches,PpuRenderVram(g_ppu),
             RtlStateGeneration(),word(0x48e),pointer(0x57));
         if(frame<0)return 0;
-        memcpy(s_world_chars+0x3B00,s_torches.bytes[frame],kLagoonWideTorchBytes);
+        memcpy(s_world_chars+0x3B00,s_torches.bytes[frame],torch_bytes);
       }
     } else memcpy(s_world_chars,PpuRenderVram(g_ppu),sizeof(s_world_chars));
     if(!LagoonWideEntities_WorldCharacters(PpuRenderVram(g_ppu),s_world_chars,s_world_char_used))return 0;
@@ -282,13 +283,14 @@ static void refresh_torches(void) {
   if(!s_world_chars_ready || s_world_char_key!=world_resource_key())return;
   int frame=LagoonWideTorches_Match(&s_torches,PpuRenderVram(g_ppu),
       RtlStateGeneration(),word(0x48e),pointer(0x57));
-  if(frame>=0)memcpy(s_world_chars+0x3B00,s_torches.bytes[frame],kLagoonWideTorchBytes);
+  if(frame>=0)memcpy(s_world_chars+0x3B00,s_torches.bytes[frame],
+      LagoonWideTorches_Bytes(word(0x48e),pointer(0x57)));
 }
 static int upload_characters_owned(void) {
   for(unsigned tile=0;tile<1024;++tile)if(s_world_char_used[tile]) {
     if(tile<kLagoonWideBackgroundBytes/32) {
       if(memcmp(s_world_chars+tile*16,s_background.bytes+tile*32,32))return 0;
-    } else if(tile<944 || tile>949 ||
+    } else if(tile<944 || tile>=944+LagoonWideTorches_Bytes(word(0x48e),pointer(0x57))/32 ||
         LagoonWideTorches_Match(&s_torches,PpuRenderVram(g_ppu),
             RtlStateGeneration(),word(0x48e),pointer(0x57))<0)return 0;
   }
@@ -350,7 +352,7 @@ void LagoonWide_OnVramWrite(unsigned byte_address) {
   if(byte_address<kLagoonWideBackgroundBytes || byte_address>=0xE000)
     s_retained.valid=0;
   if(s_retained.valid && (s_retained.torches.left ||
-      (byte_address>=kLagoonWideTorchAddress && byte_address<kLagoonWideTorchAddress+kLagoonWideTorchBytes)))
+      (byte_address>=kLagoonWideTorchAddress && byte_address<kLagoonWideTorchAddress+LagoonWideTorches_Bytes(s_retained.room,s_retained.bg_source))))
     LagoonWideTorches_Write(&s_retained.torches,byte_address,
         (uint8_t)(g_ppu->vram[byte_address/2]>>((byte_address&1)*8)),g_rom,0x100000);
   if(s_background.generation!=RtlStateGeneration())LagoonWideBackground_Reset(&s_background);
@@ -358,7 +360,7 @@ void LagoonWide_OnVramWrite(unsigned byte_address) {
     LagoonWideBackground_Write(&s_background,byte_address,
         (uint8_t)(g_ppu->vram[byte_address/2]>>((byte_address&1)*8)));
   if(s_torches.left || (byte_address>=kLagoonWideTorchAddress &&
-      byte_address<kLagoonWideTorchAddress+kLagoonWideTorchBytes))
+      byte_address<kLagoonWideTorchAddress+LagoonWideTorches_Bytes(word(0x48e),pointer(0x57))))
     LagoonWideTorches_Write(&s_torches,byte_address,
         (uint8_t)(g_ppu->vram[byte_address/2]>>((byte_address&1)*8)),g_rom,0x100000);
   if(g_ram[0x100e] && byte_address>=0xE000 && byte_address<0x10000)
@@ -366,7 +368,7 @@ void LagoonWide_OnVramWrite(unsigned byte_address) {
   /* A recognized torch DMA may be partial at this callback. The completed
    * packet is checked again before presentation; never expose partial data. */
   if(s_using_retained && s_retained.valid && byte_address>=kLagoonWideTorchAddress &&
-      byte_address<kLagoonWideTorchAddress+kLagoonWideTorchBytes)return;
+      byte_address<kLagoonWideTorchAddress+LagoonWideTorches_Bytes(word(0x48e),pointer(0x57)))return;
   /* Room loading can begin after the frame policy was selected. Catch the
    * first actual graphics write before a changed atlas can reach margins. */
   if(!audited_room_ready()) { s_scene_gate.fields=0; s_world_chars_ready=0; native_ui_frame(); return; }

@@ -20,6 +20,9 @@ batches. Generated routine counts are not campaign completion percentages.
       with exact damage, consumable revival and boss-defeat replay comparisons.
 - [x] Batch 12: native HP/MP caps and actor-hit setup plus 13 further variants;
       all 326 prior modes retained, SRAM-aware replay checks and room-01 scenery.
+- [x] Batch 13: original six-guardian death escapes, revival/recovery entries,
+      status/destination-fade torch ownership, strict optional audio diagnostics
+      and linked area-map references. Cooperative recovery loops still use LLE.
 - [ ] Promote full death/revival and remaining boss-phase orchestration
       only after proving their indirect and nonlocal stack continuations.
 - [ ] Continue native promotion from measured hot paths; resolve existing
@@ -96,8 +99,8 @@ batches. Generated routine counts are not campaign completion percentages.
 - [ ] Investigate 22 deferred exact modes: 20 bank-00 interrupt/display paths,
       actor-event sound timing at 01C2CD:M1X0 and graphics timing at 02D1C5:M1X0.
       Preserve qualified sibling modes and the interpreter until proven safe.
-- [ ] Natural campaign progression, cloud script-only entry, alias/unreachable
-      room classification and complete credits qualification.
+- [ ] Natural campaign progression, source/runtime classification of records2A/3F,
+      unobserved entry routes and complete credits qualification.
 - [ ] Optional in-game map showing Nasir, visited rooms, doors and key locations;
       build from source-proven room data after broad campaign coverage.
 

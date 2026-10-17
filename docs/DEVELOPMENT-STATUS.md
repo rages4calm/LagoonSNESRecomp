@@ -1,71 +1,73 @@
 # Current development checkpoint — October 17, 2026
 
-Native and widescreen batch 12 is selected. Read [batch 12](../NATIVE-BATCH12-2026-10-17.md)
-and the parent HANDOFF-NATIVE-BATCH12-2026-10-17.md before continuing.
+Batch 13 is selected. Read [batch 13](../NATIVE-BATCH13-2026-10-17.md) and the
+parent HANDOFF-NATIVE-BATCH13-2026-10-17.md before continuing.
 
-## Selected program
+`build/LagoonSNESRecomp.exe`, also frozen as `build/lagoon-native-batch13.exe`.
+Executable SHA256: `16a1bf96b3b2d2a23ecb8e11cb9eab287e4b74d22847fa30986ee105db4d04d5`.
+Manifest SHA256: `27a7dece0b2583433f4495126d5d9c1735e3866790774cf8c5ec496c07366d2a`.
+**346 AOT / 123 declared LLE / 232 roots**; all 341 earlier native modes retained.
 
-`build/LagoonSNESRecomp.exe`, also frozen as `build/lagoon-native-batch12.exe`.
-Executable SHA256: `24452e86bcac15964f0668ad6108d6fffd34ebd22cd2ed59735c1c69a3ed6919`.
-Manifest SHA256: `5f56797fb866bfaaf6405430f34d02787c0bf7ffe8a760235cc583e5779dd817`.
-**341 AOT / 126 declared LLE / 230 analysis roots**, preserving all 326 prior
-native modes and adding 15. Interpreter fallback and the opening repair remain.
+## Gameplay and rendering
 
-New native work includes the original HP/MP cap leaf during consumable revival
-and boss healing, actor-hit selector setup, actor setup/clamping, collision
-direction, event flags and endgame WRAM copying. Broader sword scanning and
-death/revival orchestration still use their interpreted continuations. All 22
-prior exact timing deferrals, three newly observed audio modes and two camera
-entry exclusions stay interpreted. No host HP or victory replacement is used.
+Original death leaf `$01:92A0` now handles the six real guardian double-PLA escapes
+natively, preserving PC/SP and all observed state/clocks. Parent `$01:9266` stays
+interpreted. Native additions also cover D481 revival and D468/D4AB/D4B1 recovery
+entries/prefixes, with a source-specific 940D normal-return fact. Generic HUD
+dispatch and broader death/revival orchestration retain fallback. Full recovery
+loops still resume interpreted after their cooperative wait; declaration-only
+SPC-poll/post-wait experiments are excluded.
 
-## Evidence and limits
+Room 01 status and destination fade stay wide through exact original torch DMA
+ownership. The prior menu-font diagnosis was incomplete: animation invalidated
+the old witness. The final two routes preserve 2,112 native centers and 13 full
+checkpoints/clocks, with independent margin decoding, 79 added wide fields and
+clean generation reset. Unknown resources and other menu layouts remain guarded.
+The custom renderer still covers stable Atland. No new locked-60-FPS claim.
 
-99 strict replay pairs pass: 151,417 ordered pictures and 2,657 checkpoints,
-including framebuffer, WRAM, VRAM, OAM, palette memory, SRAM, registers, clocks
-and beam position. Counts include repeated fixtures. Room 01 is compared in a
-fresh matched narrow pair; its historical wide margins intentionally differ.
-Separate final-binary widescreen checks preserve all 2,174 native centers and
-11 checkpoints, with eight independently decoded original-map samples.
+## Qualification
 
-Room 01's exact resources and 512×768 extent are guarded. Status temporarily
-uses native fallback when font uploads invalidate world characters, then wide
-gameplay resumes. Unsupported areas, actor poses and effects retain fallback.
-The custom renderer still covers stable Atland only. No new locked-60-FPS claim.
+99 strict pairs / 151,417 pictures / 2,657 checkpoints, including SRAM, registers
+and guest clocks/beam. Room 01 native parity retains its matched narrow input.
+Wide changes are separately source-qualified. 48 project Python tests, seven
+helper/real-PPU tests and the mandatory camera build guard pass. Owner save and
+settings hashes are unchanged. The actual public regen script reproduces the
+manifest and bank/dispatch C; raw selector whitespace can change only module
+build-lineage digest. Selection preserves the exact tested executable.
 
-45 project Python tests, seven helper/real-PPU tests and the camera build guard
-pass. The actual public regeneration script reproduces the exact program
-manifest and bank/dispatch C. Its module build-lineage digest can differ from
-the private CLI's selector whitespace; this does not change the program digest.
-The tested executable itself is preserved exactly. Owner saves/settings remain
-unchanged. No public binary release, ROM, generated C, audio or raw capture.
+The 79 canonical stock-ROM captures were collected and ingested by the SDK,
+with no lost records, reused capture IDs or warnings. They execute 168 fewer
+interpreted instructions and 654 fewer interpreted guest cycles than the matched
+341-variant control. The separate combat/primary suite measures death/revival
+prefix execution; the full recovery loops remain interpreted after yielding.
 
-All 79 fresh canonical stock-ROM captures were ingested with zero loss/warnings:
-779,468,994 interpreted instructions and 2,617,679,683 guest cycles, removing
-35,302 interpreted instructions versus matched326 fixtures. Room 01's narrow
-host-config exception is recorded. Separate targeted accounting proves
-nonreturn work removal for 12 of 15 new modes; two have no observed savings
-and one is return-only. No per-variant count implies complete native coverage.
+Optional APURAM/DSP/PCM captures now compare their actual bytes and bound paths.
+Accelerated PCM capture is not deterministic when the host output ring overflows;
+an identical-executable control confirms that limitation. No audio parity or
+playback fix is claimed. Private rejected evidence remains outside accepted QA.
 
-Fixtures explicitly use teleports, bounded player stats, item selection and
-prerequisite flags. Original damage, revival-item consumption, healing, boss
-deaths, rewards and progress run normally. These are assisted checks against
-the prior selected program, not a natural full campaign, independent-console
-parity, pure-interpreter timing parity or full APU-state/audio qualification.
+Assisted fixtures disclose position/item/player-stat/flag setup and exercise
+original outcomes. Natural campaign, complete credits, independent-console
+timing, full audio and broader hardware remain unqualified. Records 2A/3F have
+no ordinary incoming doors; their precise entry classification remains open.
+Use [map references](MAP-REFERENCES.md) to plan routes and landmarks, then bind
+engine IDs and extents to ROM/runtime evidence.
 
-## Next priorities
+## Next work
 
-1. Continue source-proven HP subtraction, death/revival and boss orchestration;
-   resolve indirect/nonlocal stack contracts before promoting broader routines.
-2. Investigate the 22 old timing modes and new audio seams with instruction-level
-   traces. Preserve the 00:80E6 opening floor and camera patch exclusions.
-3. Broaden widescreen room/menu/transition and actor-source coverage; keep font,
-   raster, upload and map-bound guards. Expand custom rendering from measured needs.
-4. Natural campaign, script-only cloud entry, record 3F, credits, controller/GPU
-   hardware and isolated real-time frame-spike qualification. Optional map later.
+1. Native death/revival and boss orchestration with proven stack/width exits.
+   For native loops after yields, prove an explicit continuation ABI carrying
+   owner entryS/frame kind across the original scheduler; extra roots alone do
+   not execute because LLE bounces only at actual JSR/JSL call edges. Preserve
+   fallback instead of relaxing arbitrary jump/fallthrough dispatch.
+2. More menu/layout/transition and actor ownership checks, custom renderer scope
+   and isolated normally paced frame-time measurements.
+3. Natural progression,2A/3F classification,credits,controllers/GPU hardware.
+   Optional in-game map follows source-backed room/door evidence.
 
-Smooth stays removed; Enhanced original pixels remains optional. State format 3
-and both raster journals remain required. The full retexture remains shelved.
-Public SDK pin remains a6be9756285f26ccc74539c811d4d23d57d8c33d (latest upstream
-verified this batch). Its cumulative 47-path patch is unchanged. Preserve local
-SDK HEAD 273d075a4e7f55e61816e98f91d1ed29f596525c and dirty/staged source; never
-reset/bootstrap or stage its gitlink. Publish substantial verified source batches.
+All 25 old timing/audio exact deferrals, camera exclusions and 0080E6 opening
+floor remain interpreted. SDK upstream/public pin a6be9756285f26ccc74539c811d4d23d57d8c33d
+was verified current; cumulative 47-path patch unchanged. Preserve deliberately
+dirty local SDK 273d075a4e7f55e61816e98f91d1ed29f596525c; do not reset/bootstrap or
+stage its gitlink. Smooth stays removed, Enhanced optional, stateformat3/raster
+journals mandatory, retexture shelved. Publish substantial ROM-free source batches.

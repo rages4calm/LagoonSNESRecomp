@@ -52,6 +52,45 @@ class StrictComparisonTests(unittest.TestCase):
         self.assertFalse(result['valid_evidence'])
         self.assertFalse(result['passed'])
 
+    def audio_capture(self, root, data=b'\x00\x01\x00\x02'):
+        path = root / 'audio.pcm'
+        path.write_bytes(data)
+        self.change_receipt(root, diagnostic_overrides={'SNESRECOMP_DSPOUT': str(path)})
+
+    def test_isolated_audio_outputs_require_exact_content(self):
+        for root in (self.a, self.b):
+            self.audio_capture(root)
+        self.assertTrue(compare.compare_runs(self.a, self.b)['passed'])
+        self.audio_capture(self.b, b'\x00\x01\x00\x03')
+        result = compare.compare_runs(self.a, self.b)
+        self.assertFalse(result['passed'])
+        self.assertFalse(result['diagnostic_outputs']['SNESRECOMP_DSPOUT']['exact'])
+
+    def test_audio_capture_must_be_complete_and_inside_run(self):
+        for root in (self.a, self.b):
+            self.audio_capture(root)
+        self.audio_capture(self.b, b'\x00')
+        self.assertFalse(compare.compare_runs(self.a, self.b)['valid_evidence'])
+        self.change_receipt(self.b, diagnostic_overrides={'SNESRECOMP_DSPOUT': str(self.a/'audio.pcm')})
+        self.assertFalse(compare.compare_runs(self.a, self.b)['valid_evidence'])
+        self.change_receipt(self.b, diagnostic_overrides={'SNESRECOMP_DSPOUT': str(self.b/'absent.pcm')})
+        self.assertFalse(compare.compare_runs(self.a, self.b)['valid_evidence'])
+
+    def test_apu_and_dsp_register_traces_cannot_differ(self):
+        for root in (self.a, self.b):
+            overrides = {}
+            for key, name in [('SNESRECOMP_APURAM_TRACE_FILE', 'apuram.jsonl'),
+                              ('SNESRECOMP_DSPREG_TRACE_FILE', 'dsp.jsonl')]:
+                path = root / name
+                path.write_text('{"f":1,"adr":"0x00","val":"0x01"}\n')
+                overrides[key] = str(path)
+            self.change_receipt(root, diagnostic_overrides=overrides)
+        self.assertTrue(compare.compare_runs(self.a, self.b)['passed'])
+        (self.b / 'dsp.jsonl').write_text('{"f":1,"adr":"0x00","val":"0x02"}\n')
+        result = compare.compare_runs(self.a, self.b)
+        self.assertFalse(result['passed'])
+        self.assertFalse(result['diagnostic_outputs']['SNESRECOMP_DSPREG_TRACE_FILE']['exact'])
+
     def test_exact_and_distinct_executable_identity(self):
         result = compare.compare_runs(self.a, self.b)
         self.assertTrue(result['passed'])

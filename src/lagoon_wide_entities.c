@@ -253,6 +253,10 @@ void LagoonWideBackground_Write(LagoonWideBackground *b,unsigned address,uint8_t
   if(b->completed==kLagoonWideBackgroundBytes)b->ready=1;
 }
 
+unsigned LagoonWideTorches_Bytes(unsigned room,unsigned source) {
+  if(room==1 && source==0x139A7A)return 0x180;
+  return room>=3 && room<=6 && source==0x128B77 ? 0xC0 : 0;
+}
 void LagoonWideTorches_Reset(LagoonWideTorches *t) {
   if(t)memset(t,0,sizeof(*t));
 }
@@ -263,45 +267,52 @@ int LagoonWideTorches_Begin(LagoonWideTorches *t,uint64_t generation,
     LagoonWideTorches_Reset(t);t->generation=generation;t->room=room;t->source=source;
   }
   t->left=0;
-  if(room<3 || room>6 || source!=0x128B77 || bank!=0x10 ||
-      destination!=0x3B00 || length!=kLagoonWideTorchBytes ||
-      (address!=0x8900 && address!=0x89C0 && address!=0x8A80))return 0;
-  t->frame=(address-0x8900)/kLagoonWideTorchBytes;
-  t->next=kLagoonWideTorchAddress;t->left=kLagoonWideTorchBytes;return 1;
+  unsigned bytes=LagoonWideTorches_Bytes(room,source);
+  unsigned base=room==1?0x8000:0x8900,frames=room==1?2:3;
+  if(!bytes || bank!=0x10 || destination!=0x3B00 || length!=bytes ||
+      address<base || address>=base+frames*bytes || (address-base)%bytes)return 0;
+  t->frame=(address-base)/bytes;
+  t->next=kLagoonWideTorchAddress;t->left=bytes;return 1;
 }
 void LagoonWideTorches_Write(LagoonWideTorches *t,unsigned address,uint8_t value,
     const uint8_t *rom,size_t size) {
   if(!t)return;
+  unsigned bytes=LagoonWideTorches_Bytes(t->room,t->source);
   if(!t->left || address!=t->next) {
-    if(address>=kLagoonWideTorchAddress && address<kLagoonWideTorchAddress+kLagoonWideTorchBytes)
+    if(address>=kLagoonWideTorchAddress && address<kLagoonWideTorchAddress+bytes)
       t->seen=0;
     t->left=0;return;
   }
   unsigned offset=address-kLagoonWideTorchAddress;
   t->pending[offset]=value;t->next++;t->left--;
   if(t->left)return;
-  unsigned source=0x108900+t->frame*kLagoonWideTorchBytes;
-  /* Guard the actual animation selector/descriptor and its three pointers.
+  unsigned base=t->room==1?0x8000:0x8900,frames=t->room==1?2:3;
+  unsigned descriptor=t->room==1?0x1DFE0:0x1DFF0;
+  unsigned table=t->room==1?0x1D9E3:0x1DA6B;
+  unsigned source=0x100000+base+t->frame*bytes;
+  /* Guard the actual animation selector/descriptor and its source pointers.
    * A modified animation table cannot silently borrow these frame identities. */
   unsigned v;
-  if(!rom_word(rom,size,0x1DFF0,&v) || v!=0x0304 ||
-      !rom_word(rom,size,0x1DFF2,&v) || v!=0xDA6B ||
-      !rom_word(rom,size,0x1DFF4,&v) || v!=0x3B00 ||
-      !rom_word(rom,size,0x1DFF6,&v) || v!=kLagoonWideTorchBytes) {t->seen=0;return;}
-  for(unsigned frame=0;frame<3;++frame) {
-    if(!rom_word(rom,size,0x1DA6B+frame*3,&v) || v!=0x8900+frame*kLagoonWideTorchBytes ||
-        !rom_byte(rom,size,0x1DA6D+frame*3,&v) || v!=0x10) {t->seen=0;return;}
+  if(!rom_word(rom,size,descriptor,&v) || v!=((frames<<8)|4) ||
+      !rom_word(rom,size,descriptor+2,&v) || v!=(table&65535) ||
+      !rom_word(rom,size,descriptor+4,&v) || v!=0x3B00 ||
+      !rom_word(rom,size,descriptor+6,&v) || v!=bytes) {t->seen=0;return;}
+  for(unsigned frame=0;frame<frames;++frame) {
+    if(!rom_word(rom,size,table+frame*3,&v) || v!=base+frame*bytes ||
+        !rom_byte(rom,size,table+2+frame*3,&v) || v!=0x10) {t->seen=0;return;}
   }
-  for(unsigned i=0;i<kLagoonWideTorchBytes;++i)
+  for(unsigned i=0;i<bytes;++i)
     if(!rom_byte(rom,size,source+i,&v) || v!=t->pending[i]) {t->seen=0;return;}
-  memcpy(t->bytes[t->frame],t->pending,sizeof(t->pending));t->seen|=1u<<t->frame;
+  memcpy(t->bytes[t->frame],t->pending,bytes);t->seen|=1u<<t->frame;
 }
 int LagoonWideTorches_Match(const LagoonWideTorches *t,const uint16_t *vram,
     uint64_t generation,unsigned room,unsigned source) {
   if(!t || !vram || t->left || t->generation!=generation || t->room!=room || t->source!=source)return -1;
+  unsigned bytes=LagoonWideTorches_Bytes(room,source);
+  if(!bytes)return -1;
   for(unsigned frame=0;frame<3;++frame)
     if((t->seen&(1u<<frame)) && !memcmp((const uint8_t*)vram+kLagoonWideTorchAddress,
-        t->bytes[frame],kLagoonWideTorchBytes))return (int)frame;
+        t->bytes[frame],bytes))return (int)frame;
   return -1;
 }
 

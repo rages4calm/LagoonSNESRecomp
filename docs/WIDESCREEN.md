@@ -592,10 +592,9 @@ Private frozen-326 checks (before integration with the next native selection):
   independent source decoder. All 47,408,064 tested outside-world/fallback
   margin pixels are black. The seven existing helper/real-PPU tests pass.
 
-The room-01 Start menu changes characters needed by the room map, so its 34
-observed modal fields deliberately retain the native fallback. Closing it
-restores wide gameplay. This is a documented remaining menu gap, not a reason
-to bypass character ownership. Only the existing audited actor atlas/producer
+The batch-12 room-01 Start menu fell back for 34 observed modal fields.
+Batch 13 traced the stale witness to independently animated torch characters,
+not the menu font itself; the guarded fix is described below. Only the existing audited actor atlas/producer
 rules may add actors; this change does not certify every room-01 NPC pose.
 The custom scene renderer remains Atland-only. Final integrated executable
 qualification is recorded separately from these frozen-326 presentation checks.
@@ -606,3 +605,48 @@ requires the selected presentation center to equal the actual dump framebuffer
 before using its VRAM/palette snapshot; an explicit number alone is not proof.
 
 Final integrated batch-12 executable `24452e86bcac15964f0668ad6108d6fffd34ebd22cd2ed59735c1c69a3ed6919` repeats both room-01 checks: 2,174 native centers, 11 checkpoints and eight source-decoded samples pass. Native regression uses a separate matched narrow room-01 pair; intentional wide-margin CRC changes remain explicit. See [batch 12](../NATIVE-BATCH12-2026-10-17.md).
+
+
+## Batch 13: room 01 status and fade continuity
+
+Room 01's twelve animated torch characters now have the same strict ownership
+model as the cave torches. The original animation selector at `$01:DFE0`
+contains `$0204`, pointer table `$01:D9E3`, VRAM word destination `$3B00` and
+length `$0180`. Its two source pointers are `$10:8000` and `$10:8180`.
+Each frame is accepted only after the exact contiguous DMA finishes and every
+byte matches the original ROM; descriptor and pointer table bytes must also
+match. Partial uploads, changed tables, wrong sources, unknown room/resource
+combinations, unexpected writes and timeline changes still refuse ownership.
+The existing cave animation keeps its separate three-frame `$C0` policy.
+
+The old room-01 witness captured one torch phase and then became stale as the
+original animation advanced. Start status happened to check that witness,
+causing unnecessary pillarboxing even though the font only changed unused
+BG3-map aliases. Owning the current verified twelve-character phase fixes the
+status background and authorizes the completed destination fade sooner. It
+also covers those same animated tiles in retained outgoing scenes. No guest
+camera, animation, timing, memory or native-center pixels are changed.
+
+Private frozen-341 presentation qualification before final native integration:
+
+- Existing walk/status/close/natural-exit route: 1,313 fields, seven complete
+  checkpoint/CPU/guest-clock comparisons exact and every native center exact.
+  It gains 79 wide fields: 34 while status is open, plus 45 destination fade
+  fields. Independently decoded original maps + live VRAM/palette match all
+  57,344 margin pixels before, during and after status. Outside-world and
+  fallback margins remain black in all 42,889,408 tested pixels.
+- A 799-field route reloads the Atland state while room-01 status is open.
+  All six full checkpoints/clocks and native centers remain exact. Fifty
+  post-load fields show no room-01 retained scene or torch witness surviving
+  the timeline jump. The new status margin source check passes again.
+- Original cave-room-03 regression remains fully strict: 861 complete pictures,
+  all four checkpoint components and clocks exact. All seven helper/real-PPU
+  tests pass, including new twelve-character, partial-transfer, changed-table,
+  wrong-source and generation-reset refusal cases.
+
+This does not add new Equipment/Save panel layouts or authorize unknown menu
+uploads. Items/Magic retain their existing independently guarded compositor.
+Final integrated executable checks are bound separately from this private
+341-generation presentation experiment.
+
+Final integrated batch13 executable `16a1bf96b3b2d2a23ecb8e11cb9eab287e4b74d22847fa30986ee105db4d04d5` passes both modal/reset routes: 2,112 native centers, 13 checkpoints/clocks, source-decoded status margins and all tested bounds. The 79 valid added wide fields remain. See [batch13](../NATIVE-BATCH13-2026-10-17.md).

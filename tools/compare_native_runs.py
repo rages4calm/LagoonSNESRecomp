@@ -20,10 +20,16 @@ INPUT_KEYS = ('rom_sha256', 'route_sha256', 'frames', 'input_config_sha256',
               'visible_display', 'offscreen_gpu', 'input_msu_pack')
 REQUIRED = ('exe_sha256', 'program_manifest_sha256', 'rom_sha256', 'route_sha256',
             'frames', 'effective_config_sha256')
+STRICT_CAPTURE_PATHS = {'SNESRECOMP_APURAM_TRACE_FILE', 'SNESRECOMP_DSPREG_TRACE_FILE',
+                        'SNESRECOMP_DSPOUT'}
 
 
 def sha(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    digest = hashlib.sha256()
+    with path.open('rb') as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def json_diff(left, right, path='$'):
@@ -119,11 +125,26 @@ def load_run(directory):
                                 for p in dumps.glob('*.' + component))
         if component_tags != tags:
             errors.append(f'checkpoint inventory mismatch: {component}')
+    overrides = receipt.get('diagnostic_overrides')
+    normalized = dict(overrides) if overrides is not None else None
+    captures = {}
+    for key in STRICT_CAPTURE_PATHS & set(overrides or {}):
+        path = Path(overrides[key]).resolve()
+        if not path.is_relative_to(directory) or not path.is_file():
+            errors.append(f'missing or out-of-run diagnostic capture: {key}')
+            continue
+        normalized[key] = path.relative_to(directory).as_posix()
+        size = path.stat().st_size
+        if not size or (key == 'SNESRECOMP_DSPOUT' and size % 4):
+            errors.append(f'empty or incomplete diagnostic capture: {key}')
+        captures[key] = dict(relative_path=normalized[key], size=size, sha256=sha(path))
     return dict(directory=directory, receipt=receipt, errors=errors, tags=tags,
+                normalized_overrides=normalized, captures=captures,
                 presentations=presentations, identity=dict(directory=str(directory),
                     receipt_sha256=sha(receipt_path), executable_sha256=receipt.get('exe_sha256'),
                     manifest_sha256=receipt.get('program_manifest_sha256'), bindings=bindings,
-                    log_hashes=log_hashes, presents_sha256=sha(present)))
+                    log_hashes=log_hashes, presents_sha256=sha(present),
+                    diagnostic_captures=captures))
 
 
 def compare_component(left, right):
@@ -149,6 +170,14 @@ def compare_runs(baseline, candidate):
                   baseline=left['identity'], candidate=right['identity'],
                   invalid_evidence={'baseline': left['errors'], 'candidate': right['errors']})
     inputs = {key: (left['receipt'].get(key), right['receipt'].get(key)) for key in INPUT_KEYS}
+    # These three env values name outputs, not guest input files. Compare their
+    # paths relative to each isolated run AND require identical captured bytes.
+    # Every other diagnostic override retains its original exact input contract.
+    inputs['diagnostic_overrides'] = (left['normalized_overrides'], right['normalized_overrides'])
+    result['diagnostic_outputs'] = {}
+    for key in sorted(left['captures'].keys() | right['captures'].keys()):
+        a, b = left['captures'].get(key), right['captures'].get(key)
+        result['diagnostic_outputs'][key] = dict(baseline=a, candidate=b, exact=a is not None and a == b)
     for key, run in [('baseline', left), ('candidate', right)]:
         # Paths differ in isolated roots; seed identity is filename plus digest.
         run['seeds'] = sorted((Path(row['copy']).name, row['sha256'])
@@ -185,6 +214,7 @@ def compare_runs(baseline, candidate):
         result['checkpoints'].append(row)
     result['valid_evidence'] = not left['errors'] and not right['errors']
     result['passed'] = bool(result['valid_evidence'] and not result['input_differences']
+        and all(row['exact'] for row in result['diagnostic_outputs'].values())
         and not mismatches and not result['missing_candidate_tags']
         and not result['additional_candidate_tags'] and result['checkpoints']
         and all(row['exact'] for row in result['checkpoints']))
