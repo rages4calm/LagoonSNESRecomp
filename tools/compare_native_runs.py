@@ -22,6 +22,7 @@ REQUIRED = ('exe_sha256', 'program_manifest_sha256', 'rom_sha256', 'route_sha256
             'frames', 'effective_config_sha256')
 STRICT_CAPTURE_PATHS = {'SNESRECOMP_APURAM_TRACE_FILE', 'SNESRECOMP_DSPREG_TRACE_FILE',
                         'SNESRECOMP_DSPOUT'}
+ADVISORY_REPORT_PATHS = {'LAGOON_NATIVE_RECOVERY_REPORT'}
 
 
 def sha(path):
@@ -128,6 +129,15 @@ def load_run(directory):
     overrides = receipt.get('diagnostic_overrides')
     normalized = dict(overrides) if overrides is not None else None
     captures = {}
+    # Candidate-only instrumentation may be ignored by a historical executable.
+    # Its destination is not guest input, but must remain inside the run even
+    # when no file was produced. Its content is deliberately not parity evidence.
+    for key in ADVISORY_REPORT_PATHS & set(overrides or {}):
+        path = Path(overrides[key]).resolve()
+        if not path.is_relative_to(directory):
+            errors.append(f'out-of-run advisory report: {key}')
+            continue
+        normalized[key] = path.relative_to(directory).as_posix()
     for key in STRICT_CAPTURE_PATHS & set(overrides or {}):
         path = Path(overrides[key]).resolve()
         if not path.is_relative_to(directory) or not path.is_file():
@@ -170,8 +180,9 @@ def compare_runs(baseline, candidate):
                   baseline=left['identity'], candidate=right['identity'],
                   invalid_evidence={'baseline': left['errors'], 'candidate': right['errors']})
     inputs = {key: (left['receipt'].get(key), right['receipt'].get(key)) for key in INPUT_KEYS}
-    # These three env values name outputs, not guest input files. Compare their
+    # Capture env values name outputs, not guest input files. Compare their
     # paths relative to each isolated run AND require identical captured bytes.
+    # The single advisory report path is also relative, without a content check.
     # Every other diagnostic override retains its original exact input contract.
     inputs['diagnostic_overrides'] = (left['normalized_overrides'], right['normalized_overrides'])
     result['diagnostic_outputs'] = {}

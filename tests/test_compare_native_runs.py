@@ -97,6 +97,44 @@ class StrictComparisonTests(unittest.TestCase):
         self.assertNotEqual(result['baseline']['executable_sha256'],
                             result['candidate']['executable_sha256'])
 
+    def recovery_report(self, root, **extra):
+        self.change_receipt(root, diagnostic_overrides={
+            'LAGOON_NATIVE_RECOVERY_REPORT': str(root / 'recovery.json'), **extra})
+
+    def test_recovery_report_normalizes_isolated_absolute_destinations(self):
+        for root in (self.a, self.b):
+            self.recovery_report(root)
+            (root / 'recovery.json').write_text(json.dumps({'count': root.name}))
+        result = compare.compare_runs(self.a, self.b)
+        self.assertTrue(result['passed'])
+        self.assertEqual(compare.load_run(self.a)['normalized_overrides'],
+                         {'LAGOON_NATIVE_RECOVERY_REPORT': 'recovery.json'})
+        self.assertNotIn('LAGOON_NATIVE_RECOVERY_REPORT', result['diagnostic_outputs'])
+
+    def test_historical_missing_advisory_report_is_allowed(self):
+        for root in (self.a, self.b):
+            self.recovery_report(root)
+        (self.b / 'recovery.json').write_text('{"native_calls":42}')
+        self.assertTrue(compare.compare_runs(self.a, self.b)['passed'])
+
+    def test_missing_outside_advisory_destination_is_invalid(self):
+        self.recovery_report(self.a)
+        self.change_receipt(self.b, diagnostic_overrides={
+            'LAGOON_NATIVE_RECOVERY_REPORT': str(self.b / '..' / 'outside.json')})
+        result = compare.compare_runs(self.a, self.b)
+        self.assertFalse(result['valid_evidence'])
+        self.assertFalse(result['passed'])
+        self.assertIn('out-of-run advisory report: LAGOON_NATIVE_RECOVERY_REPORT',
+                      result['invalid_evidence']['candidate'])
+
+    def test_advisory_normalization_preserves_actual_input_checks(self):
+        self.recovery_report(self.a, LAGOON_WIDE_ASPECT='16:9')
+        self.recovery_report(self.b, LAGOON_WIDE_ASPECT='32:9')
+        result = compare.compare_runs(self.a, self.b)
+        self.assertTrue(result['valid_evidence'])
+        self.assertFalse(result['passed'])
+        self.assertIn('diagnostic_overrides', result['input_differences'])
+
     def test_stack_byte_cannot_be_ignored(self):
         (self.b / 'dumps/one.wram.bin').write_bytes(b'\x00\x02')
         result = compare.compare_runs(self.a, self.b)

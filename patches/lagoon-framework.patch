@@ -1922,7 +1922,7 @@ index f55baf8..ec56156 100644
    Snes* snes;
    /* Transient state for channels enabled between frame initializations. Keep
 diff --git a/runner/src/snes/interp_bridge.c b/runner/src/snes/interp_bridge.c
-index c1e48eb..1a1c80b 100644
+index c1e48eb..13dc426 100644
 --- a/runner/src/snes/interp_bridge.c
 +++ b/runner/src/snes/interp_bridge.c
 @@ -522,6 +522,12 @@ static int      s_lle_unwind_is_deadline = 0;
@@ -1938,12 +1938,12 @@ index c1e48eb..1a1c80b 100644
  static int      s_lle_wai_yield     = 0;
  static int      s_lle_quiescent_yield = 0;
  static uint64_t s_lle_master_deadline = 0;
-@@ -612,11 +618,121 @@ uint32_t g_interp_wlog_pc24 = 0;
+@@ -612,11 +618,147 @@ uint32_t g_interp_wlog_pc24 = 0;
  static uint32_t s_lle_bounce_exclusions[16];
  static size_t   s_lle_bounce_exclusion_count;
  
 +/* BEGIN AOT_CONTINUATION_POLICY -- pure, bounded provenance matcher. */
-+#define AOT_CONTINUATION_MAX 8
++#define AOT_CONTINUATION_MAX 12
 +#define AOT_CONTINUATION_STACK_MAX 16
 +typedef struct AotContinuationToken {
 +    uint64_t generation, serial;
@@ -1955,7 +1955,31 @@ index c1e48eb..1a1c80b 100644
 +static unsigned s_continuation_count;
 +static uint64_t s_continuation_serial;
 +static InterpAotContinuationGuard s_continuation_guard;
++static InterpAotContinuationHook s_continuation_hook;
++void interp_bridge_set_aot_continuation_hook(InterpAotContinuationHook hook) {
++    s_continuation_hook=hook;
++}
++static void continuation_event(unsigned event,const CpuState *cpu,uint32_t source,
++    uint32_t target,const InterpAotContinuation *d,uint16_t owner) {
++    if(s_continuation_hook)(void)s_continuation_hook(event,cpu,source,target,d,owner,NULL);
++}
++/* A title proposal cannot redirect a child return to an unrelated PC, invent
++ * a frame or exceed the original linear WRAM saved-register envelope. */
++static int continuation_ancestor(const CpuState *cpu,const InterpAotContinuation *d,
++    uint16_t child_entry_s,InterpAotAncestor *out) {
++    if(!s_continuation_hook || !s_continuation_hook(INTERP_CONT_RETURN,cpu,0,
++        d->owner_return_pc24,d,child_entry_s,out))return 0;
++    if(out->pc24!=d->owner_return_pc24 || out->owner_frame!=2 ||
++       (out->owner_return_pc24>>16)!=(out->pc24>>16) ||
++       out->owner_return_pc24>0xffffffu || out->entry_s<cpu->S ||
++       out->entry_s-cpu->S>AOT_CONTINUATION_STACK_MAX || out->entry_s>0x1ffd ||
++       cpu->emulation || cpu->PB!=(out->pc24>>16))return 0;
++    uint16_t ret=(uint16_t)(out->owner_return_pc24-1);
++    return cpu->ram[out->entry_s+1]==(ret&255) &&
++           cpu->ram[out->entry_s+2]==(ret>>8);
++}
 +static void continuation_discard_tokens(void) {
++    continuation_event(INTERP_CONT_DISCARD,NULL,0,0,NULL,0);
 +    memset(s_continuation_tokens,0,sizeof(s_continuation_tokens));
 +}
 +int interp_bridge_set_aot_continuations(const InterpAotContinuation *entries,
@@ -1975,7 +1999,7 @@ index c1e48eb..1a1c80b 100644
 +            if(entries[j].call_pc24==d->call_pc24 && entries[j].wait_pc24==d->wait_pc24 &&
 +               entries[j].owner_return_pc24==d->owner_return_pc24)return 0;
 +    }
-+    memset(s_continuation_tokens,0,sizeof(s_continuation_tokens));
++    continuation_discard_tokens();
 +    if(count)memcpy(s_continuations,entries,count*sizeof(*entries));
 +    s_continuation_count=count;s_continuation_guard=guard;return 1;
 +}
@@ -1995,6 +2019,7 @@ index c1e48eb..1a1c80b 100644
 +}
 +static uint64_t continuation_arm(CpuState *cpu,uint32_t target,uint32_t source,
 +    unsigned frame,int ready) {
++    continuation_event(INTERP_CONT_CALL,cpu,source,target,NULL,0);
 +    /* A new real call invalidates every older owner alternative at this site. */
 +    for(unsigned i=0;i<s_continuation_count;++i)
 +        if(source==s_continuations[i].call_pc24 && target==s_continuations[i].wait_pc24)
@@ -2044,7 +2069,8 @@ index c1e48eb..1a1c80b 100644
 +        if(generation!=RtlStateGeneration() || !continuation_context(cpu,d) ||
 +           cpu->PB!=(target>>16) || cpu->S!=(unsigned)before_sp+d->wait_frame ||
 +           !s_continuation_guard(d) || memcmp(t->bytes,cpu->ram+before_sp+1,span))return 0;
-+        *out=*d;*owner_entry_s=(uint16_t)(cpu->S+d->saved_stack_bytes);return 1;
++        *out=*d;*owner_entry_s=(uint16_t)(cpu->S+d->saved_stack_bytes);
++        continuation_event(INTERP_CONT_TAKE,cpu,return_site,target,d,*owner_entry_s);return 1;
 +    }
 +    return 0;
 +}
@@ -2060,7 +2086,7 @@ index c1e48eb..1a1c80b 100644
  static uint32_t *s_interp_file_targets;
  static size_t    s_interp_file_count;
  static int interp_file_target_cmp(const void *a, const void *b) {
-@@ -638,16 +754,22 @@ static void ensure_interp_file_targets_loaded(void) {
+@@ -638,16 +780,22 @@ static void ensure_interp_file_targets_loaded(void) {
      uint32_t *arr = (uint32_t *)malloc(cap * sizeof *arr);
      char line[64];
      while (arr && fgets(line, sizeof line, f)) {
@@ -2087,7 +2113,7 @@ index c1e48eb..1a1c80b 100644
      }
      fclose(f);
      if (arr && n) {
-@@ -668,6 +790,11 @@ int rtl_aot_node_denied(uint32 pc24) {
+@@ -668,6 +816,11 @@ int rtl_aot_node_denied(uint32 pc24) {
      ensure_interp_file_targets_loaded();
      if (!s_interp_file_count) return 0;
      uint32_t key = (uint32_t)pc24 & 0xFFFFFFu;
@@ -2099,7 +2125,7 @@ index c1e48eb..1a1c80b 100644
      return bsearch(&key, s_interp_file_targets, s_interp_file_count,
                     sizeof key, interp_file_target_cmp) != NULL;
  }
-@@ -799,6 +926,7 @@ static int bridge_cooperative_yield(CpuState *cpu, const Interp816 *in,
+@@ -799,6 +952,7 @@ static int bridge_cooperative_yield(CpuState *cpu, const Interp816 *in,
      return 1;
  }
  uint32 interp_bridge_lle_resume_pc(void) { return s_lle_resume_pc24; }
@@ -2107,7 +2133,7 @@ index c1e48eb..1a1c80b 100644
  void interp_bridge_set_lle_resume_pc(uint32_t pc) {
      lle_resume_set(pc, INTERP_RESUME_SITE_EXTERNAL, 0);
  }
-@@ -847,6 +975,10 @@ void interp_bridge_rb_state_load(const void *in) {
+@@ -847,6 +1001,10 @@ void interp_bridge_rb_state_load(const void *in) {
      const InterpBridgeRbState *s = (const InterpBridgeRbState *)in;
      if (!s || s->magic != INTERP_BRIDGE_RB_MAGIC)
          return;
@@ -2118,7 +2144,7 @@ index c1e48eb..1a1c80b 100644
      s_apu_pending_master          = s->apu_pending_master;
      g_interp_bridge_write_epoch   = s->write_epoch;
      s_interp_continuous_read_epoch = s->continuous_read_epoch;
-@@ -1094,12 +1226,7 @@ static int lle_bounce_target_excluded(uint32_t target_pc24) {
+@@ -1094,12 +1252,7 @@ static int lle_bounce_target_excluded(uint32_t target_pc24) {
              (s_lle_bounce_exclusions[i] & 0x7FFFFFu))
              return 1;
      }
@@ -2132,7 +2158,7 @@ index c1e48eb..1a1c80b 100644
      return 0;
  }
  
-@@ -1623,7 +1750,9 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -1623,7 +1776,9 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
          { static long pct = -1;
            if (pct < 0) { const char *e = getenv("SNESRECOMP_INTERP_PCTRACE");
                           pct = e ? atol(e) : 0; if (pct < 0) pct = 0;
@@ -2143,7 +2169,7 @@ index c1e48eb..1a1c80b 100644
            if (pct && (steps % pct) == 0)
              fprintf(stderr, "[pctrace] step=%ld pc=%06X op=%02X\n", steps,
                      (unsigned)pc_before, bridge_bus_read(cpu, pc_before)); }
-@@ -1659,9 +1788,26 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -1659,9 +1814,26 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
              bridge_apu_flush(cpu);
              return 1;
          }
@@ -2172,7 +2198,7 @@ index c1e48eb..1a1c80b 100644
              sync_interp_to_cpu(&in,cpu);
              bridge_apu_flush(cpu);
              return 1;
-@@ -2435,16 +2581,30 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2435,16 +2607,30 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
          if (wlog_state_sync)
              sync_interp_to_cpu(&in, cpu);
          cpu->coprocessor_master_cycles = cpu->master_cycles;
@@ -2210,7 +2236,7 @@ index c1e48eb..1a1c80b 100644
          s_interp_bus_timing_active=0;
          if (dtrace && in.dp != dp_before) {
              extern int snes_frame_counter;
-@@ -2603,6 +2763,8 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2603,6 +2789,8 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
               * the current (m,x), run it compiled. */
              sync_interp_to_cpu(&in, cpu);          /* expose (m,x) + frame to AOT */
              const uint32_t target = ((uint32_t)in.k << 16) | in.pc;
@@ -2219,7 +2245,7 @@ index c1e48eb..1a1c80b 100644
              /* Cooperative-scheduler (yield_pc) mode bounces too (fiber-free
               * rich-LLE, docs/LLE_SCHEDULER.md): a bounced body that reaches a
               * yield primitive no longer corrupts the paired-call stack — its
-@@ -2826,6 +2988,54 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2826,6 +3014,72 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
              continue;
          }
  
@@ -2246,6 +2272,24 @@ index c1e48eb..1a1c80b 100644
 +                s_lle_next_unwind_is_deadline=0;
 +                g_interp_wlog_pc24=0;
 +                RecompReturn result=cpu_dispatch_pc_paired(cpu,target,continuation.owner_frame);
++                /* At most two original ancestor stages. Each proposal requires
++                 * an actually completed child return, title provenance, exact
++                 * live stack and an available current-width native entry. */
++                for(unsigned chain=0;chain<2 && !s_lle_unwind_active &&
++                    result==RECOMP_RETURN_NORMAL &&
++                    cpu->S==(uint16_t)(owner_entry_s+continuation.owner_frame);++chain) {
++                    InterpAotAncestor ancestor;
++                    if(!continuation_ancestor(cpu,&continuation,owner_entry_s,&ancestor) ||
++                       !cpu_dispatch_has_entry(cpu,ancestor.pc24) ||
++                       lle_bounce_target_excluded(ancestor.pc24))break;
++                    owner_entry_s=ancestor.entry_s;
++                    continuation.owner_frame=ancestor.owner_frame;
++                    continuation.owner_return_pc24=ancestor.owner_return_pc24;
++                    cpu_tailcall_inherit_return_context(owner_entry_s,ancestor.owner_frame);
++                    g_interp_bridge_bounces++;
++                    if(g_interp_bridge_bounce_hook)g_interp_bridge_bounce_hook(ancestor.pc24,cpu->m_flag,cpu->x_flag);
++                    result=cpu_dispatch_pc_paired(cpu,ancestor.pc24,ancestor.owner_frame);
++                }
 +                cpu_tailcall_context_restore(&saved_context);
 +                s_interp_bounce_owner_depth=saved_owner;s_interp_bounce_recomp_base=saved_base;
 +                g_interp_apu_driving=saved_apu;sync_cpu_to_interp(cpu,&in);
@@ -2274,7 +2318,7 @@ index c1e48eb..1a1c80b 100644
          /* Host-invoked interrupt handlers (stop_on_rti) must NOT use the
           * RTS/RTL-past-s_enter watermark. Games commonly switch to a private
           * NMI/IRQ stack (TCS to a higher S) and JSR helpers there; the first
-@@ -3634,12 +3844,15 @@ RecompReturn interp_tier_run_call_frame(CpuState *cpu, uint32_t target_pc24,
+@@ -3634,12 +3888,15 @@ RecompReturn interp_tier_run_call_frame(CpuState *cpu, uint32_t target_pc24,
      interp_tier_note(target_pc24);
      const uint8_t mx = tier2_entry_mx(cpu);
      tier2_discover(source_pc24, target_pc24, mx, TIER2_KIND_DISPATCH, -1);
@@ -2291,10 +2335,10 @@ index c1e48eb..1a1c80b 100644
          return (RecompReturn)RECOMP_RETURN_LLE_UNWIND_BASE;
      RecompReturn propagated;
 diff --git a/runner/src/snes/interp_bridge.h b/runner/src/snes/interp_bridge.h
-index e01e3ba..feb6b75 100644
+index e01e3ba..38c8476 100644
 --- a/runner/src/snes/interp_bridge.h
 +++ b/runner/src/snes/interp_bridge.h
-@@ -120,6 +120,25 @@ void interp_bridge_dump_resume_ring(int n, FILE *out);
+@@ -120,6 +120,39 @@ void interp_bridge_dump_resume_ring(int n, FILE *out);
  void interp_bridge_dump_recent(int n, FILE *out);
  #include "cpu_state.h"
  
@@ -2312,7 +2356,21 @@ index e01e3ba..feb6b75 100644
 +    uint8_t m, x, e, db, wait_frame, saved_stack_bytes, owner_frame;
 +} InterpAotContinuation;
 +typedef int (*InterpAotContinuationGuard)(const InterpAotContinuation *entry);
++/* Optional title policy observes real calls/validated continuations. It may
++ * propose a bounded ancestor continuation only after a native child has
++ * actually returned to its witnessed guest owner. CPU and guest RAM are const. */
++typedef struct InterpAotAncestor {
++    uint32_t pc24, owner_return_pc24;
++    uint16_t entry_s;
++    uint8_t owner_frame;
++} InterpAotAncestor;
++enum { INTERP_CONT_CALL, INTERP_CONT_TAKE, INTERP_CONT_RETURN, INTERP_CONT_DISCARD };
++typedef int (*InterpAotContinuationHook)(unsigned event,const CpuState *cpu,
++    uint32_t source,uint32_t target,const InterpAotContinuation *entry,
++    uint16_t owner_entry_s,InterpAotAncestor *proposal);
++
 +/* END AOT_CONTINUATION_TYPES */
++void interp_bridge_set_aot_continuation_hook(InterpAotContinuationHook hook);
 +int interp_bridge_set_aot_continuations(const InterpAotContinuation *entries,
 +    unsigned count, InterpAotContinuationGuard guard);
 +
@@ -4168,10 +4226,9 @@ index 0000000..3bce15c
 +#endif
 diff --git a/tests/aot_continuation_policy_test.c b/tests/aot_continuation_policy_test.c
 new file mode 100644
-index 0000000..4f4c885
 --- /dev/null
 +++ b/tests/aot_continuation_policy_test.c
-@@ -0,0 +1,61 @@
+@@ -0,0 +1,62 @@
 +
 +#include <stdint.h>
 +#include <string.h>
@@ -4198,6 +4255,7 @@ index 0000000..4f4c885
 +static uint64_t arm(int ready){return continuation_arm(&cpu,0x008100,0x019100,3,ready);}
 +static void rtl(void){cpu.S+=3;cpu.PB=1;}
 +int main(void){
++ setup();InterpAotAncestor ancestor;assert(!continuation_ancestor(&cpu,&descriptor,0,&ancestor));
 + setup();assert(continuation_candidate(0x008110,0x019104));
 + assert(!continuation_candidate(0x008111,0x019104));assert(!continuation_candidate(0x008110,0x019105));
 + assert(!take(0x008110,0x019104));assert(arm(0));rtl();assert(!take(0x008110,0x019104));

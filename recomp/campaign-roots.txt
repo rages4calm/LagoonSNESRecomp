@@ -213,3 +213,9 @@
 # Source-guarded post-wait boss-death RAM prefix; original931E remains LLE.
 019313:M1X0
 0192C3:M1X0
+
+# Batch22 source-guarded genuine boss wait/ancestor continuations.
+01B806:M1X0
+01B80F:M1X0
+01B812:M1X0
+01B815:M1X0

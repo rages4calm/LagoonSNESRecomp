@@ -620,3 +620,39 @@ emit = true
 entry_m = 1
 entry_x = 0
 note = "Batch9 bounded post-damage HUD tail; existing conservative dispatcher return modes, no new width contract"
+
+[[func]]
+name = "Lagoon_Boss_AfterRender"
+addr = "b806"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch22 genuine source guarded boss continuation; manual region boundary and other widths remain interpreted"
+
+[[func]]
+name = "Lagoon_Boss_RefillHP"
+addr = "b80f"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch22 genuine source guarded boss continuation; manual region boundary and other widths remain interpreted"
+
+[[func]]
+name = "Lagoon_Boss_RefillMP"
+addr = "b812"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch22 genuine source guarded boss continuation; manual region boundary and other widths remain interpreted"
+
+[[func]]
+name = "Lagoon_Boss_AfterRefill"
+addr = "b815"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch22 genuine source guarded boss continuation; manual region boundary and other widths remain interpreted"

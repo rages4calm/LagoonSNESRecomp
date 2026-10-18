@@ -1,6 +1,8 @@
 /* ROM-free vectors prove independent tile decoding and fail-closed presentation.
  * Runtime route evidence is separate; these synthetic vectors do not qualify a room. */
 #include <assert.h>
+#define LAGOON_WIDE_ENTITIES_DECODER_ONLY
+#include "../src/lagoon_wide_entities.c"
 #include "../src/lagoon_scene_renderer.c"
 static Ppu p;
 static uint8_t ram[131072],rom[1048576];
@@ -152,7 +154,110 @@ static void cache_oracle(void) {
     }
   }
 }
-int main(void) {
+/* Synthetic source pixels exercise independent anchors/page wrapping and finite
+ * clipping. These packets do not pretend to satisfy the owned-ROM source gate. */
+static void parallax_pixels(void) {
+  setup();LagoonSceneRenderer_Reset();s_mode=2;capture(22);
+  ScenePacket *s=&s_packets[s_complete];assert(s->valid);s->parallax=1;
+  s->bg2_x=251;s->bg2_y=247;
+  for(unsigned y=0;y<8;++y)s->vram[16+y]=255;
+  s->pal[17]=31<<5;
+  for(unsigned n=0;n<2048;++n)s->vram[0x7800+n]=0x2401;
+  const unsigned widths[]={256,342,682,800};
+  const int positions[][2]={{0,0},{1023,0},{0,1000},{1023,1000}};
+  for(unsigned k=0;k<4;++k)for(unsigned w=0;w<4;++w) {
+    unsigned width=widths[w];int left=(int)(width-256)/2;
+    s->wx=positions[k][0];s->wy=positions[k][1];s->serial=++s_serial;
+    render(s,width);
+    for(unsigned y=0;y<224;++y)for(unsigned x=0;x<width;++x) {
+      int native=(int)x>=left&&(int)x<left+256;
+      int qx=s->wx+(int)x-left,qy=s->wy+(int)y;
+      uint32_t color=native||(qx>=0&&qx<1024&&qy>=0&&qy<1024)?0x00ff00:0;
+      assert(s_pixels[y*width+x]==color);
+    }
+  }
+  /* An independent scalar oracle uses varied flipped tiles and palettes in
+   * both32x32 pages, at wraps255/256 and511/512 and both margin boundaries. */
+  for(unsigned n=0;n<32768;++n)s->vram[n]=(n*7919+127)&65535;
+  for(unsigned n=0;n<256;++n)s->pal[n]=(n*1237)&32767;
+  for(unsigned phase=0;phase<4;++phase) {
+    s->bg2_x=251+phase*3;s->bg2_y=247+phase*89;s->serial=++s_serial;
+    for(unsigned w=0;w<4;++w)for(unsigned y=0;y<224;++y) {
+      unsigned width=widths[w];int left=(int)(width-256)/2;
+      uint8_t depth[800]={0};uint16_t colors[800]={0};
+      background_row(s,width,y,left,1,depth,colors);
+      for(unsigned x=0;x<width;++x) {
+        unsigned qx=(unsigned)((int)s->bg2_x+(int)x-left),qy=s->bg2_y+y;
+        unsigned tile=s->vram[0x7800+((qy/256)&1)*1024+((qy/8)&31)*32+((qx/8)&31)];
+        unsigned c=scalar_graphics(s,tile,qx&7,qy&7,0,4),z=tile&0x2000?11:7;
+        assert(depth[x]==(c?z:0));
+        assert(colors[x]==(c?s->pal[((tile>>10)&7)*16+c]:0));
+      }
+    }
+  }
+  ScenePacket *other=&s_packets[s_complete^1];memcpy(other,s,sizeof(*s));
+  assert(same_source(s,other));other->bg2_x++;assert(!same_source(s,other));other->bg2_x--;
+  other->bg2_y++;assert(!same_source(s,other));other->bg2_y--;
+  other->parallax=0;assert(!same_source(s,other));
+}
+static void room07_setup(const uint8_t *owned_rom,const uint16_t *owned_vram) {
+  setup();memcpy(rom,owned_rom,sizeof(rom));memcpy(p.vram,owned_vram,sizeof(p.vram));
+  ram[0x48e]=7;ram[0x50]=2;ram[0x53]=ram[0x55]=128;
+  pointer(0x57,0x129e89);pointer(0x5d,0x1a906f);
+  pointer(0x69,0x069720);pointer(0x75,0x069720);
+  pointer(0x7e,0x11fb7d);pointer(0x81,0x11fb7d);
+  p.bgXsc[1]=0x7a;
+  ram[0x480]=128;ram[0x481]=1;ram[0x482]=0;ram[0x483]=2;
+  ram[0x484]=96;ram[0x486]=128;
+  p.hScroll[0]=384;p.vScroll[0]=512;p.hScroll[1]=96;p.vScroll[1]=128;
+}
+/* Optional actual assets stay external. Both page hashes and compressed source
+ * must pass before positive production packet capture is asserted. */
+static void room07_guards(const char *rom_path,const char *vram_path) {
+  static uint8_t owned_rom[1048576];static uint16_t owned_vram[32768];
+  FILE *f=fopen(rom_path,"rb");assert(f&&fread(owned_rom,1,sizeof(owned_rom),f)==sizeof(owned_rom));fclose(f);
+  f=fopen(vram_path,"rb");assert(f&&fread(owned_vram,1,sizeof(owned_vram),f)==sizeof(owned_vram));fclose(f);
+  room07_setup(owned_rom,owned_vram);LagoonSceneRenderer_Reset();s_mode=2;
+  assert(supported(&p,ram,rom,sizeof(rom),1));capture(22);
+  ScenePacket *s=&s_packets[s_complete];assert(s->valid&&s->parallax&&s->bg2_x==96&&s->bg2_y==129);
+  render(s,682);memcpy(expected,s_pixels,682*224*4);
+  assert(LagoonSceneRenderer_TryPresent(output,682*4,expected,682*4,682,224,22));
+  assert(!LagoonSceneRenderer_TryPresent(output,682*4,expected,682*4,682,224,23));
+  for(unsigned bad=0;bad<32;++bad) {
+    room07_setup(owned_rom,owned_vram);LagoonSceneRenderer_Reset();s_mode=2;
+    switch(bad) {
+      case 0:ram[0x48f]=1;break;case 1:ram[0x53]--;break;case 2:ram[0x55]++;break;
+      case 3:ram[0x57]^=1;break;case 4:ram[0x5d]^=1;break;
+      case 5:ram[0x69]^=1;break;case 6:ram[0x75]^=1;break;
+      case 7:ram[0x88]^=1;break;case 8:ram[0x8b]^=1;break;
+      case 9:ram[0x7e]^=1;break;case 10:ram[0x81]^=1;break;
+      case 11:ram[0x50]=0;break;case 12:ram[0x100e]=1;break;
+      case 13:ram[0x484]++;break;case 14:ram[0x486]++;break;
+      case 15:p.hScroll[1]++;break;case 16:p.vScroll[1]++;break;
+      case 17:p.hScroll[0]=1024;break;case 18:p.bgXsc[0]^=1;break;
+      case 19:p.bgXsc[1]=0x79;break;case 20:p.bgXsc[2]^=1;break;
+      case 21:p.inidisp=14;break;case 22:p.cgadsub=1;break;
+      case 23:p.windowsel=1;break;case 24:p.bgmode=1;break;
+      case 25:p.obsel=3;break;case 26:p.mosaic=1;break;
+      case 27:p.screenEnabled[0]=15;break;case 28:rom[0x8fb7d]^=1;break;
+      case 29:p.vram[0x7800]^=1;break;case 30:p.vram[0x7fff]^=1;break;
+      case 31:ram[0x48e]=8;break;
+    }
+    capture(22);assert(!s_packets[s_complete].valid);
+  }
+  /* Mid-raster source writes, anchor/register changes and state load remain
+   * refusals, even if the first line was independently source-qualified. */
+  for(unsigned bad=0;bad<4;++bad) {
+    room07_setup(owned_rom,owned_vram);LagoonSceneRenderer_Reset();s_mode=2;
+    for(unsigned line=1;line<=224;++line) {
+      if(line==100){if(bad==0)p.hScroll[1]++;if(bad==1)p.vramWriteCount++;if(bad==2)p.vram[0x7800]^=1;}
+      LagoonSceneRenderer_ObserveRaster(&p,line,ram,rom,sizeof(rom),bad==3&&line>100?23:22,1);
+    }
+    LagoonSceneRenderer_EndFrame(101,22,1);assert(!s_packets[s_complete].valid);
+  }
+  puts("PASS room07 actual compressed source/page guards:1positive,32entry refusals,4raster refusals,generation refusal");
+}
+int main(int argc,char **argv) {
   setup();LagoonSceneRenderer_Reset();s_mode=2;
   for(unsigned width=256;width<=800;width+=272) {
     size_t pitch=width*4+16;capture(7);source(width,pitch);
@@ -254,6 +359,7 @@ int main(void) {
   setup();for(unsigned line=1;line<=224;++line){if(line==100)p.wsOamLeftHintStrict=1;
     LagoonSceneRenderer_ObserveRaster(&p,line,ram,rom,sizeof(rom),7,1);}
   LagoonSceneRenderer_EndFrame(102,7,1);assert(!s_packets[s_complete].valid);
-  cave_vectors();additional_cave_vectors();cache_oracle();
+  cave_vectors();additional_cave_vectors();cache_oracle();parallax_pixels();
+  assert(argc==1||argc==3);if(argc==3)room07_guards(argv[1],argv[2]);
   puts("PASS independent planar rendering, immutable cached packets, full-word/pitch gate, verify/auto, reset and raster refusal");return 0;
 }

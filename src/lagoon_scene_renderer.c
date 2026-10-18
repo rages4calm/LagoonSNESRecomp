@@ -1,6 +1,7 @@
 /* Bounded independent scene drawing. Guest simulation, raster fallback and the
  * reference field remain authoritative. No framebuffer enters the packet. */
 #include "lagoon_scene_renderer.h"
+#include "lagoon_wide_entities.h"
 #include "snes/ppu.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,7 +26,7 @@ typedef struct ScenePacket {
   unsigned count,lines,frame,serial,valid;
   uint32_t vram_writes,oam_writes;
   int wx,wy,world_width,world_height;
-  unsigned native_x,native_y;
+  unsigned native_x,native_y,bg2_x,bg2_y,parallax;
   SceneOamPolicy policy;
   uint64_t generation;
 } ScenePacket;
@@ -75,6 +76,10 @@ static int scene_resources(const uint8_t *r,unsigned *definitions) {
   unsigned room=word(r,0x48e),d=ptr(r,0x69);
   if(room==0 && ptr(r,0x57)==0x138000 && ptr(r,0x5d)==0x198000 && d==0x068000) {
     if(!word(r,0x53)||word(r,0x53)>256||!word(r,0x55)||word(r,0x55)>256)return 0;
+  }else if(room==7 && word(r,0x53)==128 && word(r,0x55)==128 &&
+      ptr(r,0x57)==0x129e89 && ptr(r,0x5d)==0x1a906f && d==0x069720 &&
+      ptr(r,0x7e)==0x11fb7d && ptr(r,0x81)==0x11fb7d) {
+    /* BG2 is a separately owned static32x64 page pair, not this WRAM map. */
   }else {
     /* Each finite room is admitted independently; sharing art does not grant
      * permission to arbitrary rooms, map dimensions or loading/fading fields. */
@@ -128,13 +133,18 @@ void LagoonSceneRenderer_Reset(void) {
   report("reset",0,0);
 }
 static int supported(const Ppu *p,const uint8_t *r,const uint8_t *rom,size_t size,int authority) {
-  return authority&&r&&rom&&size==0x100000&&scene_resources(r,NULL)&&
-    !r[0x100e]&&!r[0x50]&&word(r,0x48c)<=64&&
+  int parallax=r&&word(r,0x48e)==7;
+  return p&&authority&&r&&rom&&size==0x100000&&scene_resources(r,NULL)&&
+    !r[0x100e]&&r[0x50]==(parallax?2:0)&&word(r,0x48c)<=64&&
     word(r,0x53)>0&&word(r,0x53)<=256&&word(r,0x55)>0&&word(r,0x55)<=256&&
     p->inidisp==15&&p->bgmode==9&&!p->mosaic&&p->obsel==2&&!p->setini&&
-    p->bgXsc[0]==0x71&&p->bgXsc[1]==0x79&&p->bgXsc[2]==0x3c&&p->bgTileAdr==0x600&&
+    p->bgXsc[0]==0x71&&p->bgXsc[1]==(parallax?0x7a:0x79)&&p->bgXsc[2]==0x3c&&p->bgTileAdr==0x600&&
     !p->cgadsub&&!(p->cgwsel&1)&&!p->windowsel&&!p->screenWindowed[0]&&!p->screenWindowed[1]&&
-    p->screenEnabled[0]==31&&p->hScroll[0]==p->hScroll[1]&&p->vScroll[0]==p->vScroll[1]&&
+    p->screenEnabled[0]==31&&
+    (parallax?(LagoonWideEntities_ParallaxScroll(word(r,0x480),word(r,0x482),word(r,0x484),word(r,0x486))&&
+      LagoonWideEntities_ParallaxScroll(p->hScroll[0],p->vScroll[0],p->hScroll[1],p->vScroll[1])&&
+      LagoonWideEntities_ParallaxMap(PpuRenderVram(p),rom,size)):
+      (p->hScroll[0]==p->hScroll[1]&&p->vScroll[0]==p->vScroll[1]))&&
     !p->hScroll[2]&&!p->vScroll[2]&&!(p->oamaddh&0x80)&&p->extraObjectCount<=OBJECTS&&
     (!p->extraObjectCount||p->extraObjects);
 }
@@ -186,6 +196,7 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
     s->wx=x+(((p->hScroll[0]&1023)-x+512)&1023)-512;
     s->wy=y+(((p->vScroll[0]&1023)-y+512)&1023)-512+1;
     s->native_x=p->hScroll[0];s->native_y=p->vScroll[0]+1;
+    s->parallax=word(r,0x48e)==7;s->bg2_x=p->hScroll[1];s->bg2_y=p->vScroll[1]+1;
     s->world_width=word(r,0x53)*8;s->world_height=word(r,0x55)*8;
     s->count=(unsigned)p->extraObjectCount;
     for(unsigned i=0;i<s->count;++i) {
@@ -241,12 +252,20 @@ static void background_row(const ScenePacket *s,unsigned width,unsigned y,int le
     unsigned layer,uint8_t *depth,uint16_t *colors) {
   for(unsigned x=0;x<width;) {
     int native=(int)x>=left&&(int)x<left+256;
-    int qx=native?(int)s->native_x+(int)x-left:s->wx+(int)x-left;
-    int qy=native?(int)s->native_y+(int)y:s->wy+(int)y;
+    int static_bg2=s->parallax&&layer==1;
+    int qx=static_bg2?(int)s->bg2_x+(int)x-left:
+      native?(int)s->native_x+(int)x-left:s->wx+(int)x-left;
+    int qy=static_bg2?(int)s->bg2_y+(int)y:
+      native?(int)s->native_y+(int)y:s->wy+(int)y;
     unsigned boundary=(int)x<left?(unsigned)left:native?(unsigned)left+256:width;
     unsigned count=8-(qx&7);if(count>boundary-x)count=boundary-x;
     unsigned tile;
-    if(native) {
+    if(static_bg2) {
+      /* Actual BG2 anchor and32x64 layout repeat the source-owned page pair.
+       * The same rule serves native and margins; no BG1 anchor or map is used. */
+      tile=s->vram[0x7800+(((unsigned)qy>>8)&1)*0x400+
+        (((unsigned)qy>>3)&31)*32+(((unsigned)qx>>3)&31)];
+    }else if(native) {
       unsigned address=0x7000+layer*0x800+((qy>>3)&31)*32+((qx>>3)&31)+((qx&256)?0x400:0);
       tile=s->vram[address&32767];
     }else {
@@ -308,13 +327,19 @@ static void render(const ScenePacket *s,unsigned width) {
         if(c&&pz>depth[x])colors[x]=s->pal[palette+c];
       }
     }
-    for(unsigned x=0;x<width;++x)s_pixels[y*width+x]=s_rgb15[colors[x]&32767];
+    for(unsigned x=0;x<width;++x) {
+      int outside=s->parallax&&((int)x<left||(int)x>=left+256)&&
+        (s->wx+(int)x-left<0||s->wx+(int)x-left>=s->world_width||
+         s->wy+(int)y<0||s->wy+(int)y>=s->world_height);
+      s_pixels[y*width+x]=outside?0:s_rgb15[colors[x]&32767];
+    }
   }
   ++s_stats.renders;s_stats.independent_pixels+=(uint64_t)width*H;
 }
 static int same_source(const ScenePacket *a,const ScenePacket *b) {
   if(a->generation!=b->generation||a->wx!=b->wx||a->wy!=b->wy||a->native_x!=b->native_x||a->native_y!=b->native_y||
     a->world_width!=b->world_width||a->world_height!=b->world_height||a->count!=b->count||
+    a->parallax!=b->parallax||a->bg2_x!=b->bg2_x||a->bg2_y!=b->bg2_y||
     memcmp(a->regs,b->regs,sizeof(a->regs))||memcmp(&a->policy,&b->policy,sizeof(a->policy))||
     memcmp(a->oam,b->oam,sizeof(a->oam))||memcmp(a->high,b->high,sizeof(a->high))||
     memcmp(a->pal,b->pal,sizeof(a->pal))||memcmp(a->vram,b->vram,sizeof(a->vram))||

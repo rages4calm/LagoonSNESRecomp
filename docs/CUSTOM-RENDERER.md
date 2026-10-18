@@ -1,8 +1,8 @@
 # Bounded custom scene renderer
 
 The interpreter safety net remains in place. `src/lagoon_scene_renderer.c` adds
-a bounded live software scene backend for stable Atland and exact Gold Cave03/04/05/06
-fields with Widescreen
+a bounded live software scene backend for stable Atland, exact Gold Cave03/04/05/06
+and room07 with independently owned parallax, with Widescreen
 enabled. It captures its
 own scene packet, independently draws a field, and compares every 32-bit output
 pixel with the existing presentation before allowing replacement. Unsupported
@@ -14,6 +14,42 @@ computes and checks the candidate without replacing the picture. Implementation
 and ROM-free unit tests alone do not prove live gameplay coverage; bounded runtime
 acceptance is recorded separately. There is currently no launcher selector for
 this diagnostic.
+
+Batch22 adds stable room07 with exact1024x1024 dimensions, BG129E89,
+OBJ1A906F, definitions069720 and WRAM50=2. BG1 keeps the existing circular
+native tilemap and independently owned world map. BG2 samples its own copied
+VRAM32x64 tilemap at7800/7C00 using its independent quarter-speed scroll anchors;
+it never borrows BG1 coordinates or the ordinary BG2 world-map path. Existing
+compressed11FB7D source and both decoded-page hashes are mandatory. Exact PPU
+layout71/7A/3C, full-word room, source pointers, stable field, generation,
+character/palette/OAM data and whole-reference equality remain required.
+Margins beyond the finite BG1 world are explicitly black after compositing.
+No new actor producer or loading/fading authority was added.
+
+Fresh same-executable off/auto comparisons on candidate`dde68792632ccea8...`
+with manifest`32e4c02646d6b8d2...` cover positions, finite edges and
+original06<->07 doors, with disclosed near-door/position fixture assistance:
+
+| Route | Ordered presentations | Replacements | Independent draws | Source pixels |
+| --- | ---: | ---: | ---: | ---: |
+| Room07 positions |1,305|1,055|515|78,675,520|
+| Room07 edges |783|533|253|38,650,304|
+| Original06<->07 doors |1,164|494|230|35,136,640|
+
+All twelve checkpoints match seven components, all3,252 ordered presentations
+agree and there are zero renderer mismatches. The2,082 replacements and998 draws
+sum overlapping route observations, not unique room frames. Unsupported/loading/
+fading fields use the original raster. These checks establish neither complete
+room coverage nor a performance improvement; the reference raster still runs.
+
+The helper adds1,863,680 synthetic independent BG2 scalar pixel checks across
+four anchor phases and256/342/682/800 widths, plus1,863,680 full-composite finite
+edge assertions. Optional external owned-ROM and actual room07 VRAM arguments
+exercise a real source/page-positive packet,32 entry refusals, four mid-raster
+refusals and a generation refusal; no game bytes are embedded. Run the existing
+ROM-free test executable with `<private.sfc> <room07.vram.bin>` for that additional
+source-guard check. These vectors complement rather than replace live off/auto
+qualification.
 
 Batch21's exact cave04/05/06 extension is qualified, selected and installed.
 Batch20 previously added stable cave03 to Atland.

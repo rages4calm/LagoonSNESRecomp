@@ -577,7 +577,7 @@ void LagoonWide_ObserveRaster(const Ppu *ppu,unsigned line,void *context) {
   LagoonSceneRenderer_ObserveRaster(ppu,line,g_ram,g_rom,0x100000,RtlStateGeneration(),
       !s_using_retained && s_was_active && !s_native_fallback && s_world_chars_ready &&
       (word(0x48e)==0 || word(0x48e)==3 || word(0x48e)==4 ||
-       word(0x48e)==5 || word(0x48e)==6) && !g_snesrecomp_last_hdmaen);
+       word(0x48e)==5 || word(0x48e)==6 || word(0x48e)==7) && !g_snesrecomp_last_hdmaen);
   if(!s_outdoor_frame || line<1 || line>224)return;
   if((s_using_retained ? !s_retained.valid : !audited_room_ready()) || !room_bounds_enabled(view_room()))return;
   if(view_parallax()) {
@@ -647,7 +647,7 @@ void LagoonWide_EndFrame(const uint8_t *field,unsigned number) {
   LagoonSceneRenderer_EndFrame(number,RtlStateGeneration(),
       !s_present_fallback && !s_using_retained && s_was_active &&
       (word(0x48e)==0 || word(0x48e)==3 || word(0x48e)==4 ||
-       word(0x48e)==5 || word(0x48e)==6) && !g_snesrecomp_last_hdmaen);
+       word(0x48e)==5 || word(0x48e)==6 || word(0x48e)==7) && !g_snesrecomp_last_hdmaen);
   if(!s_present_fallback && s_was_active)retain_completed_scene();
   report_outdoor(number);
   report_scene(number);

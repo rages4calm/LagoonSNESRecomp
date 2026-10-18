@@ -1,5 +1,40 @@
 # Current development checkpoint - October 18, 2026
 
+Batch22 is qualified, selected and installed: **382 AOT /119 analyzed LLE /263 roots**. Counts are not
+completion percentages. The interpreter safety net remains enabled.
+
+Executable `dde68792632ccea8bb80436f630188cf40161ea551bd352349c23c88ed4d9138`;
+manifest `32e4c02646d6b8d25740860e432c921d08e37e904a31dab05ee5c72ead12fbf4`.
+
+Exact tested outputs were moved without rebuilding or backups. The installed
+cold centered-camera refill check matches32 component hashes; seven owner inputs
+and the SDK index remain unchanged. Intentional SDK bridge changes are preserved
+in the cumulative patch. Hidden1080p EPX real-audio room07 measures60.09 updates/s,
+p9517.68ms and max18.72ms in a bounded sample; no locked60/fullscreen claim.
+
+Four native segments resume the original boss HP/MP refill across genuine waits,
+with exact source/mode/stack/generation/phase ownership. The approved centered
+camera trampoline retains its real caller frame. All378 prior native bodies and
+all prior exit-width facts remain byte-identical. Eleven affected old/new pairs
+match44,579 ordered observations and26 complete state/clock checkpoints, including
+all seven assisted boss wins, revival, player death and two partial HP/MP cases.
+Actual generated-code boundary oracle:23,040 cases. This does not certify all
+boss scripts, death recovery or a natural campaign.
+
+The stable room07 custom renderer handles independent parallax. Three same-exe
+positions/edges/door checks give2,082 replacements across3,252 ordered observations,
+with twelve seven-component checkpoints and zero mismatches. The reference
+renderer and unsupported-field fallback remain. See [batch22](../NATIVE-BATCH22-2026-10-18.md)
+and [frame pacing](PERFORMANCE.md) for scope and limits.
+
+Next: broader B816 boss-script and B43E/9346 death/revival ownership, then more
+exact custom-renderer families and specifically reported transitions. Optional
+map/door/exit discovery and zoom-out remain deferred. Owner/friends handle the
+uninterrupted natural campaign. Prior completed work below is historical; do not
+repeat it without a newly affected route.
+
+## Historical batch21 checkpoint
+
 Batch21 is qualified, selected and installed. Its counts are
 **378 AOT /119 analyzed LLE /259 roots**, not completion
 percentages. The interpreter safety net stays enabled.

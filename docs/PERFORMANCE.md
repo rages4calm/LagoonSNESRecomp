@@ -1,5 +1,23 @@
 # Performance and frame pacing
 
+## Batch22 room07 actual-door check
+
+Selected executable `dde68792632ccea8bb80436f630188cf40161ea551bd352349c23c88ed4d9138`.
+A hidden1920x1080 OpenGL/Enhanced(EPX),16:9 run with the real audio device traverses
+original03→04→05→06→07 doors, using explicit position assistance. No campaign
+warp, physical input, screenshots or per-field file writes are used. Buffered
+timing/probe output and the sole final checkpoint are written outside the sample.
+
+All551 logic rows in fields2000..2550 remain in room07 without loading. Across550
+presentation intervals, mean16.64215ms, p9517.6789ms, maximum18.7177ms and zero
+intervals above25ms give60.0884 presentation updates/sec. The final checkpoint
+at2583 confirms room07 and an actual custom-renderer replacement; the final33
+fields, including its dump I/O, are excluded. The whole route has1,688 replacements
+and zero mismatches, including earlier caves. This is one bounded presentation-
+call measurement, not fullscreen scanout, locked60FPS or campaign-wide pacing.
+
+## Earlier measurements
+
 The measurements and executable hashes below are historical, bound to their
 named batches. Batch 17 qualifies native execution and rendering correctness;
 it does not replace these measurements or establish full-game locked 60 FPS.
@@ -207,7 +225,7 @@ frame/RTS and hardware timeline; it does not overclock or subtract elapsed time.
 Unknown contexts execute the original generated bodies. There are no new AOT modes.
 
 Final executable432b5a5808eebcf8395d14c2399b43e1402a1149965c16a55a1bf875c8bb0629
-was tested at1920�1080/16:9, OpenGL, VSync, Enhanced original pixels and the real
+was tested at1920×1080/16:9, OpenGL, VSync, Enhanced original pixels and the real
 audio device (private volume0). All three runs share one frozen assisted dungeon
 state and the same scripted movement. No compilation/heavy parallel test ran
 during the measurements. Fields150..1200 exclude startup/loading/final dumps;

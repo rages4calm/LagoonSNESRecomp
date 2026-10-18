@@ -18,6 +18,12 @@ try {
   & $exe $romPath
   if($LASTEXITCODE){throw 'Recovery guard test failed'}
 
+  $boss=Join-Path $target 'native-boss-continuation.exe'
+  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isrc -Isnesrecomp/runner/src tests/lagoon_boss_continuation_test.c -o $boss
+  if($LASTEXITCODE){throw 'Boss continuation guard compilation failed'}
+  & $boss $romPath
+  if($LASTEXITCODE){throw 'Boss continuation guard test failed'}
+
   # Compile the current production matcher verbatim; no SDK edits or copy tree.
   $header=Get-Content -LiteralPath 'snesrecomp/runner/src/snes/interp_bridge.h' -Raw
   $source=Get-Content -LiteralPath 'snesrecomp/runner/src/snes/interp_bridge.c' -Raw

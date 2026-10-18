@@ -3,6 +3,22 @@
 Keep the interpreter safety net and publish source in substantial, verified
 batches. Generated routine counts are not campaign completion percentages.
 
+- [x] Install exact batch22 DDE68792 by moving qualified outputs, cold32-hash
+      parity and7 owner-input hashes unchanged; real-audio1080p EPX room07
+      stable sample60.09updates/s, p9517.68ms/max18.72ms,0 intervals above25ms.
+- [x] Batch22: four guarded native boss-refill segments across actual waits,
+      preserving all378 old bodies/exit facts;23,040 original-opcode cases,
+      281 source/registration and1,510 ancestor-policy cases.
+- [x] Eleven strict affected-route pairs: all seven assisted boss wins, revival,
+      final-boss player death and partial HP/MP recovery with stock/centered camera;
+      44,579 ordered observations and26 complete state/clock checkpoints.
+- [ ] Broader B816 boss scripts and B43E/9346 death/revival SPC/render ownership;
+      retain exact real-frame guards and the interpreter until qualified.
+- [x] Extend the exact custom renderer to room07's independent quarter-speed
+      BG2 parallax, source-owned static pages and finite1024x1024 bounds. Three
+      fresh off/auto routes match3,252 ordered presentation observations and
+      twelve seven-component checkpoints,2,082 replacements, zero mismatches.
+      No new actor/fade authority; reference raster and fallback retained.
 - [x] Qualify batch21 candidate378/119/259: B7D4's16-instruction original
       gold/EXP/level-up prefix through five existing native children,14,400 full original-opcode
       cases;4,800 boss-boundary/9,600 ordinary inputs and8,568 level-up cases.

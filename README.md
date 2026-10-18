@@ -6,28 +6,30 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress - October 18, 2026
 
-Batch21 is selected and installed with **378 AOT /119 analyzed LLE /259 roots**.
-The interpreter safety net remains. Counts are not completion percentages.
-This remains a beta/WIP; the owner and friends will perform the uninterrupted
-start-to-finish campaign playtest.
+Batch22 adds guarded native boss-refill continuations and the room07 custom
+renderer: **382 AOT /119 analyzed LLE /263 roots**. The interpreter safety net
+remains. Counts are not completion percentages. The owner and friends will
+perform the uninterrupted start-to-finish campaign playtest.
 
-The new native reward prefix performs original gold, EXP and level-up work,
-backed by14,400 generated-code/original-opcode oracle cases. Fresh strict paired
-checks pass all seven boss wins and revival. A separate explicitly staged ordinary
-enemy reward exercises the new prefix and original children: gold100→103,
-EXP0→64 and level1→3. This is focused evidence, not a natural full campaign.
+The native sequence now resumes across original HP/MP waits with the real saved
+register and caller frames, including the centered-camera path. All378 previous
+native bodies and exit facts are unchanged. Eleven fresh old/new route pairs
+match44,579 ordered presentation observations and26 complete checkpoints:
+seven assisted boss wins, revival, player death and two partially depleted HP/MP
+refills. The four new generated segments also pass23,040 original-opcode cases.
+This is bounded, assisted evidence, not complete native boss/death orchestration.
 
-Stable Gold Cave04/05/06 join Atland and Gold Cave03 in the independent custom
-scene renderer. Three fresh same-executable off/auto routes match2,741 ordered
-presentations across three overlapping routes and ten checkpoints, with1,359 actual replacements and zero
-mismatches. Real door loaders enter each added room; fixture position assistance
-is disclosed. The reference renderer still runs; no changed art, GPU speedup or
-new fade authority is claimed. The exact installed executable's cold reward
-check matches all24 component hashes across three checkpoints. A hidden1080p
-real-audio door-route check measures60.025Hz with no presentation intervals
-above25ms; this is not a fullscreen or locked60FPS claim. The interpreter safety net remains throughout.
-See [batch21](NATIVE-BATCH21-2026-10-18.md), [batch20](NATIVE-BATCH20-2026-10-18.md) and
-[the custom renderer](docs/CUSTOM-RENDERER.md).
+Room07 joins stable Atland and exact Gold Cave03/04/05/06 in the independent
+custom scene renderer. Its independent parallax background passes three final
+same-executable off/auto routes for positions, edges and original06↔07 doors:
+3,252 ordered observations, twelve seven-component checkpoints,2,082 replacements
+and zero mismatches. Routes overlap. The reference renderer, unsupported-field
+fallback and original art remain; this is not a GPU speedup or complete-area claim.
+
+See [batch22](NATIVE-BATCH22-2026-10-18.md),
+[the custom renderer](docs/CUSTOM-RENDERER.md) and
+[frame pacing evidence](docs/PERFORMANCE.md). Previous reward and cave renderer
+qualification is preserved in [batch21](NATIVE-BATCH21-2026-10-18.md).
 
 The five audited menu checks open Items/Magic/Equipment in20/18/19 fields and
 close in22 using twelve original charged DMA jobs. Giles accepts wound dressing
