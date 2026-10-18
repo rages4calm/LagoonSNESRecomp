@@ -1,70 +1,65 @@
 # Current development checkpoint - October 17, 2026
 
-Batch 17 is selected after 22 fresh matched comparisons: 71,121 ordered pictures
-and 66 complete state/clock checkpoints. Read
-[batch 17](../NATIVE-BATCH17-2026-10-17.md) and the root resume instructions.
-Launch with `Start Lagoon.cmd`; the runtime is `build/LagoonSNESRecomp.exe`.
+Batch 18 is selected after 22 fresh comparisons covering 71,239 ordered frames
+and 50 complete state/clock checkpoints. The exact tested executable is installed
+and passes an isolated cold Items-menu replay. Read [batch 18](../NATIVE-BATCH18-2026-10-17.md). The normal
+runtime path remains `build/LagoonSNESRecomp.exe`, launched with `Start Lagoon.cmd`.
 
-Program: **375 AOT / 123 declared LLE / 258 analysis roots**, preserving all 369.
+Program: **376 AOT / 119 analyzed LLE / 258 roots**, retaining all 375 prior modes.
 Selected executable SHA256:
-`37a0a0c71349146f3bcc39d8edb51dc206cf2c04b935f43348de8edfb7df4d60`.
+`d52e1f01682fc63dfb398b35fc37fd67f04d2f9a35dbac15abd2f365378d4a12`.
 Manifest SHA256:
-`1e8f80b104d797614cec49ba2ae82a86f12bc7dd126927b0b93a704f93940635`.
+`67b8ea9ab01deda512cf58bae7ab45966202f82355fcbd216d0feb5fc7ab5190`.
 
 ## Native scope
 
-Five new exact M1/X0 boss child states are bank 01 B1A7, B306, B354, B368 and
-B39A. Explicit synthetic actor-state setup reaches their original dispatcher,
-normal and threshold paths, including the original 9592 child call. All 99
-reachable source instruction keys execute. Matched coverage removes 514
-interpreted executions, 482 excluding returns. This is assisted execution proof,
-not natural boss progression, a completion percentage or an FPS measurement.
+New 0192C3:M1X0 performs four original death-classification RAM/branch operations.
+Boss death retains original 92CD/0080E9 table dispatch on the interpreter;
+ordinary death tails into already-native 92F1 velocity reset with its real
+return frame. No new continuation, return-width or SDK ABI is introduced.
 
-The sixth new mode, 019313:M1X0, performs four original RAM operations after the
-real boss-death queue wait returns. A source-guarded single-use continuation
-witnesses the existing wait and outer return frames; it fabricates no frame.
-Original 931E/audio and broader death/wait orchestration remain interpreted.
-The original Samson defeat fixture executes all four new operations natively.
+Final same-host 375→376 Samson-kill/player-death pairs pass 4,432 ordered frames
+and six complete eight-component/clock checkpoints. All four new source keys
+execute. Seven prefix interpretations plus five existing-leaf interpretations
+are removed: 12 total, 11 excluding returns. Both coverage profiles are loss-free
+and warning-free. This is bounded actual death-path proof, not full orchestration.
 
-All 369 prior modes remain; 368 old bodies are byte-identical. B131's only live
-changes are its five newly native dispatch arms. Previously unreachable inline
-child blocks are pruned. Other widths, unknown table targets, the 25 timing/audio
-deferrals, camera seams and opening floor retain the interpreter. SDK pin a6be975
-and its intentionally dirty working tree are preserved.
+Against selected 375, 374 complete old bodies are exact; 89A7 adds only an HLE
+guard and pending initialization, with its entire original fallback body exact.
+Between updated-host 375 and 376 all 375 old bodies are byte-identical. The LLE
+count drops 123→119 from one native conversion and three pruned, uncompiled
+analysis descendants. Those original table descendants remain interpreted.
+Keep 25 timing/audio deferrals, camera seams, opening floor and other modes.
 
 ## Menus and widescreen
 
-Items/Magic/Equipment openings remain 40/38/39 fields. Closing improves 52→32
-fields in room 01/room 02 and 53→33 in Atland. Forced blank remains 24/25 fields;
-the 20-field gain shortens only guarded close-fade waits. All brightness writes,
-original queue/DMA waits and unknown-context fallback remain. A virtual zero is
-visible only to the exact original timer poll; the real counter stays 1, avoiding
-the rejected zero-store/NMI decrement-to FF race. Original-opcode checks cover
-1,920 timer/NMI interleavings and 72 full fades.
+The HUD RAM fill at 018AD1..018AF0 passes 768 original-opcode cases and 2,195
+guard checks, stopping before original 018AF2. A guarded existing-native 89A7
+entry additionally services only seven owned BG/OBJ chunks through real 420B
+DMA, retaining actual transfer charges, bytes, source and destination. Unknown
+callers, pending work, active channels and unforced display fall back unchanged.
+The original fallback stays in the generated body; no extra AOT mode is counted.
 
-Room 07 now supports its original quarter-speed BG2 independently of BG1 and
-uses its authored 32×64 static tilemap. Exact resource, complete-map, character,
-partial-write and generation guards remain. Central samples match 95,424 BG
-pixels; edge samples match 41,876 BG, 5,836 OAM and 47,712 required-black pixels.
-Native-center and guest-state checks are separate from these source-color proofs.
-Stable Atland custom rendering and optional Enhanced remain; there is no new
-graphics backend, retexture or locked 60 FPS claim.
+Five actual menu checks show 32→25 closing fields in room 01/room 02 and 33→26
+in Atland; blank drops 24→17 or 25→18. Original fade timing remains unchanged. Ordinary per-NMI animation/OAM updates occur fewer times over the shortened
+transition. All five sampled resource checks pass. Animated VRAM's 384-byte
+upload matches its actual descriptor-selected ROM phase; other VRAM is unchanged.
+Atland/outdoor palette differences follow the original three-color rotation,
+including every 274/1,742 changed framebuffer pixel. This is source-phase proof,
+not a claim that historical settled framebuffers are byte-identical.
 
-## Qualification and remaining work
+Room 07 incoming/outgoing door fades are each wide for 46 fields. Sampled margins
+match 190,848 original source pixels. The outgoing packet owns both static BG2
+pages, independent quarter-scroll anchors and generation. Its original 34-word
+top-edge queue requires exact source/map/destination plus all 68 ordered bytes;
+partial, mismatched, duplicate, interrupted or stale streams refuse. Reset tests
+pass. Final integrated comparisons pass with the exact selected executable.
 
-The new five-state fixture passes four complete state/clock checkpoints and
-ordered presentations against the same updated-host 369 control. Both profiles
-have zero loss counters and no SDK warnings. The final 22 comparisons also cover
-15 combat/death/revival regressions, the real boss-death cleanup, three menu
-routes and two room 07 routes. The exact tested binary is selected, and its
-isolated cold Items replay passes. Historical captures are not relabeled.
+## Limits
 
-The owner and friends will handle the uninterrupted campaign/credits playtest.
-Remaining work includes broader native death/boss orchestration, original menu
-loader waits, other widescreen menu/scripted/transition layouts, optional
-soundtrack mappings and hardware/controller qualification. Keep interpreter
-fallback until replacement paths have equivalent evidence.
-
-Use the compact root validation kit. Do not recreate completed work trees,
-SDK/build/save backups or raw replay archives. Owner-run cleanup handles the
-bounded completed batch after automatic deletion rejection.
+The custom renderer remains Atland-only; Enhanced is optional and Smooth removed.
+No new backend, retexture, locked 60 FPS, full-native or full audio-parity claim is
+made. Broader death/revival/boss logic, remaining menu/scripted/wide transitions,
+soundtrack mappings and hardware/controller checks remain open. Owner/friends
+perform the uninterrupted campaign. Reuse the compact fixtures; do not repeat
+completed 99/73-room exploration or canonical 79 ingestion. Preserve the dirty SDK.

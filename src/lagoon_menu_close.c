@@ -17,6 +17,14 @@ static void width(CpuState*c,int wide){c->m_flag=!wide;c->P=(c->P&~0x20)|(wide?0
 static int valid(const CpuState*c){return c&&c->m_flag&&!c->x_flag&&!c->emulation&&!c->D&&!c->_flag_D&&!(c->P&8)&&c->S>=0x100&&c->S<=0x1f0;}
 static int romread(const uint8_t*rom,size_t size,unsigned address,unsigned *out){unsigned bank=address>>16,low=address&65535;if((bank&127)>=32||low<32768)return 0;size_t q=(bank&31)*32768+(low&32767);if(q>=size)return 0;*out=rom[q];return 1;}
 static int rw(const uint8_t*rom,size_t size,unsigned address,unsigned*out){unsigned a,b;if(!romread(rom,size,address,&a)||!romread(rom,size,address+1,&b))return 0;*out=a|b<<8;return 1;}
+/* Exact018AD1..018AF0. The following original018AF2 upload call remains
+ * real. All bounds and CPU modes validate before the first RAM write. */
+int LagoonMenuClose_FillHud(uint8_t*r,CpuState*c){
+ if(!r||!valid(c)||c->PB!=1||c->DB!=1)return 0;
+ for(unsigned i=0;i<0x800;i+=2)put(r,0x3000+i,0x01ff);
+ c->X=0x800;put(r,0x28c,c->X);put(r,0x28a,0x3c00);c->A=0;carry(c,1);nz(c,0,0);
+ width(c,0);return 1;
+}
 static void asl16(CpuState*c){carry(c,c->A&0x8000);a16(c,c->A<<1);}
 static void lsr16(CpuState*c){carry(c,c->A&1);a16(c,c->A>>1);}
 static int longread(const uint8_t*rom,size_t size,const uint8_t*r,unsigned q,unsigned*out){
@@ -121,7 +129,11 @@ static uint64_t hash(const uint8_t*r,unsigned n){uint64_t h=UINT64_C(14695981039
 static int menu(unsigned pc){return pc==0x02b73a||pc==0x02b87d||pc==0x02bc9b;}
 static void close_hook(CpuState*c,uint32_t pc){
  unsigned s=c->S;if(!g_rom||!valid(c)||s>0x1e9||!(g_ram[0x23d]&128)||g_ram[0x275]!=0x81||g_ram[0x100e])return;
- if(pc==0x018a32){
+ if(pc==0x018ad1){
+  if(c->PB!=1||c->DB!=1||word(g_ram,s+1)!=0x8743||triple(g_ram,s+3)!=0x0080e3||g_ram[s+6]!=2||!menu(triple(g_ram,s+7)))return;
+  if(hash(g_rom+0x8acd,0x29)!=UINT64_C(0x6775aa0a59bb058d))return;
+  if(LagoonMenuClose_FillHud(g_ram,c))interp_bridge_pre_opcode_redirect(0x018af2);
+ }else if(pc==0x018a32){
   if(c->PB!=1||c->DB!=1||word(g_ram,s+3)!=0x8740||triple(g_ram,s+5)!=0x0080e3||g_ram[s+8]!=2||!menu(triple(g_ram,s+9)))return;
   if(hash(g_rom+0x8a32,0x2b)!=UINT64_C(0xd86c75e6a4d5a83d)||hash(g_rom+0x89fd,0x13)!=UINT64_C(0x3d7f288a19ab6db4))return;
   unsigned landing;if(LagoonMenuClose_AdvanceTile(g_ram,c,&landing))interp_bridge_pre_opcode_redirect(landing);
@@ -140,7 +152,7 @@ static void close_hook(CpuState*c,uint32_t pc){
   unsigned landing;if(LagoonMenuClose_QueueTile(g_ram,c,&landing))interp_bridge_pre_opcode_redirect(landing);
  }
 }
-void LagoonMenuClose_BeforeFrame(void){static int ready;if(!ready&&g_rom){int a=interp_bridge_add_pre_opcode_hook(0x02c5c6,close_hook);int b=interp_bridge_add_pre_opcode_hook(0x0089ec,close_hook);int d=interp_bridge_add_pre_opcode_hook(0x018a10,close_hook);int e=interp_bridge_add_pre_opcode_hook(0x018a32,close_hook);ready=a&&b&&d&&e;}}
+void LagoonMenuClose_BeforeFrame(void){static int ready;if(!ready&&g_rom){int a=interp_bridge_add_pre_opcode_hook(0x02c5c6,close_hook);int b=interp_bridge_add_pre_opcode_hook(0x0089ec,close_hook);int d=interp_bridge_add_pre_opcode_hook(0x018a10,close_hook);int e=interp_bridge_add_pre_opcode_hook(0x018a32,close_hook);int f=interp_bridge_add_pre_opcode_hook(0x018ad1,close_hook);ready=a&&b&&d&&e&&f;}}
 #endif
 
 

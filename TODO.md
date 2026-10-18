@@ -39,6 +39,14 @@ batches. Generated routine counts are not campaign completion percentages.
       retaining original brightness writes, NMI counter behavior and upload waits.
 - [x] Room 07 quarter-speed BG2 and static 32×64 map ownership, with original
       native center, source colors, margin actors and real world-edge clipping.
+- [x] Select batch 18 after 22 fresh comparisons: 71,239 ordered frames and 50
+      complete state/clock checkpoints; install the exact tested 376 executable.
+- [x] Native 92C3 death classification with real boss/ordinary branches; existing
+      velocity-reset leaf reused and all 375 prior modes retained.
+- [x] Source-guarded HUD fill and seven genuine charged BG/OBJ transfers on
+      audited submenu close; five measured closes 32→25 (Atland 33→26), blank 24→17 (Atland 25→18).
+- [x] Source-owned room 07 incoming/outgoing parallax door fades, 46 fields each;
+      partial streams and timeline changes still reject retained authority.
 - [ ] Promote full death/revival and remaining boss-phase orchestration
       only after proving their indirect and nonlocal stack continuations.
 - [ ] Continue native promotion from measured hot paths; resolve existing
@@ -83,8 +91,8 @@ batches. Generated routine counts are not campaign completion percentages.
       Elf Field Start and its loaded fade are covered in batch 16; other layouts remain.
 - [x] Built-in Items/Magic/Equipment transition acceleration with transactional
       original-resource decoding; 75 streams / 300 original-instruction oracle cases.
-- [ ] Profile remaining original world-loader close work after batch 17 fade acceleration
-      (32 room 01 /33 Atland total closing fields, including fades) without broadening unsupported decoder or return-frame guards.
+- [ ] Profile remaining original world-loader close work after batch 18 menu acceleration
+      (25 room 01 / 26 Atland total closing fields, including fades) without broadening unsupported decoder or return-frame guards.
 - [x] Remove Smooth scaling; retain optional Enhanced original pixels.
 - [x] Preserve both raster register journals in development states; fix alternating
       black frames after cold loading, with consecutive-field and hidden GPU checks.

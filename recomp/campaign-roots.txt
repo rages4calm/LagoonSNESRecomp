@@ -212,3 +212,4 @@
 
 # Source-guarded post-wait boss-death RAM prefix; original931E remains LLE.
 019313:M1X0
+0192C3:M1X0

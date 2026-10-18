@@ -54,6 +54,34 @@ int LagoonWideEntities_WorldCharacters(const uint16_t *vram,
 /* Room07's original static32x64 BG2 map and quarter-speed raster contract. */
 int LagoonWideEntities_ParallaxMap(const uint16_t *vram,const uint8_t *rom,size_t size);
 int LagoonWideEntities_ParallaxScroll(unsigned x0,unsigned y0,unsigned x1,unsigned y1);
+/* Room07 outgoing packet: both static BG2 pages and the original four
+ * quarter-speed anchors, bound to the state timeline and clean source. */
+typedef struct LagoonWideParallaxPacket {
+  uint16_t pages[0x800];
+  unsigned camera[4];
+  uint64_t generation;
+  int valid;
+} LagoonWideParallaxPacket;
+int LagoonWideParallaxPacket_Capture(LagoonWideParallaxPacket *packet,
+    const uint16_t *vram,const uint8_t *rom,size_t size,uint64_t generation,
+    const unsigned camera[4]);
+int LagoonWideParallaxPacket_Match(const LagoonWideParallaxPacket *packet,
+    const uint16_t *vram,const uint8_t *rom,size_t size,uint64_t generation,
+    const unsigned camera[4],const unsigned raster[4]);
+/* Exact original NMI top-edge stream:34 [BG1 word address,tile] pairs.
+ * Preparing a new job never lends authority to an incomplete earlier job. */
+typedef struct LagoonWideParallaxQueue {
+  uint16_t address[34],tile[34];
+  uint64_t generation;
+  unsigned next;
+  int valid;
+} LagoonWideParallaxQueue;
+int LagoonWideParallaxQueue_Begin(LagoonWideParallaxQueue *queue,
+    const LagoonWideRetainedMap *map,const uint8_t *source,size_t size,
+    const unsigned camera[4],uint64_t generation);
+int LagoonWideParallaxQueue_Write(LagoonWideParallaxQueue *queue,
+    unsigned address,unsigned value,uint64_t generation);
+int LagoonWideParallaxQueue_Pending(const LagoonWideParallaxQueue *queue);
 int LagoonWideEntities_WorldTilemap(const uint16_t *vram,unsigned base,
     int tile_x,int tile_y,const uint16_t expected[720]);
 /* Exact streamed world graphics upload from $01:8875/$01:88CD. */

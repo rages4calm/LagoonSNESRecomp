@@ -148,3 +148,46 @@ covering1,920 boundary interleavings and 72 complete fades, including every
 brightness write, registers, stack and untouched WRAM. It also witnesses the
 zero-store FF regression. This is bounded timer/NMI proof, not a model of the
 entire NMI/DMA system. Unknown contexts retain original timing.
+
+## Batch 18 HUD fill and real linear DMA
+
+The exact-source/caller-guarded 018AD1..018AF0 HUD fill passes 768 original-opcode
+cases and 2,195 production guard checks. The original 018AF2 upload call remains.
+A second suspected fill was already native on actual close and is excluded from
+new-work claims.
+
+Only seven original linear BG/OBJ chunks are serviced earlier, during actual
+forced blank. The existing native 0089A7 entry has a guarded HLE callback; false
+continues its unchanged original body. Exact real return frames, CPU modes,
+producer pointers, remaining lengths, destinations, empty queues, exclusive
+request state, no pending work, no active DMA/HDMA channels and normal VRAM
+increment mode must all match before the first MMIO write. Unknown contexts
+refuse without RAM/CPU/output/MMIO changes.
+
+Success programs the original registers and writes real 420B. DMA still completes
+and charges every transferred byte. The original completed-poll CPU result,
+22-cycle native budget, coprocessor timing anchor, flags, real three-byte return
+and open bus are preserved. This is scheduled DMA, not a framebuffer copy or
+skipped upload. The consumer oracle covers 84 cases/4,116 refusals; function-entry
+checks cover 28 original-instruction cases/196 refusals. They are not a model of
+the unrelated timer, animation and OAM work of an entire NMI.
+
+Five actual route checks close in 25 rather than 32 fields in room 01/room 02,
+and 26 rather than 33 in Atland. Forced blank is 17/18 instead of 24/25; fades
+retain their original timing. All seven BG/OBJ transfers and their source/destination/length
+remain. Per-NMI animation/OAM counts legitimately decrease with elapsed fields.
+All five sampled resource checks pass source-phase verification. Channel 3's
+384-byte animated VRAM upload at 3B00 matches the original ROM phase selected
+by 0410..0416; all other VRAM is unchanged. Atland's original 01D990..D9CB
+routine cycles six palette bytes from ROM 01D9CC every four active gameplay
+ticks, including duplicate B0/F0 entries. Outdoor room 02 uses original
+01D9E9..DA2B/ROM 01DA30 at CGRAM 90. The old/new phase 1→2 rotation accounts
+exactly for all 274 Atland and 1,742 outdoor changed framebuffer pixels through
+three original colors. No all-five historical settled-framebuffer byte parity
+is claimed. Three final same-updated-host 375→376 menu comparisons pass all
+ordered output and complete guest-state/clocks. The selected batch 18 includes
+22 total comparisons/71,239 frames/50 checkpoints; see its handoff.
+
+The initial pre-opcode 89AC prototype was inert because 89A7 already ran natively;
+it is excluded from accepted improvements. The final callback uses the existing
+guarded-entry ABI without changing the SDK or counting another native variant.

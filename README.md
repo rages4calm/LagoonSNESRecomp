@@ -6,32 +6,31 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress - October 17, 2026
 
-This is a playable development port with **375 AOT variants, 123 declared LLE
-variants and 258 analysis roots**. All 369 prior native variants remain. The
-interpreter safety net stays enabled; counts are not completion percentages.
+Batch 18 is selected with **376 AOT variants, 119 analyzed LLE variants and 258
+analysis roots**, keeping all 375 prior native modes and the interpreter safety
+net. Counts are not completion percentages.
 
-Audited Items/Magic/Equipment closing now takes **32 fields** in room 01 and
-outdoor room 02, **33 in Atland**, down from 52/53. The 20-field improvement
-retains every original brightness write, upload and queue-full wait. Openings
-remain 40/38/39 fields. Unknown contexts retain the original behavior.
+The tested build passes 22 fresh comparisons: 71,239 ordered frames and 50 complete
+state/clock checkpoints. That exact executable is installed and passes an
+isolated cold Items-menu check. Settings and saves stay local.
 
-Five original boss child states now execute natively through the original
-dispatcher. An explicitly synthetic actor-state fixture exercises all 99 source
-instruction keys and removes 514 interpreted executions, 482 excluding returns.
-A separate original Samson defeat fixture also executes a guarded four-operation
-native cleanup after its real wait; the following audio call remains interpreted.
-These bounded tests do not establish natural campaign progression or full native
-death/boss orchestration.
+The new four-instruction death-classification prefix executes on both original
+Samson-kill and player-death paths. Its ordinary-death branch also reaches an
+existing native velocity-reset leaf. Broader death/table dispatch and audio
+orchestration remain interpreted.
 
-Batch 17 passes 22 fresh matched comparisons covering 71,121 ordered frames
-and 66 complete state/clock checkpoints. The exact tested executable is selected
-and passes an isolated cold menu replay. Settings and saves stay local.
+Audited Items/Magic/Equipment close seven fields faster: 25 fields in room 01/02
+and 26 in Atland, including 17/18 forced-blank fields. All seven original BG/OBJ
+transfers still use real charged DMA. Source checks verify the original graphics
+and palettes at their actual animation phases; shortened timing naturally changes
+how many NMI animation/OAM updates occur. Historical framebuffer phases are not
+claimed byte-identical.
 
-Room 07 now widens its independently scrolling background using the original
-quarter-speed scroll and guarded static 32×64 BG2 map. Central and world-edge
-samples resolve to original background/OAM colors or required black. Elf Field
-Start/fade and the existing menu layouts retain their earlier guarded support.
-Broader scripted scenes, transitions and unsupported resources still fall back.
+The audited room 06↔07 door fades now retain their independently scrolling
+world for 46 fields each. Sampled margins match original source colors;
+reset, partial-map writes and stale-generation packets still refuse ownership.
+Elf Field Start/fade and existing guarded menu layouts retain their support.
+Other scripted scenes, transitions and unsupported resources still fall back.
 
 Widescreen supports 16:9, 16:10, 21:9, 32:9 and window-driven aspects in audited
 areas, with original pixels and guarded world/actor composition. Supported town,
@@ -49,7 +48,8 @@ The owner and friends will perform the uninterrupted start-to-finish playtest.
 Records 2A/3F, broader native death/boss orchestration, remaining widescreen gaps,
 optional soundtrack mappings and hardware/controller qualification remain open.
 
-Read [batch 17](NATIVE-BATCH17-2026-10-17.md),
+Read [batch 18](NATIVE-BATCH18-2026-10-17.md),
+[selected batch 17](NATIVE-BATCH17-2026-10-17.md),
 [current status](docs/DEVELOPMENT-STATUS.md), [menu details](docs/FAST-MENUS.md),
 [widescreen scope](docs/WIDESCREEN.md), [custom renderer](docs/CUSTOM-RENDERER.md),
 [performance evidence](docs/PERFORMANCE.md), [save states](docs/SAVE-STATES.md)

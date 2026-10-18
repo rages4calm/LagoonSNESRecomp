@@ -685,3 +685,30 @@ required-black pixels. These bounded scene proofs do not authorize other
 parallax rooms, scripted layouts or every transition. The independent custom
 renderer remains Atland-only; this extension uses the guarded reference PPU.
 See [batch 17](../NATIVE-BATCH17-2026-10-17.md) for integrated qualification.
+
+## Room 07 directional door fades, batch 18
+
+Both directions of the audited room 06↔07 door fades retain their source-owned world
+for 46 fields each. Sampled margins total 190,848 exact original source pixels;
+the native-center/guest-state comparisons remain separate checks. Reset and
+generation tests reject stale outgoing packets.
+
+The outgoing packet freezes both complete authored 32×64 BG2 pages and its four
+quarter-scroll anchors. It never resolves that static layer through BG1's map.
+Actual RAM can still name 07 when its NMI top-edge stream runs, then name 06 later
+in the same field. Both exact audited contexts may witness the original 34-word
+job. Every address/tile must match the old authored BG1 map; all 68 VRAM bytes
+must arrive in order. Unknown, duplicate, missing, interrupted, partial or stale
+jobs cannot lend outgoing authority. Unsupported ordinary scrolling only drops
+the retained packet, preserving the independently guarded live-world policy.
+
+New world graphics, static map changes and timeline jumps still invalidate it.
+No DMA is skipped or replayed, and guest VRAM/OAM are not synthesized. Other
+parallax/scripted/transition layouts remain unsupported until independently
+owned. The independent custom renderer remains Atland-only.
+
+The selected batch 18 executable repeats final narrow/wide door, source-pixel and
+reset checks, alongside the older Elf Field regression. Its combined gate passes
+22 comparisons, 71,239 ordered frames and 50 complete state/clock checkpoints;
+these aggregate totals also include native and menu tests, not just widescreen.
+See [batch 18](../NATIVE-BATCH18-2026-10-17.md).

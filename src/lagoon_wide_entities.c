@@ -243,6 +243,60 @@ int LagoonWideEntities_ParallaxMap(const uint16_t *vram,const uint8_t *rom,size_
   return 1;
 }
 
+int LagoonWideParallaxPacket_Capture(LagoonWideParallaxPacket *packet,
+    const uint16_t *vram,const uint8_t *rom,size_t size,uint64_t generation,
+    const unsigned camera[4]) {
+  if(!packet)return 0;
+  packet->valid=0;
+  if(!camera || !LagoonWideEntities_ParallaxScroll(camera[0],camera[1],camera[2],camera[3]) ||
+      !LagoonWideEntities_ParallaxMap(vram,rom,size))return 0;
+  memcpy(packet->pages,vram+0x7800,sizeof(packet->pages));
+  memcpy(packet->camera,camera,sizeof(packet->camera));
+  packet->generation=generation;packet->valid=1;return 1;
+}
+int LagoonWideParallaxPacket_Match(const LagoonWideParallaxPacket *packet,
+    const uint16_t *vram,const uint8_t *rom,size_t size,uint64_t generation,
+    const unsigned camera[4],const unsigned raster[4]) {
+  return packet && packet->valid && packet->generation==generation && camera && raster &&
+      !memcmp(packet->camera,camera,sizeof(packet->camera)) &&
+      LagoonWideEntities_ParallaxScroll(packet->camera[0],packet->camera[1],packet->camera[2],packet->camera[3]) &&
+      LagoonWideEntities_ParallaxScroll(raster[0],raster[1],raster[2],raster[3]) &&
+      LagoonWideEntities_ParallaxMap(vram,rom,size) &&
+      !memcmp(packet->pages,vram+0x7800,sizeof(packet->pages));
+}
+
+int LagoonWideParallaxQueue_Pending(const LagoonWideParallaxQueue *queue) {
+  return queue && queue->valid && queue->next<68;
+}
+int LagoonWideParallaxQueue_Begin(LagoonWideParallaxQueue *queue,
+    const LagoonWideRetainedMap *map,const uint8_t *source,size_t size,
+    const unsigned camera[4],uint64_t generation) {
+  if(!queue)return 0;
+  int pending=LagoonWideParallaxQueue_Pending(queue);queue->valid=0;
+  if(pending || !map || !source || size!=136 || !camera ||
+      !LagoonWideEntities_ParallaxScroll(camera[0],camera[1],camera[2],camera[3]))return 0;
+  int left=(int)(camera[0]/8)-1,top=(int)(camera[1]/8);
+  for(unsigned n=0;n<34;++n) {
+    int x=left+(int)n;
+    unsigned address=0x7000+((top&31)*32)+(x&31)+((x&32)?0x400:0);
+    unsigned actual=source[n*4]|source[n*4+1]<<8;
+    unsigned tile=source[n*4+2]|source[n*4+3]<<8;
+    if(actual!=address || tile!=LagoonWideRetainedMap_Tile(map,0,x*8,top*8))return 0;
+    queue->address[n]=(uint16_t)address;queue->tile[n]=(uint16_t)tile;
+  }
+  queue->generation=generation;queue->next=0;queue->valid=1;return 1;
+}
+int LagoonWideParallaxQueue_Write(LagoonWideParallaxQueue *queue,
+    unsigned address,unsigned value,uint64_t generation) {
+  if(!queue)return 0;
+  if(!LagoonWideParallaxQueue_Pending(queue) || queue->generation!=generation ||
+      address!=(unsigned)queue->address[queue->next/2]*2+(queue->next&1) ||
+      value!=((queue->tile[queue->next/2]>>((queue->next&1)*8))&255)) {
+    queue->valid=0;return 0;
+  }
+  ++queue->next;return 1;
+}
+
 int LagoonWideEntities_WorldTilemap(const uint16_t *vram,unsigned base,
     int tile_x,int tile_y,const uint16_t expected[720]) {
   if(!vram || !expected || base>0x7800 || tile_x<0 || tile_y<0)return 0;
@@ -466,6 +520,10 @@ static void observe_vram_byte(uint32_t adr,uint8_t value) {
 }
 static void observe_dma(const Dma *dma,unsigned channel,const DmaChannel *t) {
   if (!g_config.widescreen || !g_rom || !g_ppu) return;
+  if(channel==1 && !t->fromB && t->mode==4 && t->bAdr==0x16 &&
+      !t->fixed && !t->decrement && t->aBank==0x7e && t->aAdr==0x2600 &&
+      g_ppu->vramIncrement==1 && g_ppu->vramIncrementOnHigh && !g_ppu->vramRemapMode)
+    LagoonWide_OnParallaxQueueDma(t->size);
   if (!t->fromB && (t->bAdr==0x18 || t->bAdr==0x19)) {
     unsigned channels=0;
     for (unsigned i=0;i<8;++i) channels+=dma->channel[i].dmaActive!=0;

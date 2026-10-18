@@ -7,6 +7,14 @@
 #include <string.h>
 static uint8_t rom[0x100000],ram[0x20000],fast[0x20000];
 static uint16_t vram[32768];
+static LagoonWideRetainedMap map;
+static uint8_t queue_source[136];
+static void queue_job(LagoonWideParallaxQueue *queue,unsigned count,uint64_t generation) {
+  for(unsigned n=0;n<count;++n) {
+    unsigned a=queue_source[(n/2)*4]|queue_source[(n/2)*4+1]<<8;
+    assert(LagoonWideParallaxQueue_Write(queue,a*2+(n&1),queue_source[(n/2)*4+2+(n&1)],generation));
+  }
+}
 static uint8_t read_byte(void *m,uint32_t a) {
   (void)m;unsigned bank=a>>16,off=a&65535;
   if(bank==126 || bank==127)return ram[(bank-126)*65536+off];
@@ -58,6 +66,95 @@ int main(int argc,char **argv) {
   }
   assert(!LagoonWideEntities_ParallaxScroll(1024,0,256,0));
   assert(!LagoonWideEntities_ParallaxScroll(0,1024,0,256));
+  LagoonWideParallaxPacket packet={0};
+  unsigned camera[4]={362,614,90,153};
+  assert(LagoonWideParallaxPacket_Capture(&packet,vram,rom,sizeof(rom),27,camera));
+  assert(LagoonWideParallaxPacket_Match(&packet,vram,rom,sizeof(rom),27,camera,camera));
+  assert(!LagoonWideParallaxPacket_Match(&packet,vram,rom,sizeof(rom),28,camera,camera));
+  for(unsigned n=0;n<0x800;++n) {
+    vram[0x7800+n]^=1;
+    assert(!LagoonWideParallaxPacket_Match(&packet,vram,rom,sizeof(rom),27,camera,camera));
+    vram[0x7800+n]^=1;
+    packet.pages[n]^=1;
+    assert(!LagoonWideParallaxPacket_Match(&packet,vram,rom,sizeof(rom),27,camera,camera));
+    packet.pages[n]^=1;
+  }
+  for(unsigned n=0;n<761;++n) {
+    rom[0x8FB7D+n]^=1;
+    assert(!LagoonWideParallaxPacket_Match(&packet,vram,rom,sizeof(rom),27,camera,camera));
+    rom[0x8FB7D+n]^=1;
+  }
+  for(unsigned n=0;n<4;++n) {
+    camera[n]^=4;
+    assert(!LagoonWideParallaxPacket_Match(&packet,vram,rom,sizeof(rom),27,camera,camera));
+    assert(!LagoonWideParallaxPacket_Capture(&packet,vram,rom,sizeof(rom),27,camera));
+    assert(!packet.valid);camera[n]^=4;
+    assert(LagoonWideParallaxPacket_Capture(&packet,vram,rom,sizeof(rom),27,camera));
+    packet.camera[n]^=4;
+    assert(!LagoonWideParallaxPacket_Match(&packet,vram,rom,sizeof(rom),27,camera,camera));
+    packet.camera[n]^=4;
+  }
+  /* A coherently shifted quartet still cannot impersonate this packet's
+   * enclosing retained camera witness. Real raster movement remains allowed. */
+  packet.camera[0]+=4;packet.camera[1]+=4;packet.camera[2]++;packet.camera[3]++;
+  assert(!LagoonWideParallaxPacket_Match(&packet,vram,rom,sizeof(rom),27,camera,camera));
+  assert(LagoonWideParallaxPacket_Capture(&packet,vram,rom,sizeof(rom),27,camera));
+  unsigned shifted[4]={366,618,91,154};
+  assert(LagoonWideParallaxPacket_Match(&packet,vram,rom,sizeof(rom),27,camera,shifted));
+  assert(!LagoonWideParallaxPacket_Capture(&packet,vram,rom,0x8FB7D+760,27,camera));
+  assert(!packet.valid);
+  assert(!LagoonWideParallaxPacket_Match(&packet,vram,rom,sizeof(rom),27,camera,camera));
+  assert(!LagoonWideParallaxPacket_Capture(NULL,vram,rom,sizeof(rom),27,camera));
+  assert(!LagoonWideParallaxPacket_Match(NULL,vram,rom,sizeof(rom),27,camera,camera));
+  /* Synthetic original top-edge row. Explicit34-word circular addresses and
+   * two authored tiles are independent of the production queue matcher. */
+  map.definitions[0][0]=0x2c08;map.definitions[0][1]=0x2c09;
+  for(unsigned n=0;n<34;++n) {
+    unsigned a=n<20?0x758c+n:0x7180+n-20;
+    queue_source[n*4]=(uint8_t)a;queue_source[n*4+1]=(uint8_t)(a>>8);
+    queue_source[n*4+2]=(uint8_t)(n&1?9:8);queue_source[n*4+3]=0x2c;
+  }
+  LagoonWideParallaxQueue queue={0};
+  assert(LagoonWideParallaxQueue_Begin(&queue,&map,queue_source,136,camera,27));
+  assert(LagoonWideParallaxQueue_Pending(&queue));queue_job(&queue,67,27);
+  assert(LagoonWideParallaxQueue_Pending(&queue));
+  assert(LagoonWideParallaxQueue_Write(&queue,0x718d*2+1,0x2c,27));
+  assert(!LagoonWideParallaxQueue_Pending(&queue) && queue.valid);
+  assert(!LagoonWideParallaxQueue_Write(&queue,0x718d*2+1,0x2c,27));
+  for(unsigned n=0;n<136;++n) {
+    memset(&queue,0,sizeof(queue));queue_source[n]^=1;
+    assert(!LagoonWideParallaxQueue_Begin(&queue,&map,queue_source,136,camera,27));
+    assert(!queue.valid);queue_source[n]^=1;
+  }
+  for(unsigned n=0;n<68;++n) {
+    memset(&queue,0,sizeof(queue));
+    assert(LagoonWideParallaxQueue_Begin(&queue,&map,queue_source,136,camera,27));
+    queue_job(&queue,n,27);
+    unsigned a=queue_source[(n/2)*4]|queue_source[(n/2)*4+1]<<8;
+    unsigned v=queue_source[(n/2)*4+2+(n&1)];
+    assert(!LagoonWideParallaxQueue_Write(&queue,a*2+(n&1),v^1,27));assert(!queue.valid);
+    assert(LagoonWideParallaxQueue_Begin(&queue,&map,queue_source,136,camera,27));
+    queue_job(&queue,n,27);
+    assert(!LagoonWideParallaxQueue_Write(&queue,a*2+(n&1),v,28));assert(!queue.valid);
+  }
+  assert(LagoonWideParallaxQueue_Begin(&queue,&map,queue_source,136,camera,27));
+  assert(!LagoonWideParallaxQueue_Write(&queue,0x758c*2+1,0x2c,27)); /* swapped low/high */
+  assert(LagoonWideParallaxQueue_Begin(&queue,&map,queue_source,136,camera,27));
+  assert(LagoonWideParallaxQueue_Write(&queue,0x758c*2,8,27));
+  assert(!LagoonWideParallaxQueue_Write(&queue,0x758c*2,8,27)); /* duplicated low */
+  assert(LagoonWideParallaxQueue_Begin(&queue,&map,queue_source,136,camera,27));
+  assert(!LagoonWideParallaxQueue_Write(&queue,0x758d*2,9,27)); /* missing pair */
+  assert(LagoonWideParallaxQueue_Begin(&queue,&map,queue_source,136,camera,27));
+  assert(!LagoonWideParallaxQueue_Begin(&queue,&map,queue_source,136,camera,27)); /* interrupted job */
+  assert(!queue.valid && !LagoonWideParallaxQueue_Pending(&queue));
+  assert(!LagoonWideParallaxQueue_Begin(&queue,&map,queue_source,135,camera,27));
+  assert(!LagoonWideParallaxQueue_Begin(&queue,&map,queue_source,132,camera,27));
+  assert(LagoonWideParallaxQueue_Begin(&queue,&map,queue_source,136,camera,27));
+  queue_job(&queue,68,27);
+  assert(LagoonWideParallaxQueue_Begin(&queue,&map,queue_source,136,camera,28));
+  assert(!LagoonWideParallaxQueue_Write(&queue,0x758c*2,8,27)); /* previous timeline */
   puts("room07 parallax: original decoder/full128KiB, both map pages, every source/map-word mutation, quarter raster anchors PASS");
+  puts("room07 outgoing packet: both complete pages/source, timeline, four captured/raster anchors and partial-source refusal PASS");
+  puts("room07 original34-word top-edge queue: source/map/destination, all136 byte mutations, ordered68 writes, partial/duplicate/missing/reordered/next-job/timeline refusal PASS");
   return 0;
 }

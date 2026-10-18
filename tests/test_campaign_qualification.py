@@ -38,6 +38,13 @@ class RuntimeFailureTests(unittest.TestCase):
         self.assertEqual(qualify.runtime_failure_lines('lagoon.qol: camera_center applied\nnot refused by a game patch'),[])
 
 class DiagnosticRangeTests(unittest.TestCase):
+    def test_numeric_diagnostics_are_bounded_decimal(self):
+        for value in ('0','1','0002','1000000'):
+            qualify.validate_diagnostic_number(value)
+        for value in ('-1','1000001','1.0','0x1','1\n',' 1',''):
+            with self.subTest(value=value),self.assertRaises(SystemExit):
+                qualify.validate_diagnostic_number(value)
+
     def test_native_bounce_control_is_explicit_and_boolean(self):
         for key in qualify.DIAGNOSTIC_BOOLEANS:
             for value in ('0','1'):

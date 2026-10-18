@@ -58,6 +58,18 @@ try {
   & $prefixOracle $romPath
   if ($LASTEXITCODE) { throw 'Menu close parent-prefix original-opcode oracle failed.' }
 
+  $hudOracle = Join-Path $target 'menu-close-hud-original-oracle.exe'
+  & $Compiler @flags -Wall -Wextra -Werror -DLAGOON_MENU_CLOSE_TEST tests/lagoon_menu_close_hud_oracle_test.c src/lagoon_menu_close.c snesrecomp/runner/src/snes/interp816.c -o $hudOracle
+  if ($LASTEXITCODE) { throw 'Menu close HUD-fill oracle compilation failed.' }
+  & $hudOracle $romPath
+  if ($LASTEXITCODE) { throw 'Menu close HUD-fill original-opcode oracle failed.' }
+
+  $dmaOracle = Join-Path $target 'menu-dma-original-oracle.exe'
+  & $Compiler @flags -Wall -Wextra -Werror -DLAGOON_MENU_DMA_TEST tests/lagoon_menu_dma_test.c src/lagoon_menu_dma.c snesrecomp/runner/src/snes/interp816.c -o $dmaOracle
+  if ($LASTEXITCODE) { throw 'Menu DMA original-opcode oracle compilation failed.' }
+  & $dmaOracle $romPath
+  if ($LASTEXITCODE) { throw 'Menu DMA original-opcode oracle failed.' }
+
   $closeGuard = Join-Path $target 'menu-close-production-guard.exe'
   & $Compiler @flags -Wall -Wextra -Werror tests/lagoon_menu_close_guard_test.c src/lagoon_menu_close.c -o $closeGuard
   if ($LASTEXITCODE) { throw 'Menu close production guard compilation failed.' }

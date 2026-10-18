@@ -9,8 +9,8 @@
 #include <assert.h>
 uint8 g_ram[0x20000]; const uint8 *g_rom;
 static uint8 rom[0x100000],saved_ram[0x20000];
-static InterpPreOpcodeHook hooks[4];static uint32 sites[4],redirect;static unsigned registrations,checks,failures,positives,refusals;
-bool interp_bridge_add_pre_opcode_hook(uint32_t pc,InterpPreOpcodeHook h){if(registrations>=4)return false;sites[registrations]=pc;hooks[registrations++]=h;return true;}
+static InterpPreOpcodeHook hooks[5];static uint32 sites[5],redirect;static unsigned registrations,checks,failures,positives,refusals;
+bool interp_bridge_add_pre_opcode_hook(uint32_t pc,InterpPreOpcodeHook h){if(registrations>=5)return false;sites[registrations]=pc;hooks[registrations++]=h;return true;}
 void interp_bridge_pre_opcode_redirect(uint32_t pc){redirect=pc;}
 #define CHECK(c,msg) do{checks++;if(!(c)){failures++;fprintf(stderr,"FAIL %s\n",msg);}}while(0)
 static void put(unsigned q,unsigned v,unsigned n){while(n--){g_ram[q++]=(uint8)v;v>>=8;}}
@@ -30,7 +30,7 @@ static void refuse(int kind,CpuState*c,uint32 pc,const char*label){CpuState befo
 static void positive(int kind,CpuState*c,uint32 pc,unsigned expected){redirect=0;hooks[kind](c,pc);positives++;CHECK(redirect==expected,"positive registered callback redirect");}
 int main(int argc,char**argv){
  assert(argc==2||argc==3);FILE*f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof(rom),f)==sizeof(rom));fclose(f);g_rom=rom;
- LagoonMenuClose_BeforeFrame();CHECK(registrations==4&&sites[0]==0x02c5c6&&sites[1]==0x0089ec&&sites[2]==0x018a10&&sites[3]==0x018a32,"exact production registrations");LagoonMenuClose_BeforeFrame();CHECK(registrations==4,"idempotent production registration");
+ LagoonMenuClose_BeforeFrame();CHECK(registrations==5&&sites[0]==0x02c5c6&&sites[1]==0x0089ec&&sites[2]==0x018a10&&sites[3]==0x018a32&&sites[4]==0x018ad1,"exact production registrations");LagoonMenuClose_BeforeFrame();CHECK(registrations==5,"idempotent production registration");
  const unsigned owners[]={0x02b73a,0x02b87d,0x02bc9b};
  for(unsigned owner=0;owner<3;owner++)for(int kind=0;kind<2;kind++){
   uint32 pc=sites[kind];CpuState c;
@@ -85,6 +85,25 @@ int main(int argc,char**argv){
   }
  }
 
+
+
+ /* Exact original HUD RAM fill inside the owned submenu-close parent. */
+ for(unsigned owner=0;owner<3;owner++){
+  CpuState c=synthetic(1,owners[owner],0);c.PB=c.DB=1;
+  put(c.S+1,0x8743,2);put(c.S+3,0x0080e3,3);g_ram[c.S+6]=2;put(c.S+7,owners[owner],3);
+  CpuState good=c;uint8 snapshot[0x20000];memcpy(snapshot,g_ram,sizeof(g_ram));positive(4,&c,0x018ad1,0x018af2);CHECK(c.S==good.S,"HUD preserves original stack seam");
+  for(unsigned offset=1;offset<=9;offset++){
+   c=good;memcpy(g_ram,snapshot,sizeof(g_ram));g_ram[c.S+offset]^=64;refuse(4,&c,0x018ad1,"HUD caller/frame readonly refusal");
+  }
+  for(unsigned bad=0;bad<13;bad++){
+   c=good;memcpy(g_ram,snapshot,sizeof(g_ram));uint32 pc=0x018ad1;
+   switch(bad){case 0:c.PB^=1;break;case 1:c.DB=2;break;case 2:c.m_flag=0;break;case 3:c.x_flag=1;break;case 4:c.emulation=1;break;case 5:c.D=1;break;case 6:c.P|=8;break;case 7:c._flag_D=1;break;case 8:c.S=0xff;break;case 9:pc++;break;case 10:g_ram[0x23d]=0;break;case 11:g_ram[0x275]=0;break;case 12:g_ram[0x100e]=1;break;}
+   refuse(4,&c,pc,"HUD mode/scene/foreignPC readonly refusal");
+  }
+  for(unsigned byte=0;byte<0x29;byte++){
+   c=good;memcpy(g_ram,snapshot,sizeof(g_ram));rom[0x8acd+byte]^=1;refuse(4,&c,0x018ad1,"HUD complete source readonly refusal");rom[0x8acd+byte]^=1;
+  }
+ }
  if(argc==3){
   for(unsigned n=0;n<5;n++){
    char path[1024];const char*tag=n?"0089ec":"02c5c6";unsigned index=n?n-1:0;

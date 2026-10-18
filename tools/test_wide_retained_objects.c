@@ -7,14 +7,41 @@
 #include "snes/dma.h"
 Config g_config;
 const uint8_t *g_rom;
-void dma_set_start_observer(DmaStartObserver observer){(void)observer;}
+static DmaStartObserver dma_observer;
+static unsigned queue_callbacks,queue_length;
+void dma_set_start_observer(DmaStartObserver observer){dma_observer=observer;}
 void LagoonWide_OnBackgroundDma(unsigned bank,unsigned address,unsigned destination,unsigned length){(void)bank;(void)address;(void)destination;(void)length;}
 void LagoonWide_OnVramWrite(unsigned address){(void)address;}
+void LagoonWide_OnParallaxQueueDma(unsigned length){++queue_callbacks;queue_length=length;}
 uint8_t g_ram[0x20000];
 Ppu *g_ppu=&p;
 static uint64_t generation=7;
 uint64_t RtlStateGeneration(void){return generation;}
 static uint32_t wide[448];
+static void queue_observer_test(void) {
+  Dma dma={0};DmaChannel *t=&dma.channel[1];
+  static uint8_t dummy_rom[1];g_rom=dummy_rom;g_config.widescreen=1;
+  p.vramIncrement=1;p.vramIncrementOnHigh=1;p.vramRemapMode=0;
+  t->mode=4;t->bAdr=0x16;t->aBank=0x7e;t->aAdr=0x2600;t->size=136;
+  LagoonWideEntities_Init();assert(dma_observer);
+  dma_observer(&dma,1,t);assert(queue_callbacks==1 && queue_length==136);
+  dma_observer(&dma,2,t);assert(queue_callbacks==1);
+  t->fromB=1;dma_observer(&dma,1,t);t->fromB=0;
+  t->mode=3;dma_observer(&dma,1,t);t->mode=4;
+  t->bAdr=0x15;dma_observer(&dma,1,t);t->bAdr=0x16;
+  t->fixed=1;dma_observer(&dma,1,t);t->fixed=0;
+  t->decrement=1;dma_observer(&dma,1,t);t->decrement=0;
+  t->aBank=0x7f;dma_observer(&dma,1,t);t->aBank=0x7e;
+  t->aAdr=0x2601;dma_observer(&dma,1,t);t->aAdr=0x2600;
+  p.vramIncrement=32;dma_observer(&dma,1,t);p.vramIncrement=1;
+  p.vramIncrementOnHigh=0;dma_observer(&dma,1,t);p.vramIncrementOnHigh=1;
+  p.vramRemapMode=1;dma_observer(&dma,1,t);p.vramRemapMode=0;
+  g_config.widescreen=0;dma_observer(&dma,1,t);g_config.widescreen=1;
+  g_rom=NULL;dma_observer(&dma,1,t);g_rom=dummy_rom;
+  g_ppu=NULL;dma_observer(&dma,1,t);g_ppu=&p;
+  assert(queue_callbacks==1);g_rom=NULL;
+  puts("room07 queue production observer: exact channel/mode/source/PPU context,14 negative contexts PASS");
+}
 int main(void) {
   setup(1,kPpuRenderFlags_NewRenderer);
   uint16_t colors[]={0x83E0,0x801F};
@@ -41,6 +68,7 @@ int main(void) {
   LagoonWideEntities_BeginRetained(1);assert(!p.extraObjectCount);
   LagoonWideEntities_RetainScene();assert(LagoonWideEntities_RetainedSceneValid());
   LagoonWideEntities_Reset();assert(!LagoonWideEntities_RetainedSceneValid());
+  queue_observer_test();
   puts("retained objects: production deep copy, real PPU colors/native preservation, atlas/palette/record/OAM/generation refusal PASS");
   return 0;
 }

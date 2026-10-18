@@ -46,6 +46,7 @@ add_executable(LagoonSNESRecomp
     src/lagoon_fast_menus.c
     src/lagoon_menu_decode.c
   src/lagoon_menu_close.c
+  src/lagoon_menu_dma.c
     src/lagoon_menu_presentation.c
     src/gen_stubs.c
     src/lagoon_qol.c

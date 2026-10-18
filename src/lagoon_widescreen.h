@@ -9,6 +9,7 @@ void LagoonWide_Reset(void);
 
 void LagoonWide_OnVramWrite(unsigned byte_address);
 void LagoonWide_OnBackgroundDma(unsigned bank,unsigned address,unsigned destination,unsigned length);
+void LagoonWide_OnParallaxQueueDma(unsigned length);
 
 void LagoonWide_EndFrame(const uint8_t *field, unsigned number);
 
