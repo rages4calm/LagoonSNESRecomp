@@ -6,55 +6,33 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress - October 17, 2026
 
-Batch 18 is selected with **376 AOT variants, 119 analyzed LLE variants and 258
-analysis roots**, keeping all 375 prior native modes and the interpreter safety
-net. Counts are not completion percentages.
+Batch19 is selected and installed with **376 AOT /119 analyzed LLE /258 roots**
+and the interpreter safety net. These counts are not completion percentages.
+This remains a beta/WIP; the owner and friends will perform the uninterrupted
+start-to-finish campaign playtest.
 
-The tested build passes 22 fresh comparisons: 71,239 ordered frames and 50 complete
-state/clock checkpoints. That exact executable is installed and passes an
-isolated cold Items-menu check. Settings and saves stay local.
+The five audited menu checks open Items/Magic/Equipment in20/18/19 fields and
+close in22 using twelve original charged DMA jobs. Giles accepts wound dressing
+without a potion and follows through his original quest script. Optional improved
+sword reach adds three lateral pixels on each side to its existing38px reach.
 
-The new four-instruction death-classification prefix executes on both original
-Samson-kill and player-death paths. Its ordinary-death branch also reaches an
-existing native velocity-reset leaf. Broader death/table dispatch and audio
-orchestration remain interpreted.
+Guarded host computation of two original enemy-position leaves improves measured
+Gold Cave gameplay cadence without skipping AI, collision or hardware work.
+Final1920×1080 real-audio tests measure about60.12 presentation FPS; the sampled
+cave changes from69 three-field updates to525 two-field updates with no slower
+updates. This is bounded evidence, not a locked60FPS or all-room guarantee.
+Room02's44 incoming water-fade fields and room03's46 outgoing fade fields now
+retain independently source-verified scenery and native center pixels.
 
-Audited Items/Magic/Equipment close seven fields faster: 25 fields in room 01/02
-and 26 in Atland, including 17/18 forced-blank fields. All seven original BG/OBJ
-transfers still use real charged DMA. Source checks verify the original graphics
-and palettes at their actual animation phases; shortened timing naturally changes
-how many NMI animation/OAM updates occur. Historical framebuffer phases are not
-claimed byte-identical.
-
-The audited room 06↔07 door fades now retain their independently scrolling
-world for 46 fields each. Sampled margins match original source colors;
-reset, partial-map writes and stale-generation packets still refuse ownership.
-Elf Field Start/fade and existing guarded menu layouts retain their support.
-Other scripted scenes, transitions and unsupported resources still fall back.
-
-Widescreen supports 16:9, 16:10, 21:9, 32:9 and window-driven aspects in audited
-areas, with original pixels and guarded world/actor composition. Supported town,
-interior, outdoor and cave menus keep proven scenery behind them. Unsupported
-resources retain reference output. Smooth/bilinear scaling was removed; optional
-Enhanced original pixels remains available. The independent live custom renderer
-retains its stable Atland scope; the reference PPU still runs. This is original
-artwork, not a full retexture or a D3D12 backend. No locked 60 FPS claim is made.
-
-Existing assisted encounter checks reach 73 of 75 room records, defeat seven
-main bosses with original rewards/flags, exercise all six Thimale guardians,
-and cover six endgame phases. Those completed explorations are reused for
-focused regression checks rather than repeated as a natural playthrough.
-The owner and friends will perform the uninterrupted start-to-finish playtest.
-Records 2A/3F, broader native death/boss orchestration, remaining widescreen gaps,
-optional soundtrack mappings and hardware/controller qualification remain open.
-
-Read [batch 18](NATIVE-BATCH18-2026-10-17.md),
-[selected batch 17](NATIVE-BATCH17-2026-10-17.md),
-[current status](docs/DEVELOPMENT-STATUS.md), [menu details](docs/FAST-MENUS.md),
-[widescreen scope](docs/WIDESCREEN.md), [custom renderer](docs/CUSTOM-RENDERER.md),
-[performance evidence](docs/PERFORMANCE.md), [save states](docs/SAVE-STATES.md)
-and the [todo list](TODO.md). Prior campaign exploration and the canonical
-coverage corpus are historical evidence; this batch does not relabel them.
+Focused checks cover actual damage, seven boss death/defeat endpoints, original
+rewards, consumable revival and quest interactions. Broader native death/boss
+orchestration, unsupported scenes and hardware/controller coverage remain open.
+Read the [playtest guide](docs/PLAYTEST.md), [batch19 identities and evidence](NATIVE-BATCH19-2026-10-17.md),
+[current status](docs/DEVELOPMENT-STATUS.md), [todo list](TODO.md),
+[menu details](docs/FAST-MENUS.md), [widescreen scope](docs/WIDESCREEN.md),
+[performance evidence](docs/PERFORMANCE.md) and [save states](docs/SAVE-STATES.md).
+Earlier results remain in [batch18](NATIVE-BATCH18-2026-10-17.md); historical
+exploration is not relabeled as a natural complete playthrough.
 
 ## Fullscreen screenshots
 
@@ -72,7 +50,7 @@ with its existing config and save locations. The old pre-boot UI is excluded fro
 the default build; it can be enabled explicitly for development.
 
 Companion exposes executable/ROM/config paths, native display/audio/gamepad
-settings, all ten QoL toggles and experimental widescreen aspects. Apply/Revert
+settings, gameplay QoL toggles and experimental widescreen aspects. Apply/Revert
 preserves unknown settings and controller bindings and detects stale edits.
 Existing native settings remain in `build/config.ini`, input in `build/keybinds.ini`,
 and saves in `build/saves`. The adapter does not migrate them.

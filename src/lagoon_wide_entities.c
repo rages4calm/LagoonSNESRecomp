@@ -40,6 +40,8 @@ static int s_has_far;
 
 static PpuExtraObject s_objects[kObjects];
 static uint16_t s_pixels[kObjects][256];
+static PpuExtraObject s_retained_draw[kObjects];
+static uint16_t s_retained_draw_pixels[kObjects][256];
 static size_t s_object_count;
 static struct {
   PpuExtraObject objects[kObjects];
@@ -47,7 +49,8 @@ static struct {
   uint8_t records[0x800],oam[544];
   uint64_t generation;
   size_t count;
-  int valid;
+  int valid,native_anchors;
+  uint8_t obsel,oam_priority;
 } s_retained_objects;
 static uint64_t s_captures, s_validated, s_rejected, s_emitted;
 static void report_status(const char *status, unsigned entity, unsigned cell) {
@@ -193,6 +196,7 @@ void LagoonWideEntities_BlankField(uint8_t *pixels,size_t pitch,unsigned width,u
 int LagoonWideEntities_BoundedRoom(unsigned room,unsigned width,unsigned height) {
   return (room==1 && width==512 && height==768) ||
       (room==2 && width==512 && height==512) ||
+      (room==3 && width==1792 && height==1632) ||
       (room==4 && width==768 && height==256) ||
       (room==5 && width==1536 && height==1280) ||
       (room==6 && width==512 && height==256) ||
@@ -337,10 +341,17 @@ void LagoonWideBackground_Write(LagoonWideBackground *b,unsigned address,uint8_t
 
 unsigned LagoonWideTorches_Bytes(unsigned room,unsigned source) {
   if(room==1 && source==0x139A7A)return 0x180;
+  if(room==2 && source==0x128000)return 0x180;
   /* Elf Field's six animated world characters use their own two-frame
    * descriptor; they must not borrow the cave's three torch phases. */
   if(room==8 && source==0x12B297)return 0xC0;
   return room>=3 && room<=6 && source==0x128B77 ? 0xC0 : 0;
+}
+static unsigned animation_base(unsigned room) {
+  return room==1?0x8000:room==2?0x8300:room==8?0x8B40:0x8900;
+}
+static unsigned animation_variants(unsigned room) {
+  return room==2?4:(room==1 || room==8)?2:3;
 }
 void LagoonWideTorches_Reset(LagoonWideTorches *t) {
   if(t)memset(t,0,sizeof(*t));
@@ -353,8 +364,7 @@ int LagoonWideTorches_Begin(LagoonWideTorches *t,uint64_t generation,
   }
   t->left=0;
   unsigned bytes=LagoonWideTorches_Bytes(room,source);
-  unsigned base=room==1?0x8000:room==8?0x8B40:0x8900;
-  unsigned frames=(room==1 || room==8)?2:3;
+  unsigned base=animation_base(room),frames=animation_variants(room);
   if(!bytes || bank!=0x10 || destination!=0x3B00 || length!=bytes ||
       address<base || address>=base+frames*bytes || (address-base)%bytes)return 0;
   t->frame=(address-base)/bytes;
@@ -372,20 +382,20 @@ void LagoonWideTorches_Write(LagoonWideTorches *t,unsigned address,uint8_t value
   unsigned offset=address-kLagoonWideTorchAddress;
   t->pending[offset]=value;t->next++;t->left--;
   if(t->left)return;
-  unsigned base=t->room==1?0x8000:t->room==8?0x8B40:0x8900;
-  unsigned frames=(t->room==1 || t->room==8)?2:3;
-  unsigned descriptor=t->room==1?0x1DFE0:t->room==8?0x1DFF8:0x1DFF0;
-  unsigned table=t->room==1?0x1D9E3:t->room==8?0x1DA79:0x1DA6B;
+  unsigned base=animation_base(t->room),frames=animation_variants(t->room);
+  unsigned entries=t->room==2?12:frames;
+  unsigned descriptor=t->room==1?0x1DFE0:t->room==2?0x1DFE8:t->room==8?0x1DFF8:0x1DFF0;
+  unsigned table=t->room==1?0x1D9E3:t->room==2?0x1DA42:t->room==8?0x1DA79:0x1DA6B;
   unsigned source=0x100000+base+t->frame*bytes;
   /* Guard the actual animation selector/descriptor and its source pointers.
    * A modified animation table cannot silently borrow these frame identities. */
   unsigned v;
-  if(!rom_word(rom,size,descriptor,&v) || v!=((frames<<8)|4) ||
+  if(!rom_word(rom,size,descriptor,&v) || v!=((entries<<8)|4) ||
       !rom_word(rom,size,descriptor+2,&v) || v!=(table&65535) ||
       !rom_word(rom,size,descriptor+4,&v) || v!=0x3B00 ||
       !rom_word(rom,size,descriptor+6,&v) || v!=bytes) {t->seen=0;return;}
-  for(unsigned frame=0;frame<frames;++frame) {
-    if(!rom_word(rom,size,table+frame*3,&v) || v!=base+frame*bytes ||
+  for(unsigned frame=0;frame<entries;++frame) {
+    if(!rom_word(rom,size,table+frame*3,&v) || v!=base+(frame%frames)*bytes ||
         !rom_byte(rom,size,table+2+frame*3,&v) || v!=0x10) {t->seen=0;return;}
   }
   for(unsigned i=0;i<bytes;++i)
@@ -397,7 +407,7 @@ int LagoonWideTorches_Match(const LagoonWideTorches *t,const uint16_t *vram,
   if(!t || !vram || t->left || t->generation!=generation || t->room!=room || t->source!=source)return -1;
   unsigned bytes=LagoonWideTorches_Bytes(room,source);
   if(!bytes)return -1;
-  for(unsigned frame=0;frame<3;++frame)
+  for(unsigned frame=0;frame<animation_variants(room);++frame)
     if((t->seen&(1u<<frame)) && !memcmp((const uint8_t*)vram+kLagoonWideTorchAddress,
         t->bytes[frame],bytes))return (int)frame;
   return -1;
@@ -550,13 +560,87 @@ void LagoonWideEntities_Reset(void) {
   LagoonWideAtlas_Reset(&s_atlas);
   if (g_ppu) PpuSetExtraObjects(g_ppu,NULL,0);
 }
+/* A native-anchored margin cell can outlive the CPU clearing the outgoing
+ * actor records: its original, unchanged OAM slot still owns the displayed
+ * position/attributes, and its actual atlas/palette own every retained pixel.
+ * Virtual far cells have no such independent witness and still bind all RAM. */
+static int retained_native_anchor(const PpuExtraObject *o) {
+  if(o->order!=1 || o->oamSlot>=128 || g_ppu->obsel!=2 || PPU_objPriority(g_ppu))return 0;
+  unsigned slot=o->oamSlot,hi=(g_ppu->highOam[slot/4]>>((slot%4)*2))&3;
+  const uint8_t *bytes=(const uint8_t*)g_ppu->oam;
+  unsigned size=(hi&2)?16:8,tile=ram_word(bytes,slot*4+2);
+  if(o->width!=size || o->height!=size || o->stride<size ||
+      ((unsigned)o->x&511)!=(bytes[slot*4]|((hi&1)<<8)) ||
+      ((unsigned)o->y&255)!=bytes[slot*4+1] ||
+      o->priority!=((tile>>12)&3) || o->math!=!!(tile&0x800))return 0;
+  unsigned base=(tile&0x100)?PPU_objTileAdr2(g_ppu):PPU_objTileAdr1(g_ppu);
+  for(unsigned y=0;y<size;y+=8)for(unsigned x=0;x<size;x+=8) {
+    unsigned ch=((((tile&255)>>4)+y/8)<<4)|(((tile&15)+x/8)&15);
+    unsigned address=(base+ch*16)&0x7fff;
+    if(address<0x4400 || address+16>0x5900)return 0;
+  }
+  LagoonWideCell cell={o->x,o->y,(uint16_t)tile,(uint8_t)size};uint16_t expected[256];
+  if(!LagoonWideEntities_Pixels(PpuRenderVram(g_ppu),g_ppu->cgram,
+      PPU_objTileAdr1(g_ppu),PPU_objTileAdr2(g_ppu),&cell,expected,1))return 0;
+  for(unsigned y=0;y<size;++y)
+    if(memcmp(o->pixels+y*o->stride,expected+y*size,size*sizeof(uint16_t)))return 0;
+  return 1;
+}
+/* Decode current native OAM only within eight pixels of the independently
+ * captured anchor. Modulo wrap has exactly one solution in this small range.
+ * Original world/map ownership is still required by the retained BG caller. */
+static int retained_current_cell(const PpuExtraObject *o,LagoonWideCell *cell) {
+  unsigned slot=o->oamSlot,hi=(g_ppu->highOam[slot/4]>>((slot%4)*2))&3;
+  const uint8_t *bytes=(const uint8_t*)g_ppu->oam;
+  unsigned size=(hi&2)?16:8,tile=ram_word(bytes,slot*4+2),xs=bytes[slot*4]|((hi&1)<<8),ys=bytes[slot*4+1];
+  if(size!=o->width || size!=o->height)return 0;
+  int x=o->x,y=o->y,xfound=0,yfound=0;
+  for(int delta=-8;delta<=8;++delta) {
+    if(((unsigned)(o->x+delta)&511)==xs){x=o->x+delta;xfound++;}
+    if(((unsigned)(o->y+delta)&255)==ys){y=o->y+delta;yfound++;}
+  }
+  if(xfound!=1 || yfound!=1)return 0;
+  unsigned base=(tile&0x100)?PPU_objTileAdr2(g_ppu):PPU_objTileAdr1(g_ppu);
+  for(unsigned yy=0;yy<size;yy+=8)for(unsigned xx=0;xx<size;xx+=8) {
+    unsigned ch=((((tile&255)>>4)+yy/8)<<4)|(((tile&15)+xx/8)&15);
+    unsigned address=(base+ch*16)&0x7fff;
+    if(address<0x4400 || address+16>0x5900)return 0;
+  }
+  *cell=(LagoonWideCell){x,y,(uint16_t)tile,(uint8_t)size};return 1;
+}
+static int retained_native_current(void) {
+  uint8_t owned[128]={0};
+  for(size_t i=0;i<s_retained_objects.count;++i) {
+    const PpuExtraObject *o=&s_retained_objects.objects[i];LagoonWideCell cell;
+    uint16_t pixels[256];owned[o->oamSlot]=1;
+    if(!retained_current_cell(o,&cell) || !LagoonWideEntities_Pixels(PpuRenderVram(g_ppu),g_ppu->cgram,
+        PPU_objTileAdr1(g_ppu),PPU_objTileAdr2(g_ppu),&cell,pixels,1))return 0;
+  }
+  /* Do not silently omit an unsupported actor newly entering the margins. */
+  const uint8_t *current=(const uint8_t*)g_ppu->oam;
+  for(unsigned slot=0;slot<128;++slot)if(!owned[slot]) {
+    unsigned hi=(g_ppu->highOam[slot/4]>>((slot%4)*2))&3;
+    unsigned oldhi=(s_retained_objects.oam[512+slot/4]>>((slot%4)*2))&3;
+    if(!memcmp(current+slot*4,s_retained_objects.oam+slot*4,4) && hi==oldhi)continue;
+    for(unsigned old=0;old<2;++old) {
+      const uint8_t *bytes=old?s_retained_objects.oam:current;unsigned h=old?oldhi:hi;
+      int x=bytes[slot*4]|((h&1)<<8),y=bytes[slot*4+1],size=(h&2)?16:8;
+      if(x>=384)x-=512;if(y>=240)y-=256;
+      if((x<0 || x+size>256) && y<224 && y+size>0)return 0;
+    }
+  }
+  return 1;
+}
+int LagoonWideEntities_RetainedNativeAnchors(void) {return s_retained_objects.valid && s_retained_objects.native_anchors;}
 void LagoonWideEntities_RetainScene(void) {
   s_retained_objects.valid=0;
   if(!g_ppu || g_ppu->extraObjectCount>kObjects)return;
   s_retained_objects.count=g_ppu->extraObjectCount;
+  s_retained_objects.native_anchors=s_retained_objects.count!=0;
   for(size_t i=0;i<s_retained_objects.count;++i) {
     const PpuExtraObject *o=&g_ppu->extraObjects[i];
     if(!o->pixels || o->width>16 || o->height>16 || o->stride<o->width)return;
+    if(!retained_native_anchor(o))s_retained_objects.native_anchors=0;
     s_retained_objects.objects[i]=*o;
     for(unsigned y=0;y<o->height;++y)
       memcpy(s_retained_objects.pixels[i]+y*o->width,o->pixels+y*o->stride,o->width*2);
@@ -568,14 +652,55 @@ void LagoonWideEntities_RetainScene(void) {
   memcpy(s_retained_objects.records,g_ram+0x540,sizeof(s_retained_objects.records));
   memcpy(s_retained_objects.oam,g_ppu->oam,512);
   memcpy(s_retained_objects.oam+512,g_ppu->highOam,32);
+  s_retained_objects.obsel=g_ppu->obsel;s_retained_objects.oam_priority=PPU_objPriority(g_ppu);
   s_retained_objects.generation=RtlStateGeneration();s_retained_objects.valid=1;
+}
+void LagoonWideEntities_RetainedDiagnostic(unsigned *kind,unsigned *address,
+    unsigned *captured,unsigned *current) {
+  *kind=*address=*captured=*current=0;
+  if(!s_retained_objects.valid || !g_ppu || s_retained_objects.generation!=RtlStateGeneration()) {
+    *kind=1;return;
+  }
+  if(!s_retained_objects.count)return;
+  if(s_retained_objects.obsel!=g_ppu->obsel || s_retained_objects.oam_priority!=PPU_objPriority(g_ppu)) {
+    *kind=6;return;
+  }
+  for(unsigned i=0;!s_retained_objects.native_anchors && i<sizeof(s_retained_objects.records);++i)
+    if(s_retained_objects.records[i]!=g_ram[0x540+i]) {
+      *kind=2;*address=0x540+i;*captured=s_retained_objects.records[i];*current=g_ram[0x540+i];return;
+    }
+  for(unsigned i=0;i<sizeof(s_retained_objects.atlas)/sizeof(uint16_t);++i)
+    if(s_retained_objects.atlas[i]!=PpuRenderVram(g_ppu)[0x4400+i]) {
+      *kind=3;*address=0x4400+i;*captured=s_retained_objects.atlas[i];*current=PpuRenderVram(g_ppu)[0x4400+i];return;
+    }
+  for(unsigned i=0;i<256;++i)if(s_retained_objects.palette[i]!=g_ppu->cgram[i]) {
+    *kind=4;*address=i;*captured=s_retained_objects.palette[i];*current=g_ppu->cgram[i];return;
+  }
+  if(s_retained_objects.native_anchors) {
+    if(!retained_native_current())*kind=7;
+    return;
+  }
+  for(size_t i=0;i<s_retained_objects.count;++i) {
+    const PpuExtraObject *o=&s_retained_objects.objects[i];if(o->order!=1)continue;
+    unsigned slot=o->oamSlot;
+    for(unsigned j=slot*4;j<slot*4+4;++j)
+      if(s_retained_objects.oam[j]!=((uint8_t*)g_ppu->oam)[j]) {
+        *kind=5;*address=j;*captured=s_retained_objects.oam[j];*current=((uint8_t*)g_ppu->oam)[j];return;
+      }
+    unsigned j=512+slot/4,mask=3u<<((slot%4)*2);
+    if((s_retained_objects.oam[j]^g_ppu->highOam[slot/4])&mask) {
+      *kind=5;*address=j;*captured=s_retained_objects.oam[j];*current=g_ppu->highOam[slot/4];return;
+    }
+  }
 }
 int LagoonWideEntities_RetainedSceneValid(void) {
   if(!s_retained_objects.valid || !g_ppu || s_retained_objects.generation!=RtlStateGeneration())return 0;
   if(!s_retained_objects.count)return 1;
-  if(memcmp(s_retained_objects.records,g_ram+0x540,sizeof(s_retained_objects.records)) ||
+  if(s_retained_objects.obsel!=g_ppu->obsel || s_retained_objects.oam_priority!=PPU_objPriority(g_ppu))return 0;
+  if((!s_retained_objects.native_anchors && memcmp(s_retained_objects.records,g_ram+0x540,sizeof(s_retained_objects.records))) ||
       memcmp(s_retained_objects.atlas,PpuRenderVram(g_ppu)+0x4400,sizeof(s_retained_objects.atlas)) ||
       memcmp(s_retained_objects.palette,g_ppu->cgram,sizeof(s_retained_objects.palette)))return 0;
+  if(s_retained_objects.native_anchors)return retained_native_current();
   for(size_t i=0;i<s_retained_objects.count;++i) {
     const PpuExtraObject *o=&s_retained_objects.objects[i];
     /* Native-anchored cells must retain their actual slot. Virtual deep
@@ -591,8 +716,19 @@ int LagoonWideEntities_RetainedSceneValid(void) {
 void LagoonWideEntities_BeginRetained(int enabled) {
   s_object_count=0;s_has_far=0;
   PpuSetExtraObjects(g_ppu,NULL,0);
-  if(enabled && LagoonWideEntities_RetainedSceneValid())
-    PpuSetExtraObjects(g_ppu,s_retained_objects.objects,s_retained_objects.count);
+  if(enabled && LagoonWideEntities_RetainedSceneValid()) {
+    if(!s_retained_objects.native_anchors)PpuSetExtraObjects(g_ppu,s_retained_objects.objects,s_retained_objects.count);
+    else {
+      for(size_t i=0;i<s_retained_objects.count;++i) {
+        const PpuExtraObject *o=&s_retained_objects.objects[i];LagoonWideCell cell;
+        if(!retained_current_cell(o,&cell) || !LagoonWideEntities_Pixels(PpuRenderVram(g_ppu),g_ppu->cgram,
+            PPU_objTileAdr1(g_ppu),PPU_objTileAdr2(g_ppu),&cell,s_retained_draw_pixels[i],1))return;
+        s_retained_draw[i]=(PpuExtraObject){cell.x,cell.y,cell.size,cell.size,cell.size,
+            (cell.tile>>12)&3,!!(cell.tile&0x800),o->oamSlot,1,s_retained_draw_pixels[i]};
+      }
+      PpuSetExtraObjects(g_ppu,s_retained_draw,s_retained_objects.count);
+    }
+  }
 }
 /* region0=all margin,1=seam strips,2=deep margin. Native opacity is always zero. */
 static int draw_cell(const LagoonWideCell *c,unsigned anchor,uint32_t order,int region) {

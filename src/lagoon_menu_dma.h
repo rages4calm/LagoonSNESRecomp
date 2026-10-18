@@ -13,3 +13,5 @@ int LagoonMenuDma_Service(const uint8_t*,size_t,uint8_t*,const CpuState*,
 bool LagoonMenuDma_Run(const uint8_t*,size_t,uint8_t*,CpuState*,uint16_t,uint8_t,
  uint32_t,RecompReturn*,LagoonMenuDmaAuthority,LagoonMenuDmaWrite,void*);
 bool LagoonMenuDma_TryNative(CpuState*,uint16_t,uint8_t,uint32_t,RecompReturn*);
+
+void LagoonMenuDma_BeforeFrame(void);

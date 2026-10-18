@@ -40,6 +40,19 @@ void LagoonFastMenus_Activate(void) { enabled = valid_rom; }
 static uint32_t return24(const uint8_t *ram, unsigned address) {
   return ram[address] | ((uint32_t)ram[address+1]<<8) | ((uint32_t)ram[address+2]<<16);
 }
+/* The opening has direct JSL fade callers rather than the world-loader's
+ * dispatcher frames. Pin each direction and its original legal brightness
+ * range; never authorize shared room/cutscene fade callers. */
+static int owned_open(const CpuWramReadContext *c,const uint8_t *ram) {
+  if(c->stack<0x100||c->stack>0x1F9)return 0;
+  uint32_t inner=return24(ram,c->stack+1),outer=return24(ram,c->stack+4);
+  unsigned b=ram[0x23D];
+  if(inner==0x0083D8&&b>=1&&b<=15)
+    return outer==0x02B6B9||outer==0x02B7E3||outer==0x02BC44;
+  if(inner==0x008471&&b<=14)
+    return outer==0x02B6E6||outer==0x02B817||outer==0x02BC65;
+  return 0;
+}
 static int owned_close(const CpuWramReadContext *c,const uint8_t *ram) {
   if(c->stack<0x100||c->stack>0x1EA)return 0;
   uint32_t inner=return24(ram,c->stack+1),outer=return24(ram,c->stack+4);
@@ -65,9 +78,9 @@ uint8_t LagoonFastMenus_Filter(uint32_t addr,uint8_t value,const CpuWramReadCont
 }
 uint8_t LagoonFastMenus_FilterRead(uint32_t addr,uint8_t value,const CpuWramReadContext*c,const uint8_t*ram){
   /* Keep a real counter1: the original NMI decrements unconditionally. Only
-   * the exact owned fade read may see zero early. If NMI already made1->0,
+   * the exact owned opening/closing fade read may see zero early. If NMI already made1->0,
    * zero remains zero. Values above1 are never concealed or rewritten. */
-  if(!enabled||addr!=0x23C||value>1||!c||!ram||!c->interpreter||c->instruction_pc!=0x0084E3||c->pb||!c->m||c->x||c->e||!owned_close(c,ram))return value;
+  if(!enabled||addr!=0x23C||value>1||!c||!ram||!c->interpreter||c->instruction_pc!=0x0084E3||c->pb||!c->m||c->x||c->e||(!owned_close(c,ram)&&!owned_open(c,ram)))return value;
   return ram[0x23D]%3?0:value;
 }
 #ifndef LAGOON_FAST_MENUS_TEST

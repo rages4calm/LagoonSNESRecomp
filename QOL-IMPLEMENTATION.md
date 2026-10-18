@@ -19,7 +19,7 @@ the original path. See [core menu transitions](docs/FAST-MENUS.md) and
 | Feature ID | Implementation |
 | --- | --- |
 | `walk_speed` | Guarded stock row at 02:8149 remains unchanged; shared WRAM filter turns only Nasir's ordinary tier-two velocity +/-3 into +/-5. Enemy/NPC velocities and hurt knockback stay stock. |
-| `sword_reach` | Guarded four signed extent words in rectangles 01:B6F0..B70F become +/-38, exactly the supplied BPS changes. Orthogonal rectangle dimensions remain stock. |
+| `sword_reach` | Guarded four signed extent words in rectangles 01:B6F0..B70F become +/-38, following the supplied BPS forward-reach change. Each perpendicular edge extends 3 pixels for a modest cleave; only Nasir sword geometry changes. |
 | `follower_speed` | Shared WRAM filter on ally velocity stores: tier-zero +/-1 becomes +/-3 only with the BPS follower signature (04E1 active, entity >=40, state&C0=C0, type0518=1, mode051B=0/1/3, tier051A=0). |
 | `recovery_time` | After stock ordinary-hit expiry, eight extra frames reject ordinary hits through a guarded read view at 01:BA52. Actual flags, counter, knockback and control expiry remain stock. |
 | `start_hp` | Recognises the freshly cleared new-game party construction, changes current HP10->18 and subsequent DEF5->11. Curves: HP18/21/23 and DEF11/13/16 for levels1/2/3; level3 onward stock. |
@@ -230,3 +230,52 @@ counter, while the vertical route blocks an immediate rehit for exactly eight
 additional frames (3283..3290) and permits the next actual hit at 3291.
 See `tools/DAMAGE-BATCH 4.md` for hashes, setup and private receipts. Special
 hazards bypassing this helper, bosses and rollback remain unqualified here.
+
+## Giles first aid and lateral sword cleave: batch 19
+
+Giles can now accept wound dressing without requiring a Healing Pot. This is an
+automatic port improvement, including for an existing save beside injured Giles.
+The question offers dressing his wounds and helping him home; the thanks and
+refusal text agree. The original Yes/No choice, already-following and completed
+escort checks, actor release and follow command remain in the original script.
+Neither accepting with a potion nor accepting without one consumes or creates an
+item. The equipped item is unchanged. Declining still leaves Giles waiting.
+
+This is a guarded data patch, shared by interpreted and native code. Original NPC
+script 05:C491 checks completed flag 10, then following flag 0F, before question
+20. After an actual Yes it reads inventory item20. Script command at05:C4A7 now
+jumps unconditionally to existing thanks/escort05:C4AD, bypassing the original
+potion-removal command at05:C4AB. It does not write quest flags directly. All44
+original script bytes, pointers20/21/22 and the original question, thanks and
+refusal text spans must match before anything changes. Text20 retains its
+original choice terminator0F. Other NPC scripts and item uses are untouched.
+
+Optional sword_reach keeps its38-pixel forward reach and adds three pixels to
+each lateral edge. Rectangles [xmin,xmax,ymin,ymax], in facing order, are:
+right [0,38,-11,15], down [-27,11,0,38], left [-38,0,-15,11],
+up [-11,27,-38,0]. All32 original table bytes at01:B6F0 are checked atomically.
+The separate NPC interaction rectangles at01:B710 remain byteexact. This makes
+small side offsets more forgiving without extending forward reach further.
+
+The actual-source unit test checks both potion states, Yes/No, already-following,
+completed escort, six patch-refusal mutations, all four cleave rectangles and
+unchanged NPC interaction geometry. Its miniature script evaluator is a bounded
+command-path test, not a substitute for the guest game.
+
+Five real guest cases additionally passed on integration executable SHA256
+2cd548e3ce4b81905f66433b966425399519cf27685048b5fea5448f1a7b721d.
+Tests loaded a disposable copy of the owner's room07 state and assisted only
+Nasir's position/facing to interact with the original NPC. A confirms the original
+Yes/No selection; B declines. Actual no-potion acceptance changed follow04E1
+from00 to01 and released actor D9 toD8; walking down moved NasirY300 to375 and
+GilesY288 to365. The owned-potion variant explicitly seeded04D4=80 and equipped
+item0536=20: both stayed unchanged through acceptance and movement. Actual decline
+kept following clear. Explicit already-following04E1=01 and completed04E2=AE
+fixtures selected original texts23 and24 respectively, preserving those guards.
+These tests prove rescue and follower movement, not the entire escort-home quest.
+All seven protected owner ROM/settings/save hashes remained unchanged.
+
+Portable private routes, a deduplicated state, runner/checker and compact receipt
+are in validation/inputs/batch19/giles. The runner requires explicit executable
+and manifest inputs and fresh disposable output. Historical receipts retain their
+actual identities; raw work-native-batch19 captures remain disposable.

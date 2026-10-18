@@ -37,9 +37,9 @@ static void start(unsigned pc,unsigned s,unsigned seed){
 int main(int argc,char**argv){
  assert(argc==2);FILE*f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof(rom),f)==sizeof(rom));fclose(f);LagoonFastMenus_Reset(rom,sizeof(rom));
  const unsigned owners[]={0x02b73a,0x02b87d,0x02bc9b},boundaries[]={0,0x84e0,0x84e3,0x84e6,0x84e8};unsigned cases=0;
- for(unsigned seed=0;seed<4;seed++)for(unsigned owner=0;owner<3;owner++)for(unsigned dir=0;dir<2;dir++)for(unsigned level=0;level<16;level++)for(unsigned edge=0;edge<5;edge++){
+ for(unsigned opening=0;opening<2;opening++)for(unsigned seed=0;seed<4;seed++)for(unsigned owner=0;owner<3;owner++)for(unsigned dir=0;dir<2;dir++)for(unsigned level=0;level<16;level++)for(unsigned edge=0;edge<5;edge++){
   for(unsigned q=0;q<sizeof(ram);q++)ram[q]=(uint8_t)(q*109+seed*73);
-  unsigned s=0x1d0,inner=dir?0x008471:0x0083d8;put(s+1,inner,3);put(s+4,dir?0x02c675:0x02c65e,3);put(s+7,0x0080e3,3);ram[s+10]=1;put(s+11,dir?0x018765:0x018708,3);put(s+14,0x0080e3,3);ram[s+17]=2;put(s+18,owners[owner],3);ram[0x23d]=level;memcpy(before,ram,sizeof(ram));start(0x84e0,s,seed);
+  unsigned s=0x1d0,inner=dir?0x008471:0x0083d8;put(s+1,inner,3);const unsigned openout[2][3]={{0x02b6b9,0x02b7e3,0x02bc44},{0x02b6e6,0x02b817,0x02bc65}};put(s+4,opening?openout[dir][owner]:(dir?0x02c675:0x02c65e),3);put(s+7,0x0080e3,3);ram[s+10]=1;put(s+11,dir?0x018765:0x018708,3);put(s+14,0x0080e3,3);ram[s+17]=2;put(s+18,owners[owner],3);ram[0x23d]=level;memcpy(before,ram,sizeof(ram));start(0x84e0,s,seed);
   unsigned ops=0,injected=0;while((((unsigned)active->k<<16)|active->pc)!=inner+1){
    assert(++ops<100);instruction_pc=((unsigned)active->k<<16)|active->pc;
    if(edge&&!injected&&instruction_pc==boundaries[edge]){nmi_counter();injected=1;}
@@ -53,13 +53,13 @@ int main(int argc,char**argv){
   interp816_free(active);cases++;
  }
  unsigned fades=0;
- for(unsigned seed=0;seed<4;seed++)for(unsigned owner=0;owner<3;owner++)for(unsigned dir=0;dir<2;dir++)for(unsigned kind=0;kind<3;kind++){
+ for(unsigned seed=0;seed<4;seed++)for(unsigned owner=0;owner<3;owner++)for(unsigned dir=0;dir<2;dir++)for(unsigned kind=0;kind<5;kind++){
   for(unsigned q=0;q<sizeof(ram);q++)ram[q]=(uint8_t)(q*109+seed*73);
-  unsigned s=0x1d3,outer=kind==1?(dir?0x02b6e6:0x02b6b9):(dir?0x02c675:0x02c65e);
+  unsigned s=0x1d3,outer=kind==1?(dir?0x02b6e6:0x02b6b9):kind==3?(dir?0x02b817:0x02b7e3):kind==4?(dir?0x02bc65:0x02bc44):(dir?0x02c675:0x02c65e);
   put(s+1,outer,3);put(s+4,0x0080e3,3);ram[s+7]=1;put(s+8,dir?0x018765:0x018708,3);put(s+11,0x0080e3,3);ram[s+14]=2;put(s+15,kind==2?0x02ffff:owners[owner],3);ram[0x23d]=dir?0x80:15;ram[0x275]=0x81;start(dir?0x8458:0x83c4,s,seed);unsigned ops=0;
   while((((unsigned)active->k<<16)|active->pc)!=outer+1){assert(++ops<3000);instruction_pc=((unsigned)active->k<<16)|active->pc;if(instruction_pc==0x84e3&&reads>=4)nmi_counter();interp816_runOpcode(active);}
   assert(brightness_count==16);for(unsigned n=0;n<16;n++)assert(brightness[n]==(dir?n:(n<15?14-n:128)));
-  assert(nmis==(kind==0?5:kind==1?15:45));assert(active->sp==s+3&&active->x==0x2468&&active->y==0x1357&&ram[0x23d]==(dir?15:128));interp816_free(active);fades++;
+  assert(nmis==(kind==2?45:5));assert(active->sp==s+3&&active->x==0x2468&&active->y==0x1357&&ram[0x23d]==(dir?15:128));interp816_free(active);fades++;
  }
  /* Regression witness: the rejected zero-store model really becomesFF at the
   * first original read when the actual NMI body runs betweenSTA andLDA. */

@@ -1,0 +1,14 @@
+{
+  "exe_sha256": "432b5a5808eebcf8395d14c2399b43e1402a1149965c16a55a1bf875c8bb0629",
+  "manifest_sha256": "f991f7c7bf62e881360c1ee5150af5bff76d90bf3d2c67bdb7e4e853f41bd2a5",
+  "image_sha256": "2c053bd0115c4bbb59f408877ddc645fa9357c3c0d5682fe1625d43e0d767c9a",
+  "size": [
+    1920,
+    1080
+  ],
+  "frame": 250,
+  "fullscreen": "desktop fullscreen, actual OpenGL GPU readback",
+  "aspect": "16:9",
+  "enhanced_pixels": true,
+  "assisted": "Original Gold Cave room03; protected performance fixture stages HP/defense and an original door destination. No replacement artwork, no enlarged diagnostic image."
+}

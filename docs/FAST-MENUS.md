@@ -191,3 +191,23 @@ ordered output and complete guest-state/clocks. The selected batch 18 includes
 The initial pre-opcode 89AC prototype was inert because 89A7 already ran natively;
 it is excluded from accepted improvements. The final callback uses the existing
 guarded-entry ABI without changing the SDK or counting another native variant.
+
+## Selected batch 19
+
+All five audited Items/Magic/Equipment checks now close in22 fields, including
+14 forced-blank fields. Openings take20/18/19 fields,20 fewer than batch18.
+Closing saves three further fields in room01/02 and four in Atland.
+The six exact opening-fade callers now use the already-tested bounded close
+read policy; all original brightness writes and the real NMI counter remain.
+
+The original89A7 guarded service additionally owns the two common9 chunks,
+one common0 chunk and exact7E4800 HUD transfer; an exact interpreter89AC poll
+services7E3000 HUD without bypassing its original poll/return. All12 uploads
+retain exact original bytes/order and real420B charge. Four full tile-queue
+loads and original fades remain, explaining the remaining brief transition.
+They were not replaced by a generic wait skip.
+
+All five original close graphics/palette states are source-qualified; Equipment
+preview's20-field phase shift matches byte-for-byte after an equivalent original
+preview interval. Source proof is separate from strict clock parity. The installed
+432b5a cold Items run passes the portable12-transfer verifier.

@@ -17,6 +17,9 @@ void LagoonFastMenus_Reset(const uint8_t *rom,size_t size) { (void)rom;(void)siz
 uint8_t LagoonFastMenus_Filter(uint32_t a,uint8_t v,const CpuWramReadContext *c,const uint8_t *r) {
   (void)a;(void)c;(void)r; return v;
 }
+uint8_t LagoonFastMenus_FilterRead(uint32_t a,uint8_t v,const CpuWramReadContext *c,const uint8_t *r) {
+  (void)a;(void)c;(void)r; return v;
+}
 const char *cpu_dispatch_entry_reason(uint32_t pc, uint8_t mx) {
   return camera_aot_conflict && pc==(camera_aot_conflict==3 ? 0x018158 : camera_aot_conflict==2 ? 0x01807A : 0x0183D8) && mx==2
     ? "compiled_entry_available_check_policy" : "missing_entry";
@@ -36,19 +39,83 @@ void cpu_set_wram_read_filter_hook(CpuWramReadFilterHook cb) { read_filter=cb; }
 static void put(unsigned a, uint8_t v) { g_ram[a]=filter(a,v); }
 static void word(unsigned a, unsigned v) { put(a,(uint8_t)v); put(a+1,(uint8_t)(v>>8)); }
 static unsigned getword(unsigned a) { return g_ram[a]|g_ram[a+1]<<8; }
+/* Execute the actual small data script with source-confirmed command semantics.
+ * This checks ownership, choice and progression independently of patch offsets;
+ * actual guest dialogue/escort playback is a separate integration check. */
+static void giles_script(const uint8_t *rom,int potion,int yes,int follows,int done,
+                         int *out_potion,int *out_follows,int *out_text,int *actions) {
+  unsigned pc=0x2C491; int a0=0; *actions=0; *out_text=-1;
+  for(unsigned n=0;n<64;n++) {
+    unsigned op=rom[pc++],arg;
+    if(op==0xFF) { *out_potion=potion;*out_follows=follows;return; }
+    switch(op) {
+      case 0x00:*out_text=rom[pc++];break;
+      case 0x05:arg=rom[pc++];assert(arg==0x10 || arg==0x0F);a0=arg==0x10?done:follows;break;
+      case 0x08:assert(rom[pc++]==0x20);a0=potion;break;
+      case 0x07:assert(rom[pc++]==0x20);potion=0;break;
+      case 0x03:assert(rom[pc++]==0x0F);follows=1;break;
+      case 0x14:a0=yes;break;
+      case 0x17:(*actions)++;break;
+      case 0x23:break;
+      case 0x11:case 0x12:case 0x13:
+        arg=rom[pc]|rom[pc+1]<<8|rom[pc+2]<<16;pc+=3;
+        if(op==0x11 || (op==0x12 && a0) || (op==0x13 && !a0))
+          pc=((arg>>16)*0x8000)+(arg&0x7FFF);
+        break;
+      default:assert(0);
+    }
+  }
+  assert(0);
+}
 int main(int argc, char **argv) {
   assert(argc==2);
   FILE *f=fopen(argv[1],"rb"); assert(f);
   uint8_t *rom=malloc(0x100000), *stock=malloc(0x100000);
   assert(fread(rom,1,0x100000,f)==0x100000); fclose(f);
   memcpy(stock,rom,0x100000);
+  /* Core first aid is deliberately automatic. All optional geometry/stats
+   * remain stock with features off; no unrelated ROM bytes change. */
+  uint8_t *core=malloc(0x100000);assert(core);memcpy(core,stock,0x100000);
+  assert(qol_giles_first_aid(core,0x100000));
+  assert(core[0x2C4A7]==0x11 && core[0x2C4A8]==0xAD);
+  assert(!memcmp(core+0x2C491,stock+0x2C491,22)); /* quest/choice guards */
+  assert(!memcmp(core+0x2C4AD,stock+0x2C4AD,16)); /* original escort/repeat */
+  int pot,follow,text,actions;
+  giles_script(stock,0,1,0,0,&pot,&follow,&text,&actions);
+  assert(!pot && !follow && text==0x22 && !actions); /* stock blocks */
+  for(int has_pot=0;has_pot<2;has_pot++) {
+    giles_script(core,has_pot,1,0,0,&pot,&follow,&text,&actions);
+    assert(pot==has_pot && follow && text==0x21 && actions==1);
+    giles_script(core,has_pot,0,0,0,&pot,&follow,&text,&actions);
+    assert(pot==has_pot && !follow && !actions); /* No still declines */
+    giles_script(core,has_pot,1,1,0,&pot,&follow,&text,&actions);
+    assert(pot==has_pot && follow && text==0x23 && !actions);
+    giles_script(core,has_pot,1,0,1,&pot,&follow,&text,&actions);
+    assert(pot==has_pot && !follow && text==0x24 && !actions);
+  }
+  /* A changed script, pointer or shared dialogue tail refuses atomically. */
+  const unsigned first_aid_guards[]={0x2C491,0x2C4A7,0x206B9,0x211E4,0x212DF,0x21388};
+  for(unsigned i=0;i<sizeof(first_aid_guards)/sizeof(first_aid_guards[0]);i++) {
+    memcpy(rom,stock,0x100000);rom[first_aid_guards[i]]^=1;
+    memcpy(core,rom,0x100000);assert(!qol_giles_first_aid(rom,0x100000));
+    assert(!memcmp(core,rom,0x100000));
+  }
+  memcpy(rom,stock,0x100000);memcpy(core,stock,0x100000);
+  assert(qol_giles_first_aid(core,0x100000));
   enabled_all=0; LagoonQol_OnRomLoaded(rom,0x100000);
-  assert(!memcmp(stock,rom,0x100000)); assert(read_filter);
+  assert(!memcmp(core,rom,0x100000)); assert(read_filter);free(core);
+  memcpy(rom,stock,0x100000);
   for (unsigned i=0;i<0x20000;i++) assert(filter(i,(uint8_t)i)==(uint8_t)i);
   enabled_all=1; LagoonQol_OnRomLoaded(rom,0x100000);
   assert(rom[0xE141]==18 && rom[0xE142]==21 && rom[0xE143]==23);
   assert(rom[0xE0FA]==11 && rom[0xE0FC]==13 && rom[0xE0FE]==16);
   assert(rom[0xB6F2]==38 && rom[0xB6FE]==38 && rom[0xB700]==0xDA && rom[0xB70C]==0xDA);
+  const int16_t expected_rects[4][4]={{0,38,-11,15},{-27,11,0,38},{-38,0,-15,11},{-11,27,-38,0}};
+  for(unsigned d=0;d<4;d++)for(unsigned edge=0;edge<4;edge++) {
+    unsigned a=0xB6F0+d*8+edge*2;
+    assert((int16_t)(rom[a]|rom[a+1]<<8)==expected_rects[d][edge]);
+  }
+  assert(!memcmp(rom+0xB710,stock+0xB710,32)); /* NPC talk geometry unchanged */
   assert(!memcmp(rom+0x10149,stock+0x10149,16));
   assert((rom[0xFFBB]|rom[0xFFBC]<<8)==270);
   assert((rom[0x131DC]|rom[0x131DD]<<8)==750);
@@ -206,6 +273,6 @@ int main(int argc, char **argv) {
   assert(read_filter && !g_camera_center && !g_recovery_time);
   assert(read_filter(0x501,0x17,NULL)==0x17); /* core menu context observer, legacy alias has no control */
   free(rom); free(stock);
-  puts("QoL checks passed: off identity, data patches, new-game guard, follower exclusion, recovery/jump timers, guard refusal");
+  puts("QoL checks passed: core first aid paths/guards, optional-off identity, sword cleave, stat/follower/recovery/jump guards");
   return 0;
 }

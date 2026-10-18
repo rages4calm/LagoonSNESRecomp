@@ -27,6 +27,27 @@ int main(void) {
   LagoonFastMenus_Activate();assert(LagoonFastMenus_Filter(0x23C,3,&c,ram)==1);
   unsigned roots[]={0x02B6B9,0x02B7E3,0x02BC44,0x02B6E6,0x02B817,0x02BC65};
   for(unsigned i=0;i<6;++i) {putret(c.stack+1,i<3?0x0083D8:0x008471);putret(c.stack+4,roots[i]);assert(LagoonFastMenus_Filter(0x23C,3,&c,ram)==1);}
+  /* All six opening callers use the same five-field fade. Test every
+   * brightness/counter and every owner-frame byte; no guest writes occur. */
+  for(unsigned owner=0;owner<6;owner++) {
+    putret(c.stack+1,owner<3?0x0083D8:0x008471);putret(c.stack+4,roots[owner]);
+    CpuWramReadContext read=c;read.instruction_pc=0x0084E3;
+    for(unsigned level=0;level<256;level++)for(unsigned counter=0;counter<4;counter++) {
+      unsigned value=counter==3?255:counter;ram[0x23D]=level;memcpy(copy,ram,sizeof(ram));
+      unsigned legal=owner<3?(level>=1&&level<=15):level<=14;
+      unsigned expected=legal&&level%3&&value<=1?0:value;
+      assert(LagoonFastMenus_FilterRead(0x23C,value,&read,ram)==expected);
+      assert(!memcmp(copy,ram,sizeof(ram)));
+    }
+    ram[0x23D]=owner<3?14:1;
+    for(unsigned byte=1;byte<=6;byte++) {
+      ram[c.stack+byte]^=64;memcpy(copy,ram,sizeof(ram));
+      assert(LagoonFastMenus_FilterRead(0x23C,1,&read,ram)==1);
+      assert(!memcmp(copy,ram,sizeof(ram)));ram[c.stack+byte]^=64;
+    }
+    CpuWramReadContext bad=read;bad.stack=0xff;assert(LagoonFastMenus_FilterRead(0x23C,1,&bad,ram)==1);
+    bad=read;bad.stack=0x1fa;assert(LagoonFastMenus_FilterRead(0x23C,1,&bad,ram)==1);
+  }
   unsigned closes[]={0x02B73A,0x02B87D,0x02BC9B};
   for(unsigned i=0;i<3;i++)for(unsigned j=0;j<2;j++){
     putret(c.stack+1,j?0x008471:0x0083D8);putret(c.stack+4,j?0x02C675:0x02C65E);

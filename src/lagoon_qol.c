@@ -1,7 +1,7 @@
-/* lagoon_qol.c — owner-requested quality-of-life features, opt-in.
+/* lagoon_qol.c — core port improvements and opt-in gameplay features.
  *
- * Gameplay features here are OFF by default, and original gameplay is what a player
- * gets if they change nothing. These are trusted static plugins: the mod runtime
+ * Optional combat/movement features are OFF by default. Giles first aid and
+ * core menu improvements are automatic. These are trusted static plugins: the mod runtime
  * resolves the enabled set before frame 1 and calls what this file registered
  * under the matching plugin id (docs/MOD_PACKAGES.md), and packages themselves
  * carry data only, so the behaviour has to live in the executable.
@@ -203,6 +203,82 @@ static void qol_jump_activated(void) {
 }
 static void qol_data_activated(void) {}
 
+/* Giles's original NPC-1 script (05:C491) already owns the Yes/No choice,
+ * following/completed guards and the escort transition. Change only its data:
+ * after Yes, jump to its existing thanks/escort command at C4AD, bypassing the
+ * Healing Pot removal. Nothing is granted or consumed, and existing saves work.
+ * Text 20's question ends at the original choice control 0F; text 21 shares its
+ * following tail. Guard both spans and their pointers before changing anything.
+ * These are interpreted data reads, not instruction operands or native bodies. */
+static int qol_encode_dialogue(uint8_t *out, size_t capacity, const char *text) {
+  size_t n=0;
+  for (; *text; ++text) {
+    uint8_t c=(uint8_t)*text;
+    if(n==capacity) return -1;
+    if(c==' ') c=0xFE;
+    else if(c>='a' && c<='z') c=(uint8_t)(c-4);
+    else if(c=='!') c=0x2F;
+    else if(c=='\'') c=0x5C;
+    else if(!((c>='A' && c<='Z') || c=='.' || c==',' || c=='?' ||
+              c=='\n' || c=='\f' || c==0x0F)) return -1;
+    /* Source uses 0D for a line break; C newline is 0A. */
+    out[n++]=c=='\n' ? 0x0D : c;
+  }
+  return (int)n;
+}
+
+static int qol_giles_first_aid(uint8_t *rom, size_t size) {
+  static const uint8_t script[]={
+    0x05,0x10,0x12,0xB3,0xC4,0x05,0x05,0x0F,0x12,0xB6,0xC4,0x05,
+    0x00,0x20,0x14,0x13,0xB9,0xC4,0x05,0x23,0x08,0x20,0x13,0xBA,
+    0xC4,0x05,0x07,0x20,0x00,0x21,0x17,0x03,0x0F,0xFF,0x00,0x24,
+    0xFF,0x00,0x23,0xFF,0x23,0x00,0x22,0xFF};
+  static const char question_stock[]=
+    "NASIR!  Is that you?\nI'm not seeing an\nillusion, am I?\f"
+    "The demons seem to be afraid\nof the light. They didn't\n"
+    "follow me up here..., but\nI got hurt along the way!\f"
+    "I wish I had the Healing\nPot which can cure anything\n"
+    "immediately. Do you have it,\nNASIR?\x0F";
+  static const char thanks_stock[]=
+    "Thank you... I'll take it!\fUgh... it's bitter!\nUgh!! Yuck! Yuck...\f"
+    "It doesn't hurt so much now!\nI can't go back to the\n"
+    "village alone. Take me home!\nDon't leave me here!";
+  static const char decline_stock[]=
+    "Please! Get the Healing Pot\nfor me! My feet hurt and I\n"
+    "can't take even one step!";
+  static const char question_new[]=
+    "NASIR! I'm hurt.\nCould you dress my wounds\nand help me back home?\x0F";
+  static const char thanks_new[]=
+    "Thank you for dressing\nmy wounds!\fI can walk now.\n"
+    "Please take me home.\nDon't leave me here!";
+  static const char decline_new[]=
+    "All right. I will wait here.\nPlease come back soon.";
+  uint8_t expected[420],expected_decline[81],question[251],thanks[169],decline[81];
+  int q=qol_encode_dialogue(expected,251,question_stock);
+  int t=qol_encode_dialogue(expected+251,168,thanks_stock);
+  int d=qol_encode_dialogue(expected_decline,80,decline_stock);
+  if(q!=251 || t!=168 || d!=80) return 0;
+  expected[419]=0xFF;
+  expected_decline[80]=0xFF;
+  int nq=qol_encode_dialogue(question,sizeof(question),question_new);
+  int nt=qol_encode_dialogue(thanks,sizeof(thanks)-1,thanks_new);
+  int nd=qol_encode_dialogue(decline,sizeof(decline)-1,decline_new);
+  if(nq<0 || nt<0 || nd<0 || size<0x2C4BD ||
+      memcmp(rom+0x2C491,script,sizeof(script)) ||
+      memcmp(rom+0x206B9,"\xE4\x91\xDF\x92\x88\x93",6) ||
+      memcmp(rom+0x211E4,expected,sizeof(expected)) ||
+      memcmp(rom+0x21388,expected_decline,sizeof(expected_decline))) return 0;
+  memset(question+nq,0xFF,sizeof(question)-(size_t)nq);
+  memset(thanks+nt,0xFF,sizeof(thanks)-(size_t)nt);
+  memset(decline+nd,0xFF,sizeof(decline)-(size_t)nd);
+  rom[0x2C4A7]=0x11; /* original unconditional script jump, not CPU code */
+  rom[0x2C4A8]=0xAD; /* original thanks + actor/following actions */
+  memcpy(rom+0x211E4,question,sizeof(question));
+  memcpy(rom+0x212DF,thanks,sizeof(thanks));
+  memcpy(rom+0x21388,decline,sizeof(decline));
+  return 1;
+}
+
 void LagoonQol_ResetTransient(void) {
   g_recovery_armed = g_recovery_frames = 0;
   g_jump_armed = g_jump_holding = g_jump_frames = 0;
@@ -238,9 +314,12 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
   /* Core menu timing needs scoped interpreter registers and its guarded
    * timer read view even when optional gameplay features are off. */
   cpu_set_wram_read_filter_hook(qol_filter_read);
-  /* Each data patch is guarded on its own, so one refused patch cannot silence
-   * another. With every feature off neither branch runs and the ROM image the
-   * guest sees is byte-for-byte the one on disk. */
+  if(qol_giles_first_aid((uint8_t *)(uintptr_t)rom,size))
+    fprintf(stderr,"[lagoon-qol] Giles first aid: wound dressing, original Yes/No and escort, no potion consumed\n");
+  else
+    fprintf(stderr,"[lagoon-qol] Giles first aid refused: original quest/text data differs\n");
+  /* Each optional patch is guarded independently. Core first aid above is a
+   * port improvement even when optional combat/movement features are off. */
   if (size >= QOL_WALK_TIER2_OFFSET + sizeof(kWalkTier2Stock) &&
       snes_mod_runtime_feature_enabled_c(QOL_PACKAGE_ID, "walk_speed")) {
     uint8_t *row = (uint8_t *)(uintptr_t)(rom + QOL_WALK_TIER2_OFFSET);
@@ -355,11 +434,16 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
     static const uint8_t stock[32] = {
       0,0,28,0,248,255,12,0,232,255,8,0,0,0,17,0,
       228,255,0,0,244,255,8,0,248,255,24,0,239,255,0,0};
+    /* Original four [xmin,xmax,ymin,ymax] rectangles. Keep 38px reach;
+     * add only three pixels on each perpendicular edge for lateral cleave.
+     * Both the interpreter and native sword code read this shared ROM data. */
+    static const uint8_t cleave[32] = {
+      0,0,38,0,245,255,15,0,229,255,11,0,0,0,38,0,
+      218,255,0,0,241,255,11,0,245,255,27,0,218,255,0,0};
     if (memcmp(rom + 0xB6F0, stock, sizeof(stock)) == 0) {
       uint8_t *r = (uint8_t *)(uintptr_t)rom;
-      r[0xB6F2] = 38; r[0xB6FE] = 38;
-      r[0xB700] = 0xDA; r[0xB70C] = 0xDA;
-      fprintf(stderr, "lagoon.qol: sword_reach applied, directional extent 38 pixels\n");
+      memcpy(r+0xB6F0,cleave,sizeof(cleave));
+      fprintf(stderr, "lagoon.qol: sword_reach applied, 38px reach and 3px lateral cleave per side\n");
     } else fprintf(stderr, "lagoon.qol: sword_reach refused, stock rectangle differs\n");
   }
   if (snes_mod_runtime_feature_enabled_c(QOL_PACKAGE_ID, "magic_power") && size >= 0x131DE) {

@@ -18,6 +18,67 @@ Ppu *g_ppu=&p;
 static uint64_t generation=7;
 uint64_t RtlStateGeneration(void){return generation;}
 static uint32_t wide[448];
+static void diagnostic(unsigned expected,unsigned expected_address) {
+  unsigned kind,address,captured,current;
+  uint8_t ram_before[sizeof(g_ram)],ppu_before[PPU_SAVESTATE_MEM_SIZE];
+  memcpy(ram_before,g_ram,sizeof(g_ram));memcpy(ppu_before,p.cgram,sizeof(ppu_before));
+  LagoonWideEntities_RetainedDiagnostic(&kind,&address,&captured,&current);
+  assert(kind==expected && address==expected_address);
+  if(expected>1 && expected<6)assert(captured!=current);
+  assert(!memcmp(ram_before,g_ram,sizeof(g_ram))&&!memcmp(ppu_before,p.cgram,sizeof(ppu_before)));
+}
+static void native_anchor_test(void) {
+  setup(1,kPpuRenderFlags_NewRenderer);p.obsel=2;memset(g_ram,0,sizeof(g_ram));
+  p.cgram[129]=0x3e0;
+  for(unsigned y=0;y<8;++y)p.vram[0x4400+y]=0xff;
+  uint8_t *oam=(uint8_t*)p.oam;unsigned slot=64;
+  oam[slot*4]=12;oam[slot*4+1]=0;oam[slot*4+2]=0x40;oam[slot*4+3]=0;
+  p.highOam[slot/4]=1;
+  LagoonWideCell cell={268,0,0x40,8};uint16_t pixels[256];
+  assert(LagoonWideEntities_Pixels(p.vram,p.cgram,0x4000,0x5000,&cell,pixels,1));
+  PpuExtraObject objects[2]={{268,0,8,8,8,0,0,64,1,pixels},{268,0,8,8,8,0,0,64,2,pixels}};
+  PpuSetExtraObjects(&p,objects,1);LagoonWideEntities_RetainScene();
+  assert(LagoonWideEntities_RetainedNativeAnchors() && LagoonWideEntities_RetainedSceneValid());
+  /* Original room loading may clear/reinitialize actor RAM while old native
+   * OAM remains displayed. Only source-pinned native cells survive this. */
+  g_ram[0x540]=0xc1;g_ram[0x542]=96;
+  assert(LagoonWideEntities_RetainedSceneValid());diagnostic(0,0);
+  oam[slot*4]++;oam[slot*4+1]+=2;
+  assert(LagoonWideEntities_RetainedSceneValid());LagoonWideEntities_BeginRetained(1);
+  assert(p.extraObjectCount==1 && p.extraObjects[0].x==269 && p.extraObjects[0].y==2 && p.extraObjects[0].pixels[0]==pixels[0]);
+  oam[slot*4]--;oam[slot*4+1]-=2;
+  oam[slot*4]+=9;assert(!LagoonWideEntities_RetainedSceneValid());oam[slot*4]-=9;
+  oam[slot*4+1]+=9;assert(!LagoonWideEntities_RetainedSceneValid());oam[slot*4+1]-=9;
+  for(unsigned i=slot*4+2;i<slot*4+4;++i) {
+    oam[i]^=1;assert(!LagoonWideEntities_RetainedSceneValid());oam[i]^=1;
+  }
+  for(unsigned bit=1;bit<=2;bit<<=1) {
+    p.highOam[slot/4]^=bit;assert(!LagoonWideEntities_RetainedSceneValid());p.highOam[slot/4]^=bit;
+  }
+  p.vram[0x4400]^=1;assert(!LagoonWideEntities_RetainedSceneValid());p.vram[0x4400]^=1;
+  p.cgram[129]^=1;assert(!LagoonWideEntities_RetainedSceneValid());p.cgram[129]^=1;
+  p.obsel^=1;assert(!LagoonWideEntities_RetainedSceneValid());diagnostic(6,0);p.obsel^=1;
+  p.oamaddh^=0x80;assert(!LagoonWideEntities_RetainedSceneValid());p.oamaddh^=0x80;
+  generation++;assert(!LagoonWideEntities_RetainedSceneValid());generation--;
+  /* An unowned native slot newly crossing the viewport cannot be omitted. */
+  uint8_t saved[4];memcpy(saved,oam+slot*4-4,4);
+  oam[slot*4-4]=255;oam[slot*4-3]=0;p.highOam[(slot-1)/4]|=1u<<(((slot-1)%4)*2);
+  assert(!LagoonWideEntities_RetainedSceneValid());memcpy(oam+slot*4-4,saved,4);p.highOam[(slot-1)/4]=0;
+  /* A changed captured pixel/attribute or a virtual cell cannot obtain the
+   * independent native-source exemption. Existing full RAM witness remains. */
+  PpuSetExtraObjects(&p,objects,1);
+  pixels[0]^=1;LagoonWideEntities_RetainScene();assert(!LagoonWideEntities_RetainedNativeAnchors());pixels[0]^=1;
+  g_ram[0x540]^=1;assert(!LagoonWideEntities_RetainedSceneValid());g_ram[0x540]^=1;
+  objects[0].x++;LagoonWideEntities_RetainScene();assert(!LagoonWideEntities_RetainedNativeAnchors());objects[0].x--;
+  objects[0].priority++;LagoonWideEntities_RetainScene();assert(!LagoonWideEntities_RetainedNativeAnchors());objects[0].priority--;
+  objects[0].order=2;LagoonWideEntities_RetainScene();assert(!LagoonWideEntities_RetainedNativeAnchors());
+  g_ram[0x540]^=1;assert(!LagoonWideEntities_RetainedSceneValid());g_ram[0x540]^=1;
+  objects[0].order=1;PpuSetExtraObjects(&p,objects,2);LagoonWideEntities_RetainScene();
+  assert(!LagoonWideEntities_RetainedNativeAnchors());
+  g_ram[0x540]^=1;assert(!LagoonWideEntities_RetainedSceneValid());g_ram[0x540]^=1;
+  PpuSetExtraObjects(&p,NULL,0);LagoonWideEntities_RetainScene();assert(!LagoonWideEntities_RetainedNativeAnchors());
+  puts("retained native anchors: exact original OAM/pixels/layout, RAM clearing, mixed/virtual refusal, source/OAM/generation mutations PASS");
+}
 static void queue_observer_test(void) {
   Dma dma={0};DmaChannel *t=&dma.channel[1];
   static uint8_t dummy_rom[1];g_rom=dummy_rom;g_config.widescreen=1;
@@ -58,16 +119,19 @@ int main(void) {
   assert(wide[96+268]==0x00FF00&&wide[96+269]==0xFF0000);
   for(unsigned x=96;x<96+256;++x)assert(wide[x]==0xFF0000);
   assert(!memcmp(before,p.cgram,sizeof(before))&&!memcmp(ram_before,g_ram,sizeof(g_ram)));
-  p.vram[0x4400]^=1;assert(!LagoonWideEntities_RetainedSceneValid());p.vram[0x4400]^=1;
-  p.cgram[3]^=1;assert(!LagoonWideEntities_RetainedSceneValid());p.cgram[3]^=1;
-  g_ram[0x540]=1;assert(!LagoonWideEntities_RetainedSceneValid());g_ram[0x540]=0;
+  diagnostic(0,0);
+  p.vram[0x4400]^=1;assert(!LagoonWideEntities_RetainedSceneValid());diagnostic(3,0x4400);p.vram[0x4400]^=1;
+  p.cgram[3]^=1;assert(!LagoonWideEntities_RetainedSceneValid());diagnostic(4,3);p.cgram[3]^=1;
+  g_ram[0x540]=1;assert(!LagoonWideEntities_RetainedSceneValid());diagnostic(2,0x540);g_ram[0x540]=0;
   g_ram[0x500]=1;assert(LagoonWideEntities_RetainedSceneValid());g_ram[0x500]=0;
-  p.oam[64*2]^=1;assert(!LagoonWideEntities_RetainedSceneValid());p.oam[64*2]^=1;
-  p.highOam[64/4]^=1;assert(!LagoonWideEntities_RetainedSceneValid());p.highOam[64/4]^=1;
+  p.oam[64*2]^=1;assert(!LagoonWideEntities_RetainedSceneValid());diagnostic(5,64*4);p.oam[64*2]^=1;
+  p.highOam[64/4]^=1;assert(!LagoonWideEntities_RetainedSceneValid());diagnostic(5,512+64/4);p.highOam[64/4]^=1;
   assert(LagoonWideEntities_RetainedSceneValid());generation++;assert(!LagoonWideEntities_RetainedSceneValid());
+  diagnostic(1,0);
   LagoonWideEntities_BeginRetained(1);assert(!p.extraObjectCount);
   LagoonWideEntities_RetainScene();assert(LagoonWideEntities_RetainedSceneValid());
   LagoonWideEntities_Reset();assert(!LagoonWideEntities_RetainedSceneValid());
+  native_anchor_test();
   queue_observer_test();
   puts("retained objects: production deep copy, real PPU colors/native preservation, atlas/palette/record/OAM/generation refusal PASS");
   return 0;

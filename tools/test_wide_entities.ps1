@@ -23,6 +23,11 @@ try {
   if ($LASTEXITCODE) { throw 'Parallax source oracle compilation failed' }
   & $parallaxExe (Join-Path (Split-Path -Parent $repo) 'Lagoon (USA).sfc')
   if ($LASTEXITCODE) { throw 'Parallax source oracle failed' }
+  $waterExe = Join-Path $target 'wide-water.exe'
+  & $cc -std=c11 -O2 @decodeFlags tools/test_wide_water.c src/lagoon_wide_entities.c -o $waterExe
+  if ($LASTEXITCODE) { throw 'Water source oracle compilation failed' }
+  & $waterExe (Join-Path (Split-Path -Parent $repo) 'Lagoon (USA).sfc')
+  if ($LASTEXITCODE) { throw 'Water source oracle failed' }
   $ppuFlags = $decodeFlags + @('-DSNESRECOMP_REVERSE_DEBUG=0','-Isnesrecomp/runner/src','-Isnesrecomp/runner/src/snes')
   Invoke-TestBuild 'wide-entity-pixels' @('tools/test_wide_entity_pixels.c','src/lagoon_wide_entities.c','snesrecomp/runner/src/snes/ppu.c','snesrecomp/runner/src/snes/ppu_legacy.c') $ppuFlags
   Invoke-TestBuild 'shadow-authoritative-map' @('snesrecomp/tests/ppu/ppu_shadow_authoritative_map_test.c','snesrecomp/runner/src/snes/ws_shadow.c','snesrecomp/runner/src/snes/ppu.c','snesrecomp/runner/src/snes/ppu_legacy.c') $ppuFlags

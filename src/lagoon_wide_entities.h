@@ -22,6 +22,12 @@ void LagoonWideEntities_BeginFrame(int enabled);
 void LagoonWideEntities_RetainScene(void);
 void LagoonWideEntities_BeginRetained(int enabled);
 int LagoonWideEntities_RetainedSceneValid(void);
+int LagoonWideEntities_RetainedNativeAnchors(void);
+/* Opt-in report only: first refusal, source address, captured/current value.
+ * Kinds: 1 packet/generation, 2 actor RAM, 3 atlas word, 4 CGRAM word,
+ * 5 OAM byte, 6 object layout/priority, 7 current native pose/source. */
+void LagoonWideEntities_RetainedDiagnostic(unsigned *kind,unsigned *address,
+    unsigned *captured,unsigned *current);
 
 typedef struct LagoonWideRetainedMap {
   uint8_t maps[2][0x4000];
@@ -96,11 +102,12 @@ int LagoonWideBackground_Begin(LagoonWideBackground *background,uint64_t generat
     unsigned room,unsigned source,unsigned bank,unsigned address,unsigned destination,unsigned length);
 void LagoonWideBackground_Write(LagoonWideBackground *background,unsigned address,uint8_t value);
 
-/* Audited room01 two-frame / cave three-frame torches, uploaded by $00:8F19.
+/* Audited room01 two-frame / room02 four-frame / cave three-frame animation,
+ * uploaded by $00:8F19. Room02's original12-entry table repeats four frames.
  * Only completed, byte-verified transfers in this room/timeline are witnesses. */
 enum { kLagoonWideTorchBytes=0xC0, kLagoonWideTorchMaxBytes=0x180, kLagoonWideTorchAddress=0x7600 };
 typedef struct LagoonWideTorches {
-  uint8_t bytes[3][kLagoonWideTorchMaxBytes];
+  uint8_t bytes[4][kLagoonWideTorchMaxBytes];
   uint8_t pending[kLagoonWideTorchMaxBytes];
   uint64_t generation;
   unsigned room, source, next, left, frame, seen;

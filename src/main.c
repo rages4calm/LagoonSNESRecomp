@@ -30,6 +30,7 @@
 #include "snesrecomp_rom_identity.h"  /* generated from rom_identity.txt */
 #include "lagoon_qol.h"               /* opt-in quality-of-life plugins */
 #include "lagoon_widescreen.h"
+#include "lagoon_frame_probe.h"
 #include <string.h>
 
 #ifndef __ANDROID__
@@ -72,6 +73,7 @@ static const SnesDesktopHostGame kGameHost = {
     .end_sim_frame       = LagoonWide_EndFrame,
     .draw_frame          = LagoonWide_DrawFrame,
     .on_reset            = LagoonWide_Reset,
+    .after_run_frame     = LagoonFrameProbe_Record,
 };
 
 #ifndef __ANDROID__

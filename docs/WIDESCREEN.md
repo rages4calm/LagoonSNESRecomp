@@ -31,6 +31,56 @@ that settlement. A 391-present cave-entry audit includes the previously corrupt
 single frame and checks clean fallback throughout the unsupported exterior,
 then expansion once the cave raster is settled.
 
+## Batch19 water, bounds and native-OAM door fades
+
+Room02's original animation descriptor01DFE8 owns twelve phases at01DA42,
+cycling four distinct384-byte graphics sources10:8300/8480/8600/8780. Authority
+requires the exact descriptor/table, ordered completed source bytes, matching
+scene and generation. Partial, changed, overwritten or stale sources refuse.
+Other animation layouts keep their existing guards. Guest DMA/OAM remain real.
+
+The final focused432b5a candidate keeps all44 previously narrow incoming02
+fields639..682 wide:42 fade fields and two full-bright settling fields. At exact
+field656/brightness6, all95,424 margin pixels independently match original
+sources:54,880 backgrounds and40,544 authored-world black. Native center is
+exact. The earlier e2a405 six-checkpoint guest-state/clock comparison is historical
+pre-CPU-acceleration evidence, not final432 guest parity or a new native gain.
+
+Gold Cave03 requires its original1792x1632 dimensions for finite world masking.
+The earlier east-edge535 picture was already black beyond the world and stays
+exact; this was explicit source hardening, not a sampled visible-garbage repair.
+Current432 outgoing source proof includes19,596 required-black observations.
+
+### Follow actual original OAM during the outgoing fade
+
+The CPU clears actor records at room change while the completed old scene's
+native OAM can still advance its pose. Copying old pixels or ignoring changed
+OAM would therefore be wrong. A nonempty retained packet may instead qualify
+only when EVERY cell independently matches its original native OAM slot,
+position/size/attributes and all actual atlas/palette pixels. A current cell is
+rebuilt from actual native OAM, with a unique X9/Y8 unwrap within8px of its
+immutable captured anchor. Size and original object layout stay fixed; all tile
+words remain inside the captured resident atlas. The complete atlas, palette,
+original world authority and generation must remain unchanged. An unowned slot
+newly crossing the margins, unsupported pose/source, new graphics or timeline
+change refuses. Mixed/virtual deep actor packets retain full original actor-RAM
+and exact-slot guards. Zero/unknown packets gain no new exemption.
+
+On the audited03-to02 door, all46 visible outgoing fields459..504 now expand.
+An independent original-ROM metasprite match pins native slots25..32 to frame10.
+Every actual field's OAM/VRAM/CGRAM is decoded independently, including original
+mode1 BG/OBJ priority. All4,389,504 margin observations match:4,365,584 background,
+4,324 actual OBJ and19,596 black pixels. All46 native centers separately match
+the real native framebuffer. This proves this complete visible fade, not every
+transition, enemy family or virtual far actor. Final overall selection remains
+owned by integrated qualification; this focused proof binds432b5a explicitly.
+
+The optional existing scene report identifies the first actor refusal by source
+kind/address/captured/current values. It reads host snapshots without guest writes.
+Portable local fixtures and independent source verifiers are in
+validation/inputs/batch19/room03; they reuse existing deduplicated seeds. Full
+46-field source captures are for changed-contract audits, not routine campaigns.
+
 ## Batch 9: retain the proven outgoing scene
 
 A door can update the destination room number while the completed raster still

@@ -3,6 +3,28 @@
 Keep the interpreter safety net and publish source in substantial, verified
 batches. Generated routine counts are not campaign completion percentages.
 
+- [x] Select/install exact qualified batch19 executable432b5a58; counts remain
+      376/119/258. Cold Items and portable no-potion Giles checks pass.
+- [x] Core Giles first aid: five actual acceptance/decline/quest-guard cases;
+      no potion requirement/consumption, original escort and follower movement.
+- [x] Optional sword cleave: three lateral pixels per side; existing38px forward
+      reach and separate NPC interaction geometry preserved.
+- [x] Five audited menu cases open20/18/19 fields and close22 using twelve
+      real charged original DMA jobs and source-checked graphics.
+- [x] Guarded enemy-position math in normal rooms03..06/type2 only:7,392 oracle
+      cases,66 refusals,64 real JSR/RTS entries; original fallback retained.
+- [x] Final1080p real-audio cave tests remove sampled three-field updates:
+      off69 versus auto0, with525 two-field updates. No locked60FPS claim.
+- [x] Source-verify all44 incoming02 water-fade and all46 outgoing03 fade fields;
+      actual margin actors, background/world black and native centers agree.
+- [x] Guard exact1792x1632 Gold Cave03 dimensions and dynamic retained-OAM bounds.
+- [x] Final same-cleave off/auto boss42/44 and boss48 death outputs/clocks agree;
+      strict reports stay false for declared mode input differences. Actual
+      cave revival heals1→10 and consumes item25 after healing, with no HP edits.
+- [ ] Continue unsupported scenes/actors/transitions from specific reported
+      failures; do not assume these bounded fade checks authorize every room.
+- [ ] Owner/friends uninterrupted campaign and hardware/controller playtest.
+
 - [x] First four native roots: movement, clamping, projection and velocity.
 - [x] Second four: graphics staging, knockback, map sampling and jump checks.
       The 7,219-frame/18-tag stock route matches the previous native control.

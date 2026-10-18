@@ -35,7 +35,7 @@ internal static class NativeSettings
     internal static readonly string[] Features = { "walk_speed", "start_hp", "camera_center", "sword_reach", "follower_speed", "recovery_time", "exp_boost", "jump_hold", "magic_power" };
     private static string FeatureLabel(string id) => id switch {
         "walk_speed" => "Walking speed: 5 pixels/frame", "start_hp" => "More forgiving opening",
-        "camera_center" => "Immediate camera following", "sword_reach" => "Sword reach: 38 pixels",
+        "camera_center" => "Immediate camera following", "sword_reach" => "Sword: 38-pixel reach + modest cleave",
         "follower_speed" => "Follower speed: 3 pixels/frame", "recovery_time" => "Eight extra protection frames",
         "exp_boost" => "EXP rewards: +50%", "jump_hold" => "Eight-frame jump peak hold",
         "magic_power" => "Stronger magic", _ => id };

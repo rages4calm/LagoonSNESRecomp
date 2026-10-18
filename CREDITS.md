@@ -2,11 +2,12 @@
 
 - **ZOOM and KEMCO** — the original Lagoon games. This project does not include
   their ROMs, graphics or audio.
-- **The original Lagoon QoL hack author** — the changes requested for this port
+- **oipo, the Lagoon QoL hack author identified by the project owner** — the changes requested for this port
   were inspired by [Lagoon QoL, Romhacking.net hack #9856](https://www.romhacking.net/hacks/9856/).
   The supplied patch was a reference for reach, follower and movement behavior.
   This port implements its own optional native/interpreter-compatible hooks;
-  its opening balance and uniform magic boost are project choices.
+  its opening balance, uniform magic boost, additional lateral cleave and
+  Giles first-aid rewrite are project choices.
 - **Hideki Suzuki** — X68000 music, as credited in the supplied VGM package.
   **GTheGuardian** created that package; **Valley Bell** optimized it.
   Soundtrack files are supplied/imported separately and are not in this repo.

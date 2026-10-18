@@ -111,6 +111,10 @@ static void audited_rooms(void) {
   assert(!LagoonWideEntities_AuditedRoom(1,0x139a7a,0x198000,0x0689e0,0x0689e0,0x7f0000,0x7f4000));
   assert(!LagoonWideEntities_AuditedRoom(1,0x139a7a,0x1a8000,0x0689e0,0x0689e0,0x7e0000,0x7f4000));
   assert(LagoonWideEntities_BoundedRoom(4,768,256));
+  assert(LagoonWideEntities_BoundedRoom(3,1792,1632));
+  assert(!LagoonWideEntities_BoundedRoom(3,1792,1631));
+  assert(!LagoonWideEntities_BoundedRoom(3,1791,1632));
+  assert(!LagoonWideEntities_BoundedRoom(3,2048,2048));
   assert(LagoonWideEntities_BoundedRoom(5,1536,1280));
   assert(LagoonWideEntities_BoundedRoom(6,512,256));
   assert(!LagoonWideEntities_BoundedRoom(4,768,512));

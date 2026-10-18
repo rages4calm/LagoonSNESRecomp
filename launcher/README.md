@@ -49,9 +49,10 @@ automatically. See [soundtrack details](../docs/X68000-SOUNDTRACK.md).
 
 The Quality of life page changes the matching native package's feature selections
 in `mods/preloaded/state.toml` beside the executable. All nine gameplay options default off:
-walking speed, opening balance, camera centering, sword reach, follower speed,
+walking speed, opening balance, camera centering, sword reach with modest lateral cleave, follower speed,
 recovery time, EXP rewards, jump peak hold and magic strength. Menu responsiveness
-is built into the port. The old fast-menu flag remains a harmless compatibility
+is built into the port. Giles first aid is also built in: accepting his rescue request
+does not require or consume a Healing Pot. The old fast-menu flag remains a harmless compatibility
 alias for existing catalogs. Gameplay features require the
 matching `lagoon.quality/1.0.0/manifest.toml` package. These are native feature
 switches; the original ROM remains clean. Opening balance affects new games.

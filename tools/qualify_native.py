@@ -12,7 +12,7 @@ import time
 
 DIAGNOSTIC_RANGES={'SNESRECOMP_AOTBLK': (10,10000000),
                    'SNESRECOMP_CYC_WATCH': (16,0xffffff)}
-DIAGNOSTIC_BOOLEANS={'SNESRECOMP_HOST_PROFILE','SNESRECOMP_LLE_BOUNCE','SNESRECOMP_DMA_LOG'}
+DIAGNOSTIC_BOOLEANS={'SNESRECOMP_HOST_PROFILE','SNESRECOMP_LLE_BOUNCE','SNESRECOMP_DMA_LOG','LAGOON_ACTOR_COMPUTE_REPORT'}
 
 
 def validate_diagnostic_boolean(key,value):
@@ -79,6 +79,7 @@ def main():
     parser.add_argument('--input-trace',action='store_true',help='Log actual guest input words for isolation checks')
     parser.add_argument('--visible',action='store_true',help='Use the real SDL display for fullscreen screenshot checks; saves/config remain isolated')
     parser.add_argument('--offscreen',action='store_true',help='Real GPU in a hidden non-fullscreen window; no desktop display changes')
+    parser.add_argument('--real-audio',action='store_true',help='Use the actual audio device for an isolated visible/offscreen performance check instead of dummy audio')
     parser.add_argument('--display-screenshot-range',nargs=2,type=int,metavar=('FIRST','LAST'),help='Read back a bounded range of actual GPU frames; requires visible or offscreen')
     parser.add_argument('--display-screenshot-frame',type=int,help='Capture the actual SDL output at this frame; requires --visible')
     parser.add_argument('--features',default='',help='Comma-separated lagoon.quality feature ids; creates a private mod catalog')
@@ -92,6 +93,7 @@ def main():
     parser.add_argument('--manifest',type=Path,help='Manifest belonging to this executable; required for old retained binaries')
     args=parser.parse_args()
     if args.visible and args.offscreen:parser.error('Choose visible OR offscreen')
+    if args.real_audio and not (args.visible or args.offscreen):parser.error('--real-audio requires --visible or --offscreen')
     if args.campaign_warps and (args.visible or args.offscreen or args.live_input):
         parser.error('Campaign warps require an isolated headless scripted run')
     if args.no_present_log and args.screenshot_range:
@@ -147,6 +149,7 @@ def main():
         if key.startswith('SNESRECOMP_') or key.startswith('LAGOON_'):env.pop(key)
     env.update(SDL_AUDIODRIVER='dummy',
                SNESRECOMP_RUN_FRAMES=str(args.frames),SNESRECOMP_DUMP_DIR=str(out/'dumps'))
+    if args.real_audio:env.pop('SDL_AUDIODRIVER',None)
     if not args.no_present_log:
         env['SNESRECOMP_PRESENT_LOG']=str(out/'presents.csv')
     if args.input_trace:env['SNESRECOMP_INPUT_TRACE']='1'
@@ -180,7 +183,7 @@ def main():
         if first<1 or last<first or last-first>1500:parser.error('Display range must contain 1..1501 frames')
         (out/'display-frames').mkdir()
         env.update(SNESRECOMP_DISPLAY_SCREENSHOT_DIR=str(out/'display-frames'),SNESRECOMP_DISPLAY_SCREENSHOT_FROM=str(first),SNESRECOMP_DISPLAY_SCREENSHOT_TO=str(last))
-    diagnostic_paths={'LAGOON_WIDE_ENTITY_REPORT','LAGOON_SOUNDTRACK_PROBE',
+    diagnostic_paths={'LAGOON_WIDE_ENTITY_REPORT','LAGOON_SOUNDTRACK_PROBE','LAGOON_FRAME_PROBE',
                       'LAGOON_SCENE_RENDERER_REPORT',
                       'SNESRECOMP_APURAM_TRACE_FILE','SNESRECOMP_DSPREG_TRACE_FILE','SNESRECOMP_DSPOUT',
                       'SNESRECOMP_FRAME_TIMING'}
@@ -190,7 +193,7 @@ def main():
     overrides={}
     for spec in args.env:
         key,sep,value=spec.partition('=')
-        if not sep or key not in diagnostic_paths|diagnostic_numbers|diagnostic_booleans|diagnostic_ranges.keys()|{'LAGOON_WIDE_ASPECT','LAGOON_SCENE_RENDERER'}:
+        if not sep or key not in diagnostic_paths|diagnostic_numbers|diagnostic_booleans|diagnostic_ranges.keys()|{'LAGOON_WIDE_ASPECT','LAGOON_SCENE_RENDERER','LAGOON_ACTOR_COMPUTE'}:
             raise SystemExit('Unsupported diagnostic override: '+spec)
         if key in diagnostic_paths:
             p=Path(value);p=(p if p.is_absolute() else out/p).resolve()
@@ -202,9 +205,10 @@ def main():
             validate_diagnostic_number(value)
         elif key in diagnostic_ranges:
             validate_diagnostic_range(key,value)
-        elif key=='LAGOON_SCENE_RENDERER':
-            if value not in {'off','verify','auto'}:
-                raise SystemExit('Unsupported scene renderer mode: '+value)
+        elif key in {'LAGOON_SCENE_RENDERER','LAGOON_ACTOR_COMPUTE'}:
+            choices={'off','verify','auto'} if key=='LAGOON_SCENE_RENDERER' else {'off','on','auto'}
+            if value not in choices:
+                raise SystemExit('Unsupported mode for '+key+': '+value)
         elif value not in {'16:9','16:10','21:9','32:9','window'}:
             raise SystemExit('Unsupported widescreen aspect: '+value)
         env[key]=value;overrides[key]=value
@@ -232,6 +236,7 @@ def main():
     receipt['campaign_setup_writes']=setup_writes
     receipt['visible_display']=args.visible
     receipt['offscreen_gpu']=args.offscreen
+    receipt['real_audio_device']=args.real_audio
     receipt['display_screenshot_range']=args.display_screenshot_range
     receipt['display_screenshot_frame']=args.display_screenshot_frame
     # The framework's current save-root buffer is only 96 bytes. A short path

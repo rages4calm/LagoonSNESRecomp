@@ -75,3 +75,12 @@ and diagnostic overhead. A separate clean hidden-GPU interval measured about
 60.12 fps with remaining frame-time spikes. See [performance evidence and
 limits](../PERFORMANCE.md); the older 46.2 fps dialogue capture above is a
 historical measurement, not the current controlled result.
+
+## Batch 19 — Gold Cave, 16:9, Enhanced original pixels
+
+![Gold Cave during the batch19 fullscreen check](gold-cave-batch19-1920x1080.png)
+
+Actual 1920×1080 OpenGL desktop-fullscreen readback from the selected batch19
+build, with Enhanced original pixels. PNG preserves the readback resolution
+and colors. This is an assisted performance encounter; the upper black region
+is authored space outside this cave corridor. See [capture metadata](batch19-capture.json).

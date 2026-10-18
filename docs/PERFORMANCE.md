@@ -195,3 +195,39 @@ Manifest SHA256:
 Private `work-native-20261015-164402/optimized190-performance-verification.json`
 binds both receipts, CSVs, shader hashes, default-auto report and exact endpoint
 comparison; `performance-opt190-invocation.json` records the two invocations.
+
+## Batch 19: cave enemy cadence and final fullscreen check
+
+The original main loop clears0418 at018088 and waits for at least two NMI
+fields at01814E. In Gold Cave03, enemy coordinate work sometimes overran that
+budget: presentation remained near60Hz while game logic took three fields.
+The guarded native clamp/project computation now applies only to normal live
+type2 enemies in rooms03..06. It retains original AI/collision, the real return
+frame/RTS and hardware timeline; it does not overclock or subtract elapsed time.
+Unknown contexts execute the original generated bodies. There are no new AOT modes.
+
+Final executable432b5a5808eebcf8395d14c2399b43e1402a1149965c16a55a1bf875c8bb0629
+was tested at1920×1080/16:9, OpenGL, VSync, Enhanced original pixels and the real
+audio device (private volume0). All three runs share one frozen assisted dungeon
+state and the same scripted movement. No compilation/heavy parallel test ran
+during the measurements. Fields150..1200 exclude startup/loading/final dumps;
+the visible readback interval247..253 is excluded from its timing statistics.
+
+| Mode | Presentation-call rate | p95 interval | Maximum interval | Three-field logic ticks |
+| --- | ---: | ---: | ---: | ---: |
+| Hidden, computation disabled |60.124Hz|17.981ms|21.438ms|69|
+| Hidden, default native computation |60.120Hz|17.496ms|22.015ms|0|
+| Desktop fullscreen, default computation |60.116Hz|17.459ms|21.438ms|0|
+
+The enabled runs each contain525 two-field logic updates; the disabled run has
+421 two-field and69 three-field updates in the same measurement window. This
+fixes measured guest slowdown without making the original30Hz logic into60Hz
+physics. Neither enabled run has a measured interval above25ms in this window.
+The real audio safeguard remains active (11 high-water waits per enabled
+window); it was not removed to improve the numbers.
+
+This is bounded CPU presentation-call timing, not physical monitor scanout,
+locked frame times or a complete-campaign guarantee. The readonly optional
+LAGOON_FRAME_PROBE diagnostic buffers movement/logic samples until exit.
+The qualifier supports --real-audio for isolated visible/offscreen checks;
+ordinary deterministic tests retain dummy audio.

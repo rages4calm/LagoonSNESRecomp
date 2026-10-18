@@ -73,7 +73,7 @@ id = "lagoon.qol.debug_position"
 [[feature]]
 id = "sword_reach"
 name = "Longer sword reach"
-description = "Extends the directional sword hit rectangles to 38 pixels, matching the supplied QoL patch."
+description = "Extends directional sword reach to 38 pixels and adds a modest 3 pixels of lateral cleave on each side."
 group = "Combat"
 default_enabled = false
 

@@ -159,7 +159,7 @@ void LagoonWide_Reset(void) {
   s_state_generation = RtlStateGeneration();
 }
 
-static int room_bounds_enabled(unsigned room) { return (room==1 || room==2) || (room>=4 && room<=8); }
+static int room_bounds_enabled(unsigned room) { return (room==1 || room==2) || (room>=3 && room<=8); }
 static int room07_parallax(void) {
   return word(0x48e)==7 && g_ram[0x50]==2 && pointer(0x57)==0x129e89 &&
       pointer(0x5d)==0x1a906f && pointer(0x69)==0x069720 && pointer(0x75)==0x069720 &&
@@ -614,16 +614,20 @@ static void report_scene(unsigned frame) {
   const char *base=getenv("LAGOON_WIDE_ENTITY_REPORT");if(!base)return;
   char path[1200];if(snprintf(path,sizeof(path),"%s.scene.tsv",base)>=(int)sizeof(path))return;
   FILE *f=fopen(path,"ab");if(!f)return;fseek(f,0,SEEK_END);
-  if(!ftell(f))fprintf(f,"frame\troom\tloading\tbg_complete\tbg_ready\tchars_ready\tearly_authority\tmap_ready\tmodal\tactive\tfallback\tbrightness\ttm\ttorch_seen\ttorch_render\tretained_active\tretained_room\tretained_valid\tparallax_valid\tretained_actor_valid\tretained_invalidation_kind\tretained_invalidation_address\n");
+  if(!ftell(f))fprintf(f,"frame\troom\tloading\tbg_complete\tbg_ready\tchars_ready\tearly_authority\tmap_ready\tmodal\tactive\tfallback\tbrightness\ttm\ttorch_seen\ttorch_render\tretained_active\tretained_room\tretained_valid\tparallax_valid\tretained_actor_valid\tretained_invalidation_kind\tretained_invalidation_address\tactor_refusal_kind\tactor_refusal_address\tactor_captured\tactor_current\tactor_native_anchors\n");
   int map_ready=world_scene_geometry() && native_world_map();
-  fprintf(f,"%u\t%u\t%u\t%u\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%u\t%u\t%u\t%d\t%d\t%u\t%d\t%d\t%d\t%u\t%u\n",frame,
+  unsigned actor_kind,actor_address,actor_captured,actor_current;
+  LagoonWideEntities_RetainedDiagnostic(&actor_kind,&actor_address,&actor_captured,&actor_current);
+  fprintf(f,"%u\t%u\t%u\t%u\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%u\t%u\t%u\t%d\t%d\t%u\t%d\t%d\t%d\t%u\t%u\t%u\t%u\t%u\t%u\t%d\n",frame,
       word(0x48e),g_ram[0x100e],s_background.completed,background_upload_ready(),
       s_world_chars_ready,s_initial_world_authority,map_ready,has_modal_ui(),s_was_active,
       s_present_fallback,g_ppu->inidisp,g_ppu->screenEnabled[0],s_torches.seen,
       LagoonWideTorches_Match(&s_torches,PpuRenderVram(g_ppu),RtlStateGeneration(),
           word(0x48e),pointer(0x57)),s_using_retained,s_retained.room,
       s_retained.valid,s_retained.parallax.valid,LagoonWideEntities_RetainedSceneValid(),
-      s_retained_invalidation_kind,s_retained_invalidation_address);fclose(f);
+      s_retained_invalidation_kind,s_retained_invalidation_address,
+      actor_kind,actor_address,actor_captured,actor_current,
+      LagoonWideEntities_RetainedNativeAnchors());fclose(f);
 }
 
 /* Keep the completed field's policy with the presentation boundary. The

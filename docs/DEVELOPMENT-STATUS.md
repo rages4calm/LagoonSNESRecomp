@@ -1,65 +1,52 @@
 # Current development checkpoint - October 17, 2026
 
-Batch 18 is selected after 22 fresh comparisons covering 71,239 ordered frames
-and 50 complete state/clock checkpoints. The exact tested executable is installed
-and passes an isolated cold Items-menu replay. Read [batch 18](../NATIVE-BATCH18-2026-10-17.md). The normal
-runtime path remains `build/LagoonSNESRecomp.exe`, launched with `Start Lagoon.cmd`.
+Batch19 is selected and installed. Launch `Start Lagoon.cmd`; cold installed
+Items and portable no-potion Giles checks pass. This is a beta/WIP with **376 AOT /
+119 analyzed LLE /258 roots** and the interpreter safety net. Counts are not
+completion percentages. [Batch19](../NATIVE-BATCH19-2026-10-17.md) records full scope;
+[batch18](../NATIVE-BATCH18-2026-10-17.md) is historical.
 
-Program: **376 AOT / 119 analyzed LLE / 258 roots**, retaining all 375 prior modes.
 Selected executable SHA256:
-`d52e1f01682fc63dfb398b35fc37fd67f04d2f9a35dbac15abd2f365378d4a12`.
+`432b5a5808eebcf8395d14c2399b43e1402a1149965c16a55a1bf875c8bb0629`.
 Manifest SHA256:
-`67b8ea9ab01deda512cf58bae7ab45966202f82355fcbd216d0feb5fc7ab5190`.
+`f991f7c7bf62e881360c1ee5150af5bff76d90bf3d2c67bdb7e4e853f41bd2a5`.
 
-## Native scope
+Five audited menus open Items/Magic/Equipment in20/18/19 fields and close in22
+with twelve real original DMA jobs. Core Giles first aid preserves original
+Yes/No, inventory and escort; five actual guest cases include follower movement
+and repeated/completed guards. Optional sword reach adds3px per lateral side.
 
-New 0192C3:M1X0 performs four original death-classification RAM/branch operations.
-Boss death retains original 92CD/0080E9 table dispatch on the interpreter;
-ordinary death tails into already-native 92F1 velocity reset with its real
-return frame. No new continuation, return-width or SDK ABI is introduced.
+Two original RAM-only enemy-position leaves have guarded host implementations
+for normal rooms03..06/type2 only. The oracle passes7,392 full-RAM/CPU cases,
+66 refusals and64 real JSR/RTS returns. All376 bodies remain,374 byteexact plus
+two guarded entries with exact original fallbacks. No new native mode/SDK ABI
+is counted. Removing math's guest instruction time intentionally changes phase;
+AI, collision, audio and hardware work still run. Unknown contexts fall back.
 
-Final same-host 375→376 Samson-kill/player-death pairs pass 4,432 ordered frames
-and six complete eight-component/clock checkpoints. All four new source keys
-execute. Seven prefix interpretations plus five existing-leaf interpretations
-are removed: 12 total, 11 excluding returns. Both coverage profiles are loss-free
-and warning-free. This is bounded actual death-path proof, not full orchestration.
+Final1920×1080 real-audio measurements present at60.124 FPS off,60.120 hiddenauto
+and60.116 fullscreenauto. Host interval p95 is17.981/17.496/17.459ms respectively.
+Fields150..1200 show69 three-field updates off versus525 two-field updates and
+zero slower updates auto. Readback fields247..253 are excluded for fullscreen.
+These bounded checks are not a locked60FPS or all-room guarantee.
 
-Against selected 375, 374 complete old bodies are exact; 89A7 adds only an HLE
-guard and pending initialization, with its entire original fallback body exact.
-Between updated-host 375 and 376 all 375 old bodies are byte-identical. The LLE
-count drops 123→119 from one native conversion and three pruned, uncompiled
-analysis descendants. Those original table descendants remain interpreted.
-Keep 25 timing/audio deferrals, camera seams, opening floor and other modes.
+All44 incoming02 water-fade fields and46 outgoing03 fade fields pass final
+source checks. Outgoing proof covers4,389,504 margin pixel observations and46
+native centers, including actual current OAM actors within guarded eight-pixel
+anchors. Palette/atlas/generation/old-world authority remain mandatory; mixed/
+virtual packets retain full actor-record guards. Unsupported scenes fall back.
 
-## Menus and widescreen
+Three final same-cleave off/auto boss comparisons have exact pictures/checkpoints/
+clocks; strict reports stay false for declared mode input differences. Cave
+revival has intentionally different cadence and is checked separately: real
+lethal damage4→1, healing1→10, item25 consumed afterward and alive checkpoints.
+Earlier14 strict/3 cleave-qualified/2 unqualified comparisons retain their actual
+results. No mismatch masks or false aggregate strict claims are used.
 
-The HUD RAM fill at 018AD1..018AF0 passes 768 original-opcode cases and 2,195
-guard checks, stopping before original 018AF2. A guarded existing-native 89A7
-entry additionally services only seven owned BG/OBJ chunks through real 420B
-DMA, retaining actual transfer charges, bytes, source and destination. Unknown
-callers, pending work, active channels and unforced display fall back unchanged.
-The original fallback stays in the generated body; no extra AOT mode is counted.
-
-Five actual menu checks show 32→25 closing fields in room 01/room 02 and 33→26
-in Atland; blank drops 24→17 or 25→18. Original fade timing remains unchanged. Ordinary per-NMI animation/OAM updates occur fewer times over the shortened
-transition. All five sampled resource checks pass. Animated VRAM's 384-byte
-upload matches its actual descriptor-selected ROM phase; other VRAM is unchanged.
-Atland/outdoor palette differences follow the original three-color rotation,
-including every 274/1,742 changed framebuffer pixel. This is source-phase proof,
-not a claim that historical settled framebuffers are byte-identical.
-
-Room 07 incoming/outgoing door fades are each wide for 46 fields. Sampled margins
-match 190,848 original source pixels. The outgoing packet owns both static BG2
-pages, independent quarter-scroll anchors and generation. Its original 34-word
-top-edge queue requires exact source/map/destination plus all 68 ordered bytes;
-partial, mismatched, duplicate, interrupted or stale streams refuse. Reset tests
-pass. Final integrated comparisons pass with the exact selected executable.
-
-## Limits
-
-The custom renderer remains Atland-only; Enhanced is optional and Smooth removed.
-No new backend, retexture, locked 60 FPS, full-native or full audio-parity claim is
-made. Broader death/revival/boss logic, remaining menu/scripted/wide transitions,
-soundtrack mappings and hardware/controller checks remain open. Owner/friends
-perform the uninterrupted campaign. Reuse the compact fixtures; do not repeat
-completed 99/73-room exploration or canonical 79 ingestion. Preserve the dirty SDK.
+All50 Python tests, actor/wide/source/menu checks and launcher Apply/Revert plus
+120-frame startup pass. Seven protected owner files and the dirty SDK remain
+unchanged. Preserve source, ROM, settings, saves, soundtrack and Ghidra; use small
+private portable fixtures rather than repeating completed campaign exploration.
+The owner/friends run the uninterrupted campaign. See [PLAYTEST.md](PLAYTEST.md).
+Broader native death/boss orchestration, unsupported scenes, soundtrack mappings
+and hardware/controller coverage remain open. Atland's custom renderer remains
+limited; Enhanced original pixels is optional.
