@@ -3,6 +3,16 @@
 Keep the interpreter safety net and publish source in substantial, verified
 batches. Generated routine counts are not campaign completion percentages.
 
+- [x] Qualify batch20 candidate377/119/258: native B413's original18-instruction
+      cleanup prefix,11,520 original-opcode oracle cases; fresh strict boss40,
+      boss48, contact, explicitly staged death and room03 door checks.
+- [x] Extend the stable custom scene renderer to exact Gold Cave03 resources;
+      626 replacements/646 presentations,311 independent renders, zero mismatches,
+      two checkpoints with seven components exact against same-executable off mode.
+- [x] Install/select exact tested batch20 executable15cca706 without rebuilding;
+      cold assisted death replay matches all eight components at three checkpoints.
+- [x] Fresh strict revival regression and bounded hidden1080p real-audio pacing:
+      60.135Hz,274 two-field ticks, zero slow ticks; no new fullscreen claim.
 - [x] Select/install exact qualified batch19 executable432b5a58; counts remain
       376/119/258. Cold Items and portable no-potion Giles checks pass.
 - [x] Core Giles first aid: five actual acceptance/decline/quest-guard cases;
@@ -113,8 +123,9 @@ batches. Generated routine counts are not campaign completion percentages.
       Elf Field Start and its loaded fade are covered in batch 16; other layouts remain.
 - [x] Built-in Items/Magic/Equipment transition acceleration with transactional
       original-resource decoding; 75 streams / 300 original-instruction oracle cases.
-- [ ] Profile remaining original world-loader close work after batch 18 menu acceleration
-      (25 room 01 / 26 Atland total closing fields, including fades) without broadening unsupported decoder or return-frame guards.
+- [x] Supersede batch18's25/26-field menu-close profile with batch19's22-field
+      audited closes. Four original tile queues remain; revisit only for a new
+      measured issue, keeping exact decoder and return-frame guards.
 - [x] Remove Smooth scaling; retain optional Enhanced original pixels.
 - [x] Preserve both raster register journals in development states; fix alternating
       black frames after cold loading, with consecutive-field and hidden GPU checks.
@@ -155,8 +166,13 @@ batches. Generated routine counts are not campaign completion percentages.
       Preserve qualified sibling modes and the interpreter until proven safe.
 - [ ] Natural campaign progression, source/runtime classification of records 2A/3F,
       unobserved entry routes and complete credits qualification.
-- [ ] Optional in-game map showing Nasir, visited rooms, doors and key locations;
-      build from source-proven room data after broad campaign coverage.
+- [ ] After native work and custom renderer completion, consider an optional
+      in-game map showing Nasir, visited rooms, doors/exits, connections and key
+      locations from source-proven data, with discovery/spoiler controls.
+- [ ] After native work and custom renderer completion, consider a modest
+      optional15–20% zoom-out prototype in one town and one dungeon. Additional
+      vertical world/actor coverage, camera bounds, transitions and readable HUD
+      need qualification; shrinking the old image is not additional visibility.
 
 Optional gameplay QoL and widescreen default off; menu acceleration is core behavior. Exact implementation/evidence:
 [native batch](NATIVE-BATCH14-2026-10-17.md), [QoL](QOL-IMPLEMENTATION.md),

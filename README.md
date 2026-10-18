@@ -4,12 +4,25 @@ A work-in-progress Windows port of Lagoon (USA), using SNESRecomp's generated
 native routines alongside its 65816 interpreter safety net. Your own clean ROM
 is required. The executable does not depend on Mesen; it is a development reference.
 
-## Current progress - October 17, 2026
+## Current progress - October 18, 2026
 
-Batch19 is selected and installed with **376 AOT /119 analyzed LLE /258 roots**
-and the interpreter safety net. These counts are not completion percentages.
+Batch20 is selected and installed with **377 AOT /119 analyzed LLE /258 roots**.
+The interpreter safety net remains. Counts are not completion percentages.
 This remains a beta/WIP; the owner and friends will perform the uninterrupted
 start-to-finish campaign playtest.
+
+The batch adds an original 18-instruction boss-death cleanup prefix, backed
+by 11,520 original-opcode oracle cases and fresh focused combat, revival and door comparisons.
+Stable Gold Cave03 joins Atland's independent custom scene renderer: its bounded
+off/auto check replaces626 of646 presentations with zero mismatches, preserving
+all seven recorded state components at two checkpoints. The reference renderer
+still runs; this is coverage and correctness evidence, not a performance gain.
+The exact installed executable passes a cold assisted death replay, with all
+eight components exact at three checkpoints. A bounded hidden1080p real-audio
+check measures60.135Hz and274 two-field gameplay ticks without slower ticks;
+this batch makes no new fullscreen or whole-campaign performance claim.
+See [batch20](NATIVE-BATCH20-2026-10-18.md) and
+[the custom renderer](docs/CUSTOM-RENDERER.md).
 
 The five audited menu checks open Items/Magic/Equipment in20/18/19 fields and
 close in22 using twelve original charged DMA jobs. Giles accepts wound dressing
@@ -18,7 +31,7 @@ sword reach adds three lateral pixels on each side to its existing38px reach.
 
 Guarded host computation of two original enemy-position leaves improves measured
 Gold Cave gameplay cadence without skipping AI, collision or hardware work.
-Final1920×1080 real-audio tests measure about60.12 presentation FPS; the sampled
+Batch19's1920×1080 real-audio tests measured about60.12 presentation FPS; the sampled
 cave changes from69 three-field updates to525 two-field updates with no slower
 updates. This is bounded evidence, not a locked60FPS or all-room guarantee.
 Room02's44 incoming water-fade fields and room03's46 outgoing fade fields now
@@ -27,7 +40,7 @@ retain independently source-verified scenery and native center pixels.
 Focused checks cover actual damage, seven boss death/defeat endpoints, original
 rewards, consumable revival and quest interactions. Broader native death/boss
 orchestration, unsupported scenes and hardware/controller coverage remain open.
-Read the [playtest guide](docs/PLAYTEST.md), [batch19 identities and evidence](NATIVE-BATCH19-2026-10-17.md),
+Read the [playtest guide](docs/PLAYTEST.md), [batch19 stabilization evidence](NATIVE-BATCH19-2026-10-17.md),
 [current status](docs/DEVELOPMENT-STATUS.md), [todo list](TODO.md),
 [menu details](docs/FAST-MENUS.md), [widescreen scope](docs/WIDESCREEN.md),
 [performance evidence](docs/PERFORMANCE.md) and [save states](docs/SAVE-STATES.md).

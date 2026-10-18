@@ -67,6 +67,20 @@ static void init_tables(void) {
 
 static unsigned word(const uint8_t *r,unsigned a){return r[a]|r[a+1]<<8;}
 static unsigned ptr(const uint8_t *r,unsigned a){return word(r,a)|r[a+2]<<16;}
+/* Exact ordinary scene resources, not permission for arbitrary Mode1 rooms.
+ * Both maps use the same immutable ROM definition bank in these two scenes. */
+static int scene_resources(const uint8_t *r,unsigned *definitions) {
+  if(!r || ptr(r,0x88)!=0x7f0000 || ptr(r,0x8b)!=0x7f4000 ||
+      ptr(r,0x69)!=ptr(r,0x75))return 0;
+  unsigned room=word(r,0x48e),d=ptr(r,0x69);
+  if(room==0 && ptr(r,0x57)==0x138000 && ptr(r,0x5d)==0x198000 && d==0x068000) {
+    if(!word(r,0x53)||word(r,0x53)>256||!word(r,0x55)||word(r,0x55)>256)return 0;
+  }else if(room==3 && ptr(r,0x57)==0x128b77 && ptr(r,0x5d)==0x1d8000 && d==0x069298) {
+    if(word(r,0x53)!=224 || word(r,0x55)!=204)return 0;
+  }else return 0;
+  if(definitions)*definitions=((d>>16)&0x7f)*0x8000+(d&0x7fff);
+  return 1;
+}
 static void write_report(void) {
   if(!s_report[0])return;
   FILE *f=fopen(s_report,"w");if(!f)return;
@@ -105,10 +119,7 @@ void LagoonSceneRenderer_Reset(void) {
   report("reset",0,0);
 }
 static int supported(const Ppu *p,const uint8_t *r,const uint8_t *rom,size_t size,int authority) {
-  return authority&&r&&rom&&size==0x100000&&word(r,0x48e)==0&&
-    ptr(r,0x57)==0x138000&&ptr(r,0x5d)==0x198000&&
-    ptr(r,0x69)==0x068000&&ptr(r,0x75)==0x068000&&
-    ptr(r,0x88)==0x7f0000&&ptr(r,0x8b)==0x7f4000&&
+  return authority&&r&&rom&&size==0x100000&&scene_resources(r,NULL)&&
     !r[0x100e]&&!r[0x50]&&word(r,0x48c)<=64&&
     word(r,0x53)>0&&word(r,0x53)<=256&&word(r,0x55)>0&&word(r,0x55)<=256&&
     p->inidisp==15&&p->bgmode==9&&!p->mosaic&&p->obsel==2&&!p->setini&&
@@ -155,8 +166,9 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
     s->valid=1;s->lines=1;
     memcpy(s->regs,&p->inidisp,sizeof(s->regs));
     memcpy(s->maps[0],r+0x10000,16384);memcpy(s->maps[1],r+0x14000,16384);
-    /* Both audited Atland definition pointers resolve to LoROM bank06:8000. */
-    memcpy(s->defs[0],rom+0x30000,2048);memcpy(s->defs[1],rom+0x30000,2048);
+    unsigned definitions;
+    if(!scene_resources(r,&definitions)){s->valid=0;return;}
+    memcpy(s->defs[0],rom+definitions,2048);memcpy(s->defs[1],rom+definitions,2048);
     memcpy(s->vram,PpuRenderVram(p),sizeof(s->vram));memcpy(s->pal,p->cgram,sizeof(s->pal));
     memcpy(s->oam,p->oam,sizeof(s->oam));memcpy(s->high,p->highOam,sizeof(s->high));
     object_policy(&s->policy,p);

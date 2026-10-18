@@ -1,7 +1,8 @@
 # Bounded custom scene renderer
 
 The interpreter safety net remains in place. `src/lagoon_scene_renderer.c` adds
-a bounded live software scene backend for stable Atland fields with Widescreen
+a bounded live software scene backend for stable Atland and exact Gold Cave03
+fields with Widescreen
 enabled. It captures its
 own scene packet, independently draws a field, and compares every 32-bit output
 pixel with the existing presentation before allowing replacement. Unsupported
@@ -13,6 +14,15 @@ computes and checks the candidate without replacing the picture. Implementation
 and ROM-free unit tests alone do not prove live gameplay coverage; bounded runtime
 acceptance is recorded separately. There is currently no launcher selector for
 this diagnostic.
+
+Batch20's cave extension is qualified, selected and installed. Its exact room03
+descriptor requires BG128B77, OBJ1D8000, both definition pointers069298,
+maps7F0000/7F4000 and finite1792×1632 dimensions. Other caves are not admitted by
+similarity. The same-executable off/auto fixture matches646 ordered presentations
+and both checkpoints' seven state components, with626 replacement presentations,
+311 independent renders,23,825,088 independently drawn pixels and zero mismatches.
+Loading and fading remain fallback; no extra actor producer or authority was added.
+These measurements qualify this route, not all cave scenes or improved frame rate.
 
 ## Live packet and safety boundary
 

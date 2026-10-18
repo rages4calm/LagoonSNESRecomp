@@ -21,6 +21,50 @@ static void capture(uint64_t generation) {
   for(unsigned i=1;i<=224;++i)LagoonSceneRenderer_ObserveRaster(&p,i,ram,rom,sizeof(rom),generation,1);
   LagoonSceneRenderer_EndFrame(100,generation,1);
 }
+static void cave_setup(void) {
+  setup();ram[0x48e]=3;
+  pointer(0x57,0x128b77);pointer(0x5d,0x1d8000);
+  pointer(0x69,0x069298);pointer(0x75,0x069298);
+  ram[0x53]=224;ram[0x55]=204;
+  ram[0x480]=128;ram[0x481]=1;p.hScroll[0]=p.hScroll[1]=384;
+  /* Deliberately different from Atland's red definitions. Native VRAM remains
+   * red; only room-owned map margins resolve the cave green tile/palette. */
+  for(unsigned i=0;i<4;++i){rom[0x31298+i*2]=1;rom[0x31299+i*2]=4;}
+  for(unsigned y=0;y<8;++y)p.vram[16+y]=255;
+  p.cgram[17]=31<<5;
+}
+static void cave_vectors(void) {
+  cave_setup();LagoonSceneRenderer_Reset();s_mode=2;
+  unsigned definitions=0;assert(scene_resources(ram,&definitions)&&definitions==0x31298);
+  capture(19);ScenePacket *s=&s_packets[s_complete];assert(s->valid);
+  assert(s->world_width==1792&&s->world_height==1632&&s->defs[0][0]==0x401&&s->defs[1][0]==0x401);
+  render(s,682);
+  for(unsigned y=0;y<224;++y)for(unsigned x=0;x<682;++x) {
+    uint32_t color=(x>=213&&x<469)?0xff0000:0x00ff00;
+    assert(s_pixels[y*682+x]==color);
+    memcpy(expected+(y*682+x)*4,&color,4);
+  }
+  assert(LagoonSceneRenderer_TryPresent(output,682*4,expected,682*4,682,224,19));
+  /* Exact descriptor, finite extent, ordinary raster only. No broad caves,
+   * high room byte aliases, fades, menu, parallax, math or layout permission. */
+  for(unsigned bad=0;bad<20;++bad) {
+    cave_setup();LagoonSceneRenderer_Reset();s_mode=2;
+    switch(bad) {
+      case 0:ram[0x48e]=4;break;case 1:ram[0x48f]=1;break;
+      case 2:ram[0x57]^=1;break;case 3:ram[0x5d]^=1;break;
+      case 4:ram[0x69]^=1;break;case 5:ram[0x75]^=1;break;
+      case 6:ram[0x88]^=1;break;case 7:ram[0x8b]^=1;break;
+      case 8:ram[0x53]--;break;case 9:ram[0x55]++;break;
+      case 10:ram[0x100e]=1;break;case 11:ram[0x50]=2;break;
+      case 12:p.inidisp=14;break;case 13:p.bgXsc[1]=0x7a;break;
+      case 14:p.hScroll[1]++;break;case 15:p.cgadsub=1;break;
+      case 16:p.windowsel=1;break;case 17:p.obsel=3;break;
+      case 18:p.mosaic=1;break;case 19:p.screenEnabled[0]=15;break;
+    }
+    capture(19);assert(!s_packets[s_complete].valid);
+    assert(!LagoonSceneRenderer_TryPresent(output,682*4,expected,682*4,682,224,19));
+  }
+}
 static void source(unsigned width,size_t pitch) {
   memset(expected,0xa5,sizeof(expected));
   for(unsigned y=0;y<224;++y)for(unsigned x=0;x<width;++x){uint32_t c=0xff0000;memcpy(expected+y*pitch+x*4,&c,4);}
@@ -166,6 +210,6 @@ int main(void) {
   setup();for(unsigned line=1;line<=224;++line){if(line==100)p.wsOamLeftHintStrict=1;
     LagoonSceneRenderer_ObserveRaster(&p,line,ram,rom,sizeof(rom),7,1);}
   LagoonSceneRenderer_EndFrame(102,7,1);assert(!s_packets[s_complete].valid);
-  cache_oracle();
+  cave_vectors();cache_oracle();
   puts("PASS independent planar rendering, immutable cached packets, full-word/pitch gate, verify/auto, reset and raster refusal");return 0;
 }

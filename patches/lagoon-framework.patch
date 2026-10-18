@@ -1,3 +1,18 @@
+diff --git a/README.md b/README.md
+index fa280fb..6df23ce 100644
+--- a/README.md
++++ b/README.md
+@@ -287,6 +287,10 @@ The ready-to-use ZIP is written to `dist/`.
+ 
+ ### Regenerate an existing game project (headless SDK)
+ 
++Projects can declare ROM identity, coverage inputs and game-owned generation
++hooks in [a generation recipe](docs/GENERATION_RECIPES.md). The CLI, developer
++wrapper and launcher's Generate & Rebuild all apply that recipe.
++
+ Game repositories that already ship `bank*.cfg` seeds should use the
+ `generate` command instead of scaffolding a new tree. This is the stable
+ contract for local UIs and launcher automation:
 diff --git a/docs/HLE_FUNC.md b/docs/HLE_FUNC.md
 index 2451171..70f0fba 100644
 --- a/docs/HLE_FUNC.md
@@ -169,6 +184,28 @@ index e3ed091..9cc7198 100644
      #[test]
      fn force_lle_parses_absolute_boundary_and_rejects_duplicates() {
          let cfg = parse_bank_cfg("bank = 00\nforce_lle 038DA0\n", "t").unwrap();
+diff --git a/recompiler/v2/atomic_output.py b/recompiler/v2/atomic_output.py
+index fcb3ddb..15f547f 100644
+--- a/recompiler/v2/atomic_output.py
++++ b/recompiler/v2/atomic_output.py
+@@ -17,7 +17,7 @@ class AtomicOutputDir:
+     provides that contract. An interrupted swap is recovered on the next run.
+     """
+ 
+-    def __init__(self, target: pathlib.Path):
++    def __init__(self, target: pathlib.Path, *, seed_existing: bool = True):
+         self.target = target.resolve()
+         self.parent = self.target.parent
+         self.parent.mkdir(parents=True, exist_ok=True)
+@@ -30,7 +30,7 @@ class AtomicOutputDir:
+             prefix=f".{self.target.name}.snesrecomp-staging-",
+             dir=str(self.parent))
+         self.staging = pathlib.Path(raw)
+-        if self.target.exists():
++        if seed_existing and self.target.exists():
+             self._link_existing_tree(self.target, self.staging)
+         atexit.register(self.cleanup)
+ 
 diff --git a/recompiler/v2/cfg_loader.py b/recompiler/v2/cfg_loader.py
 index a93de87..550ebd5 100644
 --- a/recompiler/v2/cfg_loader.py
@@ -241,7 +278,7 @@ index a93de87..550ebd5 100644
 +        raise ValueError(f"{path}: hle_guard_func conflicts with replacement HLE: {sorted(conflicts)}")
      return cfg
 diff --git a/recompiler/v2/codegen.py b/recompiler/v2/codegen.py
-index 43091e6..792cd45 100644
+index 43091e6..7cd7dee 100644
 --- a/recompiler/v2/codegen.py
 +++ b/recompiler/v2/codegen.py
 @@ -629,16 +629,34 @@ def _segref_addr_expr(seg: SegRef) -> tuple:
@@ -279,6 +316,33 @@ index 43091e6..792cd45 100644
  def _emit_readreg(op: ReadReg) -> List[str]:
      """Emit a 16-bit read of A/X/Y/etc. For A, X, Y we route through
      cpu_read_{a,x,y}16 helpers — same value, but the helper name carries
+@@ -2556,17 +2574,19 @@ def _emit_return(op: Return) -> List[str]:
+         "        interp_bridge_has_direct_paired_bounce()) {",
+         f"      return interp_tier_dispatch_rewritten_return(cpu, _rpc24, 0x{src24:06x}u); }}",
+         "  }",
+-        # A computed RTS may push a synthetic target frame below entry and
+-        # consume it completely, leaving cpu->S exactly back at _entry_s.
++        # A computed RTS/RTL may push a synthetic target below entry, with
++        # saved locals or another synthetic continuation beneath that target.
+         # During a direct interpreter->AOT bounce, that means the real paired
+         # caller frame is still owned by the interpreter.  Hand the computed
+-        # continuation back to that owner.  Starting a popped-return bridge
+-        # here creates a nested interpreter whose watermark is _entry_s; if a
++        # continuation back to that owner with the entire remaining stack.
++        # Starting a popped-return bridge creates a nested interpreter; if a
+         # later helper non-locally returns through the preserved caller, the
+         # nested bridge exits at the caller epilogue and the outer interpreter
+-        # executes that epilogue a second time (LttP sprite dispatch: PHA;RTS
+-        # selector followed by Sprite_ReturnIfInactive's PLA;PLA;RTS).
+-        "  if (_ret_s != _entry_s && cpu->S == _entry_s &&",
++        # executes that epilogue a second time. A synthesized far call is also
++        # affected: the nested bridge stops at its local RTL continuation and
++        # the bounce then skips that continuation (YI's PHK/PEA/.../RTL helper).
++        "  if (_ret_s != _entry_s &&",
++        "      (uint16)(_entry_s - _ret_s) < 0x8000u &&",
+         "      interp_bridge_has_direct_paired_bounce()) {",
+         f"    return interp_tier_dispatch_rewritten_return(cpu, _rpc24, 0x{src24:06x}u);",
+         "  }",
 diff --git a/recompiler/v2/emit_bank.py b/recompiler/v2/emit_bank.py
 index c7a6c56..a64654d 100644
 --- a/recompiler/v2/emit_bank.py
@@ -958,6 +1022,93 @@ index f9b1e26..5ddf987 100644
  RecompReturn interp_bridge_lle_yield_unwind(CpuState *cpu, uint32 resume_pc24);
  uint32 interp_bridge_lle_resume_pc(void);
  void interp_bridge_set_lle_bounce_exclusions(const uint32 *targets,
+diff --git a/runner/src/debug_server.c b/runner/src/debug_server.c
+index abbcfb0..8445ba5 100644
+--- a/runner/src/debug_server.c
++++ b/runner/src/debug_server.c
+@@ -34,6 +34,7 @@ typedef int socket_t;
+ #include <string.h>
+ #include <stdarg.h>
+ #include <limits.h>
++#include <errno.h>
+ #include "debug_server.h"
+ 
+ #ifndef SNESRECOMP_FRAME_FINGERPRINTS
+@@ -4309,6 +4310,48 @@ static void cmd_write_ram(const char *args) {
+     send_fmt("{\"ok\":true,\"addr\":\"0x%x\",\"count\":%d}", addr, count);
+ }
+ 
++/* Super FX titles use cartridge RAM for live player/sprite state. This is a
++ * bounded RAM edit, never a bus/MMIO write. Validate the entire request before
++ * changing any byte, and only accept it at a stopped debug frame boundary. */
++static void cmd_write_sram(const char *args) {
++    char *end;
++    errno = 0;
++    unsigned long parsed = strtoul(args, &end, 16);
++    if (end == args || errno == ERANGE || parsed > UINT_MAX ||
++        (*end != ' ' && *end != '\t') || !g_sram || g_sram_size <= 0 ||
++        parsed >= (unsigned int)g_sram_size) {
++        send_fmt("{\"error\":\"usage: write_sram <offset_hex> <hex_bytes> within cartridge RAM\"}");
++        return;
++    }
++    if (!s_paused) {
++        send_fmt("{\"error\":\"write_sram requires a stopped frame boundary\"}");
++        return;
++    }
++    const char *bytes = end;
++    size_t count = 0, available = (size_t)g_sram_size - parsed;
++    for (const char *p = bytes; *p;) {
++        if (*p == ' ' || *p == '\t') { ++p; continue; }
++        if (!p[1] || _hex_nibble(p[0]) < 0 || _hex_nibble(p[1]) < 0 ||
++            count == available) {
++            send_fmt("{\"error\":\"invalid hex or cartridge RAM range\"}");
++            return;
++        }
++        ++count;
++        p += 2;
++    }
++    if (!count) {
++        send_fmt("{\"error\":\"empty cartridge RAM write\"}");
++        return;
++    }
++    size_t index = parsed;
++    for (const char *p = bytes; *p;) {
++        if (*p == ' ' || *p == '\t') { ++p; continue; }
++        g_sram[index++] = (uint8_t)((_hex_nibble(p[0]) << 4) | _hex_nibble(p[1]));
++        p += 2;
++    }
++    send_fmt("{\"ok\":true,\"addr\":\"0x%lx\",\"count\":%u}", parsed, (unsigned)count);
++}
++
+ static void cmd_zero_ram(const char *args) {
+     (void)args;
+     memset(g_ram, 0, 0x20000);
+@@ -8632,6 +8675,7 @@ static const CmdEntry s_commands[] = {
+     {"dump_cart",     cmd_dump_cart},
+     {"xlate_stats",   cmd_xlate_stats},
+     {"read_sram",     cmd_read_sram},
++    {"write_sram",    cmd_write_sram},
+     {"call_stack",    cmd_call_stack},
+     {"watch",         cmd_watch},
+     {"unwatch",       cmd_unwatch},
+@@ -8767,6 +8811,17 @@ static void process_command(char *line) {
+ // ---- Public API ----
+ 
+ int debug_server_init(int port) {
++    /* Own this override here so title-specific hosts using a fixed default
++     * participate in the same isolated tooling sessions as host_main.c. */
++    const char *port_env = getenv("SNESRECOMP_DEBUG_PORT");
++    if (port_env && port_env[0]) {
++        char *end = NULL;
++        long selected = strtol(port_env, &end, 10);
++        if (end != port_env && *end == '\0' && selected > 0 && selected <= 65535)
++            port = (int)selected;
++        else
++            fprintf(stderr, "[debug_server] invalid SNESRECOMP_DEBUG_PORT; using %d\n", port);
++    }
+ #ifdef _WIN32
+     WSADATA wsa;
+     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) return -1;
 diff --git a/runner/src/desktop/host_main.c b/runner/src/desktop/host_main.c
 index 3bc3905..91e289c 100644
 --- a/runner/src/desktop/host_main.c
@@ -1726,47 +1877,6 @@ index 01dbd36..c9fcb6c 100644
  } SnesrecompHostArgs;
  
  /* Consume the engine-owned arguments from *argc / *argv, in place.
-diff --git a/runner/src/snes/aot_deny_key.h b/runner/src/snes/aot_deny_key.h
-new file mode 100644
-index 0000000..3bce15c
---- /dev/null
-+++ b/runner/src/snes/aot_deny_key.h
-@@ -0,0 +1,35 @@
-+/* Exact-mode target keys for opt-in AOT differential denial. */
-+#ifndef SNESRECOMP_AOT_DENY_KEY_H
-+#define SNESRECOMP_AOT_DENY_KEY_H
-+#include <ctype.h>
-+#include <stdint.h>
-+#include <stdlib.h>
-+#include <errno.h>
-+static inline uint32_t aot_deny_variant_key(uint32_t pc, unsigned m, unsigned x) {
-+    return 0x10000000u | ((pc & 0xffffffu) << 2) | ((m & 1u) << 1) | (x & 1u);
-+}
-+/* 1 valid token, 0 blank/comment, -1 malformed. Plain PCs keep all-mode meaning. */
-+static inline int aot_deny_parse_key(const char *line, uint32_t *out) {
-+    while (isspace((unsigned char)*line)) line++;
-+    if (!*line || *line == '#') return 0;
-+    if (*line == '-' || *line == '+') return -1;
-+    errno = 0;
-+    char *end;
-+    unsigned long pc = strtoul(line, &end, 16);
-+    if (errno || end == line || pc > 0xfffffful) return -1;
-+    uint32_t key = (uint32_t)pc;
-+    if (*end == ':') {
-+        end++;
-+        if ((end[0] != 'M' && end[0] != 'm') ||
-+            (end[1] != '0' && end[1] != '1') ||
-+            (end[2] != 'X' && end[2] != 'x') ||
-+            (end[3] != '0' && end[3] != '1')) return -1;
-+        key = aot_deny_variant_key(key, (unsigned)(end[1]-'0'), (unsigned)(end[3]-'0'));
-+        end += 4;
-+    }
-+    while (isspace((unsigned char)*end)) end++;
-+    if (*end && *end != '#') return -1;
-+    *out = key;
-+    return 1;
-+}
-+#endif
 diff --git a/runner/src/snes/dma.c b/runner/src/snes/dma.c
 index 9fb6639..9719165 100644
 --- a/runner/src/snes/dma.c
@@ -2523,106 +2633,6 @@ index 491d602..b2a0fe4 100644
      for manifest in profile_manifests or []:
          arguments.extend(["--profile-manifest", manifest])
      if legacy_profile_rom_sha256:
-diff --git a/tests/aot_continuation_policy_test.c b/tests/aot_continuation_policy_test.c
-new file mode 100644
-index 0000000..4f4c885
---- /dev/null
-+++ b/tests/aot_continuation_policy_test.c
-@@ -0,0 +1,61 @@
-+
-+#include <stdint.h>
-+#include <string.h>
-+#include <assert.h>
-+#include <stdio.h>
-+typedef struct CpuState {uint16_t S,D;uint8_t m_flag,x_flag,emulation,DB,PB;uint8_t ram[131072];}CpuState;
-+static uint64_t generation=1;
-+static uint64_t RtlStateGeneration(void){return generation;}
-+
-+#include "continuation_policy_under_test.h"
-+static int source_ok=1;
-+static int guard(const InterpAotContinuation*d){(void)d;return source_ok;}
-+static const InterpAotContinuation descriptor={0x019100,0x008100,0x019104,0x019050,{0x008110,0x008120},0,1,0,0,1,3,2,2};
-+static CpuState cpu,unchanged;
-+static void setup(void){
-+ memset(&cpu,0,sizeof(cpu));cpu.S=0x1ff0;cpu.DB=1;cpu.m_flag=1;
-+ cpu.ram[0x1ff1]=3;cpu.ram[0x1ff2]=0x91;cpu.ram[0x1ff3]=1;
-+ cpu.ram[0x1ff4]=0x40;cpu.ram[0x1ff5]=0;
-+ cpu.ram[0x1ff6]=0x4f;cpu.ram[0x1ff7]=0x90;
-+ source_ok=1;generation=1;
-+ assert(interp_bridge_set_aot_continuations(&descriptor,1,guard));
-+}
-+static int take(uint32_t site,uint32_t target){InterpAotContinuation out;uint16_t owner;return continuation_take(&cpu,site,target,0x1ff0,&out,&owner);}
-+static uint64_t arm(int ready){return continuation_arm(&cpu,0x008100,0x019100,3,ready);}
-+static void rtl(void){cpu.S+=3;cpu.PB=1;}
-+int main(void){
-+ setup();assert(continuation_candidate(0x008110,0x019104));
-+ assert(!continuation_candidate(0x008111,0x019104));assert(!continuation_candidate(0x008110,0x019105));
-+ assert(!take(0x008110,0x019104));assert(arm(0));rtl();assert(!take(0x008110,0x019104));
-+ setup();uint64_t id=arm(0);assert(id);continuation_finish_wait(id,1);rtl();unchanged=cpu;assert(take(0x008110,0x019104));assert(!memcmp(&cpu,&unchanged,sizeof(cpu)));assert(!take(0x008110,0x019104));
-+ setup();id=arm(0);continuation_finish_wait(id,0);rtl();assert(!take(0x008110,0x019104));
-+ setup();assert(arm(1));rtl();assert(!take(0x008111,0x019104));assert(!take(0x008110,0x019105));assert(take(0x008120,0x019104));
-+ setup();assert(arm(1));rtl();unchanged=cpu;continuation_discard_tokens();assert(!take(0x008110,0x019104));assert(!memcmp(&cpu,&unchanged,sizeof(cpu)));
-+ setup();assert(arm(1));rtl();generation++;assert(!take(0x008110,0x019104));
-+ setup();assert(arm(1));rtl();cpu.m_flag=0;assert(!take(0x008110,0x019104));
-+ setup();assert(arm(1));rtl();cpu.x_flag=1;assert(!take(0x008110,0x019104));
-+ setup();assert(arm(1));rtl();cpu.D=1;assert(!take(0x008110,0x019104));
-+ setup();assert(arm(1));rtl();cpu.DB=2;assert(!take(0x008110,0x019104));
-+ setup();assert(arm(1));rtl();cpu.emulation=1;assert(!take(0x008110,0x019104));
-+ setup();assert(arm(1));rtl();cpu.S++;assert(!take(0x008110,0x019104));
-+ for(unsigned offset=1;offset<=7;++offset){setup();assert(arm(1));rtl();cpu.ram[0x1ff0+offset]^=1;unchanged=cpu;assert(!take(0x008110,0x019104));assert(!memcmp(&cpu,&unchanged,sizeof(cpu)));}
-+ setup();assert(arm(1));rtl();source_ok=0;assert(!take(0x008110,0x019104));
-+ setup();cpu.ram[0x1ff6]^=1;assert(!arm(1));
-+ setup();cpu.S=0x1ffc;assert(!arm(1));
-+ setup();assert(!continuation_arm(&cpu,0x008100,0x019101,3,1));assert(!continuation_arm(&cpu,0x008100,0x019100,2,1));
-+ InterpAotContinuation invalid=descriptor;invalid.wait_frame=2;assert(!interp_bridge_set_aot_continuations(&invalid,1,guard));
-+
-+ setup();InterpAotContinuation alternatives[2]={descriptor,descriptor};
-+ alternatives[1].owner_return_pc24=0x019060;
-+ assert(interp_bridge_set_aot_continuations(alternatives,2,guard));
-+ cpu.ram[0x1ff6]=0x5f;assert(arm(1));rtl();assert(take(0x008110,0x019104));
-+ setup();assert(interp_bridge_set_aot_continuations(alternatives,2,guard));
-+ cpu.ram[0x1ff6]=0x5f;uint64_t old_serial=arm(0);assert(old_serial);
-+ cpu.ram[0x1ff6]=0x4f;uint64_t new_serial=arm(0);assert(new_serial && new_serial!=old_serial);
-+ continuation_finish_wait(old_serial,1);rtl();assert(!take(0x008110,0x019104));
-+ continuation_finish_wait(new_serial,1);assert(take(0x008110,0x019104));
-+ setup();alternatives[1]=descriptor;assert(!interp_bridge_set_aot_continuations(alternatives,2,guard));
-+ invalid=descriptor;invalid.e=1;assert(!interp_bridge_set_aot_continuations(&invalid,1,guard));
-+ assert(interp_bridge_set_aot_continuations(NULL,0,NULL));assert(!arm(1));
-+ puts("continuation ABI matcher: positive, single-use, sync/nested, return/SP/frame/MX/E/DB/D/generation/source/opt-in refusals PASS");
-+}
-diff --git a/tests/aot_deny_modes_test.c b/tests/aot_deny_modes_test.c
-new file mode 100644
-index 0000000..20fa5e7
---- /dev/null
-+++ b/tests/aot_deny_modes_test.c
-@@ -0,0 +1,27 @@
-+#include <assert.h>
-+#include <stdint.h>
-+#include <stdio.h>
-+#include "snes/aot_deny_key.h"
-+int main(void) {
-+    uint32_t key = 0;
-+    assert(aot_deny_parse_key("0084E9", &key) == 1 && key == 0x84e9u);
-+    assert(aot_deny_parse_key("  0x0084E9 # legacy all-mode\n", &key) == 1 && key == 0x84e9u);
-+    assert(aot_deny_parse_key("0084E9:M1X1\n", &key) == 1);
-+    assert(key == aot_deny_variant_key(0x84e9, 1, 1));
-+    assert(key != aot_deny_variant_key(0x84e9, 1, 0));
-+    assert(aot_deny_parse_key("00871c:m0x1 # exact mode", &key) == 1);
-+    assert(key == aot_deny_variant_key(0x871c, 0, 1));
-+    for (unsigned m = 0; m < 2; m++) for (unsigned x = 0; x < 2; x++) {
-+        char text[40]; snprintf(text, sizeof text, "FFFFFF:M%uX%u", m, x);
-+        assert(aot_deny_parse_key(text, &key) == 1);
-+        assert(key == aot_deny_variant_key(0xffffff, m, x));
-+        assert(key > 0xffffffu);
-+    }
-+    const char *invalid[] = {"1000000", "-1", "+1", "0084E9:M2X0", "0084E9:M0X2",
-+        "0084E9:M", "0084E9:M0", "0084E9:M0X", "0084E9:", "0084E9:M0X0extra", "0084E9junk"};
-+    for (unsigned i = 0; i < sizeof invalid / sizeof *invalid; i++)
-+        assert(aot_deny_parse_key(invalid[i], &key) == -1);
-+    assert(aot_deny_parse_key(" # comment", &key) == 0);
-+    assert(aot_deny_parse_key("\r\n", &key) == 0);
-+    puts("AOT deny exact-mode parser: PASS");
-+}
 diff --git a/tests/dma/rdnmi_test.c b/tests/dma/rdnmi_test.c
 index 98ce817..bc7c0f7 100644
 --- a/tests/dma/rdnmi_test.c
@@ -3042,6 +3052,18 @@ index 0000000..157d166
 +if ($LASTEXITCODE -ne 0) { throw 'PPU native-boundary regression failed to compile' }
 +& $output
 +if ($LASTEXITCODE -ne 0) { throw 'PPU native-boundary regression failed' }
+diff --git a/tests/run_c_tests.sh b/tests/run_c_tests.sh
+index a375c11..70460cb 100644
+--- a/tests/run_c_tests.sh
++++ b/tests/run_c_tests.sh
+@@ -463,6 +463,7 @@ echo "=== account secret path (rebuild must not sign you out) ==="
+     "$ROOT/lib/recomp-net/src/auth/rnet_auth.c" \
+     "$ROOT/lib/recomp-net/src/auth/rnet_open_url.c" \
+     "$ROOT/lib/recomp-net/src/auth/rnet_sha256.c" \
++    "$ROOT/lib/recomp-net/src/platform/rnet_platform.c" \
+     -lpthread -o "$OUT/secret_path_test"
+ "$OUT/secret_path_test"
+ 
 diff --git a/tests/runtime_dispatch/dma_start_observer_test.c b/tests/runtime_dispatch/dma_start_observer_test.c
 new file mode 100644
 index 0000000..3ebf8e4
@@ -3359,179 +3381,6 @@ index 0000000..28b6a45
 +    puts("wram_write_filter_test: PASS (canonical aliases, ordered words, wrap, open bus, bypass, unregister)");
 +    return 0;
 +}
-diff --git a/tests/test_analysis_roots_file.py b/tests/test_analysis_roots_file.py
-new file mode 100644
-index 0000000..d920eea
---- /dev/null
-+++ b/tests/test_analysis_roots_file.py
-@@ -0,0 +1,88 @@
-+"""Explicit seed metadata must preserve mode identity and CLI/cache provenance."""
-+import argparse
-+import os
-+from pathlib import Path
-+import sys
-+import tempfile
-+import unittest
-+from unittest.mock import Mock, patch
-+
-+SDK = Path(__file__).resolve().parents[1]
-+sys.path[:0] = [str(SDK), str(SDK/'recompiler')]
-+from v2.program_emit import load_analysis_roots
-+from v2.program_analysis import VariantKey
-+from tools import sdk_generate
-+from tools.v2_emit import _analysis_input_digest, _codegen_environment_digest
-+
-+
-+class AnalysisRootFileTests(unittest.TestCase):
-+    def test_exact_variants_comments_bom_and_deduplication(self):
-+        with tempfile.TemporaryDirectory() as temp:
-+            a=Path(temp)/'roots.txt';b=Path(temp)/'more.txt'
-+            a.write_text('\ufeff# Declared seeds, no instruction data\n0084E9:M1X1 # alternate mode\n84e9:m1x0\n',encoding='utf-8')
-+            b.write_text('0084E9:M1X1\n018158:M1X0\n')
-+            self.assertEqual(load_analysis_roots([a,b]),(
-+                VariantKey(0x84e9,1,0),VariantKey(0x84e9,1,1),VariantKey(0x18158,1,0)))
-+
-+    def test_malformed_line_fails_with_location(self):
-+        with tempfile.TemporaryDirectory() as temp:
-+            p=Path(temp)/'bad.txt'
-+            for bad in ('0084E9','0x0084E9:M1X1','1000000:M1X1','0084E9:M2X1',
-+                        '0084E9:M1X9','0084E9:M1X1 trailing','0084E9:M1X1,018158:M1X0'):
-+                with self.subTest(bad=bad):
-+                    p.write_text('# valid comment\n'+bad+'\n')
-+                    with self.assertRaisesRegex(ValueError,r'bad\.txt:2: expected PC24:M0X0'):
-+                        load_analysis_roots([p])
-+
-+    def test_missing_file_fails_instead_of_silently_dropping_seeds(self):
-+        with tempfile.TemporaryDirectory() as temp:
-+            with self.assertRaises(FileNotFoundError):
-+                load_analysis_roots([Path(temp)/'missing.txt'])
-+
-+    def test_generate_cli_forwards_resolved_root_files(self):
-+        with tempfile.TemporaryDirectory() as temp:
-+            root=Path(temp);parser=argparse.ArgumentParser();sub=parser.add_subparsers(dest='command')
-+            sdk_generate.add_generate_parser(sub)
-+            args=parser.parse_args(['generate','--rom','game.sfc','--cfg-dir','cfg','--out-dir','gen',
-+                '--project-root',str(root),'--analysis-roots-file','roots.txt',
-+                '--analysis-roots-file','more.txt'])
-+            with patch.object(sdk_generate,'generate') as generate:
-+                self.assertEqual(args.handler(args,Mock()),0)
-+                self.assertEqual(generate.call_args.kwargs['analysis_roots_files'],
-+                                 [(root/'roots.txt').resolve(),(root/'more.txt').resolve()])
-+
-+    def test_sdk_forwards_root_file_without_cfg_roots_or_profile(self):
-+        with tempfile.TemporaryDirectory() as temp:
-+            root=Path(temp);cfg=root/'cfg';cfg.mkdir();(cfg/'bank00.cfg').write_text('bank = 0\n')
-+            roots=root/'roots.txt';roots.write_text('0084E9:M1X1\n')
-+            identity={'path':str(root/'game.sfc'),'crc32':'00000000','sha256':'0'*64,'size':32768}
-+            with patch.object(sdk_generate,'verify_rom',return_value=identity),patch.object(sdk_generate,'run_tool',return_value=0)as run:
-+                sdk_generate.generate(rom=root/'game.sfc',cfg_dir=cfg,out_dir=root/'gen',
-+                    analysis_roots_files=[roots],progress=Mock(json_progress=False))
-+                args=run.call_args.args[1]
-+                index=args.index('--analysis-roots-file')
-+                self.assertEqual(args[index+1],str(roots.resolve()))
-+                self.assertNotIn('--cfg-roots',args)
-+                self.assertNotIn('--profile-manifest',args)
-+
-+    def test_transfer_timing_selector_invalidates_body_cache(self):
-+        with patch.dict(os.environ,{},clear=True):
-+            control=_codegen_environment_digest('same-source')
-+            os.environ['SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS']='018158:M1X0'
-+            native=_codegen_environment_digest('same-source')
-+            os.environ['SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS']='018158:M1X1'
-+            self.assertNotEqual(_codegen_environment_digest('same-source'),native)
-+            self.assertNotEqual(control,native)
-+            del os.environ['SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS']
-+            self.assertEqual(_codegen_environment_digest('same-source'),control)
-+
-+    def test_seed_content_participates_in_analysis_cache_identity(self):
-+        kwargs=dict(rom=b'rom',generator_digest='g',config_digest='c',force_lle=(),cfg_roots=False,
-+            analysis_backend='native',enable_hle=True,max_insns=4096,max_nodes=100000,
-+            shard_threshold_bytes=4096,shard_pc_span=2048)
-+        a=_analysis_input_digest(additional_roots=[VariantKey(0x84e9,1,0)],**kwargs)
-+        b=_analysis_input_digest(additional_roots=[VariantKey(0x84e9,1,1)],**kwargs)
-+        self.assertNotEqual(a,b)
-+
-+
-+if __name__=='__main__':unittest.main()
-diff --git a/tests/test_force_lle_variant.py b/tests/test_force_lle_variant.py
-new file mode 100644
-index 0000000..e64cd8b
---- /dev/null
-+++ b/tests/test_force_lle_variant.py
-@@ -0,0 +1,73 @@
-+"""A timing-unsafe new mode must not remove established native sibling modes."""
-+import json
-+from pathlib import Path
-+import subprocess
-+import sys
-+import tempfile
-+import unittest
-+
-+REPO = Path(__file__).resolve().parents[1]
-+sys.path.insert(0, str(REPO / 'recompiler'))
-+from v2.cfg_loader import load_bank_cfg
-+
-+
-+class ForceLleVariantTests(unittest.TestCase):
-+    def test_python_parser_keeps_modes_separate(self):
-+        with tempfile.TemporaryDirectory() as temp:
-+            path = Path(temp) / 'bank00.cfg'
-+            path.write_text('bank = 00\nforce_lle_variant 0084E9:M1X1\nforce_lle_variant 0084e9:m0x0\n')
-+            cfg = load_bank_cfg(str(path))
-+            self.assertEqual(cfg.force_lle_variants, {(0x84e9, 1, 1), (0x84e9, 0, 0)})
-+            self.assertFalse(cfg.force_lle)
-+
-+    def test_python_parser_fails_closed(self):
-+        values = ('0084E9', '0084E9:M2X0', '0084E9:M1X1junk', '1000000:M1X0',
-+                  '0084E9:M1X0 extra', '0x0084E9:M1X0',
-+                  '0084E9:M1X0\nforce_lle_variant 0084e9:m1x0')
-+        with tempfile.TemporaryDirectory() as temp:
-+            path = Path(temp) / 'bank00.cfg'
-+            for value in values:
-+                with self.subTest(value=value):
-+                    path.write_text('bank = 00\nforce_lle_variant ' + value + '\n')
-+                    with self.assertRaises(ValueError):
-+                        load_bank_cfg(str(path))
-+
-+    def test_native_manifest_and_dispatch_defer_only_exact_mode_and_mirror(self):
-+        with tempfile.TemporaryDirectory() as temp:
-+            root = Path(temp)
-+            rom = bytearray([0xff] * 0x8000)
-+            rom[0:9] = bytes.fromhex('201080e23020108060')  # JSR M1X0; SEP X; JSR M1X1; RTS
-+            rom[0x10] = 0x60
-+            rom[0x20] = 0x60
-+            (root / 'test.sfc').write_bytes(rom)
-+            cfg = root / 'cfg'; cfg.mkdir()
-+            (cfg / 'bank00.cfg').write_text(
-+                'bank = 00\nfunc Main 8000 end:8009 entry_mx:1,0\n'
-+                'func Shared 8010 end:8011 entry_mx:1,0\n'
-+                'func DeferredRoot 8020 end:8021 entry_mx:1,1\n'
-+                'force_lle_variant 808010:M1X1\n'
-+                'force_lle_variant 008020:M1X1\n')
-+            out = root / 'gen'
-+            command = [sys.executable, '-P', str(REPO / 'tools/v2_emit.py'),
-+                '--rom', str(root / 'test.sfc'), '--cfg-dir', str(cfg), '--out-dir', str(out),
-+                '--cfg-roots', '--no-host-root-scan']
-+            completed = subprocess.run(command, capture_output=True, text=True)
-+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
-+            manifest = json.loads((out / 'program_manifest.json').read_text())
-+            self.assertEqual(manifest['nodes']['008010:M1X0']['disposition'], 'aot_eligible')
-+            deferred = manifest['nodes']['008020:M1X1']
-+            self.assertEqual(deferred['disposition'], 'lle_only')
-+            self.assertIn('forced_lle_variant', deferred['reasons'])
-+            caller = manifest['nodes']['008000:M1X0']
-+            edge = next(e for e in caller['demands'] if e['target'] and e['target']['pc24'] == 0x8010 and e['target']['x'] == 1)
-+            self.assertEqual(edge['resolution'], 'lle_exact')
-+            dispatch = (out / 'dispatch_v2.c').read_text()
-+            row = next(line for line in dispatch.splitlines() if '{ 0x008010u,' in line)
-+            self.assertIn('{ NULL, NULL, Shared_M1X0, NULL }', row)
-+            bank = (out / 'bank00_v2.c').read_text()
-+            self.assertIn('RecompReturn Shared_M1X0(CpuState *cpu) {', bank)
-+            self.assertNotIn('RecompReturn Shared_M1X1(CpuState *cpu) {', bank)
-+
-+
-+if __name__ == '__main__':
-+    unittest.main()
 diff --git a/tests/test_jsl_yield_bank.py b/tests/test_jsl_yield_bank.py
 new file mode 100644
 index 0000000..5c41622
@@ -3835,6 +3684,1088 @@ index 0000000..22c06b3
 +
 +
 +if __name__=='__main__':unittest.main()
+diff --git a/tests/v2/test_host_return_pc_guard.py b/tests/v2/test_host_return_pc_guard.py
+index d8800ef..44e29f3 100644
+--- a/tests/v2/test_host_return_pc_guard.py
++++ b/tests/v2/test_host_return_pc_guard.py
+@@ -71,7 +71,7 @@ def test_direct_bounce_computed_rts_returns_to_owning_interpreter():
+                         entry_m=0, entry_x=0,
+                         func_name='ComputedRtsDirectBounce')
+ 
+-    guard = src.index('cpu->S == _entry_s &&')
++    guard = src.index('(uint16)(_entry_s - _ret_s) < 0x8000u &&')
+     rewritten = src.index('interp_tier_dispatch_rewritten_return(cpu, _rpc24',
+                           guard)
+     popped = src.index('interp_tier_dispatch_popped_return(cpu, _rpc24')
+diff --git a/tools/sdk_generate.py b/tools/sdk_generate.py
+index e23031d..9a121d7 100644
+--- a/tools/sdk_generate.py
++++ b/tools/sdk_generate.py
+@@ -18,6 +18,7 @@ import contextlib
+ import io
+ import os
+ import pathlib
++import tempfile
+ import sys
+ from typing import Optional, Sequence
+ 
+@@ -52,7 +53,7 @@ def _resolve_under(root: Optional[pathlib.Path], value: str) -> pathlib.Path:
+     return path.resolve()
+ 
+ 
+-def generate(
++def _generate(
+     *,
+     rom: pathlib.Path,
+     cfg_dir: pathlib.Path,
+@@ -62,11 +63,15 @@ def generate(
+     no_host_root_scan: bool = False,
+     source_roots: Optional[Sequence[pathlib.Path]] = None,
+     profile_manifests: Optional[Sequence[pathlib.Path]] = None,
++    analysis_roots_files: Optional[Sequence[pathlib.Path]] = None,
++    historical_profile_manifests: Optional[Sequence[pathlib.Path]] = None,
+     legacy_profile_rom_sha256: Optional[str] = None,
++    generation_recipe_digest: Optional[str] = None,
+     analysis_backend: str = "native",
+     expected_crc32: Optional[str] = None,
+     expected_sha256: Optional[str] = None,
+     progress: Optional[ProgressReporter] = None,
++    _report_result: bool = True,
+ ) -> dict:
+     """Verify a ROM, emit C into ``out_dir``, optionally sync ``funcs.h``."""
+     from tools import v2_emit, v2_sync_funcs_h
+@@ -111,6 +116,8 @@ def generate(
+         emit_args.append("--no-host-root-scan")
+     for root in source_roots or ():
+         emit_args.extend(["--source-root", str(pathlib.Path(root).resolve())])
++    for path in analysis_roots_files or ():
++        emit_args.extend(["--analysis-roots-file", str(pathlib.Path(path).resolve())])
+     # Tier-2 coverage profile (the burn-down loop's promote step). Influences
+     # only materialization: bailed observations are excluded, the LLE fallback
+     # is never removed, and only hardware call landings or independently
+@@ -119,6 +126,18 @@ def generate(
+     for manifest in profile_manifests or ():
+         emit_args.extend(
+             ["--profile-manifest", str(pathlib.Path(manifest).resolve())])
++    # A capture taken by an earlier build cannot be merged with a current one
++    # (costs and build identity never cross a build boundary), but its analysis
++    # seeds and conservative exclusions are exactly what keeps a regenerated
++    # program from shrinking when the new capture is shorter. v2_emit calls
++    # those inputs historical; without forwarding them the CLI could only ever
++    # regenerate from the single newest capture.
++    for manifest in historical_profile_manifests or ():
++        emit_args.extend(
++            ["--historical-profile-manifest",
++             str(pathlib.Path(manifest).resolve())])
++    if generation_recipe_digest:
++        emit_args.extend(["--generation-recipe-digest", generation_recipe_digest])
+     if legacy_profile_rom_sha256:
+         emit_args.extend(["--legacy-profile-rom-sha256", legacy_profile_rom_sha256])
+ 
+@@ -175,6 +194,74 @@ def generate(
+         "cfg_roots": bool(cfg_roots),
+         "analysis_backend": analysis_backend,
+     }
++    if _report_result:
++        reporter.phase("done", pct=1.0, message="Generate complete")
++        reporter.result(**result)
++    return result
++
++
++def generate(**kwargs) -> dict:
++    """Generate with the project's automatic recipe, including launcher calls.
++
++    A failed hook leaves the published C and funcs.h unchanged. Hooks receive
++    a new tree, so even in-place writers cannot mutate hard-linked live files.
++    """
++    from tools.generation_recipe import load_recipe
++
++    cfg_dir = pathlib.Path(kwargs["cfg_dir"]).resolve()
++    recipe = load_recipe(cfg_dir)
++    if recipe is None:
++        return _generate(**kwargs)
++    ensure_tool_paths(pathlib.Path(__file__).resolve().parents[1])
++    from v2.atomic_output import AtomicOutputDir
++    options = dict(kwargs)
++    reporter = options.get("progress") or ProgressReporter()
++    options["progress"] = reporter
++    identity = recipe.identity()
++    for key in ("expected_crc32", "expected_sha256"):
++        declared, supplied = identity.get(key), options.get(key)
++        if declared and supplied and declared.lower().removeprefix("0x") != supplied.lower().removeprefix("0x"):
++            raise ValueError(f"{key} disagrees with recipe identity file")
++        options[key] = supplied or declared or None
++    rom = pathlib.Path(options["rom"]).resolve()
++    verified = verify_rom(rom, expected_crc32=options.get("expected_crc32"),
++                          expected_sha256=options.get("expected_sha256"))
++    if recipe.data.get("bind_legacy_profiles"):
++        if not options.get("expected_sha256"):
++            raise ValueError("binding legacy profiles requires a verified expected SHA-256")
++        supplied = options.get("legacy_profile_rom_sha256")
++        if supplied and supplied.lower() != verified["sha256"].lower():
++            raise ValueError("legacy profile binding differs from verified recipe ROM")
++        options["legacy_profile_rom_sha256"] = verified["sha256"]
++    for key in ("cfg_roots", "no_host_root_scan"):
++        options[key] = bool(options.get(key) or recipe.data.get(key))
++    for key, recipe_key in (("profile_manifests", "profiles"),
++                            ("historical_profile_manifests", "historical_profiles")):
++        options[key] = list(dict.fromkeys(
++            [*recipe.profiles(recipe_key), *(options.get(key) or [])]))
++    options["generation_recipe_digest"] = recipe.digest()
++    target = pathlib.Path(options["out_dir"]).resolve()
++    header = pathlib.Path(options["funcs_h"]).resolve() if options.get("funcs_h") else None
++    recipe.run("prepare", rom=rom, cfg_dir=cfg_dir, out_dir=target, reporter=reporter)
++    transaction = AtomicOutputDir(target, seed_existing=False)
++    try:
++        with tempfile.TemporaryDirectory(prefix="snesrecomp-sdk-header-") as temp:
++            staged_header = pathlib.Path(temp) / "funcs.h" if header else None
++            options.update(out_dir=transaction.staging, funcs_h=staged_header,
++                           _report_result=False)
++            result = _generate(**options)
++            recipe.run("postprocess", rom=rom, cfg_dir=cfg_dir,
++                       out_dir=transaction.staging, reporter=reporter)
++            transaction.publish()
++            if header:
++                # Header may be on another volume; atomic_output writes its
++                # replacement beside the destination before renaming it.
++                from v2.atomic_output import write_if_changed
++                write_if_changed(header, staged_header.read_text(encoding="utf-8"))
++    finally:
++        transaction.cleanup()
++    result.update(out_dir=str(target), funcs_h=str(header) if header else None,
++                  recipe=str(recipe.path))
+     reporter.phase("done", pct=1.0, message="Generate complete")
+     reporter.result(**result)
+     return result
+@@ -233,10 +320,18 @@ def generate_command(args: argparse.Namespace, progress: ProgressReporter) -> in
+             source_roots=[
+                 _resolve_under(project_root, root) for root in args.source_root
+             ],
++            analysis_roots_files=[
++                _resolve_under(project_root, p)
++                for p in getattr(args, "analysis_roots_file", []) or []
++            ],
+             profile_manifests=[
+                 _resolve_under(project_root, m)
+                 for m in getattr(args, "profile_manifest", []) or []
+             ],
++            historical_profile_manifests=[
++                _resolve_under(project_root, m)
++                for m in getattr(args, "historical_profile_manifest", []) or []
++            ],
+             legacy_profile_rom_sha256=getattr(args, "legacy_profile_rom_sha256", None),
+             analysis_backend=args.analysis_backend,
+             expected_crc32=args.expected_crc32,
+@@ -305,6 +400,10 @@ def add_generate_parser(subparsers) -> None:
+         default=[],
+         help="extra host source root for root discovery (repeatable)",
+     )
++    generate_parser.add_argument(
++        "--analysis-roots-file", action="append", default=[],
++        help="PC24:M0X0 analysis seeds without function boundary declarations (repeatable)",
++    )
+     generate_parser.add_argument(
+         "--profile-manifest",
+         action="append",
+@@ -312,6 +411,13 @@ def add_generate_parser(subparsers) -> None:
+         help="tier-2 coverage manifest to seed optional AOT roots from "
+              "(repeatable); clean call landings only, bails excluded",
+     )
++    generate_parser.add_argument(
++        "--historical-profile-manifest",
++        action="append",
++        default=[],
++        help="coverage manifest from an earlier build (repeatable): its seeds "
++             "and exclusions carry forward without merging costs across builds",
++    )
+     generate_parser.add_argument(
+         "--legacy-profile-rom-sha256",
+         help="explicitly associate an unbound v1 profile with this ROM SHA-256",
+diff --git a/tools/sneslib/client.py b/tools/sneslib/client.py
+index c5ec78c..fcb0fc7 100644
+--- a/tools/sneslib/client.py
++++ b/tools/sneslib/client.py
+@@ -61,15 +61,20 @@ class DebugClient:
+             self._sock = None
+             self._buf = b''
+ 
+-    def query_raw(self, cmd):
+-        """Send command, return raw response string."""
++    def query_raw(self, cmd, *, retry=True):
++        """Send a command, optionally reconnecting and retrying once.
++
++        Use retry=False for mutations such as step, reset or load_state. A
++        lost reply does not prove that the server did not execute the command.
++        """
+         try:
+             self._ensure_connected()
+             self._sock.sendall((cmd + '\n').encode())
+             return self._recv_command_reply()
+         except (ConnectionError, socket.timeout, OSError):
+-            # Connection lost — close and retry once
+             self.close()
++            if not retry:
++                raise
+             self._ensure_connected()
+             self._sock.sendall((cmd + '\n').encode())
+             return self._recv_command_reply()
+@@ -85,9 +90,9 @@ class DebugClient:
+             line = self._recv_line()
+         return line
+ 
+-    def query(self, cmd):
++    def query(self, cmd, *, retry=True):
+         """Send command, return parsed JSON dict."""
+-        raw = self.query_raw(cmd)
++        raw = self.query_raw(cmd, retry=retry)
+         if not raw:
+             raise ConnectionError(f'{self.name}: empty response to "{cmd}"')
+         return json.loads(raw)
+diff --git a/tools/v2_emit.py b/tools/v2_emit.py
+index c8308c0..5628348 100644
+--- a/tools/v2_emit.py
++++ b/tools/v2_emit.py
+@@ -7,6 +7,7 @@ import hashlib
+ import json
+ import os
+ import pathlib
++import re
+ import sys
+ import time
+ 
+@@ -30,6 +31,7 @@ from v2.program_emit import (  # noqa: E402
+     discover_host_roots,
+     discover_authority_roots,
+     discover_profile_roots,
++    load_analysis_roots,
+     emit_program,
+     validate_module_identity,
+ )
+@@ -64,6 +66,19 @@ def _tree_digest(paths) -> str:
+     return digest.hexdigest()
+ 
+ 
++def _codegen_environment_digest(tree_digest: str, generation_recipe_digest: str | None = None) -> str:
++    """Bind every opt-in body schedule/guard to analysis and output caches."""
++    deny_gate = bool(os.environ.get("SNESRECOMP_EMIT_AOT_DENY_GATE"))
++    inputs = (f"{tree_digest}\0aot_deny_gate={int(deny_gate)}"
++              f"\0precise_roots={os.environ.get('SNESRECOMP_PRECISE_AOT_ROOTS', '')}"
++              f"\0precise_transfer_roots={os.environ.get('SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS', '')}")
++    if generation_recipe_digest:
++        if not re.fullmatch(r"[0-9a-fA-F]{64}", generation_recipe_digest):
++            raise ValueError("generation recipe digest must be a SHA-256")
++        inputs += "\0recipe=" + generation_recipe_digest.lower()
++    return hashlib.sha256(inputs.encode()).hexdigest()
++
++
+ def _config_digest(parsed) -> str:
+     digest = hashlib.sha256()
+     cfg_dirs = set()
+@@ -178,7 +193,12 @@ def main() -> int:
+         "--profile-manifest", action="append", default=[],
+         help="tier2 coverage manifest whose clean targets become optional "
+              "AOT roots (repeatable)")
++    parser.add_argument(
++        "--analysis-roots-file", action="append", default=[],
++        help="owner-reviewed PC24:M0X0 analysis seeds, one per line; does not declare function boundaries (repeatable)")
+     parser.add_argument("--legacy-profile-rom-sha256", help="Explicitly associate legacy profiles with this ROM digest")
++    parser.add_argument("--generation-recipe-digest",
++                        help="SHA-256 of the SDK's project recipe and hook sources")
+     parser.add_argument(
+         "--historical-profile-manifest", action="append", default=[],
+         help="Retain seeds from a separate historical checkpoint/bundle; "
+@@ -295,6 +315,7 @@ def _generate(args, parser, cfg_dir, *, symbol_roots=()):
+     }
+     try:
+         profile_force_lle = set()
++        explicit_roots = load_analysis_roots(args.analysis_roots_file)
+         profile_roots = discover_profile_roots(
+             args.profile_manifest, declared_entry_pcs, profile_force_lle,
+             expected_rom=rom_sha256_hex, expected_module=args.module_id,
+@@ -308,7 +329,7 @@ def _generate(args, parser, cfg_dir, *, symbol_roots=()):
+         # explicitly qualified targets reach AOT eligibility.
+         parsed[0][2].force_lle.update(profile_force_lle)
+     additional_roots = tuple(sorted(
+-        set(host_roots) | set(profile_roots) | set(ram_routine_roots) | set(symbol_roots)
++        set(host_roots) | set(profile_roots) | set(explicit_roots) | set(ram_routine_roots) | set(symbol_roots)
+         | (set(discover_authority_roots(parsed)) if args.disassembly_entry_modes else set())))
+ 
+     def generator_digest_for():
+@@ -326,10 +347,7 @@ def _generate(args, parser, cfg_dir, *, symbol_roots=()):
+         # This environment switch changes every emitted AOT body, so it must
+         # participate in the published-output cache key.  Treat any non-empty
+         # value as enabled to match emit_function.py's codegen guard.
+-        deny_gate = bool(os.environ.get("SNESRECOMP_EMIT_AOT_DENY_GATE"))
+-        return hashlib.sha256(
+-            f"{tree_digest}\0aot_deny_gate={int(deny_gate)}".encode()
+-        ).hexdigest()
++        return _codegen_environment_digest(tree_digest, args.generation_recipe_digest)
+ 
+     generator_digest = generator_digest_for()
+     config_digest = _config_digest(parsed)
+diff --git a/docs/DEBUG_ROUTES.md b/docs/DEBUG_ROUTES.md
+new file mode 100644
+index 0000000..5d592dc
+--- /dev/null
++++ b/docs/DEBUG_ROUTES.md
+@@ -0,0 +1,64 @@
++# Bounded cheat and teleport routes
++
++`tools/sneslib/route.py` provides `FrameDriver` for game-owned QA scripts.
++It records commands and replies, validates frame advancement, releases injected
++buttons on failure, bounds WRAM conditions, and captures screenshots, full WRAM,
++CPU/PPU state, execution statistics and coverage checkpoints. Game-specific
++addresses, original loader prerequisites and progression assists stay in the
++game repository.
++
++Launch a private executable/config/save directory with muted output and preserved
++audio emulation. On Windows, use `subprocess.CREATE_NO_WINDOW`; dummy SDL audio
++and video drivers work for software-rendered unattended cases. Restore normal
++audio in builds handed to the owner. Do not load old savestates into a changed
++runtime as a substitute for a fresh boot.
++
++```python
++from pathlib import Path
++from sneslib.client import DebugClient
++from sneslib.route import FrameDriver
++
++driver = FrameDriver(DebugClient(port, timeout=20), Path(private_run_directory))
++try:
++    # Launch running, because custom hosts may expose TCP before initialization.
++    driver.wait_started()
++    driver.step(60, "right+y")
++    driver.snapshot("entry-motion")
++finally:
++    driver.close()
++```
++
++The host must run from `private_run_directory`: screenshot and coverage paths
++are relative to its cwd. Use plain snapshot names. The caller owns process
++startup, ROM verification, title configuration, and process termination or the
++host's finite normal-exit argument. The separate debug `pause` command is
++disabled by server policy; bounded `step` is the supported testing interface.
++
++`wait_started()` records a variable initial frame and then enters bounded
++stepping. It is appropriate for gameplay reconnaissance, not an exact power-on
++comparison. For instruction-cost qualification use continuous, identical
++startup-script routes, a finite normal exit, and `tools/coverage_replay.py` with
++matching guest state, presented pixels, video resources and relevant audio.
++Stepped captures establish observations; they do not prove native equivalence.
++For expensive software renderers pass `max_step_frames=5` (default 60), so a
++healthy slow renderer stays within the server's bounded step deadline.
++An explicit server timeout leaves that step pending. The driver polls the
++frame counter for its original target, for up to `step_timeout=30` seconds
++(maximum 60), without issuing another step. A lost reply remains an error.
++
++Super FX player and sprite state can live in cartridge RAM. Use
++`read_sram <offset_hex> <length_decimal>` and
++`write_sram <offset_hex> <hex_bytes>` for that memory, rather than a WRAM
++address with the same low bytes. Writes require a stopped frame boundary and
++validate every byte and the complete range before modifying memory. Offsets
++are within the cartridge RAM buffer; these commands do not write the SNES bus.
++
++`DebugClient.query(..., retry=False)` disables reconnect/replay for ambiguous
++requests. All `FrameDriver` commands use it: losing the reply to `step`, reset,
++or a state load does not prove that the mutation was not executed. Inspect the
++journal and start a fresh case rather than repeating an uncertain mutation.
++
++Check each host's script syntax before using `--script`: older custom hosts
++accept only wait/press/loadstate and can ignore the generic host's RAM edits.
++Verify actual rendered dimensions and active mod state before labelling a case
++widescreen. Raw PPU dumps may omit a game's separate enhanced compositor.
+diff --git a/docs/GENERATION_RECIPES.md b/docs/GENERATION_RECIPES.md
+new file mode 100644
+index 0000000..3ea757b
+--- /dev/null
++++ b/docs/GENERATION_RECIPES.md
+@@ -0,0 +1,46 @@
++# Project generation recipes
++
++`generate --cfg-dir recomp` automatically reads `recomp/generate.toml`.
++The setup launcher's Generate & Rebuild uses that same SDK entry point.
++Game-specific source transformations stay in the game repository; the SDK
++owns identity checking, analysis, hook execution, header synchronization and
++publication. `tools/regen_project.sh --project-root <game> --no-tests` is the
++portable developer wrapper. Add `--strict-idempotent` to compare two complete
++generated trees, including postprocessing.
++
++```toml
++schema = 1
++identity_file = "rom_identity.txt"  # relative to the project root
++cfg_roots = true
++bind_legacy_profiles = true
++historical_profiles = ["tier2_coverage.json"] # relative to cfg-dir
++
++[[postprocess]]
++script = "tools/apply_overrides.py" # relative to the project root
++args = ["--gen-dir", "{out_dir}"]
++```
++
++`profiles` supplies current captures; `historical_profiles` retains older
++analysis seeds without merging costs or identities across executable builds.
++`bind_legacy_profiles` explicitly associates unbound v1 captures with the
++configured, verified SHA-256. It refuses to bind when no expected SHA-256 is
++configured. Observations still pass the normal eligibility, M/X, emulation,
++return-contract and replay requirements; a recipe does not authorize AOT.
++
++Optional `no_host_root_scan` preserves projects whose static policy excludes
++host source discovery. `[[prepare]]` hooks run after ROM verification and before
++analysis, for project-owned symbol import. `[[postprocess]]` hooks receive fresh
++unpublished output, and failure preserves the live generated tree and funcs.h.
++Prepare hooks may update project metadata; they should be idempotent. The
++generated tree is published before the optional header replacement; these are
++separate filesystem operations, not a crash-atomic transaction across paths.
++
++Hooks execute with the SDK's Python interpreter and an argv array, never a
++shell. Supported argument fields are `{rom}`, `{cfg_dir}`, `{out_dir}`, and
++`{project_root}`. Output goes through SDK progress logging, preserving clean
++JSONL for the launcher. The recipe and hook source hashes participate in the
++generation identity; this alone does not establish netplay compatibility.
++
++Identity values supplied by a launcher must agree with the identity file.
++Recipe paths stay within the project, and missing profiles or scripts fail
++before generation. Projects without a recipe retain the existing SDK behavior.
+diff --git a/runner/src/snes/aot_deny_key.h b/runner/src/snes/aot_deny_key.h
+new file mode 100644
+index 0000000..3bce15c
+--- /dev/null
++++ b/runner/src/snes/aot_deny_key.h
+@@ -0,0 +1,35 @@
++/* Exact-mode target keys for opt-in AOT differential denial. */
++#ifndef SNESRECOMP_AOT_DENY_KEY_H
++#define SNESRECOMP_AOT_DENY_KEY_H
++#include <ctype.h>
++#include <stdint.h>
++#include <stdlib.h>
++#include <errno.h>
++static inline uint32_t aot_deny_variant_key(uint32_t pc, unsigned m, unsigned x) {
++    return 0x10000000u | ((pc & 0xffffffu) << 2) | ((m & 1u) << 1) | (x & 1u);
++}
++/* 1 valid token, 0 blank/comment, -1 malformed. Plain PCs keep all-mode meaning. */
++static inline int aot_deny_parse_key(const char *line, uint32_t *out) {
++    while (isspace((unsigned char)*line)) line++;
++    if (!*line || *line == '#') return 0;
++    if (*line == '-' || *line == '+') return -1;
++    errno = 0;
++    char *end;
++    unsigned long pc = strtoul(line, &end, 16);
++    if (errno || end == line || pc > 0xfffffful) return -1;
++    uint32_t key = (uint32_t)pc;
++    if (*end == ':') {
++        end++;
++        if ((end[0] != 'M' && end[0] != 'm') ||
++            (end[1] != '0' && end[1] != '1') ||
++            (end[2] != 'X' && end[2] != 'x') ||
++            (end[3] != '0' && end[3] != '1')) return -1;
++        key = aot_deny_variant_key(key, (unsigned)(end[1]-'0'), (unsigned)(end[3]-'0'));
++        end += 4;
++    }
++    while (isspace((unsigned char)*end)) end++;
++    if (*end && *end != '#') return -1;
++    *out = key;
++    return 1;
++}
++#endif
+diff --git a/tests/aot_continuation_policy_test.c b/tests/aot_continuation_policy_test.c
+new file mode 100644
+index 0000000..4f4c885
+--- /dev/null
++++ b/tests/aot_continuation_policy_test.c
+@@ -0,0 +1,61 @@
++
++#include <stdint.h>
++#include <string.h>
++#include <assert.h>
++#include <stdio.h>
++typedef struct CpuState {uint16_t S,D;uint8_t m_flag,x_flag,emulation,DB,PB;uint8_t ram[131072];}CpuState;
++static uint64_t generation=1;
++static uint64_t RtlStateGeneration(void){return generation;}
++
++#include "continuation_policy_under_test.h"
++static int source_ok=1;
++static int guard(const InterpAotContinuation*d){(void)d;return source_ok;}
++static const InterpAotContinuation descriptor={0x019100,0x008100,0x019104,0x019050,{0x008110,0x008120},0,1,0,0,1,3,2,2};
++static CpuState cpu,unchanged;
++static void setup(void){
++ memset(&cpu,0,sizeof(cpu));cpu.S=0x1ff0;cpu.DB=1;cpu.m_flag=1;
++ cpu.ram[0x1ff1]=3;cpu.ram[0x1ff2]=0x91;cpu.ram[0x1ff3]=1;
++ cpu.ram[0x1ff4]=0x40;cpu.ram[0x1ff5]=0;
++ cpu.ram[0x1ff6]=0x4f;cpu.ram[0x1ff7]=0x90;
++ source_ok=1;generation=1;
++ assert(interp_bridge_set_aot_continuations(&descriptor,1,guard));
++}
++static int take(uint32_t site,uint32_t target){InterpAotContinuation out;uint16_t owner;return continuation_take(&cpu,site,target,0x1ff0,&out,&owner);}
++static uint64_t arm(int ready){return continuation_arm(&cpu,0x008100,0x019100,3,ready);}
++static void rtl(void){cpu.S+=3;cpu.PB=1;}
++int main(void){
++ setup();assert(continuation_candidate(0x008110,0x019104));
++ assert(!continuation_candidate(0x008111,0x019104));assert(!continuation_candidate(0x008110,0x019105));
++ assert(!take(0x008110,0x019104));assert(arm(0));rtl();assert(!take(0x008110,0x019104));
++ setup();uint64_t id=arm(0);assert(id);continuation_finish_wait(id,1);rtl();unchanged=cpu;assert(take(0x008110,0x019104));assert(!memcmp(&cpu,&unchanged,sizeof(cpu)));assert(!take(0x008110,0x019104));
++ setup();id=arm(0);continuation_finish_wait(id,0);rtl();assert(!take(0x008110,0x019104));
++ setup();assert(arm(1));rtl();assert(!take(0x008111,0x019104));assert(!take(0x008110,0x019105));assert(take(0x008120,0x019104));
++ setup();assert(arm(1));rtl();unchanged=cpu;continuation_discard_tokens();assert(!take(0x008110,0x019104));assert(!memcmp(&cpu,&unchanged,sizeof(cpu)));
++ setup();assert(arm(1));rtl();generation++;assert(!take(0x008110,0x019104));
++ setup();assert(arm(1));rtl();cpu.m_flag=0;assert(!take(0x008110,0x019104));
++ setup();assert(arm(1));rtl();cpu.x_flag=1;assert(!take(0x008110,0x019104));
++ setup();assert(arm(1));rtl();cpu.D=1;assert(!take(0x008110,0x019104));
++ setup();assert(arm(1));rtl();cpu.DB=2;assert(!take(0x008110,0x019104));
++ setup();assert(arm(1));rtl();cpu.emulation=1;assert(!take(0x008110,0x019104));
++ setup();assert(arm(1));rtl();cpu.S++;assert(!take(0x008110,0x019104));
++ for(unsigned offset=1;offset<=7;++offset){setup();assert(arm(1));rtl();cpu.ram[0x1ff0+offset]^=1;unchanged=cpu;assert(!take(0x008110,0x019104));assert(!memcmp(&cpu,&unchanged,sizeof(cpu)));}
++ setup();assert(arm(1));rtl();source_ok=0;assert(!take(0x008110,0x019104));
++ setup();cpu.ram[0x1ff6]^=1;assert(!arm(1));
++ setup();cpu.S=0x1ffc;assert(!arm(1));
++ setup();assert(!continuation_arm(&cpu,0x008100,0x019101,3,1));assert(!continuation_arm(&cpu,0x008100,0x019100,2,1));
++ InterpAotContinuation invalid=descriptor;invalid.wait_frame=2;assert(!interp_bridge_set_aot_continuations(&invalid,1,guard));
++
++ setup();InterpAotContinuation alternatives[2]={descriptor,descriptor};
++ alternatives[1].owner_return_pc24=0x019060;
++ assert(interp_bridge_set_aot_continuations(alternatives,2,guard));
++ cpu.ram[0x1ff6]=0x5f;assert(arm(1));rtl();assert(take(0x008110,0x019104));
++ setup();assert(interp_bridge_set_aot_continuations(alternatives,2,guard));
++ cpu.ram[0x1ff6]=0x5f;uint64_t old_serial=arm(0);assert(old_serial);
++ cpu.ram[0x1ff6]=0x4f;uint64_t new_serial=arm(0);assert(new_serial && new_serial!=old_serial);
++ continuation_finish_wait(old_serial,1);rtl();assert(!take(0x008110,0x019104));
++ continuation_finish_wait(new_serial,1);assert(take(0x008110,0x019104));
++ setup();alternatives[1]=descriptor;assert(!interp_bridge_set_aot_continuations(alternatives,2,guard));
++ invalid=descriptor;invalid.e=1;assert(!interp_bridge_set_aot_continuations(&invalid,1,guard));
++ assert(interp_bridge_set_aot_continuations(NULL,0,NULL));assert(!arm(1));
++ puts("continuation ABI matcher: positive, single-use, sync/nested, return/SP/frame/MX/E/DB/D/generation/source/opt-in refusals PASS");
++}
+diff --git a/tests/aot_deny_modes_test.c b/tests/aot_deny_modes_test.c
+new file mode 100644
+index 0000000..20fa5e7
+--- /dev/null
++++ b/tests/aot_deny_modes_test.c
+@@ -0,0 +1,27 @@
++#include <assert.h>
++#include <stdint.h>
++#include <stdio.h>
++#include "snes/aot_deny_key.h"
++int main(void) {
++    uint32_t key = 0;
++    assert(aot_deny_parse_key("0084E9", &key) == 1 && key == 0x84e9u);
++    assert(aot_deny_parse_key("  0x0084E9 # legacy all-mode\n", &key) == 1 && key == 0x84e9u);
++    assert(aot_deny_parse_key("0084E9:M1X1\n", &key) == 1);
++    assert(key == aot_deny_variant_key(0x84e9, 1, 1));
++    assert(key != aot_deny_variant_key(0x84e9, 1, 0));
++    assert(aot_deny_parse_key("00871c:m0x1 # exact mode", &key) == 1);
++    assert(key == aot_deny_variant_key(0x871c, 0, 1));
++    for (unsigned m = 0; m < 2; m++) for (unsigned x = 0; x < 2; x++) {
++        char text[40]; snprintf(text, sizeof text, "FFFFFF:M%uX%u", m, x);
++        assert(aot_deny_parse_key(text, &key) == 1);
++        assert(key == aot_deny_variant_key(0xffffff, m, x));
++        assert(key > 0xffffffu);
++    }
++    const char *invalid[] = {"1000000", "-1", "+1", "0084E9:M2X0", "0084E9:M0X2",
++        "0084E9:M", "0084E9:M0", "0084E9:M0X", "0084E9:", "0084E9:M0X0extra", "0084E9junk"};
++    for (unsigned i = 0; i < sizeof invalid / sizeof *invalid; i++)
++        assert(aot_deny_parse_key(invalid[i], &key) == -1);
++    assert(aot_deny_parse_key(" # comment", &key) == 0);
++    assert(aot_deny_parse_key("\r\n", &key) == 0);
++    puts("AOT deny exact-mode parser: PASS");
++}
+diff --git a/tests/test_analysis_roots_file.py b/tests/test_analysis_roots_file.py
+new file mode 100644
+index 0000000..7c764e1
+--- /dev/null
++++ b/tests/test_analysis_roots_file.py
+@@ -0,0 +1,116 @@
++"""Explicit seed metadata must preserve mode identity and CLI/cache provenance."""
++import argparse
++import os
++from pathlib import Path
++import sys
++import tempfile
++import unittest
++from unittest.mock import Mock, patch
++
++SDK = Path(__file__).resolve().parents[1]
++sys.path[:0] = [str(SDK), str(SDK/'recompiler')]
++from v2.program_emit import load_analysis_roots
++from v2.program_analysis import VariantKey
++from tools import sdk_generate
++from tools.v2_emit import _analysis_input_digest, _codegen_environment_digest
++
++
++class AnalysisRootFileTests(unittest.TestCase):
++    def test_exact_variants_comments_bom_and_deduplication(self):
++        with tempfile.TemporaryDirectory() as temp:
++            a=Path(temp)/'roots.txt';b=Path(temp)/'more.txt'
++            a.write_text('\ufeff# Declared seeds, no instruction data\n0084E9:M1X1 # alternate mode\n84e9:m1x0\n',encoding='utf-8')
++            b.write_text('0084E9:M1X1\n018158:M1X0\n')
++            self.assertEqual(load_analysis_roots([a,b]),(
++                VariantKey(0x84e9,1,0),VariantKey(0x84e9,1,1),VariantKey(0x18158,1,0)))
++
++    def test_malformed_line_fails_with_location(self):
++        with tempfile.TemporaryDirectory() as temp:
++            p=Path(temp)/'bad.txt'
++            for bad in ('0084E9','0x0084E9:M1X1','1000000:M1X1','0084E9:M2X1',
++                        '0084E9:M1X9','0084E9:M1X1 trailing','0084E9:M1X1,018158:M1X0'):
++                with self.subTest(bad=bad):
++                    p.write_text('# valid comment\n'+bad+'\n')
++                    with self.assertRaisesRegex(ValueError,r'bad\.txt:2: expected PC24:M0X0'):
++                        load_analysis_roots([p])
++
++    def test_missing_file_fails_instead_of_silently_dropping_seeds(self):
++        with tempfile.TemporaryDirectory() as temp:
++            with self.assertRaises(FileNotFoundError):
++                load_analysis_roots([Path(temp)/'missing.txt'])
++
++    def test_generate_cli_forwards_resolved_root_files(self):
++        with tempfile.TemporaryDirectory() as temp:
++            root=Path(temp);parser=argparse.ArgumentParser();sub=parser.add_subparsers(dest='command')
++            sdk_generate.add_generate_parser(sub)
++            args=parser.parse_args(['generate','--rom','game.sfc','--cfg-dir','cfg','--out-dir','gen',
++                '--project-root',str(root),'--analysis-roots-file','roots.txt',
++                '--analysis-roots-file','more.txt'])
++            with patch.object(sdk_generate,'generate') as generate:
++                self.assertEqual(args.handler(args,Mock()),0)
++                self.assertEqual(generate.call_args.kwargs['analysis_roots_files'],
++                                 [(root/'roots.txt').resolve(),(root/'more.txt').resolve()])
++
++    def test_sdk_forwards_root_file_without_cfg_roots_or_profile(self):
++        with tempfile.TemporaryDirectory() as temp:
++            root=Path(temp);cfg=root/'cfg';cfg.mkdir();(cfg/'bank00.cfg').write_text('bank = 0\n')
++            roots=root/'roots.txt';roots.write_text('0084E9:M1X1\n')
++            identity={'path':str(root/'game.sfc'),'crc32':'00000000','sha256':'0'*64,'size':32768}
++            with patch.object(sdk_generate,'verify_rom',return_value=identity),patch.object(sdk_generate,'run_tool',return_value=0)as run:
++                sdk_generate.generate(rom=root/'game.sfc',cfg_dir=cfg,out_dir=root/'gen',
++                    analysis_roots_files=[roots],progress=Mock(json_progress=False))
++                args=run.call_args.args[1]
++                index=args.index('--analysis-roots-file')
++                self.assertEqual(args[index+1],str(roots.resolve()))
++                self.assertNotIn('--cfg-roots',args)
++                self.assertNotIn('--profile-manifest',args)
++
++    def test_transfer_timing_selector_invalidates_body_cache(self):
++        with patch.dict(os.environ,{},clear=True):
++            control=_codegen_environment_digest('same-source')
++            os.environ['SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS']='018158:M1X0'
++            native=_codegen_environment_digest('same-source')
++            os.environ['SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS']='018158:M1X1'
++            self.assertNotEqual(_codegen_environment_digest('same-source'),native)
++            self.assertNotEqual(control,native)
++            del os.environ['SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS']
++            self.assertEqual(_codegen_environment_digest('same-source'),control)
++
++    def test_recipe_digest_preserves_all_environment_cache_selectors(self):
++        with patch.dict(os.environ, {}, clear=True):
++            baseline = _codegen_environment_digest('same-source')
++            recipe = _codegen_environment_digest('same-source', 'a' * 64)
++            self.assertNotEqual(recipe, baseline)
++            self.assertEqual(recipe, _codegen_environment_digest('same-source', 'A' * 64))
++            for name in ('SNESRECOMP_EMIT_AOT_DENY_GATE', 'SNESRECOMP_PRECISE_AOT_ROOTS',
++                         'SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS'):
++                with self.subTest(selector=name), patch.dict(os.environ, {name: '018158:M1X0'}):
++                    self.assertNotEqual(recipe, _codegen_environment_digest('same-source', 'a' * 64))
++            with self.assertRaisesRegex(ValueError, 'must be a SHA-256'):
++                _codegen_environment_digest('same-source', 'invalid')
++
++    def test_generate_cli_preserves_historical_profiles_with_analysis_roots(self):
++        with tempfile.TemporaryDirectory() as temp:
++            root = Path(temp)
++            parser = argparse.ArgumentParser()
++            sdk_generate.add_generate_parser(parser.add_subparsers(dest='command'))
++            args = parser.parse_args(['generate', '--rom', 'game.sfc', '--cfg-dir', 'cfg',
++                '--out-dir', 'gen', '--project-root', str(root),
++                '--analysis-roots-file', 'roots.txt', '--historical-profile-manifest', 'old.json'])
++            with patch.object(sdk_generate, 'generate') as generate:
++                self.assertEqual(args.handler(args, Mock()), 0)
++                self.assertEqual(generate.call_args.kwargs['historical_profile_manifests'],
++                                 [(root / 'old.json').resolve()])
++                self.assertEqual(generate.call_args.kwargs['analysis_roots_files'],
++                                 [(root / 'roots.txt').resolve()])
++
++    def test_seed_content_participates_in_analysis_cache_identity(self):
++        kwargs=dict(rom=b'rom',generator_digest='g',config_digest='c',force_lle=(),cfg_roots=False,
++            analysis_backend='native',enable_hle=True,max_insns=4096,max_nodes=100000,
++            shard_threshold_bytes=4096,shard_pc_span=2048)
++        a=_analysis_input_digest(additional_roots=[VariantKey(0x84e9,1,0)],**kwargs)
++        b=_analysis_input_digest(additional_roots=[VariantKey(0x84e9,1,1)],**kwargs)
++        self.assertNotEqual(a,b)
++
++
++if __name__=='__main__':unittest.main()
+diff --git a/tests/test_debug_route.py b/tests/test_debug_route.py
+new file mode 100644
+index 0000000..20f8dc5
+--- /dev/null
++++ b/tests/test_debug_route.py
+@@ -0,0 +1,173 @@
++import socket
++import sys
++import threading
++from pathlib import Path
++
++import pytest
++
++sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
++from sneslib.client import DebugClient
++from sneslib.route import FrameDriver
++
++
++def test_lost_mutation_reply_is_not_replayed():
++    received = []
++    listener = socket.socket()
++    listener.bind(("127.0.0.1", 0))
++    listener.listen()
++    listener.settimeout(0.25)
++
++    def server():
++        try:
++            while True:
++                try:
++                    connection, _ = listener.accept()
++                except socket.timeout:
++                    break
++                with connection:
++                    received.append(connection.recv(100).decode())
++                    # Simulate executing the mutation, then losing its reply.
++        finally:
++            listener.close()
++
++    thread = threading.Thread(target=server)
++    thread.start()
++    client = DebugClient(listener.getsockname()[1], timeout=1)
++    try:
++        with pytest.raises(ConnectionError):
++            client.query("step 60", retry=False)
++    finally:
++        client.close()
++        thread.join(timeout=2)
++    assert not thread.is_alive()
++    assert received == ["step 60\n"]
++
++
++class Host:
++    def __init__(self, *, timeout=False):
++        self.frame = 7
++        self.calls = []
++        self.timeout = timeout
++
++    def query(self, command, *, retry):
++        assert retry is False
++        self.calls.append(command)
++        if command.startswith("step "):
++            before = self.frame
++            count = int(command.split()[1])
++            self.frame += count if not self.timeout else count - 1
++            return dict(ok=True, frame_before=before, frame_after=self.frame, timeout=self.timeout)
++        if command.startswith("read_ram "):
++            return {"hex": "01"}
++        if command == "frame":
++            return {"frame": self.frame}
++        return {"ok": True}
++
++    def close(self):
++        pass
++
++
++def test_step_verifies_progress_and_always_releases_controller(tmp_path):
++    host = Host()
++    driver = FrameDriver(host, tmp_path, step_timeout=0.02)
++    try:
++        driver.step(125, "right+y")
++        assert host.frame == 132
++        assert host.calls == ["set_controller right+y", "step 60", "step 60", "step 5", "clear_controller"]
++        host.timeout = True
++        with pytest.raises(RuntimeError, match="did not advance"):
++            driver.step(12, "b")
++        assert host.calls[-1] == "clear_controller"
++    finally:
++        driver.close()
++
++
++def test_condition_is_bounded_and_invalid_edits_never_reach_host(tmp_path):
++    host = Host()
++    driver = FrameDriver(host, tmp_path)
++    try:
++        with pytest.raises(TimeoutError):
++            driver.until(0x118, b"\x0f", 20)
++        assert host.frame == 27
++        assert [c for c in host.calls if c.startswith("step")] == ["step 15", "step 5"]
++        before = list(host.calls)
++        for address, data in ((0x20000, b"x"), (0x1ffff, b"xx"), (-1, b"x")):
++            with pytest.raises(ValueError):
++                driver.write(address, data)
++        with pytest.raises(ValueError):
++            driver.snapshot("../owner-save")
++        assert host.calls == before
++        with pytest.raises(RuntimeError, match="Short WRAM read"):
++            driver.read(0, 2)
++    finally:
++        driver.close()
++
++
++def test_heavy_renderers_can_use_smaller_bounded_steps(tmp_path):
++    host = Host()
++    with pytest.raises(ValueError):
++        FrameDriver(host, tmp_path, max_step_frames=0)
++    driver = FrameDriver(host, tmp_path, max_step_frames=5)
++    try:
++        driver.step(12)
++        assert [c for c in host.calls if c.startswith("step")] == ["step 5", "step 5", "step 2"]
++    finally:
++        driver.close()
++
++
++def test_startup_handoff_accepts_an_inflight_frame_but_later_steps_are_exact(tmp_path):
++    class StartingHost(Host):
++        def query(self, command, *, retry):
++            if command == "frame":
++                return {"frame": self.frame}
++            if command == "step 1" and not self.calls:
++                raise AssertionError("Controller should be cleared before stepping")
++            result = super().query(command, retry=retry)
++            if command == "step 1":
++                self.frame += 1
++                result["frame_after"] += 1
++            return result
++    host = StartingHost()
++    driver = FrameDriver(host, tmp_path)
++    try:
++        assert driver.wait_started() == 9
++        driver.step(2)
++        assert host.frame == 11
++    finally:
++        driver.close()
++
++
++def test_startup_waits_for_frame_publication_without_repeating_step(tmp_path):
++    class PublishingHost(Host):
++        def query(self, command, *, retry):
++            if command == "frame":
++                return {"frame": self.frame}
++            result = super().query(command, retry=retry)
++            if command.startswith("step "):
++                result["frame_after"] -= 1
++            return result
++    host = PublishingHost()
++    driver = FrameDriver(host, tmp_path)
++    try:
++        assert driver.wait_started() == 8
++        assert host.calls.count("step 1") == 1
++    finally:
++        driver.close()
++
++
++def test_server_timeout_observes_the_original_pending_step(tmp_path):
++    class PendingHost(Host):
++        def query(self, command, *, retry):
++            if command == "frame":
++                self.frame += 1
++                return {"frame": self.frame}
++            return super().query(command, retry=retry)
++    host = PendingHost(timeout=True)
++    driver = FrameDriver(host, tmp_path)
++    try:
++        driver.step(3)
++        assert host.frame == 10
++        assert host.calls.count("step 3") == 1
++        assert host.calls[-1] == "clear_controller"
++    finally:
++        driver.close()
+diff --git a/tests/test_force_lle_variant.py b/tests/test_force_lle_variant.py
+new file mode 100644
+index 0000000..e64cd8b
+--- /dev/null
++++ b/tests/test_force_lle_variant.py
+@@ -0,0 +1,73 @@
++"""A timing-unsafe new mode must not remove established native sibling modes."""
++import json
++from pathlib import Path
++import subprocess
++import sys
++import tempfile
++import unittest
++
++REPO = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(REPO / 'recompiler'))
++from v2.cfg_loader import load_bank_cfg
++
++
++class ForceLleVariantTests(unittest.TestCase):
++    def test_python_parser_keeps_modes_separate(self):
++        with tempfile.TemporaryDirectory() as temp:
++            path = Path(temp) / 'bank00.cfg'
++            path.write_text('bank = 00\nforce_lle_variant 0084E9:M1X1\nforce_lle_variant 0084e9:m0x0\n')
++            cfg = load_bank_cfg(str(path))
++            self.assertEqual(cfg.force_lle_variants, {(0x84e9, 1, 1), (0x84e9, 0, 0)})
++            self.assertFalse(cfg.force_lle)
++
++    def test_python_parser_fails_closed(self):
++        values = ('0084E9', '0084E9:M2X0', '0084E9:M1X1junk', '1000000:M1X0',
++                  '0084E9:M1X0 extra', '0x0084E9:M1X0',
++                  '0084E9:M1X0\nforce_lle_variant 0084e9:m1x0')
++        with tempfile.TemporaryDirectory() as temp:
++            path = Path(temp) / 'bank00.cfg'
++            for value in values:
++                with self.subTest(value=value):
++                    path.write_text('bank = 00\nforce_lle_variant ' + value + '\n')
++                    with self.assertRaises(ValueError):
++                        load_bank_cfg(str(path))
++
++    def test_native_manifest_and_dispatch_defer_only_exact_mode_and_mirror(self):
++        with tempfile.TemporaryDirectory() as temp:
++            root = Path(temp)
++            rom = bytearray([0xff] * 0x8000)
++            rom[0:9] = bytes.fromhex('201080e23020108060')  # JSR M1X0; SEP X; JSR M1X1; RTS
++            rom[0x10] = 0x60
++            rom[0x20] = 0x60
++            (root / 'test.sfc').write_bytes(rom)
++            cfg = root / 'cfg'; cfg.mkdir()
++            (cfg / 'bank00.cfg').write_text(
++                'bank = 00\nfunc Main 8000 end:8009 entry_mx:1,0\n'
++                'func Shared 8010 end:8011 entry_mx:1,0\n'
++                'func DeferredRoot 8020 end:8021 entry_mx:1,1\n'
++                'force_lle_variant 808010:M1X1\n'
++                'force_lle_variant 008020:M1X1\n')
++            out = root / 'gen'
++            command = [sys.executable, '-P', str(REPO / 'tools/v2_emit.py'),
++                '--rom', str(root / 'test.sfc'), '--cfg-dir', str(cfg), '--out-dir', str(out),
++                '--cfg-roots', '--no-host-root-scan']
++            completed = subprocess.run(command, capture_output=True, text=True)
++            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
++            manifest = json.loads((out / 'program_manifest.json').read_text())
++            self.assertEqual(manifest['nodes']['008010:M1X0']['disposition'], 'aot_eligible')
++            deferred = manifest['nodes']['008020:M1X1']
++            self.assertEqual(deferred['disposition'], 'lle_only')
++            self.assertIn('forced_lle_variant', deferred['reasons'])
++            caller = manifest['nodes']['008000:M1X0']
++            edge = next(e for e in caller['demands'] if e['target'] and e['target']['pc24'] == 0x8010 and e['target']['x'] == 1)
++            self.assertEqual(edge['resolution'], 'lle_exact')
++            dispatch = (out / 'dispatch_v2.c').read_text()
++            row = next(line for line in dispatch.splitlines() if '{ 0x008010u,' in line)
++            self.assertIn('{ NULL, NULL, Shared_M1X0, NULL }', row)
++            bank = (out / 'bank00_v2.c').read_text()
++            self.assertIn('RecompReturn Shared_M1X0(CpuState *cpu) {', bank)
++            self.assertNotIn('RecompReturn Shared_M1X1(CpuState *cpu) {', bank)
++
++
++if __name__ == '__main__':
++    unittest.main()
+diff --git a/tests/test_generation_recipe.py b/tests/test_generation_recipe.py
+new file mode 100644
+index 0000000..725f5d5
+--- /dev/null
++++ b/tests/test_generation_recipe.py
+@@ -0,0 +1,114 @@
++"""Actual SDK generation must preserve project work and apply its recipe."""
++import hashlib
++import json
++from pathlib import Path
++import subprocess
++import sys
++
++import pytest
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(ROOT))
++from tools.smoke_sdk_generate import write_fixture_rom
++
++
++def project(tmp_path, hook, *, prepare=""):
++    root = tmp_path / "game with spaces"
++    cfg = root / "recomp"
++    cfg.mkdir(parents=True)
++    rom = root / "fixture.sfc"
++    raw = write_fixture_rom(rom)
++    sha = hashlib.sha256(raw).hexdigest()
++    (root / "rom_identity.txt").write_text(f"expected_sha256={sha}\n")
++    (cfg / "bank00.cfg").write_text("bank = 0\nauto_vectors\n")
++    (root / "hook.py").write_text(hook)
++    (cfg / "generate.toml").write_text(
++        'schema = 1\nidentity_file = "rom_identity.txt"\n'
++        'cfg_roots = true\n' + prepare +
++        '[[postprocess]]\nscript = "hook.py"\nargs = ["{out_dir}"]\n')
++    return root, rom
++
++
++def run(root, rom):
++    return subprocess.run(
++        [sys.executable, str(ROOT / "snesrecomp_cli.py"), "generate",
++         "--project-root", str(root), "--rom", str(rom),
++         "--cfg-dir", "recomp", "--out-dir", "src/gen",
++         "--funcs-h", "recomp/funcs.h", "--json-progress"],
++        capture_output=True, text=True, encoding="utf-8", errors="replace")
++
++
++def test_cli_applies_hook_and_keeps_jsonl_and_identity(tmp_path):
++    root, rom = project(tmp_path,
++        'import pathlib,sys\np=pathlib.Path(sys.argv[1])/"dispatch_v2.c"\n'
++        'p.write_text(p.read_text()+"\\n/* game hook */\\n")\nprint("hook finished")\n')
++    result = run(root, rom)
++    assert result.returncode == 0, result.stdout + result.stderr
++    events = [json.loads(line) for line in result.stdout.splitlines()]
++    assert events[-1]["event"] == "result" and events[-1]["ok"]
++    assert events[-1]["out_dir"] == str(root / "src/gen")
++    assert events[-1]["rom"]["verified"]
++    assert "/* game hook */" in (root / "src/gen/dispatch_v2.c").read_text()
++    assert (root / "recomp/funcs.h").is_file()
++    # Re-running uses fresh emitter output, not yesterday's transformed text.
++    assert run(root, rom).returncode == 0
++    assert (root / "src/gen/dispatch_v2.c").read_text().count("/* game hook */") == 1
++
++
++def test_failed_hook_preserves_published_tree_and_header(tmp_path):
++    root, rom = project(tmp_path,
++        'import pathlib,sys\np=pathlib.Path(sys.argv[1])/"dispatch_v2.c"\n'
++        'p.write_text("incomplete")\nraise SystemExit(9)\n')
++    target = root / "src/gen"
++    target.mkdir(parents=True)
++    (target / "dispatch_v2.c").write_text("known good C")
++    header = root / "recomp/funcs.h"
++    header.write_text("known good header")
++    result = run(root, rom)
++    assert result.returncode == 1
++    assert "hook.py failed (exit 9)" in result.stdout
++    assert (target / "dispatch_v2.c").read_text() == "known good C"
++    assert header.read_text() == "known good header"
++
++
++def test_identity_failure_precedes_prepare_hook(tmp_path):
++    root, rom = project(tmp_path, 'print("unused")\n', prepare=
++        '[[prepare]]\nscript = "prepare.py"\n')
++    (root / "prepare.py").write_text('from pathlib import Path\nPath("touched").touch()\n')
++    raw = bytearray(rom.read_bytes()); raw[100] ^= 1; rom.write_bytes(raw)
++    result = run(root, rom)
++    assert result.returncode == 3
++    assert not (root / "touched").exists()
++
++
++def test_hook_source_participates_in_generation_identity(tmp_path):
++    from tools.generation_recipe import load_recipe
++    root, _rom = project(tmp_path, 'print("v1")\n')
++    recipe = load_recipe(root / "recomp")
++    before = recipe.digest()
++    (root / "hook.py").write_text('print("v2")\n')
++    assert recipe.digest() != before
++
++
++def test_frozen_sdk_runs_hook_with_available_python(tmp_path, monkeypatch):
++    from tools.generation_recipe import load_recipe
++    from tools.sdk_progress import ProgressReporter
++    root, rom = project(tmp_path,
++        'import pathlib,sys\n(pathlib.Path(sys.argv[1])/"hook.ok").touch()\n')
++    monkeypatch.setattr(sys, "frozen", True, raising=False)
++    monkeypatch.setenv("PYTHON", sys.executable)
++    recipe = load_recipe(root / "recomp")
++    recipe.run("postprocess", rom=rom, cfg_dir=root / "recomp",
++               out_dir=root, reporter=ProgressReporter())
++    assert (root / "hook.ok").is_file()
++
++
++@pytest.mark.parametrize("field", ['schema = 2', 'cfg_roots = "yes"',
++                                    'unknown_key = true'])
++def test_bad_recipe_refused(tmp_path, field):
++    from tools.generation_recipe import load_recipe
++    root, _rom = project(tmp_path, 'pass\n')
++    recipe = root / "recomp/generate.toml"
++    recipe.write_text(("" if field.startswith("schema") else "schema = 1\n") + field)
++    with pytest.raises(ValueError):
++        load_recipe(root / "recomp")
 diff --git a/tests/v2/test_aot_continuations.py b/tests/v2/test_aot_continuations.py
 new file mode 100644
 index 0000000..f7fb4e5
@@ -3867,6 +4798,72 @@ index 0000000..f7fb4e5
 +
 +if __name__=="__main__":
 +    unittest.main()
+diff --git a/tests/v2/test_computed_far_call.py b/tests/v2/test_computed_far_call.py
+new file mode 100644
+index 0000000..c468150
+--- /dev/null
++++ b/tests/v2/test_computed_far_call.py
+@@ -0,0 +1,60 @@
++"""Execute generated stack-programmed calls with a preserved continuation."""
++import os
++from pathlib import Path
++import shutil
++import subprocess
++
++import pytest
++
++from _helpers import make_lorom_bank0
++from test_callee_stack_cleanup import _RUNTIME
++from v2.emit_function import emit_function
++
++
++@pytest.mark.parametrize("far", [False, True])
++def test_direct_bounce_preserves_synthetic_call_continuation(tmp_path, far):
++    mingw = Path("C:/msys64/mingw64/bin/gcc.exe")
++    compiler = os.environ.get("CC") or (str(mingw) if mingw.is_file() else shutil.which("cc"))
++    if not compiler:
++        pytest.skip("C compiler required")
++    # Long: PHK/PEA creates a continuation, PHX/PHX/PLB/PHA builds
++    # the far target. Short: two PEAs create continuation and target.
++    body = (bytes.fromhex("4bf47f80dadaaba9009048e2206b") if far else
++            bytes.fromhex("f47f80f4009060"))
++    generated = emit_function(make_lorom_bank0({0x8000: body}), 0, 0x8000,
++                              0, 1, end=0x8000 + len(body), func_name="ComputedCall")
++    runtime = _RUNTIME.split("static int check(", 1)[0]
++    runtime = runtime.replace("int interp_bridge_has_direct_paired_bounce(void) { return 0; }",
++                              "int interp_bridge_has_direct_paired_bounce(void) { return 1; }")
++    runtime = runtime.replace("GENERATED", generated)
++    runtime += r'''
++int main(void) {
++  const uint16 entries[] = {0x01fd, 0x0001};
++  for (unsigned i = 0; i < 2; ++i) {
++    CpuState cpu = {0};
++    memset(g_ram, 0, sizeof g_ram);
++    cpu.ram = g_ram; cpu.S = entries[i]; cpu.X = 1;
++    cpu.host_return_valid = 2; cpu.x_flag = 1; cpu.P = 0x10;
++    cpu_write16(&cpu, 0, (uint16)(cpu.S + 1), 0x8123);
++    other_exits = 0; ancestor_skip = -1;
++    ComputedCall_M0X1(&cpu);
++    if (other_exits != 1 || other_target != TARGET ||
++        cpu.S != (uint16)(entries[i] - LOCALS) || g_recomp_stack_top != 0)
++      return 1;
++    if (cpu_read16(&cpu, 0, (uint16)(cpu.S + 1)) != 0x807f)
++      return 2; /* continuation must still be on the guest stack */
++    if (cpu_read16(&cpu, 0, (uint16)(entries[i] + 1)) != 0x8123)
++      return 3; /* original interpreted caller is still above the continuation */
++  }
++  return 0;
++}
++'''.replace("TARGET", "0x019001" if far else "0x009001").replace("LOCALS", "3" if far else "2")
++    source = tmp_path / "computed_call.c"
++    source.write_text(runtime)
++    exe = tmp_path / ("computed_call.exe" if os.name == "nt" else "computed_call")
++    repo = Path(__file__).resolve().parents[2]
++    build = subprocess.run([compiler, "-std=c11", "-O1", "-I", str(repo / "runner/src"),
++                            str(source), "-o", str(exe)], capture_output=True, text=True)
++    assert build.returncode == 0, build.stderr
++    result = subprocess.run([str(exe)], capture_output=True, text=True)
++    assert result.returncode == 0, result.stdout + result.stderr
 diff --git a/tests/v2/test_hle_guard_func.py b/tests/v2/test_hle_guard_func.py
 new file mode 100644
 index 0000000..f7b3f99
@@ -3961,154 +4958,396 @@ index 0000000..f7b3f99
 +   self.assertNotEqual(json.loads((new/'.snesrecomp-cache.json').read_text())['config_digest'],json.loads((other/'.snesrecomp-cache.json').read_text())['config_digest'])
 +
 +if __name__=='__main__':unittest.main()
-diff --git a/tools/sdk_generate.py b/tools/sdk_generate.py
-index e23031d..b1a3e9e 100644
---- a/tools/sdk_generate.py
-+++ b/tools/sdk_generate.py
-@@ -62,6 +62,8 @@ def generate(
-     no_host_root_scan: bool = False,
-     source_roots: Optional[Sequence[pathlib.Path]] = None,
-     profile_manifests: Optional[Sequence[pathlib.Path]] = None,
-+    analysis_roots_files: Optional[Sequence[pathlib.Path]] = None,
-+    historical_profile_manifests: Optional[Sequence[pathlib.Path]] = None,
-     legacy_profile_rom_sha256: Optional[str] = None,
-     analysis_backend: str = "native",
-     expected_crc32: Optional[str] = None,
-@@ -111,6 +113,8 @@ def generate(
-         emit_args.append("--no-host-root-scan")
-     for root in source_roots or ():
-         emit_args.extend(["--source-root", str(pathlib.Path(root).resolve())])
-+    for path in analysis_roots_files or ():
-+        emit_args.extend(["--analysis-roots-file", str(pathlib.Path(path).resolve())])
-     # Tier-2 coverage profile (the burn-down loop's promote step). Influences
-     # only materialization: bailed observations are excluded, the LLE fallback
-     # is never removed, and only hardware call landings or independently
-@@ -119,6 +123,16 @@ def generate(
-     for manifest in profile_manifests or ():
-         emit_args.extend(
-             ["--profile-manifest", str(pathlib.Path(manifest).resolve())])
-+    # A capture taken by an earlier build cannot be merged with a current one
-+    # (costs and build identity never cross a build boundary), but its analysis
-+    # seeds and conservative exclusions are exactly what keeps a regenerated
-+    # program from shrinking when the new capture is shorter. v2_emit calls
-+    # those inputs historical; without forwarding them the CLI could only ever
-+    # regenerate from the single newest capture.
-+    for manifest in historical_profile_manifests or ():
-+        emit_args.extend(
-+            ["--historical-profile-manifest",
-+             str(pathlib.Path(manifest).resolve())])
-     if legacy_profile_rom_sha256:
-         emit_args.extend(["--legacy-profile-rom-sha256", legacy_profile_rom_sha256])
- 
-@@ -233,10 +247,18 @@ def generate_command(args: argparse.Namespace, progress: ProgressReporter) -> in
-             source_roots=[
-                 _resolve_under(project_root, root) for root in args.source_root
-             ],
-+            analysis_roots_files=[
-+                _resolve_under(project_root, p)
-+                for p in getattr(args, "analysis_roots_file", []) or []
-+            ],
-             profile_manifests=[
-                 _resolve_under(project_root, m)
-                 for m in getattr(args, "profile_manifest", []) or []
-             ],
-+            historical_profile_manifests=[
-+                _resolve_under(project_root, m)
-+                for m in getattr(args, "historical_profile_manifest", []) or []
-+            ],
-             legacy_profile_rom_sha256=getattr(args, "legacy_profile_rom_sha256", None),
-             analysis_backend=args.analysis_backend,
-             expected_crc32=args.expected_crc32,
-@@ -305,6 +327,10 @@ def add_generate_parser(subparsers) -> None:
-         default=[],
-         help="extra host source root for root discovery (repeatable)",
-     )
-+    generate_parser.add_argument(
-+        "--analysis-roots-file", action="append", default=[],
-+        help="PC24:M0X0 analysis seeds without function boundary declarations (repeatable)",
-+    )
-     generate_parser.add_argument(
-         "--profile-manifest",
-         action="append",
-@@ -312,6 +338,13 @@ def add_generate_parser(subparsers) -> None:
-         help="tier-2 coverage manifest to seed optional AOT roots from "
-              "(repeatable); clean call landings only, bails excluded",
-     )
-+    generate_parser.add_argument(
-+        "--historical-profile-manifest",
-+        action="append",
-+        default=[],
-+        help="coverage manifest from an earlier build (repeatable): its seeds "
-+             "and exclusions carry forward without merging costs across builds",
-+    )
-     generate_parser.add_argument(
-         "--legacy-profile-rom-sha256",
-         help="explicitly associate an unbound v1 profile with this ROM SHA-256",
-diff --git a/tools/v2_emit.py b/tools/v2_emit.py
-index c8308c0..35f08ae 100644
---- a/tools/v2_emit.py
-+++ b/tools/v2_emit.py
-@@ -30,6 +30,7 @@ from v2.program_emit import (  # noqa: E402
-     discover_host_roots,
-     discover_authority_roots,
-     discover_profile_roots,
-+    load_analysis_roots,
-     emit_program,
-     validate_module_identity,
- )
-@@ -64,6 +65,16 @@ def _tree_digest(paths) -> str:
-     return digest.hexdigest()
- 
- 
-+def _codegen_environment_digest(tree_digest: str) -> str:
-+    """Bind every opt-in body schedule/guard to analysis and output caches."""
-+    deny_gate = bool(os.environ.get("SNESRECOMP_EMIT_AOT_DENY_GATE"))
-+    return hashlib.sha256(
-+        (f"{tree_digest}\0aot_deny_gate={int(deny_gate)}"
-+         f"\0precise_roots={os.environ.get('SNESRECOMP_PRECISE_AOT_ROOTS', '')}"
-+         f"\0precise_transfer_roots={os.environ.get('SNESRECOMP_PRECISE_AOT_TRANSFER_ROOTS', '')}").encode()
-+    ).hexdigest()
+diff --git a/tools/generation_recipe.py b/tools/generation_recipe.py
+new file mode 100644
+index 0000000..32f2758
+--- /dev/null
++++ b/tools/generation_recipe.py
+@@ -0,0 +1,138 @@
++"""Project-owned generation inputs shared by the CLI and setup launcher.
++
++Recipes live at <cfg-dir>/generate.toml. Hooks are Python argv, never shell
++commands, and edit a fresh unpublished tree. Game-specific transformations
++remain in the game repository.
++"""
++from __future__ import annotations
++
++from dataclasses import dataclass
++import hashlib
++import json
++import os
++from pathlib import Path
++import subprocess
++import shutil
++import sys
++import string
 +
 +
- def _config_digest(parsed) -> str:
-     digest = hashlib.sha256()
-     cfg_dirs = set()
-@@ -178,6 +189,9 @@ def main() -> int:
-         "--profile-manifest", action="append", default=[],
-         help="tier2 coverage manifest whose clean targets become optional "
-              "AOT roots (repeatable)")
-+    parser.add_argument(
-+        "--analysis-roots-file", action="append", default=[],
-+        help="owner-reviewed PC24:M0X0 analysis seeds, one per line; does not declare function boundaries (repeatable)")
-     parser.add_argument("--legacy-profile-rom-sha256", help="Explicitly associate legacy profiles with this ROM digest")
-     parser.add_argument(
-         "--historical-profile-manifest", action="append", default=[],
-@@ -295,6 +309,7 @@ def _generate(args, parser, cfg_dir, *, symbol_roots=()):
-     }
-     try:
-         profile_force_lle = set()
-+        explicit_roots = load_analysis_roots(args.analysis_roots_file)
-         profile_roots = discover_profile_roots(
-             args.profile_manifest, declared_entry_pcs, profile_force_lle,
-             expected_rom=rom_sha256_hex, expected_module=args.module_id,
-@@ -308,7 +323,7 @@ def _generate(args, parser, cfg_dir, *, symbol_roots=()):
-         # explicitly qualified targets reach AOT eligibility.
-         parsed[0][2].force_lle.update(profile_force_lle)
-     additional_roots = tuple(sorted(
--        set(host_roots) | set(profile_roots) | set(ram_routine_roots) | set(symbol_roots)
-+        set(host_roots) | set(profile_roots) | set(explicit_roots) | set(ram_routine_roots) | set(symbol_roots)
-         | (set(discover_authority_roots(parsed)) if args.disassembly_entry_modes else set())))
- 
-     def generator_digest_for():
-@@ -326,10 +341,7 @@ def _generate(args, parser, cfg_dir, *, symbol_roots=()):
-         # This environment switch changes every emitted AOT body, so it must
-         # participate in the published-output cache key.  Treat any non-empty
-         # value as enabled to match emit_function.py's codegen guard.
--        deny_gate = bool(os.environ.get("SNESRECOMP_EMIT_AOT_DENY_GATE"))
--        return hashlib.sha256(
--            f"{tree_digest}\0aot_deny_gate={int(deny_gate)}".encode()
--        ).hexdigest()
-+        return _codegen_environment_digest(tree_digest)
- 
-     generator_digest = generator_digest_for()
-     config_digest = _config_digest(parsed)
++def hook_python() -> str:
++    """A frozen CLI executable cannot be used as a Python script runner."""
++    if not getattr(sys, "frozen", False):
++        return sys.executable
++    for candidate in (os.environ.get("PYTHON"), shutil.which("python"),
++                      shutil.which("python3")):
++        if not candidate:
++            continue
++        try:
++            result = subprocess.run(
++                [candidate, "-c", "import sys; sys.exit(sys.version_info < (3, 9))"],
++                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10,
++                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
++            if result.returncode == 0:
++                return candidate
++        except (OSError, subprocess.TimeoutExpired):
++            continue
++    raise RuntimeError("project generation hooks require Python 3.9+; "
++                       "install Python or set PYTHON to its executable")
++
++
++@dataclass
++class Recipe:
++    path: Path
++    root: Path
++    data: dict
++
++    def local(self, value: str) -> Path:
++        path = (self.root / value).resolve()
++        if not path.is_relative_to(self.root):
++            raise ValueError(f"recipe path escapes project: {value}")
++        return path
++
++    def profiles(self, key: str) -> list[Path]:
++        return [(self.path.parent / value).resolve()
++                for value in self.data.get(key, [])]
++
++    def identity(self) -> dict:
++        from tools.rom_identity import parse
++        value = self.data.get("identity_file")
++        return parse(self.local(value)) if value else {}
++
++    def digest(self) -> str:
++        inputs = {"recipe": self.path.read_bytes().hex()}
++        for phase in ("prepare", "postprocess"):
++            for hook in self.data.get(phase, []):
++                script = self.local(hook["script"])
++                inputs[hook["script"]] = hashlib.sha256(script.read_bytes()).hexdigest()
++        return hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
++
++    def run(self, phase: str, *, rom: Path, cfg_dir: Path,
++            out_dir: Path, reporter) -> None:
++        values = dict(rom=str(rom), cfg_dir=str(cfg_dir),
++                      out_dir=str(out_dir), project_root=str(self.root))
++        for hook in self.data.get(phase, []):
++            script = self.local(hook["script"])
++            argv = [hook_python(), str(script),
++                    *[arg.format_map(values) for arg in hook.get("args", [])]]
++            reporter.phase(phase, pct=.85 if phase == "postprocess" else .1,
++                           message=f"{phase}: {hook['script']}")
++            result = subprocess.run(
++                argv, cwd=self.root, text=True, encoding="utf-8", errors="replace",
++                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
++                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
++            for line in result.stdout.splitlines():
++                reporter.log(line)
++            if result.returncode:
++                raise RuntimeError(f"{phase} hook {hook['script']} failed "
++                                   f"(exit {result.returncode})")
++
++
++def load_recipe(cfg_dir: Path) -> Recipe | None:
++    path = cfg_dir / "generate.toml"
++    if not path.is_file():
++        return None
++    try:
++        import tomllib
++    except ModuleNotFoundError:
++        try:
++            import tomli as tomllib
++        except ModuleNotFoundError as exc:
++            raise ValueError(f"{path}: Python < 3.11 requires tomli "
++                             "(python -m pip install tomli)") from exc
++    data = tomllib.loads(path.read_text(encoding="utf-8"))
++    allowed = {"schema", "identity_file", "cfg_roots", "no_host_root_scan",
++               "profiles", "historical_profiles", "bind_legacy_profiles",
++               "prepare", "postprocess"}
++    if type(data.get("schema")) is not int or data.get("schema") != 1 or data.keys() - allowed:
++        raise ValueError(f"unsupported generation recipe: {path}")
++    recipe = Recipe(path, cfg_dir.parent.resolve(), data)
++    if "identity_file" in data and not isinstance(data["identity_file"], str):
++        raise ValueError("recipe identity_file must be a path")
++    for key in ("cfg_roots", "no_host_root_scan", "bind_legacy_profiles"):
++        if key in data and not isinstance(data[key], bool):
++            raise ValueError(f"recipe {key} must be a boolean")
++    for key in ("profiles", "historical_profiles"):
++        value = data.get(key, [])
++        if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
++            raise ValueError(f"recipe {key} must be a list of paths")
++        for profile in recipe.profiles(key):
++            if not profile.is_relative_to(recipe.root) or not profile.is_file():
++                raise ValueError(f"missing or external recipe profile: {profile}")
++    for phase in ("prepare", "postprocess"):
++        hooks = data.get(phase, [])
++        if not isinstance(hooks, list):
++            raise ValueError(f"recipe {phase} must be a list of hook tables")
++        for hook in hooks:
++            if (not isinstance(hook, dict) or set(hook) - {"script", "args"}
++                    or not isinstance(hook.get("script"), str)
++                    or not isinstance(hook.get("args", []), list)
++                    or not all(isinstance(a, str) for a in hook.get("args", []))):
++                raise ValueError(f"invalid recipe {phase} hook")
++            if not recipe.local(hook["script"]).is_file():
++                raise ValueError(f"missing recipe hook: {hook['script']}")
++            for argument in hook.get("args", []):
++                for _literal, field, _spec, _conversion in string.Formatter().parse(argument):
++                    if field is not None and field not in {"rom", "out_dir", "cfg_dir", "project_root"}:
++                        raise ValueError(f"unknown recipe argument field: {field}")
++    return recipe
+diff --git a/tools/regen_project.py b/tools/regen_project.py
+new file mode 100644
+index 0000000..5fbe1d5
+--- /dev/null
++++ b/tools/regen_project.py
+@@ -0,0 +1,67 @@
++#!/usr/bin/env python3
++"""Regenerate a ROM-bound project using the same recipe as its launcher."""
++from __future__ import annotations
++
++import argparse
++import os
++from pathlib import Path
++import subprocess
++import sys
++import tempfile
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(ROOT))
++from tools.sdk_generate import ensure_tool_paths, generate
++from tools.generation_recipe import load_recipe
++from tools.rom_identity import parse
++
++
++def main(argv=None):
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--project-root", type=Path, default=Path.cwd())
++    parser.add_argument("--rom", type=Path)
++    parser.add_argument("--cfg-roots", action="store_true")
++    parser.add_argument("--profile", type=Path, action="append", default=[])
++    parser.add_argument("--strict-idempotent", action="store_true")
++    parser.add_argument("--no-tests", action="store_true")
++    args = parser.parse_args(argv)
++    project = args.project_root.resolve()
++    cfg = project / "recomp"
++    ensure_tool_paths(ROOT)
++    recipe = load_recipe(cfg)
++    identity = recipe.identity() if recipe else parse(project / "rom_identity.txt")
++    rom = args.rom or os.environ.get("SNESRECOMP_ROM") or identity.get("rom_file")
++    if not rom:
++        parser.error("no ROM configured; pass --rom or set SNESRECOMP_ROM")
++    rom = Path(rom).expanduser()
++    if not rom.is_absolute():
++        rom = project / rom
++    options = dict(rom=rom.resolve(), cfg_dir=cfg, out_dir=project / "src/gen",
++                   funcs_h=cfg / "funcs.h", cfg_roots=args.cfg_roots,
++                   profile_manifests=[p if p.is_absolute() else project / p
++                                      for p in args.profile],
++                   expected_crc32=identity.get("expected_crc32") or None,
++                   expected_sha256=identity.get("expected_sha256") or None)
++    generate(**options)
++    if args.strict_idempotent:
++        from tools.v2_compare_output import compare_output
++        with tempfile.TemporaryDirectory(prefix="snesrecomp-regen-compare-") as temp:
++            comparison = Path(temp) / "generated"
++            generate(**dict(options, out_dir=comparison, funcs_h=None))
++            differences = compare_output(options["out_dir"], comparison)
++            if differences:
++                raise RuntimeError("regeneration differs:\n" + "\n".join(differences))
++            print("Complete generated trees are byte-identical")
++    if not args.no_tests:
++        subprocess.run([sys.executable, str(ROOT / "tests/run_tests.py")],
++                       cwd=ROOT, check=True,
++                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
++    return 0
++
++
++if __name__ == "__main__":
++    try:
++        raise SystemExit(main())
++    except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as exc:
++        print(f"regen_project: {exc}", file=sys.stderr)
++        raise SystemExit(1)
+diff --git a/tools/regen_project.sh b/tools/regen_project.sh
+new file mode 100644
+index 0000000..9fd9869
+--- /dev/null
++++ b/tools/regen_project.sh
+@@ -0,0 +1,15 @@
++#!/usr/bin/env sh
++# Shared interpreter discovery; all generation policy is in the project recipe.
++set -eu
++SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
++PYTHON=${PYTHON:-}
++if [ -z "$PYTHON" ]; then
++  for _snes_python in python3 python; do
++    if "$_snes_python" -c 'import sys; sys.exit(sys.version_info < (3, 9))' >/dev/null 2>&1; then
++      PYTHON=$_snes_python
++      break
++    fi
++  done
++fi
++[ -n "$PYTHON" ] || { echo "regen_project: Python 3.9+ not found" >&2; exit 1; }
++exec "$PYTHON" "$SCRIPT_DIR/regen_project.py" "$@"
+diff --git a/tools/sneslib/route.py b/tools/sneslib/route.py
+new file mode 100644
+index 0000000..0264a37
+--- /dev/null
++++ b/tools/sneslib/route.py
+@@ -0,0 +1,149 @@
++"""Journalled, bounded debug routes for original-ROM cheat/teleport QA.
++
++Launch/configuration and game-specific WRAM knowledge belong to the caller.
++Use a private working directory for the host: screenshot and tier2_dump paths
++below are relative to its cwd. This driver never retries an ambiguous command.
++"""
++from __future__ import annotations
++
++import json
++from pathlib import Path
++import re
++import time
++
++
++class FrameDriver:
++    def __init__(self, client, output: Path, *, max_step_frames=60,
++                 step_timeout=30):
++        if type(max_step_frames) is not int or not 1 <= max_step_frames <= 60:
++            raise ValueError("Step batch must be between 1 and 60 frames")
++        self.max_step_frames = max_step_frames
++        if not 0 < step_timeout <= 60:
++            raise ValueError("Step timeout must be above zero and at most 60 seconds")
++        self.step_timeout = step_timeout
++        self.client = client
++        self.output = Path(output)
++        self.output.mkdir(parents=True, exist_ok=True)
++        self.journal = (self.output / "commands.jsonl").open("w", encoding="utf-8")
++
++    def command(self, command):
++        self.journal.write(json.dumps({"command": command}) + "\n")
++        self.journal.flush()
++        response = self.client.query(command, retry=False)
++        self.journal.write(json.dumps({"response": response}) + "\n")
++        self.journal.flush()
++        if "error" in response or response.get("ok") is False:
++            raise RuntimeError(f"{command}: {response}")
++        return response
++
++    def wait_started(self, timeout=90):
++        """Wait for a running cold boot, then enter bounded frame stepping.
++
++        Some custom hosts open the TCP server before they finish initializing.
++        Launch unpaused: ping alone cannot prove that an initial step is safe.
++        The starting frame is recorded; callers requiring an exact power-on
++        replay should use the host's startup script instead.
++        """
++        deadline = time.monotonic() + timeout
++        while self.command("frame")["frame"] == 0:
++            if time.monotonic() >= deadline:
++                raise TimeoutError("Host answered TCP but never simulated a frame")
++            time.sleep(0.05)
++        # The debug server deliberately rejects the separate pause command.
++        # A bounded step owns its own stop and is the supported test API.
++        self.command("set_controller 0")
++        try:
++            result = self.command("step 1")
++            # The first request races an already-running frame. It may observe
++            # that frame plus its requested frame before the stop takes effect.
++            # Some hosts publish the frame counter just after acknowledging
++            # the stop. Observe that publication without sending another step.
++            published_by = time.monotonic() + 2
++            while (not result.get("timeout")
++                   and result["frame_after"] == result["frame_before"]
++                   and time.monotonic() < published_by):
++                result["frame_after"] = self.command("frame")["frame"]
++            # Subsequent steps start stopped and retain the exact-delta check.
++            if result.get("timeout") or result["frame_after"] <= result["frame_before"]:
++                raise RuntimeError(f"Guest did not enter bounded stepping: {result}")
++        finally:
++            self.command("clear_controller")
++        return self.command("frame")["frame"]
++
++    def read(self, address, size):
++        if not 0 <= address < 0x20000 or not 0 <= size <= 0x20000 - address:
++            raise ValueError("WRAM read is outside 128 KiB")
++        data = bytes.fromhex(self.command(f"read_ram {address:x} {size}")["hex"])
++        if len(data) != size:
++            raise RuntimeError("Short WRAM read")
++        return data
++
++    def write(self, address, data):
++        data = bytes(data)
++        if not data or not 0 <= address < 0x20000 or len(data) > 0x20000 - address:
++            raise ValueError("WRAM write is empty or outside 128 KiB")
++        if self.command(f"write_ram {address:x} {data.hex()}")["count"] != len(data):
++            raise RuntimeError("Short WRAM write")
++
++    def byte(self, address, value=None):
++        if value is None:
++            return self.read(address, 1)[0]
++        self.write(address, bytes([value]))
++
++    def word(self, address, value=None):
++        if value is None:
++            return int.from_bytes(self.read(address, 2), "little")
++        self.write(address, int(value).to_bytes(2, "little"))
++
++    def step(self, frames, buttons="0"):
++        if type(frames) is not int or frames < 0:
++            raise ValueError("Frame count must be a nonnegative integer")
++        self.command(f"set_controller {buttons}")
++        try:
++            while frames:
++                count = min(frames, self.max_step_frames)
++                result = self.command(f"step {count}")
++                expected = result["frame_before"] + count
++                # A server deadline is a pending request, not cancellation.
++                # Its original step continues running. Only query progress;
++                # never resend the mutation or race it with another edit.
++                deadline = time.monotonic() + self.step_timeout
++                while (result["frame_after"] < expected
++                       and time.monotonic() < deadline):
++                    time.sleep(0.01)
++                    result["frame_after"] = self.command("frame")["frame"]
++                if result["frame_after"] != expected:
++                    raise RuntimeError(f"Guest did not advance: {result}")
++                frames -= count
++        finally:
++            self.command("clear_controller")
++
++    def until(self, address, expected: bytes, max_frames, stride=15):
++        if type(max_frames) is not int or max_frames < 0 or stride < 1:
++            raise ValueError("Invalid condition frame bound")
++        elapsed = 0
++        while self.read(address, len(expected)) != expected:
++            if elapsed == max_frames:
++                raise TimeoutError(f"WRAM ${address:05X} did not become {expected.hex()} in {max_frames} frames")
++            count = min(stride, max_frames - elapsed)
++            self.step(count)
++            elapsed += count
++        return elapsed
++
++    def snapshot(self, name):
++        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", name):
++            raise ValueError("Snapshot name must be a plain filename stem")
++        self.command(f"screenshot {name}.bmp")
++        (self.output / f"{name}.wram").write_bytes(self.read(0, 0x20000))
++        data = {command: self.command(command) for command in
++                ("frame", "get_v2_cpu", "get_ppu_state", "interp_stats", "offrails_get")}
++        (self.output / f"{name}.json").write_text(json.dumps(data, indent=2) + "\n")
++        self.command(f"tier2_dump {name}-coverage.json")
++        return data
++
++    def close(self):
++        try:
++            self.command("clear_controller")
++        finally:
++            self.client.close()
++            self.journal.close()

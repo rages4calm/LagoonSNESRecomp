@@ -1,7 +1,52 @@
-# Current development checkpoint - October 17, 2026
+# Current development checkpoint - October 18, 2026
 
-Batch19 is selected and installed. Launch `Start Lagoon.cmd`; cold installed
-Items and portable no-potion Giles checks pass. This is a beta/WIP with **376 AOT /
+Batch20 is selected and installed with **377 AOT /119 analyzed LLE /258 roots**.
+The interpreter safety net and existing guarded continuations remain.
+See [batch20](../NATIVE-BATCH20-2026-10-18.md) for full scope.
+
+Selected executable SHA256:
+`15cca706f309e8cc29b3219ac132e6ca31f8525e609687654aea1174ab1de6c8`.
+Manifest SHA256:
+`508aa194317244bf39009da15b398fe8d684e46812f7032402231e9ef4a3c5ce`.
+The exact tested executable was installed without rebuilding. Seven owner inputs
+remain unchanged. Its cold assisted death replay matches all eight components at
+three checkpoints (24 hashes); explicit fixture setup is not natural campaign evidence.
+
+The new native B413 prefix executes18 original instructions before returning to
+the existing guarded continuation. Its original-opcode oracle passes11,520 cases.
+Fresh strict comparisons cover focused boss40/boss48, ordinary contact, revival, a death
+fixture with explicit staged setup, and room03 doors. These bounded routes do not
+prove natural full-campaign progression or complete native boss orchestration.
+
+The independent live scene renderer now admits exact stable Gold Cave03 data,
+in addition to Atland. Same-executable off/auto qualification has646 ordered
+presentations,626 actual replacements,311 independent draws and23,825,088 drawn
+pixels, with zero mismatches. Both checkpoints match all seven recorded state
+components. Unsupported/fade fields retain fallback; no new actor producer is
+authorized. Full reference rendering still runs, so no speed improvement is claimed.
+
+A bounded hidden GPU1080p check with real audio measures60.13455Hz presentation,
+p9517.6462ms/max21.2181ms and no intervals above25ms. The sample has274 original
+two-field gameplay ticks and no slower ticks. Eleven audio high-water waits retain
+the existing safeguards. This batch makes no new fullscreen, physical-scanout,
+locked60 or complete-campaign performance claim.
+
+Upstream integration is additive throughb894555 except the unrelated recomp-net
+pointer update. Local SDK fixes, HEAD and index are preserved; this is not a
+reset/bootstrap of the intentionally modified framework checkout.
+
+Room07 position/edge coverage and its incoming/outgoing parallax fades were
+already qualified in batches17/18. Do not repeat those audits without an affected
+change. Next work remains broader native continuations, custom scene coverage,
+specific unsupported widescreen routes and measured performance reports.
+The optional door/exit map and modest zoom-out remain considerations until native
+work and the custom renderer are finished. Owner/friends own the uninterrupted
+campaign playtest.
+
+## Historical batch19 stabilization
+
+Batch19 was selected and installed before batch20. Its cold installed
+Items and portable no-potion Giles checks passed. Its beta/WIP counts were **376 AOT /
 119 analyzed LLE /258 roots** and the interpreter safety net. Counts are not
 completion percentages. [Batch19](../NATIVE-BATCH19-2026-10-17.md) records full scope;
 [batch18](../NATIVE-BATCH18-2026-10-17.md) is historical.
@@ -48,5 +93,6 @@ unchanged. Preserve source, ROM, settings, saves, soundtrack and Ghidra; use sma
 private portable fixtures rather than repeating completed campaign exploration.
 The owner/friends run the uninterrupted campaign. See [PLAYTEST.md](PLAYTEST.md).
 Broader native death/boss orchestration, unsupported scenes, soundtrack mappings
-and hardware/controller coverage remain open. Atland's custom renderer remains
-limited; Enhanced original pixels is optional.
+and hardware/controller coverage remain open. Batch19's custom renderer is
+Atland-only; batch20's stable cave extension is described above. Enhanced original
+pixels is optional and separate from scene rendering.
