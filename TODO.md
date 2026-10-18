@@ -71,11 +71,11 @@ batches. Generated routine counts are not campaign completion percentages.
 - [x] Widen Equipment using exact original title/body/cursor pixels and audited
       frame/chain/divider sources in room 01, Atland and the cave (1,491 menu fields).
 - [ ] Adapt title/intro, remaining Save/scripted layouts and guarded Start panels;
-      room 08 still keeps 35 conservative Start fallback fields.
+      Elf Field Start and its loaded fade are covered in batch16; other layouts remain.
 - [x] Built-in Items/Magic/Equipment transition acceleration with transactional
       original-resource decoding; 75 streams / 300 original-instruction oracle cases.
-- [ ] Profile remaining original world-loader close work (31 room 01 /32 Atland
-      blank fields after batch 15 acceleration) without broadening unsupported decoder or return-frame guards.
+- [ ] Profile remaining original world-loader close work after batch16 parent acceleration
+      (52 room01 /53 Atland total closing fields, including fades) without broadening unsupported decoder or return-frame guards.
 - [x] Remove Smooth scaling; retain optional Enhanced original pixels.
 - [x] Preserve both raster register journals in development states; fix alternating
       black frames after cold loading, with consecutive-field and hidden GPU checks.
@@ -101,7 +101,8 @@ batches. Generated routine counts are not campaign completion percentages.
       exact whole-field reference checks and fail-closed presentation.
 - [ ] Broaden custom renderer scene/HUD coverage and reduce its measured CPU cost.
       Choose graphics API from measured needs; keep reference output.
-- [ ] Broader save/load, hardware controller and campaign/ending qualification.
+- [ ] Broader save/load and hardware/controller qualification; owner/friends will handle
+      the uninterrupted campaign/ending playtest, with targeted regression support here.
 - [x] Accelerated entry into all 73 rooms with ordinary incoming doors, seven
       main-boss wins and player deaths, six endgame phases and six real Thimale
       guardian escapes. Original outcomes and explicit cheats are recorded.

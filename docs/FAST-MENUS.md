@@ -113,3 +113,14 @@ Reproduce the ROM-free tests and original-opcode checks with your own clean ROM:
 The tests contain source addresses, dimensions and expected counts, not ROM
 assets or captured game-state payloads. Final integrated build qualification
 belongs to the current batch handoff.
+
+## Batch 16 parent computation
+
+Two exact-source/caller guarded helpers now reproduce the RAM-only parent
+prefix at 018A10 and suffix at 018A32. Original tile queue calls, full-queue
+waits, DMA and final return remain. Audited closing improves from 60 to 52
+fields in room 01/room 02 and from 61 to 53 in Atland; openings remain 40/38/39.
+The prefix and suffix pass 5,936 original-opcode full-WRAM/CPU/stack cases;
+production guards pass 1,622 checks. Actual trace confirms both hooks execute,
+with 2,070 original queue calls preserved. The suffix has no separately measured
+whole-field gain. See [batch 16](../NATIVE-BATCH16-2026-10-17.md).

@@ -41,6 +41,12 @@ try {
   & $closeOracle $romPath
   if ($LASTEXITCODE) { throw 'Menu close original-opcode oracle failed.' }
 
+  $prefixOracle = Join-Path $target 'menu-close-prefix-original-oracle.exe'
+  & $Compiler @flags -Wall -Wextra -Werror -DLAGOON_MENU_CLOSE_TEST tests/lagoon_menu_close_prefix_oracle_test.c src/lagoon_menu_close.c snesrecomp/runner/src/snes/interp816.c -o $prefixOracle
+  if ($LASTEXITCODE) { throw 'Menu close parent-prefix oracle compilation failed.' }
+  & $prefixOracle $romPath
+  if ($LASTEXITCODE) { throw 'Menu close parent-prefix original-opcode oracle failed.' }
+
   $closeGuard = Join-Path $target 'menu-close-production-guard.exe'
   & $Compiler @flags -Wall -Wextra -Werror tests/lagoon_menu_close_guard_test.c src/lagoon_menu_close.c -o $closeGuard
   if ($LASTEXITCODE) { throw 'Menu close production guard compilation failed.' }

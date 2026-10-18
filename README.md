@@ -4,92 +4,56 @@ A work-in-progress Windows port of Lagoon (USA), using SNESRecomp's generated
 native routines alongside its 65816 interpreter safety net. Your own clean ROM
 is required. The executable does not depend on Mesen; it is a development reference.
 
-## Current progress — October 17, 2026
+## Current progress - October 17, 2026
 
-This is a playable development port with generated native routines and an
-interpreter safety net. It is **not a fully native or fully qualified campaign**.
-Selected batch 15 has **361 AOT variants, 123 declared LLE variants and 244 analysis
-roots**, preserving all 348 previous native variants and adding 13 original boss
-animation/state modes. The interpreter safety net and prior exclusions remain.
-Native work includes movement, room/actor loading, actor updates, combat helpers,
-damage arithmetic, EXP/gold/level progression, first-boss logic and bounded
-HP/death HUD tails. Remaining death, boss and dispatch paths retain fallback.
-Counts are not completion percentages.
+This is a playable development port with **369 AOT variants, 123 declared LLE
+variants and 252 analysis roots**. All 361 prior native variants remain. The
+interpreter safety net stays enabled; counts are not completion percentages.
 
-The new accelerated campaign checks use explicit teleports, player stat cheats
-and some progression setup, then run original room loading, combat and outcomes:
+Batch 16 makes audited Items/Magic/Equipment closing eight fields faster:
+room 01 and outdoor room 02 now take **52 fields**, Atland **53**. Original
+uploads and queue-full waits remain. Openings stay 40/38/39 fields. Unknown
+contexts retain the original behavior.
 
-- **73 of 75 room records** reached through genuine door loading. Records 2A and 3F
-  have no ordinary incoming door and remain separate classification/entry gaps.
-- **Seven main bosses** defeated with original rewards and completion flags;
-  Nasir also dies to each in separate fixtures.
-- **Six endgame combat phases** exercise the shell, Green Spirit, Zerah,
-  Thor, bird transformation and Red Spirit through original death/creation code.
-  The ending handler is reached; the full credits sequence is not qualified.
-- All six Thimale guardians die through actual sword hits and unlock the boss.
-  Stock-ROM coverage proves six executions of the unusual nonlocal death escape.
+Eight more original actor/boss child-state modes now execute natively. Four
+matched area/guardian/endgame fixtures remove 328,948 interpreted instruction
+executions, including 303,173 nonreturn executions. An initial compiled-but-inert
+candidate was rejected: native dispatch now actually reaches the new bodies.
+Broader death/wait orchestration and five unobserved child states remain
+interpreted. This is execution evidence, not an FPS or full-native percentage.
 
-These are assisted encounter checks, not an uninterrupted natural playthrough.
-No accepted victory is inferred merely from a missing actor. Frozen private
-receipts distinguish cheats from real HP changes, rewards and progression.
-Canonical coverage is ingested through the SDK with identity, journal-loss and
-runtime-failure checks; feature-patched ROM captures remain separate.
+The final batch passes 32 fresh matched comparisons: 97,059 ordered pictures
+and 142 complete state/clock checkpoints, including combat, death/revival,
+menus and Elf Field. Settings and saves remain local.
 
-The earlier Ella rendering and native handoff timing regressions remain fixed.
-Native work includes the original guardian-death escape, revival/recovery helpers,
-HP/MP caps, hit selectors and witnessed recovery after cooperative waits. Batch 15
-adds source-closed boss animation counters, staged frame selection and child
-sprite-state helpers. Final matched-host combat/primary checks pass 26/26: 25 fixtures execute new
-work, removing 186,682 interpreted instruction executions, 146,299 excluding returns.
-The new bodies contain 174 unique original PC/mode keys; executions are counted
-exclusively within each replay, not globally unique addresses or measured FPS.
-Final 99 comparisons and actual 79-capture SDK ingestion pass.
-
-All 25 timing/audio deferrals, camera seams and the 0080E6 opening interpreter floor
-remain. The selected 361 program passes 99 matched comparisons against 348 under the same
-updated host: 151,417 ordered presentations and 2,657 full checkpoints, including
-SRAM, registers and guest clocks/beam. Room 01 native parity uses its explicit matched narrow configuration;
-wide output has independent source and pixel checks. Public analysis roots and
-timing selectors reproduce the program without private captures.
-See [batch 15](NATIVE-BATCH15-2026-10-17.md),[timing details](tools/NATIVE-TIMING.md),
-[current status](docs/DEVELOPMENT-STATUS.md),[boss checks](tools/CAMPAIGN-BOSSES.md),
-[endgame checks](tools/CAMPAIGN-ENDGAME.md) and [coverage workflow](tools/CAMPAIGN-COVERAGE.md).
+Elf Field's exact scenery animation is now tracked through Start and its loaded
+fade, restoring **35 Start fields and 45 fade fields**. Original center pixels,
+full guest state and clocks match. All 95,424 sampled status-margin pixels resolve
+to actual background or OAM sprite data. Room 07 parallax and other unaudited
+menu, scripted-scene and transition layouts remain open.
 
 Widescreen supports 16:9, 16:10, 21:9, 32:9 and window-driven aspects in audited
-areas. Supported town dialogue, Items/Magic/Equipment, room-01 interior scenery, outdoor scenery and Gold Cave rooms
-have guarded expansion. Batch 15 also expands Elf Field (room 08)
-with independently verified background and actor source pixels. Outgoing fades retain proven old scenery until the real
-PPU changes resources. Unsupported areas and effects retain reference output;
-Room 01 status and its audited destination fade retain wide scenery through
-verified torch animations. Equipment now extends its original frame, chain and
-divider in room 01, Atland and the cave while preserving original title/body pixels. Remaining menu, scripted-scene and transition gaps
-are still being tracked. The [area-map references](docs/MAP-REFERENCES.md) help
-plan coverage routes.
+areas, with original pixels and guarded world/actor composition. Supported town,
+interior, outdoor and cave menus keep proven scenery behind them. Unsupported
+resources retain reference output. Smooth/bilinear scaling was removed; optional
+Enhanced original pixels remains available. The independent live custom renderer
+retains its stable Atland scope; the reference PPU still runs. This is original
+artwork, not a full retexture or a D3D12 backend. No locked 60 FPS claim is made.
 
-The [live custom renderer](docs/CUSTOM-RENDERER.md) independently draws supported
-stable Atland fields from copied maps, tiles, palettes and actors. Every output
-pixel must match the reference before replacement. The reference PPU still runs;
-caves and other unsupported fields use it. Visual similarity is expected.
-This is original artwork, not a full retexture or a D3D12 backend.
+Existing assisted encounter checks reach 73 of 75 room records, defeat seven
+main bosses with original rewards/flags, exercise all six Thimale guardians,
+and cover six endgame phases. Those completed explorations are reused for
+focused regression checks rather than repeated as a natural playthrough.
+The owner and friends will perform the uninterrupted start-to-finish playtest.
+Records 2A/3F, broader native death/boss orchestration, remaining widescreen gaps,
+optional soundtrack mappings and hardware/controller qualification remain open.
 
-The last normally paced hidden 32:9/Enhanced measurement averaged **60.10 FPS**,
-with occasional spikes. Composition fell from 1.473 ms to 0.356 ms after caching;
-this does not prove locked 60 FPS, a rendering speedup over reference alone, or
-physical-display cadence. See [performance evidence](docs/PERFORMANCE.md).
-
-Smooth/bilinear scaling was removed at the user's request. Enhanced original
-pixels remains optional. Fresh version-3 states preserve live execution, PPU
-ports and both raster journals; old/incomplete states refuse cleanly. See
-[save-state details](docs/SAVE-STATES.md). Menu acceleration is now built in: audited Items/Magic/Equipment openings take
-40/38/39 fields instead of 148/146/147. Batch 15 closes improve room 01 from 85 to 60
-fields and Atland from 92 to 61, retaining 31/32 blank fields respectively. Original
-queue-full waits still execute. Remaining loader work means transitions are not
-instant. The original upload path and
-unsupported decoder contexts remain intact. See [menu details](docs/FAST-MENUS.md).
-
-The original opening-dispatch interpreter repair remains in place. Existing
-native-versus-pure-interpreter timing differences and broad campaign/hardware
-qualification remain open. See the [todo list](TODO.md).
+Read [batch 16](NATIVE-BATCH16-2026-10-17.md),
+[current status](docs/DEVELOPMENT-STATUS.md), [menu details](docs/FAST-MENUS.md),
+[widescreen scope](docs/WIDESCREEN.md), [custom renderer](docs/CUSTOM-RENDERER.md),
+[performance evidence](docs/PERFORMANCE.md), [save states](docs/SAVE-STATES.md)
+and the [todo list](TODO.md). Prior campaign exploration and the canonical
+coverage corpus are historical evidence; this batch does not relabel them.
 
 ## Fullscreen screenshots
 

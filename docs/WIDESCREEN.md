@@ -650,3 +650,14 @@ Final integrated executable checks are bound separately from this private
 341-generation presentation experiment.
 
 Final integrated batch13 executable `16a1bf96b3b2d2a23ecb8e11cb9eab287e4b74d22847fa30986ee105db4d04d5` passes both modal/reset routes: 2,112 native centers, 13 checkpoints/clocks, source-decoded status margins and all tested bounds. The 79 valid added wide fields remain. See [batch13](../NATIVE-BATCH13-2026-10-17.md).
+
+## Elf Field Start and loaded fade, batch 16
+
+The six animated world characters in room 08 now use their exact original
+two-frame descriptor 01DFF8/table 01DA79, bank 10 sources 8B40/8C00, C0-byte DMA
+to VRAM word 3B00. Existing original-source/complete-transfer/generation guards
+remain; no generic modal ownership exception is added. This restores 35 Start
+and 45 loaded-fade fields. All 35 original centers and 95,424 sampled margin
+pixels match their real background/OAM sources. Final 369 matches same-host 361
+across 1,406 presentations and eight complete guest checkpoints/clocks.
+Room 07 parallax remains unsupported. See [batch 16](../NATIVE-BATCH16-2026-10-17.md).

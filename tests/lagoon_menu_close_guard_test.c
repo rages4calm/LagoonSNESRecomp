@@ -9,8 +9,8 @@
 #include <assert.h>
 uint8 g_ram[0x20000]; const uint8 *g_rom;
 static uint8 rom[0x100000],saved_ram[0x20000];
-static InterpPreOpcodeHook hooks[2];static uint32 sites[2],redirect;static unsigned registrations,checks,failures,positives,refusals;
-bool interp_bridge_add_pre_opcode_hook(uint32_t pc,InterpPreOpcodeHook h){if(registrations>=2)return false;sites[registrations]=pc;hooks[registrations++]=h;return true;}
+static InterpPreOpcodeHook hooks[4];static uint32 sites[4],redirect;static unsigned registrations,checks,failures,positives,refusals;
+bool interp_bridge_add_pre_opcode_hook(uint32_t pc,InterpPreOpcodeHook h){if(registrations>=4)return false;sites[registrations]=pc;hooks[registrations++]=h;return true;}
 void interp_bridge_pre_opcode_redirect(uint32_t pc){redirect=pc;}
 #define CHECK(c,msg) do{checks++;if(!(c)){failures++;fprintf(stderr,"FAIL %s\n",msg);}}while(0)
 static void put(unsigned q,unsigned v,unsigned n){while(n--){g_ram[q++]=(uint8)v;v>>=8;}}
@@ -30,7 +30,7 @@ static void refuse(int kind,CpuState*c,uint32 pc,const char*label){CpuState befo
 static void positive(int kind,CpuState*c,uint32 pc,unsigned expected){redirect=0;hooks[kind](c,pc);positives++;CHECK(redirect==expected,"positive registered callback redirect");}
 int main(int argc,char**argv){
  assert(argc==2||argc==3);FILE*f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof(rom),f)==sizeof(rom));fclose(f);g_rom=rom;
- LagoonMenuClose_BeforeFrame();CHECK(registrations==2&&sites[0]==0x02c5c6&&sites[1]==0x0089ec,"exact production registrations");LagoonMenuClose_BeforeFrame();CHECK(registrations==2,"idempotent production registration");
+ LagoonMenuClose_BeforeFrame();CHECK(registrations==4&&sites[0]==0x02c5c6&&sites[1]==0x0089ec&&sites[2]==0x018a10&&sites[3]==0x018a32,"exact production registrations");LagoonMenuClose_BeforeFrame();CHECK(registrations==4,"idempotent production registration");
  const unsigned owners[]={0x02b73a,0x02b87d,0x02bc9b};
  for(unsigned owner=0;owner<3;owner++)for(int kind=0;kind<2;kind++){
   uint32 pc=sites[kind];CpuState c;
@@ -50,6 +50,41 @@ int main(int argc,char**argv){
   c=synthetic(kind,owners[owner],0);if(kind)g_ram[0x2d0]=2;else put(0x53,3,2);refuse(kind,&c,pc,"unsupported dimensions readonly refusal");
   if(kind){c=synthetic(kind,owners[owner],0);put(0x238,0x780,2);refuse(kind,&c,pc,"invalid queue cursor readonly refusal");c=synthetic(kind,owners[owner],0);c.A|=0x100;refuse(kind,&c,pc,"unsupported high accumulator readonly refusal");}
  }
+
+ /* New parent prefix: exact submenu owner and genuine outer JSR/dispatcher. */
+ for(unsigned owner=0;owner<3;owner++){
+  CpuState c=synthetic(1,owners[owner],0);c.PB=c.DB=1;c.X=12;c.Y=7;
+  put(c.S+1,0x8740,2);put(c.S+3,0x0080e3,3);g_ram[c.S+6]=2;put(c.S+7,owners[owner],3);
+  put(0xb8,96,2);put(0xba,56,2);put(0x88,0x7f0000,3);put(0x8b,0x7f4000,3);put(0x69,0x068cd0,3);put(0x75,0x068cd0,3);
+  CpuState good=c;memcpy(saved_ram,g_ram,sizeof(g_ram));positive(2,&c,0x018a10,0x018a2f);CHECK(c.S==good.S-2,"parent retains PHX frame for original queue call");
+  uint8 snapshot[0x20000];memcpy(g_ram,saved_ram,sizeof(g_ram));memcpy(snapshot,g_ram,sizeof(g_ram));
+  for(unsigned bad=0;bad<23;bad++){
+   c=good;memcpy(g_ram,snapshot,sizeof(g_ram));uint32 pc=0x018a10;
+   if(bad<9)g_ram[c.S+bad+1]^=64;
+   else switch(bad){case 9:c.PB=0;break;case 10:c.DB=0;break;case 11:c.X=34;break;case 12:c.Y=32;break;case 13:c.P|=8;break;case 14:c._flag_D=1;break;case 15:c.m_flag=0;break;case 16:c.x_flag=1;break;case 17:c.D=1;break;case 18:pc++;break;case 19:put(0x69,0x004000,3);break;case 20:g_ram[0x23d]=0;break;case 21:g_ram[0x275]=0;break;case 22:g_ram[0x100e]=1;break;}
+   refuse(2,&c,pc,"parent prefix transactional refusal");
+  }
+  for(unsigned code=0;code<3;code++){
+   const unsigned addr[]={0x8a10,0xaa4,0x8311};c=good;memcpy(g_ram,snapshot,sizeof(g_ram));rom[addr[code]]^=1;refuse(2,&c,0x018a10,"parent source identity refusal");rom[addr[code]]^=1;
+  }
+ }
+
+
+ for(unsigned owner=0;owner<3;owner++)for(unsigned branch=0;branch<3;branch++){
+  CpuState c=synthetic(1,owners[owner],0);c.PB=c.DB=1;c.X=0x77c;c.Y=branch==2?31:7;
+  put(c.S+1,branch?33:12,2);put(c.S+3,0x8740,2);put(c.S+5,0x0080e3,3);g_ram[c.S+8]=2;put(c.S+9,owners[owner],3);
+  CpuState good=c;uint8 snapshot[0x20000];memcpy(snapshot,g_ram,sizeof(g_ram));positive(3,&c,0x018a32,branch==2?0x018a5d:0x018a10);CHECK(c.S==good.S+2,"suffix consumes original PHX only");
+  for(unsigned bad=0;bad<25;bad++){
+   c=good;memcpy(g_ram,snapshot,sizeof(g_ram));uint32 pc=0x018a32;
+   if(bad<9)g_ram[c.S+bad+3]^=64;
+   else switch(bad){case 9:c.PB=0;break;case 10:c.DB=0;break;case 11:put(c.S+1,34,2);break;case 12:c.Y=32;break;case 13:c.P|=8;break;case 14:c._flag_D=1;break;case 15:c.m_flag=0;break;case 16:c.x_flag=1;break;case 17:c.D=1;break;case 18:pc++;break;case 19:g_ram[0x23d]=0;break;case 20:g_ram[0x275]=0;break;case 21:g_ram[0x100e]=1;break;case 22:c.emulation=1;break;case 23:c.S=0xff;break;case 24:c.S=0x1ea;break;}
+   refuse(3,&c,pc,"parent suffix readonly refusal");
+  }
+  for(unsigned code=0;code<2;code++){
+   const unsigned addr[]={0x8a32,0x89fd};c=good;memcpy(g_ram,snapshot,sizeof(g_ram));rom[addr[code]]^=1;refuse(3,&c,0x018a32,"suffix code identity refusal");rom[addr[code]]^=1;
+  }
+ }
+
  if(argc==3){
   for(unsigned n=0;n<5;n++){
    char path[1024];const char*tag=n?"0089ec":"02c5c6";unsigned index=n?n-1:0;

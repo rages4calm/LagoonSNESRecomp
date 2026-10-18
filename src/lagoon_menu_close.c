@@ -17,6 +17,61 @@ static void width(CpuState*c,int wide){c->m_flag=!wide;c->P=(c->P&~0x20)|(wide?0
 static int valid(const CpuState*c){return c&&c->m_flag&&!c->x_flag&&!c->emulation&&!c->D&&!c->_flag_D&&!(c->P&8)&&c->S>=0x100&&c->S<=0x1f0;}
 static int romread(const uint8_t*rom,size_t size,unsigned address,unsigned *out){unsigned bank=address>>16,low=address&65535;if((bank&127)>=32||low<32768)return 0;size_t q=(bank&31)*32768+(low&32767);if(q>=size)return 0;*out=rom[q];return 1;}
 static int rw(const uint8_t*rom,size_t size,unsigned address,unsigned*out){unsigned a,b;if(!romread(rom,size,address,&a)||!romread(rom,size,address+1,&b))return 0;*out=a|b<<8;return 1;}
+static void asl16(CpuState*c){carry(c,c->A&0x8000);a16(c,c->A<<1);}
+static void lsr16(CpuState*c){carry(c,c->A&1);a16(c,c->A>>1);}
+static int longread(const uint8_t*rom,size_t size,const uint8_t*r,unsigned q,unsigned*out){
+ unsigned bank=q>>16,lo=q&65535;if(bank==0x7e||bank==0x7f){*out=r[(bank-0x7e)*65536+lo];return 1;}
+ if((bank&127)<64&&lo<8192){*out=r[lo];return 1;}return romread(rom,size,q,out);
+}
+/* Original018A10..018A2E, including JSL008AA4 and JSR018311.
+ * Stop before the original queue call. Reproduce child-call dead stack bytes,
+ * not only visible tile outputs. Trial RAM keeps every failed read transactional. */
+int LagoonMenuClose_PrepareTile(const uint8_t*rom,size_t size,uint8_t*ram,CpuState*cpu){
+ if(!rom||!ram||!valid(cpu)||cpu->PB!=1||cpu->DB!=1||cpu->X>=34||cpu->Y>=32)return 0;
+ uint8_t*r=malloc(0x20000);if(!r)return 0;memcpy(r,ram,0x20000);CpuState c=*cpu;unsigned v,lo,hi;
+ put(r,c.S-1,c.X);c.S-=2;
+ width(&c,1);a16(&c,word(r,0xb8));lsr16(&c);lsr16(&c);lsr16(&c);put(r,0x27b,c.A);
+ a16(&c,word(r,0xba));lsr16(&c);lsr16(&c);lsr16(&c);put(r,0x27d,c.A);a16(&c,c.A&255);width(&c,0);
+ /* Real JSL018A28 ->008AA4 and its RTL. */
+ r[c.S]=1;put(r,c.S-2,0x8a2b);c.S-=3;
+ width(&c,1);a16(&c,word(r,0x27d));a16(&c,c.A&31);for(unsigned n=0;n<5;n++)asl16(&c);put(r,0x215,c.A);
+ a16(&c,word(r,0x27b));a16(&c,c.A&31);a16(&c,c.A|word(r,0x215));put(r,0x215,c.A);a16(&c,c.A&255);width(&c,0);
+ a8(&c,r[0x27b]);a8(&c,c.A&32);if(!c._flag_Z){a8(&c,4);a8(&c,c.A|r[0x216]);r[0x216]=c.A;}c.S+=3;
+ /* Real JSR018A2C ->018311, PHY, PLY, RTS. */
+ put(r,c.S-1,0x8a2e);c.S-=2;put(r,c.S-1,c.Y);c.S-=2;
+ a8(&c,r[0xb9]);a8(&c,c.A|r[0xbb]);a8(&c,c.A&0xf8);
+ if(!c._flag_Z){a8(&c,r[0x52]);r[0x2c4]=c.A;}
+ else{
+  width(&c,1);a16(&c,word(r,0xba));a16(&c,c.A&0xfff0);asl16(&c);asl16(&c);asl16(&c);put(r,0xb4,c.A);
+  a16(&c,word(r,0xb8));for(unsigned n=0;n<4;n++)lsr16(&c);carry(&c,0);add(&c,word(r,0xb4),1);y16(&c,c.A);a16(&c,c.A&255);width(&c,0);
+  if(!longread(rom,size,r,triple(r,0x88)+c.Y,&v)){free(r);return 0;}a8(&c,v);r[0x2c4]=c.A;
+  if(!longread(rom,size,r,triple(r,0x8b)+c.Y,&v)){free(r);return 0;}a8(&c,v);
+ }
+ r[0x2c5]=c.A;width(&c,1);a16(&c,word(r,0xb8));a16(&c,c.A&8);lsr16(&c);lsr16(&c);put(r,0xb4,c.A);
+ a16(&c,word(r,0xba));a16(&c,c.A&8);lsr16(&c);c._flag_Z=!(c.A&word(r,0xb4));c.P=(c.P&~2)|(c._flag_Z?2:0);put(r,0xb4,word(r,0xb4)|c.A);
+ a16(&c,word(r,0x2c4));a16(&c,c.A&255);asl16(&c);asl16(&c);asl16(&c);a16(&c,c.A|word(r,0xb4));y16(&c,c.A);
+ if(!longread(rom,size,r,triple(r,0x69)+c.Y,&lo)||!longread(rom,size,r,triple(r,0x69)+c.Y+1,&hi)){free(r);return 0;}a16(&c,lo|hi<<8);put(r,0x2c0,c.A);
+ a16(&c,word(r,0x2c5));a16(&c,c.A&255);asl16(&c);asl16(&c);asl16(&c);a16(&c,c.A|word(r,0xb4));y16(&c,c.A);
+ if(!longread(rom,size,r,triple(r,0x75)+c.Y,&lo)||!longread(rom,size,r,triple(r,0x75)+c.Y+1,&hi)){free(r);return 0;}a16(&c,lo|hi<<8);a16(&c,c.A&0xdfff);put(r,0x2c2,c.A);a16(&c,c.A&255);width(&c,0);
+ y16(&c,word(r,c.S+1));c.S+=4;memcpy(ram,r,0x20000);free(r);*cpu=c;return 1;
+}
+/* Original018A32..018A5C and, on a new row,0189FD..018A0F.
+ * The queue call has already returned. Consume its parent's real saved X,
+ * advance only coordinates/counters, and leave the next queue or final RTS real. */
+int LagoonMenuClose_AdvanceTile(uint8_t*r,CpuState*cpu,unsigned*landing){
+ if(!r||!landing||!valid(cpu)||cpu->PB!=1||cpu->DB!=1||word(r,cpu->S+1)>=34||cpu->Y>=32)return 0;
+ CpuState c=*cpu;x16(&c,word(r,c.S+1));c.S+=2;
+ width(&c,1);a16(&c,word(r,0xb8));carry(&c,0);add(&c,8,1);put(r,0xb8,c.A);a16(&c,c.A&255);width(&c,0);x16(&c,c.X+1);cmp(&c,c.X,34,1);
+ unsigned next=0x018a10;
+ if(c._flag_Z){
+  width(&c,1);a16(&c,word(r,0xba));carry(&c,0);add(&c,8,1);put(r,0xba,c.A);a16(&c,c.A&255);width(&c,0);y16(&c,c.Y+1);cmp(&c,c.Y,32,1);
+  if(c._flag_Z)next=0x018a5d;
+  else{
+   width(&c,1);a16(&c,word(r,0x480));unsigned a=c.A,v=(a-8)&65535;carry(&c,a>=8);overflow(&c,((a^8)&(a^v)&0x8000)!=0);a16(&c,v);put(r,0xb8,c.A);a16(&c,c.A&255);width(&c,0);x16(&c,0);
+  }
+ }
+ *cpu=c;*landing=next;return 1;
+}
 /* Original02C5C6..C64C: initialize the32KiB map then expand both metatile
  * planes. No device access, wait, clock, stack frame or return is synthesized. */
 int LagoonMenuClose_BuildMap(const uint8_t*rom,size_t size,uint8_t*ram,CpuState*cpu){
@@ -66,7 +121,15 @@ static uint64_t hash(const uint8_t*r,unsigned n){uint64_t h=UINT64_C(14695981039
 static int menu(unsigned pc){return pc==0x02b73a||pc==0x02b87d||pc==0x02bc9b;}
 static void close_hook(CpuState*c,uint32_t pc){
  unsigned s=c->S;if(!g_rom||!valid(c)||s>0x1e9||!(g_ram[0x23d]&128)||g_ram[0x275]!=0x81||g_ram[0x100e])return;
- if(pc==0x02c5c6){
+ if(pc==0x018a32){
+  if(c->PB!=1||c->DB!=1||word(g_ram,s+3)!=0x8740||triple(g_ram,s+5)!=0x0080e3||g_ram[s+8]!=2||!menu(triple(g_ram,s+9)))return;
+  if(hash(g_rom+0x8a32,0x2b)!=UINT64_C(0xd86c75e6a4d5a83d)||hash(g_rom+0x89fd,0x13)!=UINT64_C(0x3d7f288a19ab6db4))return;
+  unsigned landing;if(LagoonMenuClose_AdvanceTile(g_ram,c,&landing))interp_bridge_pre_opcode_redirect(landing);
+ }else if(pc==0x018a10){
+  if(c->PB!=1||c->DB!=1||word(g_ram,s+1)!=0x8740||triple(g_ram,s+3)!=0x0080e3||g_ram[s+6]!=2||!menu(triple(g_ram,s+7)))return;
+  if(hash(g_rom+0x8a10,0x1f)!=UINT64_C(0xcb479590b45590a5)||hash(g_rom+0xaa4,0x31)!=UINT64_C(0x4a2fc0d8151ac00e)||hash(g_rom+0x8311,0x74)!=UINT64_C(0x9e17ed9893b82194))return;
+  if(LagoonMenuClose_PrepareTile(g_rom,0x100000,g_ram,c))interp_bridge_pre_opcode_redirect(0x018a2f);
+ }else if(pc==0x02c5c6){
   if(c->PB!=2||c->DB!=2||triple(g_ram,s+1)!=0x0080e3||g_ram[s+4]!=1||triple(g_ram,s+5)!=0x0187e5||word(g_ram,s+8)!=0x8732||triple(g_ram,s+10)!=0x0080e3||g_ram[s+13]!=2||!menu(triple(g_ram,s+14)))return;
   if(hash(g_rom+0x145c6,0x88)!=UINT64_C(0x610feb01f813f643))return;
   if(LagoonMenuClose_BuildMap(g_rom,0x100000,g_ram,c))interp_bridge_pre_opcode_redirect(0x02c64d);
@@ -77,7 +140,7 @@ static void close_hook(CpuState*c,uint32_t pc){
   unsigned landing;if(LagoonMenuClose_QueueTile(g_ram,c,&landing))interp_bridge_pre_opcode_redirect(landing);
  }
 }
-void LagoonMenuClose_BeforeFrame(void){static int ready;if(!ready&&g_rom){int a=interp_bridge_add_pre_opcode_hook(0x02c5c6,close_hook);int b=interp_bridge_add_pre_opcode_hook(0x0089ec,close_hook);ready=a&&b;}}
+void LagoonMenuClose_BeforeFrame(void){static int ready;if(!ready&&g_rom){int a=interp_bridge_add_pre_opcode_hook(0x02c5c6,close_hook);int b=interp_bridge_add_pre_opcode_hook(0x0089ec,close_hook);int d=interp_bridge_add_pre_opcode_hook(0x018a10,close_hook);int e=interp_bridge_add_pre_opcode_hook(0x018a32,close_hook);ready=a&&b&&d&&e;}}
 #endif
 
 
