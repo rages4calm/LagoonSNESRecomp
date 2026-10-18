@@ -6,22 +6,27 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress - October 18, 2026
 
-Batch20 is selected and installed with **377 AOT /119 analyzed LLE /258 roots**.
+Batch21 is selected and installed with **378 AOT /119 analyzed LLE /259 roots**.
 The interpreter safety net remains. Counts are not completion percentages.
 This remains a beta/WIP; the owner and friends will perform the uninterrupted
 start-to-finish campaign playtest.
 
-The batch adds an original 18-instruction boss-death cleanup prefix, backed
-by 11,520 original-opcode oracle cases and fresh focused combat, revival and door comparisons.
-Stable Gold Cave03 joins Atland's independent custom scene renderer: its bounded
-off/auto check replaces626 of646 presentations with zero mismatches, preserving
-all seven recorded state components at two checkpoints. The reference renderer
-still runs; this is coverage and correctness evidence, not a performance gain.
-The exact installed executable passes a cold assisted death replay, with all
-eight components exact at three checkpoints. A bounded hidden1080p real-audio
-check measures60.135Hz and274 two-field gameplay ticks without slower ticks;
-this batch makes no new fullscreen or whole-campaign performance claim.
-See [batch20](NATIVE-BATCH20-2026-10-18.md) and
+The new native reward prefix performs original gold, EXP and level-up work,
+backed by14,400 generated-code/original-opcode oracle cases. Fresh strict paired
+checks pass all seven boss wins and revival. A separate explicitly staged ordinary
+enemy reward exercises the new prefix and original children: gold100→103,
+EXP0→64 and level1→3. This is focused evidence, not a natural full campaign.
+
+Stable Gold Cave04/05/06 join Atland and Gold Cave03 in the independent custom
+scene renderer. Three fresh same-executable off/auto routes match2,741 ordered
+presentations across three overlapping routes and ten checkpoints, with1,359 actual replacements and zero
+mismatches. Real door loaders enter each added room; fixture position assistance
+is disclosed. The reference renderer still runs; no changed art, GPU speedup or
+new fade authority is claimed. The exact installed executable's cold reward
+check matches all24 component hashes across three checkpoints. A hidden1080p
+real-audio door-route check measures60.025Hz with no presentation intervals
+above25ms; this is not a fullscreen or locked60FPS claim. The interpreter safety net remains throughout.
+See [batch21](NATIVE-BATCH21-2026-10-18.md), [batch20](NATIVE-BATCH20-2026-10-18.md) and
 [the custom renderer](docs/CUSTOM-RENDERER.md).
 
 The five audited menu checks open Items/Magic/Equipment in20/18/19 fields and

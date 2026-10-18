@@ -65,6 +65,50 @@ static void cave_vectors(void) {
     assert(!LagoonSceneRenderer_TryPresent(output,682*4,expected,682*4,682,224,19));
   }
 }
+static void additional_cave_vectors(void) {
+  static const unsigned cases[][3]={{4,96,32},{5,192,160},{6,64,32}};
+  for(unsigned k=0;k<sizeof(cases)/sizeof(cases[0]);++k) {
+    cave_setup();ram[0x48e]=cases[k][0];ram[0x53]=cases[k][1];ram[0x55]=cases[k][2];
+    LagoonSceneRenderer_Reset();s_mode=2;
+    unsigned definitions=0;assert(scene_resources(ram,&definitions)&&definitions==0x31298);
+    capture(21);ScenePacket *s=&s_packets[s_complete];assert(s->valid);
+    assert(s->world_width==(int)cases[k][1]*8&&s->world_height==(int)cases[k][2]*8);
+    /* A narrow room clips the actual world, including below its finite height;
+     * the native center preserves its independently streamed circular tilemap. */
+    render(s,682);
+    for(unsigned y=0;y<224;++y)for(unsigned x=0;x<682;++x) {
+      int qx=s->wx+(int)x-213,qy=s->wy+(int)y;
+      uint32_t color=x>=213&&x<469?0xff0000:
+        qx>=0&&qx<s->world_width&&qy>=0&&qy<s->world_height?0x00ff00:0;
+      assert(s_pixels[y*682+x]==color);memcpy(expected+(y*682+x)*4,&color,4);
+    }
+    assert(LagoonSceneRenderer_TryPresent(output,682*4,expected,682*4,682,224,21));
+    for(unsigned bad=0;bad<23;++bad) {
+      cave_setup();ram[0x48e]=cases[k][0];ram[0x53]=cases[k][1];ram[0x55]=cases[k][2];
+      LagoonSceneRenderer_Reset();s_mode=2;
+      switch(bad) {
+        case 0:ram[0x53]--;break;case 1:ram[0x53]++;break;
+        case 2:ram[0x55]--;break;case 3:ram[0x55]++;break;
+        case 4:ram[0x48f]=1;break;case 5:ram[0x48e]=7;break;
+        case 6:ram[0x57]^=1;break;case 7:ram[0x5d]^=1;break;
+        case 8:ram[0x69]^=1;break;case 9:ram[0x75]^=1;break;
+        case 10:ram[0x88]^=1;break;case 11:ram[0x8b]^=1;break;
+        case 12:ram[0x100e]=1;break;case 13:ram[0x50]=2;break;
+        case 14:p.inidisp=14;break;case 15:p.bgXsc[1]=0x7a;break;
+        case 16:p.hScroll[1]++;break;case 17:p.cgadsub=1;break;
+        case 18:p.windowsel=1;break;case 19:p.obsel=3;break;
+        case 20:p.mosaic=1;break;case 21:p.screenEnabled[0]=15;break;
+        case 22:ram[0x53]=224;ram[0x55]=204;break;
+      }
+      capture(21);assert(!s_packets[s_complete].valid);
+      assert(!LagoonSceneRenderer_TryPresent(output,682*4,expected,682*4,682,224,21));
+    }
+    cave_setup();ram[0x48e]=cases[k][0];ram[0x53]=cases[k][1];ram[0x55]=cases[k][2];
+    LagoonSceneRenderer_Reset();s_mode=2;capture(21);
+    assert(s_packets[s_complete].valid);
+    assert(!LagoonSceneRenderer_TryPresent(output,682*4,expected,682*4,682,224,22));
+  }
+}
 static void source(unsigned width,size_t pitch) {
   memset(expected,0xa5,sizeof(expected));
   for(unsigned y=0;y<224;++y)for(unsigned x=0;x<width;++x){uint32_t c=0xff0000;memcpy(expected+y*pitch+x*4,&c,4);}
@@ -210,6 +254,6 @@ int main(void) {
   setup();for(unsigned line=1;line<=224;++line){if(line==100)p.wsOamLeftHintStrict=1;
     LagoonSceneRenderer_ObserveRaster(&p,line,ram,rom,sizeof(rom),7,1);}
   LagoonSceneRenderer_EndFrame(102,7,1);assert(!s_packets[s_complete].valid);
-  cave_vectors();cache_oracle();
+  cave_vectors();additional_cave_vectors();cache_oracle();
   puts("PASS independent planar rendering, immutable cached packets, full-word/pitch gate, verify/auto, reset and raster refusal");return 0;
 }

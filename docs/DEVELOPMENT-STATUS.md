@@ -1,6 +1,60 @@
 # Current development checkpoint - October 18, 2026
 
-Batch20 is selected and installed with **377 AOT /119 analyzed LLE /258 roots**.
+Batch21 is qualified, selected and installed. Its counts are
+**378 AOT /119 analyzed LLE /259 roots**, not completion
+percentages. The interpreter safety net stays enabled.
+
+Selected executable SHA256:
+`73334f40e4f995f0837178855a856d8d9cf0546f3955a77b9d4f01cdcbe288a4`.
+Manifest SHA256:
+`2f65717b526cf052b4fee89bada5d4267dc76dc8332c004fe3704288c748ce04`.
+See [batch21](../NATIVE-BATCH21-2026-10-18.md).
+The exact tested executable and generated outputs were moved into the working
+runtime without rebuilding or creating backups. The installed cold reward check
+matches all24 component hashes at three checkpoints. All seven owner inputs and
+the intentionally modified SDK working/index contents remain unchanged.
+
+The new B7D4 M1X0 prefix executes16 original instructions and five existing native
+children for gold, EXP and level-up work before its original guarded boundary.
+The actual generated-code/original-opcode oracle passes14,400 cases, including
+4,800 boss-boundary and9,600 ordinary inputs;8,568 cases exercise level-ups.
+All377 prior native modes remain:376 bodies are byte-identical and only B413's
+reward tail dispatch changes. SDK behavior is unchanged; upstream was checked at
+the same b894555 revision. Broader nonlocal/audio/render continuations stay
+interpreted deliberately.
+
+Fresh matched-control strict checks pass all seven boss wins and revival. A
+separate assisted ordinary reward case executes16 fewer interpreter operations
+while preserving complete outputs/clocks, with gold100→103,EXP0→64 and level1→3.
+Enemy EXP64 was explicitly staged; this is no natural multi-level campaign claim.
+
+The stable custom renderer adds exact cave04/05/06 descriptors. Three genuine-door
+same-executable off/auto checks match2,741 ordered presentations across three
+overlapping routes and ten
+checkpoints' seven components. The combined chain has1,478 presentations and795
+replacements; independent room04-ending and room05-ending routes have449/207 and
+814/357 respectively. Each new final room actually replaces a frame. Total
+replacements are1,359 from454 independent draws and34,780,032 drawn pixels,
+with zero mismatches. Position assistance is explicit;
+room loading remains original. Fades, actor authority, original art and
+full-reference comparison are unchanged. This is not a renderer speedup claim.
+
+A separate hidden1080p EPX real-audio run traverses the original03→04→05→06
+doors, with its only diagnostic dump at the end. Across1,328 presentation
+intervals it measures60.02539Hz,p9518.2993ms,max22.8731ms and zero intervals
+above25ms. Eleven audio high-water waits remain. An earlier capture-heavy route
+had two longer intervals immediately following intermediate checkpoint writes;
+those are not established gameplay regressions. These bounded measurements do
+not establish fullscreen/scanout, locked60FPS or campaign-wide pacing.
+
+Remaining priorities are broader native death/revival/boss orchestration and
+additional exact custom-renderer scenes, followed by reported widescreen gaps.
+Optional door/exit mapping and zoom-out remain deferred until native work and the
+custom renderer are finished. Owner/friends handle the uninterrupted campaign.
+
+## Historical batch20 checkpoint
+
+Batch20 was selected and installed with **377 AOT /119 analyzed LLE /258 roots**.
 The interpreter safety net and existing guarded continuations remain.
 See [batch20](../NATIVE-BATCH20-2026-10-18.md) for full scope.
 
@@ -12,7 +66,7 @@ The exact tested executable was installed without rebuilding. Seven owner inputs
 remain unchanged. Its cold assisted death replay matches all eight components at
 three checkpoints (24 hashes); explicit fixture setup is not natural campaign evidence.
 
-The new native B413 prefix executes18 original instructions before returning to
+The native ordinary-enemy death-animation B413 prefix executes18 original instructions before returning to
 the existing guarded continuation. Its original-opcode oracle passes11,520 cases.
 Fresh strict comparisons cover focused boss40/boss48, ordinary contact, revival, a death
 fixture with explicit staged setup, and room03 doors. These bounded routes do not

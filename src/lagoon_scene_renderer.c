@@ -68,16 +68,25 @@ static void init_tables(void) {
 static unsigned word(const uint8_t *r,unsigned a){return r[a]|r[a+1]<<8;}
 static unsigned ptr(const uint8_t *r,unsigned a){return word(r,a)|r[a+2]<<16;}
 /* Exact ordinary scene resources, not permission for arbitrary Mode1 rooms.
- * Both maps use the same immutable ROM definition bank in these two scenes. */
+ * Both maps use the same immutable ROM definition bank within each descriptor. */
 static int scene_resources(const uint8_t *r,unsigned *definitions) {
   if(!r || ptr(r,0x88)!=0x7f0000 || ptr(r,0x8b)!=0x7f4000 ||
       ptr(r,0x69)!=ptr(r,0x75))return 0;
   unsigned room=word(r,0x48e),d=ptr(r,0x69);
   if(room==0 && ptr(r,0x57)==0x138000 && ptr(r,0x5d)==0x198000 && d==0x068000) {
     if(!word(r,0x53)||word(r,0x53)>256||!word(r,0x55)||word(r,0x55)>256)return 0;
-  }else if(room==3 && ptr(r,0x57)==0x128b77 && ptr(r,0x5d)==0x1d8000 && d==0x069298) {
-    if(word(r,0x53)!=224 || word(r,0x55)!=204)return 0;
-  }else return 0;
+  }else {
+    /* Each finite room is admitted independently; sharing art does not grant
+     * permission to arbitrary rooms, map dimensions or loading/fading fields. */
+    static const struct { unsigned room,width,height; } caves[]={
+      {3,224,204},{4,96,32},{5,192,160},{6,64,32}
+    };
+    unsigned match=0;
+    for(unsigned i=0;i<sizeof(caves)/sizeof(caves[0]);++i)
+      if(room==caves[i].room && word(r,0x53)==caves[i].width &&
+          word(r,0x55)==caves[i].height)match=1;
+    if(!match || ptr(r,0x57)!=0x128b77 || ptr(r,0x5d)!=0x1d8000 || d!=0x069298)return 0;
+  }
   if(definitions)*definitions=((d>>16)&0x7f)*0x8000+(d&0x7fff);
   return 1;
 }

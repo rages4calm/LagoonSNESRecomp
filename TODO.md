@@ -3,8 +3,24 @@
 Keep the interpreter safety net and publish source in substantial, verified
 batches. Generated routine counts are not campaign completion percentages.
 
+- [x] Qualify batch21 candidate378/119/259: B7D4's16-instruction original
+      gold/EXP/level-up prefix through five existing native children,14,400 full original-opcode
+      cases;4,800 boss-boundary/9,600 ordinary inputs and8,568 level-up cases.
+- [x] Fresh strict paired checks for all seven boss wins and revival; separate
+      staged ordinary reward executes16 fewer interpreter operations with
+      gold100→103,EXP0→64,level1→3 (enemy EXP64 explicitly staged).
+- [x] Qualify exact custom-renderer cave04/05/06 resources and dimensions:
+      three genuine-door off/auto routes,2,741 ordered presentations,
+      1,359 replacements, ten checkpoints and zero mismatches. Loading/fading
+      fallback, actor authorization and whole-field reference gate retained.
+- [x] Install/select exact qualified batch21 executable73334f40 without rebuilding;
+      installed cold reward check matches24 component hashes at three checkpoints,
+      seven owner inputs and SDK working/index contents unchanged.
+- [x] Hidden1080p real-audio genuine-door route without interior capture writes:
+      60.025Hz,p9518.299ms,max22.873ms, zero intervals above25ms across1,328
+      intervals;11 audio high-water waits retained. No locked60/fullscreen claim.
 - [x] Qualify batch20 candidate377/119/258: native B413's original18-instruction
-      cleanup prefix,11,520 original-opcode oracle cases; fresh strict boss40,
+      ordinary-enemy death-animation prefix,11,520 original-opcode oracle cases; fresh strict boss40,
       boss48, contact, explicitly staged death and room03 door checks.
 - [x] Extend the stable custom scene renderer to exact Gold Cave03 resources;
       626 replacements/646 presentations,311 independent renders, zero mismatches,

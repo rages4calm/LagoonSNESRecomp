@@ -371,10 +371,10 @@ note = "Kept interpreted: unproven sword-selector continuation; auto-discovered 
 name = "Lagoon_Combat_GrantDefeatRewards"
 addr = "b7d4"
 bank = 1
-emit = false
+emit = true
 entry_m = 1
 entry_x = 0
-note = "Batch 3 combat orchestration candidate; kept interpreted: unproven boss call continuation; auto-discovered descendants failed clock gate"
+note = "Batch21 bounded reward prefix B7D4..B7FD only; native arithmetic children return M1X0; B7FE boss render/refill and B819 return retain interpreter seams"
 
 [[func]]
 name = "Lagoon_Combat_HorizontalHitDirection"

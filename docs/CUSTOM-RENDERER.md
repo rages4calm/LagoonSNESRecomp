@@ -1,7 +1,7 @@
 # Bounded custom scene renderer
 
 The interpreter safety net remains in place. `src/lagoon_scene_renderer.c` adds
-a bounded live software scene backend for stable Atland and exact Gold Cave03
+a bounded live software scene backend for stable Atland and exact Gold Cave03/04/05/06
 fields with Widescreen
 enabled. It captures its
 own scene packet, independently draws a field, and compares every 32-bit output
@@ -15,7 +15,37 @@ and ROM-free unit tests alone do not prove live gameplay coverage; bounded runti
 acceptance is recorded separately. There is currently no launcher selector for
 this diagnostic.
 
-Batch20's cave extension is qualified, selected and installed. Its exact room03
+Batch21's exact cave04/05/06 extension is qualified, selected and installed.
+Batch20 previously added stable cave03 to Atland.
+The new descriptors require the same exact BG128B77, OBJ1D8000, both069298
+definition pointers and7F0000/7F4000 maps, with independently enumerated finite
+dimensions: room04=768×256, room05=1536×1280, room06=512×256. No generic room range
+or shared-art assumption grants authority. Existing PPU, immutable packet,
+generation, actor and full-word reference equality checks remain mandatory.
+
+Three same-executable off/auto routes enter through original real door loaders,
+with disclosed near-door position assistance. The combined chain matches1,478
+ordered presentations and five checkpoints with795 replacements. Separate routes
+ending in room04 and room05 match449/814 presentations and two/three checkpoints,
+with207/357 replacements. Each added room has a final actual replacement. Total:
+2,741 ordered presentations across three overlapping routes, ten checkpoints
+with all seven components exact,1,359 replacements,454 independent draws,
+34,780,032 drawn pixels and zero mismatches. These counts are route observations,
+not unique frames. The narrow finite rooms also exercise
+outside-world clipping. These are bounded route results, not complete room or
+campaign coverage. No fading authority, actor producer, new art or speedup was
+added. The reference render still runs for every checked present. A separate
+hidden1080p EPX real-audio traversal without interior diagnostic dumps measures
+60.02539Hz,p9518.2993ms,max22.8731ms and zero intervals above25ms across1,328
+intervals. Eleven audio high-water waits remain. No fullscreen, locked60 or
+renderer speedup claim follows from this bounded measurement.
+
+The ROM-free helper additionally passes three exact descriptor positives,
+69 altered-resource/dimension/layout refusals, three generation refusals and
+458,304 synthetic finite-bound pixel checks, alongside all prior vectors. These
+synthetic tests do not substitute for the real-door route comparisons above.
+
+Batch20's previously selected cave extension remains supported. Its exact room03
 descriptor requires BG128B77, OBJ1D8000, both definition pointers069298,
 maps7F0000/7F4000 and finite1792×1632 dimensions. Other caves are not admitted by
 similarity. The same-executable off/auto fixture matches646 ordered presentations
