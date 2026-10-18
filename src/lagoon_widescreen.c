@@ -154,10 +154,17 @@ void LagoonWide_Reset(void) {
   s_state_generation = RtlStateGeneration();
 }
 
-static int room_bounds_enabled(unsigned room) { return (room==1 || room==2) || (room>=4 && room<=6) || room==8; }
+static int room_bounds_enabled(unsigned room) { return (room==1 || room==2) || (room>=4 && room<=8); }
+static int room07_parallax(void) {
+  return word(0x48e)==7 && g_ram[0x50]==2 && pointer(0x57)==0x129e89 &&
+      pointer(0x5d)==0x1a906f && pointer(0x69)==0x069720 && pointer(0x75)==0x069720 &&
+      pointer(0x88)==0x7f0000 && pointer(0x8b)==0x7f4000 &&
+      pointer(0x7e)==0x11fb7d && pointer(0x81)==0x11fb7d &&
+      word(0x53)==128 && word(0x55)==128 && !g_snesrecomp_last_hdmaen;
+}
 static int audited_room_resources(void) {
   unsigned room=word(0x48e);
-  return (!room_bounds_enabled(room) ||
+  return (room!=7 || room07_parallax()) && (!room_bounds_enabled(room) ||
       LagoonWideEntities_BoundedRoom(room,word(0x53)*8,word(0x55)*8)) &&
       LagoonWideEntities_AuditedRoom(word(0x48e),pointer(0x57),pointer(0x5d),
       pointer(0x69),pointer(0x75),pointer(0x88),pointer(0x8b));
@@ -180,11 +187,18 @@ static unsigned world_resource_key(void) {
   return pointer(0x69) ^ pointer(0x75) ^ (g_ram[0x48e]<<24);
 }
 static int native_world_map(void) {
+  int parallax=room07_parallax();
   if(PPU_bgTileAdr(g_ppu,0) || PPU_bgTileAdr(g_ppu,1) ||
       PPU_bgTilemapAdr(g_ppu,0)!=0x7000 || PPU_bgTilemapAdr(g_ppu,1)!=0x7800 ||
-      !PPU_bgTilemapWider(g_ppu,0) || !PPU_bgTilemapWider(g_ppu,1))return 0;
+      !PPU_bgTilemapWider(g_ppu,0) ||
+      (parallax ? (PPU_bgTilemapHigher(g_ppu,0) || PPU_bgTilemapWider(g_ppu,1) ||
+        !PPU_bgTilemapHigher(g_ppu,1) ||
+        !LagoonWideEntities_ParallaxScroll(word(0x480),word(0x482),word(0x484),word(0x486)) ||
+        !LagoonWideEntities_ParallaxMap(PpuRenderVram(g_ppu),g_rom,0x100000)) :
+        !PPU_bgTilemapWider(g_ppu,1)))return 0;
   uint16_t expected[720];
   for(unsigned layer=0;layer<2;++layer) {
+    if(parallax && layer==1)continue; /* Static authored map owns its complete raster. */
     int cx=word(0x480+layer*4),cy=word(0x482+layer*4);
     int wx=cx+(((g_ppu->hScroll[layer]&1023)-cx+512)&1023)-512;
     int wy=cy+(((g_ppu->vScroll[layer]&1023)-cy+512)&1023)-512;
@@ -229,7 +243,9 @@ static int retained_scene_matches(void) {
   return 1;
 }
 static void retain_completed_scene(void) {
-  if(s_using_retained || !s_world_chars_ready || g_snesrecomp_last_hdmaen ||
+  /* The ordinary outgoing packet contains metatile planes, not a static
+   * parallax map. Do not lend that packet to room07 transitions. */
+  if(word(0x48e)==7 || s_using_retained || !s_world_chars_ready || g_snesrecomp_last_hdmaen ||
       !native_world_map())return;
   s_retained.valid=0;
   for(unsigned layer=0;layer<2;++layer) {
@@ -257,6 +273,11 @@ static int capture_world_characters(const uint8_t *upload) {
     unsigned tw=word(0x53),th=word(0x55);
     if(tw>256)tw=256;if(th>256)th=256;
     for(unsigned layer=0;layer<2;++layer) {
+      if(layer==1 && room07_parallax()) {
+        const uint16_t *vram=PpuRenderVram(g_ppu);
+        for(unsigned i=0;i<0x800;++i)s_world_char_used[vram[0x7800+i]&1023]=1;
+        continue;
+      }
       s_world_char_used[map_tile(layer,-16,-16)&1023]=1;
       for(unsigned y=0;y<th;++y)for(unsigned x=0;x<tw;++x)
         s_world_char_used[map_tile(layer,(int)x*8,(int)y*8)&1023]=1;
@@ -298,7 +319,13 @@ static int upload_characters_owned(void) {
 }
 static int world_scene_geometry(void) {
   if(s_using_retained)return retained_scene_matches();
-  return (g_ram[0x500]&0xC0)==0xC0 && !g_ram[0x50] &&
+  if(room07_parallax() && (PPU_bgTileAdr(g_ppu,0) || PPU_bgTileAdr(g_ppu,1) ||
+      !PPU_bgTilemapWider(g_ppu,0) || PPU_bgTilemapHigher(g_ppu,0) ||
+      PPU_bgTilemapWider(g_ppu,1) || !PPU_bgTilemapHigher(g_ppu,1) ||
+      !LagoonWideEntities_ParallaxScroll(g_ppu->hScroll[0]&1023,g_ppu->vScroll[0]&1023,
+          g_ppu->hScroll[1]&1023,g_ppu->vScroll[1]&1023) ||
+      !LagoonWideEntities_ParallaxMap(PpuRenderVram(g_ppu),g_rom,0x100000)))return 0;
+  return (g_ram[0x500]&0xC0)==0xC0 && (!g_ram[0x50] || room07_parallax()) &&
       !(g_ppu->mosaic&3) && (g_ppu->bgmode&7)==1 &&
       !PPU_bigTiles(g_ppu,0) && !PPU_bigTiles(g_ppu,1) &&
       PPU_bgTilemapAdr(g_ppu,0)==0x7000 && PPU_bgTilemapAdr(g_ppu,1)==0x7800 &&
@@ -347,6 +374,9 @@ void LagoonWide_OnBackgroundDma(unsigned bank,unsigned address,unsigned destinat
 
 void LagoonWide_OnVramWrite(unsigned byte_address) {
   if(!g_ppu || !g_config.widescreen) return;
+  /* A partially replaced static parallax page has no authority this field,
+   * even if its first words still resemble the previous complete page. */
+  if(room07_parallax() && byte_address>=0xF000)native_ui_frame();
   /* A new character/map upload ends outgoing authority even if bytes happen
    * to resemble a common corridor in the previous room. */
   if(byte_address<kLagoonWideBackgroundBytes || byte_address>=0xE000)
@@ -454,9 +484,12 @@ void LagoonWide_BeginFrame(unsigned number) {
   s_extent_width=s_using_retained?s_retained.width:word(0x53)*8;
   s_extent_height=s_using_retained?s_retained.height:word(0x55)*8;
   PpuSetWidescreenLayerMask(g_ppu, 3);
-  PpuSetWidescreenShadowNativeExactMask(g_ppu, 3);
+  PpuSetWidescreenShadowNativeExactMask(g_ppu, room07_parallax()?1:3);
   PpuSetWidescreenLayerClamp(g_ppu, 12); /* BG3 HUD remains native centered */
   for (int layer = 0; layer < 2; ++layer) {
+    /* BG2 is fully owned static32x64 PPU data with its own per-line scroll.
+     * Leave its exact native wrapping active; never seed it from BG1 maps. */
+    if(layer==1 && room07_parallax())continue;
     /* Preserve the actual PPU's phase, borrowing only lost high bits from
      * WRAM. The wrapped difference handles a one-frame boundary disagreement. */
     int camera_x = view_camera(layer*2), camera_y = view_camera(layer*2+1);
@@ -474,6 +507,7 @@ void LagoonWide_BeginFrame(unsigned number) {
    * circular VRAM headroom. Captured blank/uninitialized slots must yield to
    * the current room map. Native fragments still use actual guest VRAM. */
   for (int layer = 0; layer < 2; ++layer) {
+    if(layer==1 && room07_parallax())continue;
     int wx = WsShadowWorldX(layer), wy = WsShadowWorldY(layer);
     int x0 = (wx - g_ppu->extraLeftRight - 8) / 8;
     int x1 = (wx + 256 + g_ppu->extraLeftRight + 8) / 8;
@@ -491,8 +525,11 @@ void LagoonWide_ObserveRaster(const Ppu *ppu,unsigned line,void *context) {
       !s_using_retained && s_was_active && !s_native_fallback && s_world_chars_ready &&
       word(0x48e)==0 && !g_snesrecomp_last_hdmaen);
   if(!s_outdoor_frame || line<1 || line>224)return;
-  if((s_using_retained ? !s_retained.valid : !audited_room_ready()) || !room_bounds_enabled(view_room()) ||
-      ppu->hScroll[0]!=ppu->hScroll[1] || ppu->vScroll[0]!=ppu->vScroll[1])return;
+  if((s_using_retained ? !s_retained.valid : !audited_room_ready()) || !room_bounds_enabled(view_room()))return;
+  if(room07_parallax()) {
+    if(!LagoonWideEntities_ParallaxScroll(ppu->hScroll[0]&1023,ppu->vScroll[0]&1023,
+        ppu->hScroll[1]&1023,ppu->vScroll[1]&1023))return;
+  } else if(ppu->hScroll[0]!=ppu->hScroll[1] || ppu->vScroll[0]!=ppu->vScroll[1])return;
   int camera_x=(int)view_camera(0),camera_y=(int)view_camera(1);
   int sx=ppu->hScroll[0]&1023,sy=ppu->vScroll[0]&1023;
   s_row_world_x[line-1]=camera_x+((sx-camera_x+512)&1023)-512;
@@ -540,6 +577,7 @@ void LagoonWide_EndFrame(const uint8_t *field,unsigned number) {
   (void)field;
   refresh_torches();
   s_present_fallback=s_native_fallback || !audited_room_ready() || unsafe_modal_ui() ||
+      (word(0x48e)==7 && !world_scene_geometry()) ||
       (!s_using_retained && g_ram[0x100e] && (!native_world_map() || !s_world_chars_ready ||
       !LagoonWideEntities_WorldCharacters(PpuRenderVram(g_ppu),s_world_chars,s_world_char_used)));
   s_outdoor_present=s_outdoor_frame && !s_present_fallback;

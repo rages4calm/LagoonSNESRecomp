@@ -196,6 +196,7 @@ int LagoonWideEntities_BoundedRoom(unsigned room,unsigned width,unsigned height)
       (room==4 && width==768 && height==256) ||
       (room==5 && width==1536 && height==1280) ||
       (room==6 && width==512 && height==256) ||
+      (room==7 && width==1024 && height==1024) ||
       (room==8 && width==1536 && height==1024);
 }
 
@@ -206,6 +207,7 @@ int LagoonWideEntities_AuditedRoom(unsigned room,unsigned bg,unsigned obj,
          (room>=3 && room<=6 && bg==0x128b77 && obj==0x1d8000 && d0==0x069298) ||
          (room==1 && bg==0x139a7a && obj==0x1a8000 && d0==0x0689e0) ||
          (room==2 && bg==0x128000 && obj==0x1a8000 && d0==0x068e90) ||
+         (room==7 && bg==0x129e89 && obj==0x1a906f && d0==0x069720) ||
          (room==8 && bg==0x12b297 && obj==0x1891e4 && d0==0x06999c);
 }
 
@@ -214,6 +216,30 @@ int LagoonWideEntities_WorldCharacters(const uint16_t *vram,
   if(!vram || !witness || !used)return 0;
   for(unsigned tile=0;tile<1024;++tile)
     if(used[tile] && memcmp(vram+tile*16,witness+tile*16,32))return 0;
+  return 1;
+}
+
+int LagoonWideEntities_ParallaxScroll(unsigned x0,unsigned y0,unsigned x1,unsigned y1) {
+  return x0<1024 && y0<1024 && x1==(x0>>2) && y1==(y0>>2);
+}
+int LagoonWideEntities_ParallaxMap(const uint16_t *vram,const uint8_t *rom,size_t size) {
+  /* Original018A92 uploads two independently complete2KiB pages from11FB7D.
+   * Both are the same authored32x32 map; the original32x64 PPU layout repeats
+   * it. Bind compressed source AND decoded words, never infer from scenery. */
+  const size_t source=0x8FB7D;
+  if(!vram || !rom || size<source+761)return 0;
+  uint64_t h=UINT64_C(14695981039346656037);
+  for(unsigned i=0;i<761;++i)h=(h^rom[source+i])*UINT64_C(1099511628211);
+  if(h!=UINT64_C(0x6497f7a95d47a572))return 0;
+  for(unsigned page=0;page<2;++page) {
+    h=UINT64_C(14695981039346656037);
+    for(unsigned i=0;i<1024;++i) {
+      uint16_t v=vram[0x7800+page*0x400+i];
+      h=(h^(v&255))*UINT64_C(1099511628211);
+      h=(h^(v>>8))*UINT64_C(1099511628211);
+    }
+    if(h!=UINT64_C(0xad60d4b1913c658c))return 0;
+  }
   return 1;
 }
 

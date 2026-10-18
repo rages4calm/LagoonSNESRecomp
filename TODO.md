@@ -30,6 +30,15 @@ batches. Generated routine counts are not campaign completion percentages.
       boss animation/state modes (361 total), native map/tile queue work for menu
       close, and guarded Elf Field widescreen. All 99 native comparisons, actual
       canonical 79 ingestion, final wide checks and cold selected checks pass.
+- [x] Batch 16: eight actually executing actor/boss modes (369 total), guarded
+      parent-loop menu work and source-owned Elf Field Start/destination fades.
+- [x] Batch 17: five additionally exercised boss child states and a four-operation
+      post-wait boss-death cleanup (375 total); all 369 prior modes retained.
+      Assisted state setup is explicitly synthetic, not natural progression.
+- [x] Guarded close-fade read acceleration: 32/33 closing fields instead of 52/53,
+      retaining original brightness writes, NMI counter behavior and upload waits.
+- [x] Room 07 quarter-speed BG2 and static 32×64 map ownership, with original
+      native center, source colors, margin actors and real world-edge clipping.
 - [ ] Promote full death/revival and remaining boss-phase orchestration
       only after proving their indirect and nonlocal stack continuations.
 - [ ] Continue native promotion from measured hot paths; resolve existing
@@ -60,8 +69,8 @@ batches. Generated routine counts are not campaign completion percentages.
       Current reset/load generation guards cancel stale host timers safely.
 - [x] Experimental additional world backgrounds at original pixel scale;
       16:9, 16:10, 21:9, 32:9 and window-driven aspects.
-- [ ] Qualify room 07 parallax; continue widescreen off-screen entity composition/graphics staging,
-      parallax, map bounds, room transitions, HUD/dialogue and campaign coverage.
+- [ ] Continue widescreen off-screen entity composition/graphics staging, other
+      parallax layouts, map bounds, room transitions, HUD/dialogue and campaign coverage.
 - [x] Expand audited outdoor room 2 using actual raster scroll anchors and
       mask beyond its real 512 by 512 extent. Natural walking, menu, doors and
       reset checks preserve native center/state/timing; unknown resources fallback.
@@ -71,11 +80,11 @@ batches. Generated routine counts are not campaign completion percentages.
 - [x] Widen Equipment using exact original title/body/cursor pixels and audited
       frame/chain/divider sources in room 01, Atland and the cave (1,491 menu fields).
 - [ ] Adapt title/intro, remaining Save/scripted layouts and guarded Start panels;
-      Elf Field Start and its loaded fade are covered in batch16; other layouts remain.
+      Elf Field Start and its loaded fade are covered in batch 16; other layouts remain.
 - [x] Built-in Items/Magic/Equipment transition acceleration with transactional
       original-resource decoding; 75 streams / 300 original-instruction oracle cases.
-- [ ] Profile remaining original world-loader close work after batch16 parent acceleration
-      (52 room01 /53 Atland total closing fields, including fades) without broadening unsupported decoder or return-frame guards.
+- [ ] Profile remaining original world-loader close work after batch 17 fade acceleration
+      (32 room 01 /33 Atland total closing fields, including fades) without broadening unsupported decoder or return-frame guards.
 - [x] Remove Smooth scaling; retain optional Enhanced original pixels.
 - [x] Preserve both raster register journals in development states; fix alternating
       black frames after cold loading, with consecutive-field and hidden GPU checks.

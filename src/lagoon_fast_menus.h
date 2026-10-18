@@ -7,4 +7,6 @@ void LagoonFastMenus_Reset(const uint8_t *rom, size_t size);
 void LagoonFastMenus_Activate(void);
 uint8_t LagoonFastMenus_Filter(uint32_t addr, uint8_t value,
     const CpuWramReadContext *context, const uint8_t *ram);
+uint8_t LagoonFastMenus_FilterRead(uint32_t addr, uint8_t value,
+    const CpuWramReadContext *context, const uint8_t *ram);
 #endif

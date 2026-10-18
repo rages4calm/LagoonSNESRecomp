@@ -15,6 +15,9 @@ void LagoonFastMenus_Reset(const uint8_t *rom, size_t size) {
   enabled = 0;
   valid_rom =
     match(rom,size,0x4E0,(const uint8_t *)"\x8D\x3C\x02\xAD\x3C\x02\xD0\xFB\x6B",9) &&
+    match(rom,size,0x91B,(const uint8_t *)"\xAD\x3C\x02\x3A\x8D\x3C\x02",7) &&
+    match(rom,size,0x3C4,(const uint8_t *)"\xAD\x3D\x02\x29\x80\xC9\x80\xD0\x01\x6B\xAD\x75\x02\x10\x14\xA9\x03\x22\xE0\x84\x00\xAD\x3D\x02\x29\x0F\x3A\x8D\x3D\x02\x8D\x00\x21\xD0\xEC\xA9\x80\x8D\x3D\x02\x8D\x00\x21\x6B",44) &&
+    match(rom,size,0x458,(const uint8_t *)"\xAD\x3D\x02\xC9\x0F\xD0\x01\x6B\x22\x12\x81\x00\xA9\x00\x8D\x3D\x02\x8D\x00\x21\xA9\x03\x22\xE0\x84\x00\xAD\x3D\x02\x1A\x8D\x3D\x02\x8D\x00\x21\xC9\x0F\xD0\xEC\x6B",41) &&
     match(rom,size,0x3D3,(const uint8_t *)"\xA9\x03\x22\xE0\x84\x00",6) &&
     match(rom,size,0x46C,(const uint8_t *)"\xA9\x03\x22\xE0\x84\x00",6) &&
     match(rom,size,0x136B6,(const uint8_t *)"\x22\xC4\x83\x00",4) &&
@@ -37,25 +40,35 @@ void LagoonFastMenus_Activate(void) { enabled = valid_rom; }
 static uint32_t return24(const uint8_t *ram, unsigned address) {
   return ram[address] | ((uint32_t)ram[address+1]<<8) | ((uint32_t)ram[address+2]<<16);
 }
-uint8_t LagoonFastMenus_Filter(uint32_t addr, uint8_t value,
-    const CpuWramReadContext *c, const uint8_t *ram) {
-  if (!enabled || addr!=0x23C || value!=3 || !c || !ram ||
-      !c->interpreter || c->instruction_pc!=0x0084E0 || c->pb ||
-      !c->m || c->x || c->e || c->stack>0x1FF9) return value;
+static int owned_close(const CpuWramReadContext *c,const uint8_t *ram) {
+  if(c->stack<0x100||c->stack>0x1EA)return 0;
   uint32_t inner=return24(ram,c->stack+1),outer=return24(ram,c->stack+4);
-  if ((inner==0x0083D8 && (outer==0x02B6B9 || outer==0x02B7E3 || outer==0x02BC44)) ||
-      (inner==0x008471 && (outer==0x02B6E6 || outer==0x02B817 || outer==0x02BC65))) return 1;
   /* Real dispatcher PHB frames distinguish submenu close from ordinary room
    * loading through the very same world-loader fade routines. */
-  if(c->stack<=0x1FEA && ram[c->stack+10]==1 && ram[c->stack+17]==2 &&
+  if(c->stack>=0x100 && c->stack<=0x1EA && ram[c->stack+10]==1 && ram[c->stack+17]==2 &&
       return24(ram,c->stack+7)==0x0080E3 && return24(ram,c->stack+14)==0x0080E3) {
     uint32_t menu=return24(ram,c->stack+18);
     if(menu==0x02B73A||menu==0x02B87D||menu==0x02BC9B) {
-      if(inner==0x0083D8 && outer==0x02C65E && return24(ram,c->stack+11)==0x018708)return 1;
-      if(inner==0x008471 && outer==0x02C675 && return24(ram,c->stack+11)==0x018765)return 1;
+      unsigned brightness=ram[0x23D];
+      if(inner==0x0083D8 && outer==0x02C65E && return24(ram,c->stack+11)==0x018708 && brightness>=1 && brightness<=15)return 1;
+      if(inner==0x008471 && outer==0x02C675 && return24(ram,c->stack+11)==0x018765 && brightness<=14)return 1;
     }
   }
+  return 0;
+}
+uint8_t LagoonFastMenus_Filter(uint32_t addr,uint8_t value,const CpuWramReadContext*c,const uint8_t*ram){
+  if(!enabled||addr!=0x23C||value!=3||!c||!ram||!c->interpreter||c->instruction_pc!=0x0084E0||c->pb||!c->m||c->x||c->e||c->stack>0x1FF9)return value;
+  uint32_t inner=return24(ram,c->stack+1),outer=return24(ram,c->stack+4);
+  if((inner==0x0083D8&&(outer==0x02B6B9||outer==0x02B7E3||outer==0x02BC44))||
+     (inner==0x008471&&(outer==0x02B6E6||outer==0x02B817||outer==0x02BC65))||owned_close(c,ram))return 1;
   return value;
+}
+uint8_t LagoonFastMenus_FilterRead(uint32_t addr,uint8_t value,const CpuWramReadContext*c,const uint8_t*ram){
+  /* Keep a real counter1: the original NMI decrements unconditionally. Only
+   * the exact owned fade read may see zero early. If NMI already made1->0,
+   * zero remains zero. Values above1 are never concealed or rewritten. */
+  if(!enabled||addr!=0x23C||value>1||!c||!ram||!c->interpreter||c->instruction_pc!=0x0084E3||c->pb||!c->m||c->x||c->e||!owned_close(c,ram))return value;
+  return ram[0x23D]%3?0:value;
 }
 #ifndef LAGOON_FAST_MENUS_TEST
 SNES_MOD_CONSTRUCTOR(lagoon_fast_menus_register) {

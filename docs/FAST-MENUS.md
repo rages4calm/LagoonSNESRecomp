@@ -7,8 +7,9 @@ the launcher does not expose or change their saved values.
 
 The core implementation has two parts:
 
-- Original brightness steps take one frame instead of three, only when real
-  return frames identify one of these submenu opening/closing paths.
+- Original brightness writes remain; guarded return frames reduce submenu fade
+  waits. Opening uses one field per step; audited closing uses five real waits
+  across all fifteen steps, as detailed below.
 - A guarded native implementation expands the original compressed resources
   synchronously. The original VRAM upload/DMA code still consumes the result.
 
@@ -51,7 +52,7 @@ consumption, plus transactional refusal for invalid contexts.
 Private frozen core qualification measured opening from first dimmed field to
 full brightness: Items 148 to 40, Magic 146 to 38 and Equipment 147 to 39 fields. All
 three close paths improved 199 to 85 fields; forced-blank improved 112 to 56 fields.
-These are real menu inputs and original resources in room01. Remaining 56 blank
+These are real menu inputs and original resources in room 01. Remaining 56 blank
 fields perform other original world-loader work and remain a profiling target.
 Menus are faster, not instantaneous.
 
@@ -87,8 +88,8 @@ without changing RAM, CPU or the pending redirect. Map output is transactional;
 the fixed tile path validates every bound before its first write and has no
 allocation or other fallible work afterward.
 
-Private source qualification measured room01 Items, Magic and Equipment closing
-at 60 fields instead of batch14's 85; town 61 instead of 92; outdoor room02 60 instead of 85.
+Private source qualification measured room 01 Items, Magic and Equipment closing
+at 60 fields instead of batch14's 85; town 61 instead of 92; outdoor room 02 60 instead of 85.
 Opening stays 40/38/39 fields. Forced blank is 31 fields (town 32). The remaining
 loader still spends time on original DMA waits and the broader 0189F5 coordinate
 and initialization loop. Reducing that needs a separate parent-loop model;
@@ -124,3 +125,26 @@ The prefix and suffix pass 5,936 original-opcode full-WRAM/CPU/stack cases;
 production guards pass 1,622 checks. Actual trace confirms both hooks execute,
 with 2,070 original queue calls preserved. The suffix has no separately measured
 whole-field gain. See [batch 16](../NATIVE-BATCH16-2026-10-17.md).
+
+## Batch 17 close-fade waits
+
+Audited Items/Magic/Equipment closing now takes 32 fields in room 01 and outdoor
+room 02,33 in Atland, instead of 52/53. The 20-field saving preserves the 24/25
+forced-blank fields: original resource uploads and queue-full waits still run.
+Openings remain 40/38/39 fields. Historical measurements above belong to their
+own batches and are not current timing claims.
+
+The exact owned close stack/dispatcher chain and original fade/NMI instruction
+bytes authorize a read-only timer view at 0084E3. On intermediate brightness
+steps its real 0/1 counter may read as0; the backing byte is never cleared early.
+The real stored counter remains 1 until the original NMI decrements it. Values
+above1, unknown callers/modes and unrelated NMI reads are never concealed.
+All original brightness writes execute, with five real waits in each direction.
+
+A rejected early-zero-store experiment could becomeFF when the original NMI
+decrement ran between store and poll. The final read-view implementation avoids
+that race. Its oracle executes the original timer and three NMI-counter opcodes,
+covering1,920 boundary interleavings and 72 complete fades, including every
+brightness write, registers, stack and untouched WRAM. It also witnesses the
+zero-store FF regression. This is bounded timer/NMI proof, not a model of the
+entire NMI/DMA system. Unknown contexts retain original timing.

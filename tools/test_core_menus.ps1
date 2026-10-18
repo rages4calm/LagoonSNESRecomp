@@ -16,6 +16,17 @@ New-Item -ItemType Directory -Force -Path $target | Out-Null
 Push-Location $repo
 try {
   $flags = @('-std=c11', '-O2', '-Isrc', '-Isnesrecomp/runner/src')
+  $fadeUnit = Join-Path $target 'menu-fade-unit.exe'
+  & $Compiler @flags -Wall -Wextra -Werror -DLAGOON_FAST_MENUS_TEST tests/lagoon_fast_menus_test.c src/lagoon_fast_menus.c -o $fadeUnit
+  if ($LASTEXITCODE) { throw 'Menu fade unit compilation failed.' }
+  & $fadeUnit
+  if ($LASTEXITCODE) { throw 'Menu fade unit test failed.' }
+
+  $fadeOracle = Join-Path $target 'menu-fade-original-oracle.exe'
+  & $Compiler @flags -Wall -Wextra -Werror -DLAGOON_FAST_MENUS_TEST tests/lagoon_fast_menus_wait_oracle_test.c src/lagoon_fast_menus.c snesrecomp/runner/src/snes/interp816.c -o $fadeOracle
+  if ($LASTEXITCODE) { throw 'Menu fade original-opcode oracle compilation failed.' }
+  & $fadeOracle $romPath
+  if ($LASTEXITCODE) { throw 'Menu fade original-opcode oracle failed.' }
   $decode = 'src/lagoon_menu_decode.c'
   $unit = Join-Path $target 'menu-decode-unit.exe'
   & $Compiler @flags -DLAGOON_MENU_DECODE_TEST tests/lagoon_menu_decode_test.c $decode -o $unit

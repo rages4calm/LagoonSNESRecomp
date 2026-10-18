@@ -235,8 +235,8 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
   if (!rom) {
     return;
   }
-  /* Core menu timer writes require scoped interpreter registers even when
-   * optional gameplay features are off. The read view itself stays unchanged. */
+  /* Core menu timing needs scoped interpreter registers and its guarded
+   * timer read view even when optional gameplay features are off. */
   cpu_set_wram_read_filter_hook(qol_filter_read);
   /* Each data patch is guarded on its own, so one refused patch cannot silence
    * another. With every feature off neither branch runs and the ROM image the
@@ -578,6 +578,7 @@ static uint8_t qol_filter_write(uint32_t addr, uint8_t value) {
  * generated code, whose architectural PC is not maintained. Interpreter reads
  * must additionally identify the exact pre-instruction cursor. */
 static uint8_t qol_filter_read(uint32_t addr, uint8_t value, const CpuWramReadContext *c) {
+  if(addr==0x23C)return LagoonFastMenus_FilterRead(addr,value,c,g_ram);
   if (!g_recovery_time || addr != 0x501 || !c) return value;
   qol_check_timeline();
   uint32_t elapsed = (uint32_t)snes_frame_counter - g_recovery_start_frame;

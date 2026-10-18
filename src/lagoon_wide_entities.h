@@ -51,6 +51,9 @@ int LagoonWideAtlas_CellOwned(const LagoonWideAtlas *atlas, unsigned base1,
 /* Match initialized native interior tiles against the retained map. */
 int LagoonWideEntities_WorldCharacters(const uint16_t *vram,
     const uint16_t *witness,const uint8_t used[1024]);
+/* Room07's original static32x64 BG2 map and quarter-speed raster contract. */
+int LagoonWideEntities_ParallaxMap(const uint16_t *vram,const uint8_t *rom,size_t size);
+int LagoonWideEntities_ParallaxScroll(unsigned x0,unsigned y0,unsigned x1,unsigned y1);
 int LagoonWideEntities_WorldTilemap(const uint16_t *vram,unsigned base,
     int tile_x,int tile_y,const uint16_t expected[720]);
 /* Exact streamed world graphics upload from $01:8875/$01:88CD. */

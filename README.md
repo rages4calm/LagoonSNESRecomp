@@ -6,31 +6,32 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress - October 17, 2026
 
-This is a playable development port with **369 AOT variants, 123 declared LLE
-variants and 252 analysis roots**. All 361 prior native variants remain. The
+This is a playable development port with **375 AOT variants, 123 declared LLE
+variants and 258 analysis roots**. All 369 prior native variants remain. The
 interpreter safety net stays enabled; counts are not completion percentages.
 
-Batch 16 makes audited Items/Magic/Equipment closing eight fields faster:
-room 01 and outdoor room 02 now take **52 fields**, Atland **53**. Original
-uploads and queue-full waits remain. Openings stay 40/38/39 fields. Unknown
-contexts retain the original behavior.
+Audited Items/Magic/Equipment closing now takes **32 fields** in room 01 and
+outdoor room 02, **33 in Atland**, down from 52/53. The 20-field improvement
+retains every original brightness write, upload and queue-full wait. Openings
+remain 40/38/39 fields. Unknown contexts retain the original behavior.
 
-Eight more original actor/boss child-state modes now execute natively. Four
-matched area/guardian/endgame fixtures remove 328,948 interpreted instruction
-executions, including 303,173 nonreturn executions. An initial compiled-but-inert
-candidate was rejected: native dispatch now actually reaches the new bodies.
-Broader death/wait orchestration and five unobserved child states remain
-interpreted. This is execution evidence, not an FPS or full-native percentage.
+Five original boss child states now execute natively through the original
+dispatcher. An explicitly synthetic actor-state fixture exercises all 99 source
+instruction keys and removes 514 interpreted executions, 482 excluding returns.
+A separate original Samson defeat fixture also executes a guarded four-operation
+native cleanup after its real wait; the following audio call remains interpreted.
+These bounded tests do not establish natural campaign progression or full native
+death/boss orchestration.
 
-The final batch passes 32 fresh matched comparisons: 97,059 ordered pictures
-and 142 complete state/clock checkpoints, including combat, death/revival,
-menus and Elf Field. Settings and saves remain local.
+Batch 17 passes 22 fresh matched comparisons covering 71,121 ordered frames
+and 66 complete state/clock checkpoints. The exact tested executable is selected
+and passes an isolated cold menu replay. Settings and saves stay local.
 
-Elf Field's exact scenery animation is now tracked through Start and its loaded
-fade, restoring **35 Start fields and 45 fade fields**. Original center pixels,
-full guest state and clocks match. All 95,424 sampled status-margin pixels resolve
-to actual background or OAM sprite data. Room 07 parallax and other unaudited
-menu, scripted-scene and transition layouts remain open.
+Room 07 now widens its independently scrolling background using the original
+quarter-speed scroll and guarded static 32×64 BG2 map. Central and world-edge
+samples resolve to original background/OAM colors or required black. Elf Field
+Start/fade and the existing menu layouts retain their earlier guarded support.
+Broader scripted scenes, transitions and unsupported resources still fall back.
 
 Widescreen supports 16:9, 16:10, 21:9, 32:9 and window-driven aspects in audited
 areas, with original pixels and guarded world/actor composition. Supported town,
@@ -48,7 +49,7 @@ The owner and friends will perform the uninterrupted start-to-finish playtest.
 Records 2A/3F, broader native death/boss orchestration, remaining widescreen gaps,
 optional soundtrack mappings and hardware/controller qualification remain open.
 
-Read [batch 16](NATIVE-BATCH16-2026-10-17.md),
+Read [batch 17](NATIVE-BATCH17-2026-10-17.md),
 [current status](docs/DEVELOPMENT-STATUS.md), [menu details](docs/FAST-MENUS.md),
 [widescreen scope](docs/WIDESCREEN.md), [custom renderer](docs/CUSTOM-RENDERER.md),
 [performance evidence](docs/PERFORMANCE.md), [save states](docs/SAVE-STATES.md)
@@ -57,10 +58,10 @@ coverage corpus are historical evidence; this batch does not relabel them.
 
 ## Fullscreen screenshots
 
-[View the 1920×1080 fullscreen captures](docs/screenshots/README.md), including
+[View the 1,920×1080 fullscreen captures](docs/screenshots/README.md), including
 wide town dialogue, Items/Magic, Atland and Gold Cave.
 
-![Atland dialogue in widescreen fullscreen](docs/screenshots/atland-dialogue-21x9-1920x1080.png)
+![Atland dialogue in widescreen fullscreen](docs/screenshots/atland-dialogue-21x9-1,920x1080.png)
 
 ## Launcher
 
@@ -76,7 +77,7 @@ preserves unknown settings and controller bindings and detects stale edits.
 Existing native settings remain in `build/config.ini`, input in `build/keybinds.ini`,
 and saves in `build/saves`. The adapter does not migrate them.
 
-For a 1920×1080 monitor, use desktop fullscreen, widescreen 16:9 and optional
+For a 1,920×1080 monitor, use desktop fullscreen, widescreen 16:9 and optional
 Enhanced original pixels. Keep linear filtering and frame blending off for a
 sharp picture, with VSync on. Window scale controls only windowed size; leaving
 it at 3 is fine in fullscreen. Wider 21:9/32:9 modes reveal more scenery but
@@ -130,10 +131,10 @@ the original pixel scale, with 16:9, 16:10, 21:9, 32:9 and window-driven aspects
 Witnessed ordinary NPC/enemy forms can also appear beyond the game's original
 off-screen actor buffer, using resident graphics and read-only presentation
 animation. Current scenery support covers audited Atland, Gold Cave and the
-outdoor guard exterior (room 2), plus audited cave rooms 4–6, clipped to real
-world bounds. Verified dialogue/Start retain scenery and Items/Magic widen their
+outdoor guard exterior (room 2), audited cave rooms 4–6, room 07 parallax and
+Elf Field (room 08), clipped to real world bounds. Verified dialogue/Start retain scenery and Items/Magic widen their
 frames. Other rooms, title/intro and unadapted panels use native-width fallback.
-Special actors, parallax and campaign coverage remain unfinished. All four fixed aspects preserved guest state and native
+Special actors, other parallax layouts and campaign coverage remain unfinished. All four fixed aspects preserved guest state and native
 center pixels at 18 opening/town checkpoints. See [widescreen details](docs/WIDESCREEN.md).
 
 ## Optional enhanced original pixels

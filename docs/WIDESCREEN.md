@@ -9,11 +9,12 @@ framework's 800-pixel PPU capacity, with letterboxing beyond that capacity.
 
 This renders additional world tiles at their original pixel scale. BG3
 text/HUD remains centered at native size. Audited field resources currently
-cover Atland (room 0), the guard exterior (room 2), and Gold Cave rooms 3–6.
+cover Atland (room 0), the guard exterior (room 2), Gold Cave rooms 3–6,
+room 07 parallax and Elf Field (room 08).
 Known dialogue and Start/status overlays retain that scenery when its original
 map and graphics remain intact. Items/Magic panels have a separate guarded
 original-art frame compositor; see [menu presentation](MENU-PRESENTATION.md).
-Titles, unsupported intro layouts, other menus, parallax, BG1/BG2 mosaic and
+Titles, unsupported intro layouts, other menus/parallax layouts, BG1/BG2 mosaic and
 unknown room resources keep a clean centered native fallback. Matching a PPU
 mode alone is insufficient. Room loading (`$100E`) normally forces fallback;
 the completed-upload authority described below permits verified Atland and
@@ -569,7 +570,7 @@ probes that merged physical input with scripts are excluded from acceptance.
 
 Room `$01` now uses the existing source-map widescreen path. The original room
 catalogue/loader (`$01:8B84`, `$01:C87B`, `$01:8C54`) identifies a finite
-512�768 world with background `$13:9A7A`, object source `$1A:8000`, definitions
+512×768 world with background `$13:9A7A`, object source `$1A:8000`, definitions
 `$06:89E0` on both planes, and retained maps `$7F:0000` / `$7F:4000`. All of
 these resources and the exact dimensions must match; this does not enable
 arbitrary interiors. The existing raster geometry, character ownership,
@@ -660,4 +661,27 @@ remain; no generic modal ownership exception is added. This restores 35 Start
 and 45 loaded-fade fields. All 35 original centers and 95,424 sampled margin
 pixels match their real background/OAM sources. Final 369 matches same-host 361
 across 1,406 presentations and eight complete guest checkpoints/clocks.
-Room 07 parallax remains unsupported. See [batch 16](../NATIVE-BATCH16-2026-10-17.md).
+Room 07 parallax was still unsupported in that historical batch. See [batch 16](../NATIVE-BATCH16-2026-10-17.md).
+
+## Room 07 independent parallax, batch 17
+
+Room 07's 1024×1024 world now expands with independently scrolling BG2. The
+original quarter-speed scroll must match at frame and actual raster boundaries;
+BG1 supplies world-bound anchors while BG2 keeps its own native PPU scroll.
+Its 32×64 tilemap uses the original 7800/7C00 pages and native wrapping, rather
+than BG1's retained metatile resolver. BG3 and the original 256 center columns
+retain their original presentation.
+
+Ownership requires the exact room/resource pointers, dimensions, compressed
+source and both complete authored BG2 map pages, plus current used characters.
+Unknown layouts, HDMA, changed or partial maps, altered sources and timeline
+jumps refuse. Ordinary outgoing-scene packets are not lent to this parallax
+layout. Every BG2 map write cancels margin authority for that field; subsequent
+complete-source checks must establish it again.
+
+Independent source samples match 95,424 central BG margin pixels. At a real
+world edge they match 41,876 BG pixels, 5,836 original OAM pixels and 47,712
+required-black pixels. These bounded scene proofs do not authorize other
+parallax rooms, scripted layouts or every transition. The independent custom
+renderer remains Atland-only; this extension uses the guarded reference PPU.
+See [batch 17](../NATIVE-BATCH17-2026-10-17.md) for integrated qualification.

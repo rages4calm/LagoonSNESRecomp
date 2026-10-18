@@ -1,5 +1,10 @@
 # Performance and frame pacing
 
+The measurements and executable hashes below are historical, bound to their
+named batches. Batch 17 qualifies native execution and rendering correctness;
+it does not replace these measurements or establish full-game locked 60 FPS.
+See the [current development status](DEVELOPMENT-STATUS.md) for the selected build.
+
 The final batch 8 build measured 60.10 fps in the settled, bounded Atland check with diagnostic presentation logging disabled. Its p95/p99 intervals were 17.44/17.83 ms, with one interval above 20 ms. Audio safety and guest timing remain unchanged. These measurements cover this machine and route; occasional spikes remain, and this is not a hard real-time or full-game guarantee.
 
 ![Actual 32:9 fullscreen OpenGL output with Enhanced pixels](screenshots/atland-32x9-epx-performance-1920x1080.png)
