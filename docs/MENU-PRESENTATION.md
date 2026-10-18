@@ -1,6 +1,6 @@
-# Wide Items and Magic presentation
+# Wide Items, Magic and Equipment presentation
 
-When experimental widescreen is enabled, verified Items and Magic screens reuse the original ornate frame across the available width. The title, text, cursor and item/magic body retain their original source pixels and stay centered. This is a host compositor change: it does not change guest RAM, PPU memory, gameplay, fonts or artwork.
+When experimental widescreen is enabled, verified Items, Magic and Equipment screens reuse the original ornate frame across the available width. The title, text, cursor and item/magic body retain their original source pixels and stay centered. This is a host compositor change: it does not change guest RAM, PPU memory, gameplay, fonts or artwork.
 
 ![Items, 16:9, Enhanced pixels](screenshots/items-16x9-epx-1920x1080.png)
 
@@ -16,7 +16,54 @@ The centered content body at native x=40..215, y=32..199 is copied exactly. Top/
 
 ## Conservative identification
 
-`src/lagoon_menu_presentation.c` requires the matching scene flag, loaded resource pointer, visible PPU mode, screen maps, zero scroll, and two serialized VRAM fingerprints: shared border/font graphics plus the immutable Items or Magic map perimeter/title. A black screen or BG3 presence alone is insufficient. It also checks chain periodicity before reflow. Unknown templates and modes decline without touching the destination. Equipment, Save, cutscenes and other unaudited panels keep the existing fallback.
+`src/lagoon_menu_presentation.c` requires the matching scene flag, loaded resource pointer, visible PPU mode, screen maps, zero scroll, and two serialized VRAM fingerprints: shared border/font graphics plus the immutable Items or Magic map perimeter/title. A black screen or BG3 presence alone is insufficient. It also checks chain periodicity before reflow. Unknown templates and modes decline without touching the destination. Save, cutscenes and other unaudited panels keep the existing fallback.
+
+## Equipment frame
+
+The Equipment panel has its own immutable perimeter/title fingerprint. It keeps
+its complete 144-pixel upper center (native x=56..199), which contains the longer
+original title, while Items and Magic keep their existing 80-pixel title region.
+The left and right frame pieces still move in symmetric 48-pixel steps. Original
+24-pixel chain samples fill the added space; sixteen-pixel joins on each side
+are checked against the adjacent original period before drawing. Equipment's
+original divider at rows 154/155 extends using its two existing row colors.
+
+No equipment names, statistics, cursor or Nasir animation are synthesized. The
+body remains copied from the current native field. A changed title/perimeter,
+font resource, scene flag, scroll or unsupported mode declines to the existing
+fallback. The standalone production-compositor test covers a real Equipment
+frame at all eight supported test widths, unchanged body/title pixels, original
+row colors, invalid chain/divider refusal, padded rows and in-place composition.
+These layout checks are distinct from running-game integration qualification.
+
+The focused running-game Equipment check uses a private wide-only build from
+the selected 346-variant program. Across 1,097 matched presentation fields, 445 opening/stable/closing
+Equipment fields gain wide original-art frames; all 652 other fields are
+unchanged. Every changed pixel matches the original row and chain phase, with
+13,157,760 body pixels and2,050,560 title pixels preserved. All six complete
+guest checkpoints, including SRAM and clocks, are exact. This early inventory
+fixture does not certify populated late-game equipment or unknown panels.
+Its private receipt is `work-native-batch14-20261017-181844/widescreen/EQUIPMENT-FOCUSED-QUALIFICATION.json`.
+The final integrated build with core menu acceleration and native recovery
+continuations passed three additional same-binary wide/narrow pairs: Atland,
+the cave, and room01. Across 3,305 presentation fields, 1,491 Equipment fields
+compose 227,777,088 pixels from the original source rows and chain phases.
+All 44,085,888 body pixels and 6,870,528 title pixels remain exact. All eight
+guest components, including SRAM and clocks, match at all 14 checkpoints.
+Only the host Widescreen setting differs between each pair. The final 32:9
+composite and original title were also inspected visually. These checks retain
+the early inventory limitation above and do not measure fullscreen performance.
+
+Executable SHA-256: `9b63dc19d3a9d4f92e269a14b28d8375758e3543d7bfd00205151c94b1a4787a`.
+Manifest SHA-256: `8e77084f01c937896a4aeaef1b91aea464acd7c724325dcb5065f93f5deb2027`.
+Private receipt: `work-native-batch14-20261017-181844/widescreen/FINAL-EQUIPMENT-THREE-AREA-PROOF.json`.
+
+The same final build also retained the qualified room01 status, fade and
+state-load behavior across 2,112 matched wide/narrow fields and 13 complete
+guest checkpoints. Margin bounds and original source colors pass; the 50
+fields following state restoration match the earlier accepted presentation
+exactly. The restored Atland scene remains wide without retaining room01's
+cached margins. Private receipt: `work-native-batch14-20261017-181844/widescreen/FINAL-MODAL-SOURCE-PROOF.json`.
 
 ## Integration verification
 

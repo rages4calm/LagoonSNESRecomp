@@ -85,7 +85,7 @@ it is not evidence that the actor-event data calculations themselves are wrong.
 The qualified native bodies in other modes and at other addresses remain
 independent of this deferral.
 
-## Graphics deferral and accepted program
+## Graphics deferral and batch11 acceptance
 
 Graphics helper `02D1C5:M1X0` separately changed observed beam position in
 replays. Keeping that exact new mode interpreted restored those checks. Together
@@ -93,7 +93,7 @@ with the 20 bank-00 modes and actor-event mode, these 22 deferrals leave 326
 native variants, including all 190 previously selected bodies. They are explicit
 generation policy, not a runtime diagnostic override.
 
-The selected program passes 95 frozen comparisons: 135,478 ordered pictures
+The batch 11 program passed 95 frozen comparisons: 135,478 ordered pictures
 and 1,704 full checkpoints, including clocks and beam position. These are assisted
 encounter regressions against the previous selected program. They do not prove
 pure-interpreter equivalence, independent-console timing or natural completion.
@@ -111,7 +111,7 @@ future investigation; it does not replace strict qualification.
 
 ## Batch 12 continuation
 
-The selected program is now 341 variants, retaining all 326 earlier modes.
+Batch 12 selected 341 variants, retaining all 326 earlier modes.
 Fifteen new exact modes use precise instruction/transfer timing. The HP/MP cap
 leaf and balanced hit-selector prefix now run natively; the unresolved selector
 jump and broader sword/death continuations retain interpreter ownership.
@@ -125,7 +125,7 @@ and the separately qualified intentional room-01 widescreen margin changes.
 ## Batch 13 death and cooperative recovery
 
 Original92A0 nonlocal guardian escape is native under the existing paired-call
-ABI; its parent9266 remains interpreted. Six actual double-PLA escapes preserve
+ABI; its parent `$01:9266` remains interpreted. Six actual double-PLA escapes preserve
 guest PC/SP, memory, clocks and pictures. D481 and recovery entries/prefixes use
 source-specific940D normal-return closure, with no generic HUD contract change.
 Additional post-wait roots did not gain native execution: current LLE dispatch
@@ -142,3 +142,47 @@ Current DSPOUT reads retained host-ring samples: accelerated ring overflow can
 discard samples differently even for the same executable. Those experiments
 fail strict comparison and provide no audio parity acceptance. No audio runtime
 behavior changed in this batch.
+
+
+## Batch 14: source-guarded recovery continuations
+
+The selected 348-variant program retains all 346 prior modes and adds only
+`01D4A2:M1X0` and `01D4CC:M1X0`. Declaring these PCs alone previously produced no
+native loop execution. The opt-in bridge now witnesses actual original wait
+calls, preserves their real guest frames and permits a native continuation only
+at a source-proven original RTL. Four title descriptors distinguish item/revival
+owners from the actual event/boss owners. No generic jump dispatch is relaxed.
+
+A single-use token binds SP, the complete wait/saved-register/owner frame,
+M/X/E/DB/D, source guard and state generation. Reentrant owner alternatives
+invalidate old authority; stale serials cannot activate replacement tokens.
+Normal/synchronous waits do not leave ready tokens. Loading a rollback residue
+clears tokens because rollback can preserve state generation. Refusal leaves
+guest state untouched and uses the original interpreter path. E1 descriptors
+are rejected until wrapped stack witnesses exist. The continuation path also
+honors the existing bounce-disable and exact-mode exclusion gates, and clears
+the interpreter write-site context before native dispatch.
+
+Actual matched 346/348 comparisons pass 99/99: 151,417 ordered presentations and
+2,657 complete checkpoints/clocks, with SRAM required. Both executables share
+the updated host/SDK/menu policy. Across the 26 combat/primary pairs, 13 execute
+new continuation work: 19,892 interpreted instruction executions disappear, including 19,867
+nonreturn instructions. Unique instruction-PC/mode keys are counted within each
+fixture and deduplicated across overlapping root bodies. Summing independent
+replays is not a count of globally unique PCs or a host-FPS measurement.
+
+A separate disabled-bounce control proves zero native continuation gain. Matcher
+and real bridge tests cover wrong mode/stack/source/generation/owner/token,
+synchronous and repeated yields, alternate callers and rollback with unchanged
+generation. Removing rollback invalidation reproduces the future-token defect.
+These are bounded safety checks, not netplay certification.
+
+`hle_guard_func` is a separate opt-in generated entry seam for core menu decoding.
+It preserves original native bodies and existing eligible modes. A try-handler
+runs after original entry watchdog/deadline checks and before original costs;
+false falls through unchanged. Logical inherited entryS/frame/host return are
+passed explicitly; true returns use the correct normal/yield host-stack pop.
+`--no-hle` disables it; handler/mode metadata and cfg/emitter identity bind its
+outputs. Unknown menu contexts retain the original 9143 body. Intentional menu
+timing changes are qualified separately, not masked in native comparisons.
+See [batch 14](../NATIVE-BATCH14-2026-10-17.md).

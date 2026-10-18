@@ -1,16 +1,18 @@
 # QoL implementation and qualification
 
-October 15, 2026. The original nine player features and the new Faster menus option are optional and default off. The
-package is `lagoon.quality`, version 1.0.0. Most features alter guarded data or
-shared WRAM writes. Camera centring uses guarded instruction patches and a scoped same-value
-write witness after collision/movement;
-the affected camera paths are explicitly interpreter-only and checked against
-the generated AOT manifest before every build.
+Updated October 17, 2026. The original nine player features remain optional and
+default off in `lagoon.quality`, version 1.0.0. Most alter guarded data or shared
+WRAM writes. Camera centring uses guarded instruction patches and a scoped
+same-value write witness after collision/movement; affected camera paths stay
+interpreter-only and are checked against the generated AOT manifest before builds.
 
-The post-collision camera correction and 61 stop/turn/wall checks are recorded
-in [batch 6](NATIVE-BATCH6-2026-10-15.md). The tenth optional feature,
-`fast_menus`, trims only proven Items/Magic entry fade waits; see
-[Faster menus](docs/FAST-MENUS.md) for its timing and scope.
+Menu speed is now built into the port for audited Items/Magic/Equipment paths.
+The old `fast_menus` feature/plugin remains a harmless compatibility alias; it
+is no longer a launcher toggle. Original-resource decoding and bounded fade
+steps preserve the original upload path, with unsupported contexts falling back.
+See [core menu transitions](docs/FAST-MENUS.md) and
+[batch 14](NATIVE-BATCH14-2026-10-17.md). The post-collision camera correction and
+61 stop/turn/wall checks remain documented in [batch 6](NATIVE-BATCH6-2026-10-15.md).
 
 | Feature ID | Implementation |
 | --- | --- |

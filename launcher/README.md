@@ -48,10 +48,11 @@ run-ahead/netplay use SNES. The selector and folder persist as the matching
 automatically. See [soundtrack details](../docs/X68000-SOUNDTRACK.md).
 
 The Quality of life page changes the matching native package's feature selections
-in `mods/preloaded/state.toml` beside the executable. All ten options default off:
+in `mods/preloaded/state.toml` beside the executable. All nine gameplay options default off:
 walking speed, opening balance, camera centering, sword reach, follower speed,
-recovery time, EXP rewards, jump peak hold, magic strength and faster Items/Magic
-fade steps. Fast menus leaves resource loading and world fades unchanged. They require the
+recovery time, EXP rewards, jump peak hold and magic strength. Menu responsiveness
+is built into the port. The old fast-menu flag remains a harmless compatibility
+alias for existing catalogs. Gameplay features require the
 matching `lagoon.quality/1.0.0/manifest.toml` package. These are native feature
 switches; the original ROM remains clean. Opening balance affects new games.
 

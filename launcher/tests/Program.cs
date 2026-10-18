@@ -53,7 +53,7 @@ internal static class SettingsChecks
         const string original = "# private synthetic comment\r\n[Graphics]\r\nFullscreen=1\r\nWindowScale=4\r\nLinearFiltering=0\r\nVSync=1\r\nUnknownGraphics=keep\r\n[Sound]\r\nVolume=62\r\nEnableAudio=1\r\n[GamepadMap]\r\nEnableGamepad1=true\r\nGamepadDeadzone=4567\r\n[Controller]\r\nGuidP1=synthetic-existing-guid\r\n[KeyMap]\r\nPause=p\r\n";
         File.WriteAllText(config, original, new UTF8Encoding(true));
         var state = Path.Combine(root, "mods", "preloaded", "state.toml"); Directory.CreateDirectory(Path.GetDirectoryName(state)!);
-        const string originalMods = "format_version = 1\n\n[[package]]\nid = \"lagoon.quality\"\nversion = \"1.0.0\"\n\n[[feature]]\npackage_id = \"lagoon.quality\"\nid = \"walk_speed\"\nenabled = false\n\n[[feature]]\npackage_id = \"other.private\"\nid = \"retain\"\nenabled = true\n[feature.values]\nsetting = \"unknown value\"\n";
+        const string originalMods = "format_version = 1\n\n[[package]]\nid = \"lagoon.quality\"\nversion = \"1.0.0\"\n\n[[feature]]\npackage_id = \"lagoon.quality\"\nid = \"walk_speed\"\nenabled = false\n\n[[feature]]\npackage_id = \"lagoon.quality\"\nid = \"fast_menus\"\nenabled = true\n\n[[feature]]\npackage_id = \"other.private\"\nid = \"retain\"\nenabled = true\n[feature.values]\nsetting = \"unknown value\"\n";
         File.WriteAllText(state, originalMods);
         var manifest = Path.Combine(Path.GetDirectoryName(state)!, "packages", "lagoon.quality", "1.0.0", "manifest.toml");
         Directory.CreateDirectory(Path.GetDirectoryName(manifest)!); File.WriteAllText(manifest,
@@ -115,14 +115,14 @@ internal static class SettingsChecks
         var iniBytes = File.ReadAllBytes(config); Assert(iniBytes.AsSpan().StartsWith(new byte[] { 0xef, 0xbb, 0xbf }), "BOM lost.");
         Assert(File.ReadAllText(config).Contains("UnknownGraphics=keep\r\n") && File.ReadAllText(config).Contains("GuidP1=synthetic-existing-guid\r\n") && File.ReadAllText(config).Contains("Pause=p\r\n"), "Existing native preferences lost.");
         Assert(File.ReadAllText(state).Contains("setting = \"unknown value\""), "Unknown mod state lost.");
+        Assert(File.ReadAllText(state).Contains("id = \"fast_menus\"\nenabled = true"), "Hidden legacy menu feature state was overwritten.");
         Assert(File.ReadAllText(config).Contains("Widescreen = 1") && File.ReadAllText(config).Contains("[Lagoon]\r\nWideAspect = 32:9"), "Widescreen native INI contract failed.");
         Assert(pathStore.Read().Values["qol.future-option"].GetString() == "retain future preference", "Unknown launcher preference lost.");
         controller.SetOption("qol.sword_reach", OptionValue.From(true));
         try { controller.Apply(); throw new Exception("Older native package accepted new feature."); } catch (InvalidDataException) { }
         controller.Reload();
-        controller.SetOption("qol.fast_menus", OptionValue.From(true));
-        try { controller.Apply(); throw new Exception("Older native package accepted fast menus."); } catch (InvalidDataException) { }
-        controller.Reload();
+        Assert(!adapter.Definition.Options.Any(x => x.Id == "qol.fast_menus"), "Core menu speed remains an optional setting.");
+        Assert(!NativeSettings.Features.Contains("fast_menus"), "Legacy compatibility alias reappeared in editable features.");
         var iniBeforeRollback = File.ReadAllBytes(config); var modsBeforeRollback = File.ReadAllBytes(state);
         controller.SetOption("audio.volume", OptionValue.From(36)); controller.SetOption("qol.walk_speed", OptionValue.From(false));
         using (var blockedPathsCommit = new FileStream(Path.Combine(adapter.ProfileDirectory(profile), "settings.json.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))

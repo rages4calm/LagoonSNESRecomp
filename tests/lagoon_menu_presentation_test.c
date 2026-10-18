@@ -38,6 +38,22 @@ int main(int argc,char **argv) {
     for(unsigned y=0;y<32;++y)assert(!memcmp(out+y*(w+7)+e+88,native+y*256+88,80*4));
     assert(!memcmp(original,native,sizeof(native)));free(out);
   }
+  /* Equipment's longer title and lower divider use their own source joins. */
+  synthetic();
+  for(unsigned y=154;y<156;++y)for(unsigned x=24;x<232;++x)native[y*256+x]=color(24,y);
+  for(unsigned i=0;i<sizeof(widths)/sizeof(widths[0]);++i) {
+    unsigned w=widths[i],e=(w-256)/2;size_t pitch=(w+7)*4;
+    uint32_t *out=malloc(pitch*224);assert(out);memset(out,0xA5,pitch*224);
+    assert(layout((uint8_t *)out,pitch,native,w,LAGOON_MENU_EQUIPMENT));
+    for(unsigned y=0;y<32;++y)assert(!memcmp(out+y*(w+7)+e+56,native+y*256+56,144*4));
+    for(unsigned y=154;y<156;++y)for(unsigned x=e+24;x<e+232;++x)assert(out[y*(w+7)+x]==native[y*256+40]);
+    native[8*256+40]^=1;memset(out,0xA5,pitch*224);
+    assert(!layout((uint8_t *)out,pitch,native,w,LAGOON_MENU_EQUIPMENT));
+    for(unsigned n=0;n<(w+7)*224;++n)assert(out[n]==0xA5A5A5A5u);
+    native[8*256+40]^=1;native[154*256+24]^=1;
+    assert(!layout((uint8_t *)out,pitch,native,w,LAGOON_MENU_EQUIPMENT));native[154*256+24]^=1;
+    free(out);
+  }
   Ppu *p=calloc(1,sizeof(Ppu));uint8_t *ram=calloc(1,0x20000);assert(p&&ram);
   assert(LagoonMenuPresentation_Identify(p,ram)==LAGOON_MENU_NONE);
   if(argc==3) {
@@ -58,6 +74,15 @@ int main(int argc,char **argv) {
       assert(LagoonMenuPresentation_Draw(out,pitch,field,pitch,w,224,p,ram,1));
       for(unsigned y=32;y<200;++y)assert(!memcmp(out+y*pitch+(e+40)*4,native+y*256+40,176*4));
       for(unsigned y=0;y<224;++y)for(unsigned x=w*4;x<pitch;++x)assert(out[y*pitch+x]==0xA5);
+      unsigned title_left=panel==LAGOON_MENU_EQUIPMENT?56:88;
+      unsigned title_width=panel==LAGOON_MENU_EQUIPMENT?144:80;
+      for(unsigned y=0;y<32;++y)assert(!memcmp(out+y*pitch+(e+title_left)*4,native+y*256+title_left,title_width*4));
+      /* Every composed pixel must be one original pixel from the same row. */
+      for(unsigned y=0;y<224;++y)for(unsigned x=0;x<w;++x) {
+        uint32_t pixel=((uint32_t *)(out+y*pitch))[x];unsigned found=0;
+        for(unsigned sx=0;sx<256;++sx)if(pixel==native[y*256+sx]){found=1;break;}
+        assert(found);
+      }
       ppm(argv[2],w,out,pitch);
       assert(LagoonMenuPresentation_Draw(field,pitch,field,pitch,w,224,p,ram,1));
       for(unsigned y=0;y<224;++y)assert(!memcmp(field+y*pitch,out+y*pitch,w*4));

@@ -1,73 +1,87 @@
 # Current development checkpoint — October 17, 2026
 
-Batch 13 is selected. Read [batch 13](../NATIVE-BATCH13-2026-10-17.md) and the
-parent HANDOFF-NATIVE-BATCH13-2026-10-17.md before continuing.
+Batch 14 is selected. Read [batch 14](../NATIVE-BATCH14-2026-10-17.md) and the
+parent HANDOFF-NATIVE-BATCH14-2026-10-17.md before continuing.
 
-`build/LagoonSNESRecomp.exe`, also frozen as `build/lagoon-native-batch13.exe`.
-Executable SHA256: `16a1bf96b3b2d2a23ecb8e11cb9eab287e4b74d22847fa30986ee105db4d04d5`.
-Manifest SHA256: `27a7dece0b2583433f4495126d5d9c1735e3866790774cf8c5ec496c07366d2a`.
-**346 AOT / 123 declared LLE / 232 roots**; all 341 earlier native modes retained.
+`build/LagoonSNESRecomp.exe`, also frozen as `build/lagoon-native-batch14.exe`.
+Executable SHA256: `9b63dc19d3a9d4f92e269a14b28d8375758e3543d7bfd00205151c94b1a4787a`.
+Manifest SHA256: `8e77084f01c937896a4aeaef1b91aea464acd7c724325dcb5065f93f5deb2027`.
+**348 AOT / 123 declared LLE / 234 roots**; all 346 earlier native modes retained.
 
-## Gameplay and rendering
+## Native recovery and safety
 
-Original death leaf `$01:92A0` now handles the six real guardian double-PLA escapes
-natively, preserving PC/SP and all observed state/clocks. Parent `$01:9266` stays
-interpreted. Native additions also cover D481 revival and D468/D4AB/D4B1 recovery
-entries/prefixes, with a source-specific 940D normal-return fact. Generic HUD
-dispatch and broader death/revival orchestration retain fallback. Full recovery
-loops still resume interpreted after their cooperative wait; declaration-only
-SPC-poll/post-wait experiments are excluded.
+Original HP/MP recovery continuations `01D4A2:M1X0` and `01D4CC:M1X0` now execute
+across the game's cooperative waits. Four source-validated descriptors cover
+item/revival and actual event/boss caller frames. Single-use provenance checks
+original stack bytes, owner return, SP, M/X/E/DB/D, source identity and timeline
+generation. Unsupported contexts retain LLE. Successful rollback restore clears
+ephemeral authority even when state generation is intentionally preserved.
+E1 stack wrapping is unsupported and refused. No netplay qualification is claimed.
 
-Room 01 status and destination fade stay wide through exact original torch DMA
-ownership. The prior menu-font diagnosis was incomplete: animation invalidated
-the old witness. The final two routes preserve 2,112 native centers and 13 full
-checkpoints/clocks, with independent margin decoding, 79 added wide fields and
-clean generation reset. Unknown resources and other menu layouts remain guarded.
-The custom renderer still covers stable Atland. No new locked-60-FPS claim.
+Across 26 matched combat/primary replays, 13 execute the new continuations:
+**19,892 fewer interpreted instruction executions, including 19,867 nonreturn instructions**.
+PC/mode keys are deduplicated within each fixture; these are not 19,892 globally
+unique addresses or a measured host speedup. The original guardian nonlocal
+92A0 death leaf remains native, while parent `$01:9266` and broader orchestration retain
+fallback. All 25 prior timing/audio exact deferrals, camera seams and the `0080E6`
+opening interpreter floor remain. No arbitrary jump/fallthrough dispatch was enabled.
 
-## Qualification
+## Core menus and widescreen
 
-99 strict pairs / 151,417 pictures / 2,657 checkpoints, including SRAM, registers
-and guest clocks/beam. Room 01 native parity retains its matched narrow input.
-Wide changes are separately source-qualified. 48 project Python tests, seven
-helper/real-PPU tests and the mandatory camera build guard pass. Owner save and
-settings hashes are unchanged. The actual public regen script reproduces the
-manifest and bank/dispatch C; raw selector whitespace can change only module
-build-lineage digest. Selection preserves the exact tested executable.
+Menu speed is built in; the old Faster menus flag/plugin is a compatibility alias.
+Audited Items/Magic/Equipment openings take 40/38/39 fields, previously 148/146/147.
+Room 01 closes take 85 instead of 199; Atland closes 92 instead of 226. Remaining
+world-loader work still leaves 56/63 blank fields respectively. Guarded native
+resource decoding commits CPU/WRAM only after complete source/frame validation;
+unknown contexts execute the original native 9143 body. Original upload/DMA stays.
+75 pinned streams pass 300 independent original-instruction oracle cases.
 
-The 79 canonical stock-ROM captures were collected and ingested by the SDK,
-with no lost records, reused capture IDs or warnings. They execute 168 fewer
-interpreted instructions and 654 fewer interpreted guest cycles than the matched
-341-variant control. The separate combat/primary suite measures death/revival
-prefix execution; the full recovery loops remain interpreted after yielding.
+Equipment extends original frame/chain/divider pixels in room 01, Atland and the
+cave. Three-area verification covers 1,491 Equipment fields, 3,305 total presentations
+and 14 checkpoints, retaining the original title/body/cursor. Existing modal
+status/fade/reset checks preserve 2,112 native centers and 13 state/clock samples.
+Unsupported layouts/resources remain guarded. The live custom renderer retains
+its stable-Atland scope; no new locked 60 FPS or full retexture claim.
 
-Optional APURAM/DSP/PCM captures now compare their actual bytes and bound paths.
-Accelerated PCM capture is not deterministic when the host output ring overflows;
-an identical-executable control confirms that limitation. No audio parity or
-playback fix is claimed. Private rejected evidence remains outside accepted QA.
+## Qualification and reproduction
 
-Assisted fixtures disclose position/item/player-stat/flag setup and exercise
-original outcomes. Natural campaign, complete credits, independent-console
-timing, full audio and broader hardware remain unqualified. Records 2A/3F have
-no ordinary incoming doors; their precise entry classification remains open.
-Use [map references](MAP-REFERENCES.md) to plan routes and landmarks, then bind
-engine IDs and extents to ROM/runtime evidence.
+**99 strict matched-host pairs / 151,417 ordered presentations / 2,657 checkpoints**
+pass, including framebuffer, WRAM, VRAM, OAM, palette memory, SRAM, CPU registers
+and guest clocks/beam. The 346 control and 348 candidate share the updated host,
+SDK and core menu policy. This proves native parity under that policy; historical
+slow-menu clocks intentionally differ. Three separate menu pairs add 5,367 ordered
+presentations and 18 complete checkpoints. Room 01 native parity retains its
+explicit matched narrow configuration; widescreen has separate source proof.
+An independent audit rechecked all 21,256 raw checkpoint-component pairs and the
+ordered presentation files rather than trusting report booleans alone.
 
-## Next work
+All 79 canonical stock-ROM captures were collected and SDK-ingested under the
+actual final 348 executable/program identity: 12,714 unique raw records, zero loss
+counters and no warnings. Totals are 779,465,595 interpreted instructions and
+2,617,665,034 interpreted guest cycles. Do not credit differences from older
+selected-build totals solely to native promotion: core menu/host policy and
+metadata also changed. The matched 26 proof above isolates native recovery work.
+These observations do not automatically promote code.
 
-1. Native death/revival and boss orchestration with proven stack/width exits.
-   For native loops after yields, prove an explicit continuation ABI carrying
-   owner entryS/frame kind across the original scheduler; extra roots alone do
-   not execute because LLE bounces only at actual JSR/JSL call edges. Preserve
-   fallback instead of relaxing arbitrary jump/fallthrough dispatch.
-2. More menu/layout/transition and actor ownership checks, custom renderer scope
-   and isolated normally paced frame-time measurements.
-3. Natural progression,2A/3F classification,credits,controllers/GPU hardware.
-   Optional in-game map follows source-backed room/door evidence.
+Public source/roots/selectors reproduce the selected program. The upstream pin
+remains `a6be9756285f26ccc74539c811d4d23d57d8c33d`; the 54-path cumulative framework
+patch was applied to a fresh pinned clone and all 54 source texts matched the live
+SDK after line-ending normalization. Reconstructed guarded-HLE 3 and continuation
+matcher 1 tests pass. The real bridge harness passes 198 checks, including rollback
+invalidation with unchanged generation. Preserve the deliberately dirty local
+SDK; do not reset it or stage its gitlink. Seven protected owner files are unchanged.
 
-All 25 old timing/audio exact deferrals, camera exclusions and 0080E6 opening
-floor remain interpreted. SDK upstream/public pin a6be9756285f26ccc74539c811d4d23d57d8c33d
-was verified current; cumulative 47-path patch unchanged. Preserve deliberately
-dirty local SDK 273d075a4e7f55e61816e98f91d1ed29f596525c; do not reset/bootstrap or
-stage its gitlink. Smooth stays removed, Enhanced optional, stateformat3/raster
-journals mandatory, retexture shelved. Publish substantial ROM-free source batches.
+## Remaining work
+
+1. Broader death/revival and boss orchestration, promoting only source-proven
+   stack/width contracts with actual native execution and exact matched replays.
+2. Remaining menu/transition loader work, other layout/actor ownership checks,
+   custom-renderer scope and normally paced frame-time measurements.
+3. Natural campaign progression, records 2A/3F entry classification, full credits,
+   optional soundtrack/audio and controller/GPU hardware qualification. The
+   optional in-game map should follow source-backed room/door evidence.
+
+Audio diagnostic captures remain optional; accelerated PCM output-ring overflow
+can differ even for an identical executable. No full audio or hardware parity is
+claimed. Smooth stays removed, Enhanced optional, state format 3/raster journals
+mandatory and retexture shelved. Publish substantial ROM-free source batches.

@@ -12,6 +12,12 @@ import time
 
 DIAGNOSTIC_RANGES={'SNESRECOMP_AOTBLK': (10,10000000),
                    'SNESRECOMP_CYC_WATCH': (16,0xffffff)}
+DIAGNOSTIC_BOOLEANS={'SNESRECOMP_HOST_PROFILE','SNESRECOMP_LLE_BOUNCE'}
+
+
+def validate_diagnostic_boolean(key,value):
+    if key not in DIAGNOSTIC_BOOLEANS or value not in {'0','1'}:
+        raise SystemExit('Diagnostic boolean must be 0 or 1: '+key+'='+value)
 
 
 def validate_diagnostic_range(key,value):
@@ -173,22 +179,23 @@ def main():
                       'LAGOON_SCENE_RENDERER_REPORT',
                       'SNESRECOMP_APURAM_TRACE_FILE','SNESRECOMP_DSPREG_TRACE_FILE','SNESRECOMP_DSPOUT',
                       'SNESRECOMP_FRAME_TIMING'}
-    diagnostic_numbers={'SNESRECOMP_HOST_PROFILE','SNESRECOMP_HOST_PROFILE_START_FRAME'}
+    diagnostic_numbers={'SNESRECOMP_HOST_PROFILE_START_FRAME'}
+    diagnostic_booleans=DIAGNOSTIC_BOOLEANS
     diagnostic_ranges=DIAGNOSTIC_RANGES
     overrides={}
     for spec in args.env:
         key,sep,value=spec.partition('=')
-        if not sep or key not in diagnostic_paths|diagnostic_numbers|diagnostic_ranges.keys()|{'LAGOON_WIDE_ASPECT','LAGOON_SCENE_RENDERER'}:
+        if not sep or key not in diagnostic_paths|diagnostic_numbers|diagnostic_booleans|diagnostic_ranges.keys()|{'LAGOON_WIDE_ASPECT','LAGOON_SCENE_RENDERER'}:
             raise SystemExit('Unsupported diagnostic override: '+spec)
         if key in diagnostic_paths:
             p=Path(value);p=(p if p.is_absolute() else out/p).resolve()
             if not p.is_relative_to(out) or p.exists():raise SystemExit('Diagnostic outputs must be fresh paths within --out')
             p.parent.mkdir(parents=True,exist_ok=True);value=str(p)
+        elif key in diagnostic_booleans:
+            validate_diagnostic_boolean(key,value)
         elif key in diagnostic_numbers:
             if not re.fullmatch(r'[0-9]+',value) or not 0<=int(value)<=1000000:
                 raise SystemExit('Diagnostic numeric overrides must be unsigned integers <=1000000')
-            if key=='SNESRECOMP_HOST_PROFILE' and value not in {'0','1'}:
-                raise SystemExit('HOST_PROFILE must be 0 or 1')
         elif key in diagnostic_ranges:
             validate_diagnostic_range(key,value)
         elif key=='LAGOON_SCENE_RENDERER':

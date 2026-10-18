@@ -68,7 +68,7 @@ python -P tools/campaign_coverage.py --registry '<private-registry.json>' --out 
 ```
 
 The wrapper requires a successful, script-isolated run, route/manifest identity,
-all seven dump components, and v2 capture identity matching the receipt's ROM,
+all eight dump components, including SRAM, and v2 capture identity matching the receipt's ROM,
 program and actual executable digest. Captures must use Lagoon's main-module
 LoROM identity. Paths must remain within each run; output must be fresh and must
 not overlap inputs, and per-file reads are bounded to
@@ -276,3 +276,30 @@ new widescreen output has independent source and runtime verification. No
 code is automatically promoted from these observations. Records 2A/3F remain
 entry gaps: the older script-only/alias labels above are hypotheses, rather
 than established classifications. Map crops alone cannot resolve their IDs.
+
+
+## Batch 14 refresh
+
+All 79 canonical stock-ROM captures were collected from the actual selected 348
+binary and ingested as one compatible identity. SDK audit accepted 779,465,595
+interpreted instructions,2,617,665,034 interpreted guest cycles, 8,372 PC/mode
+variants (8,363 addresses), 515 transfer variants and 12,714 unique raw records.
+All four loss counters are zero; capture IDs are unique and warnings are empty.
+The exact executable/program hashes appear in[batch14](../NATIVE-BATCH14-2026-10-17.md).
+
+Each capture is bound to a successful strict comparison against an actual 346
+control built with the same updated host/SDK/core menu policy. All 99 regression
+pairs match 151,417 ordered presentations and 2,657 complete checkpoints. An
+independent raw-file audit verifies 21,256 component pairs. Room 01 retains its
+explicit matched narrow config; intentional widescreen changes are verified
+separately. Historical setup/scenario labels remain declared context and are not
+new independent victory audits. Records 2A/3F remain unobserved entry gaps.
+
+The separate 26 combat/primary proof attributes 19,892 fewer interpreted instruction
+executions (19,867 nonreturn) to actually executed recovery continuations in 13
+fixtures. It deduplicates PC/mode keys within each fixture, not across different
+replay scenarios. Do not sum that total with canonical 79 totals, treat it as a
+completion percentage or attribute differences from historical 346 statistics
+solely to native work: core menu/host policy and metadata also changed. Current
+native gain is isolated by matched-host controls. Ingestion does not generate
+code, change policy or automatically promote observations.

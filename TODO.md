@@ -22,13 +22,16 @@ batches. Generated routine counts are not campaign completion percentages.
       all 326 prior modes retained, SRAM-aware replay checks and room-01 scenery.
 - [x] Batch 13: original six-guardian death escapes, revival/recovery entries,
       status/destination-fade torch ownership, strict optional audio diagnostics
-      and linked area-map references. Cooperative recovery loops still use LLE.
+      and linked area-map references; post-wait recovery was intentionally deferred.
+- [x] Batch 14: source-guarded HP/MP recovery continuations across original waits,
+      all 346 prior modes retained, 99 exact matched-host replays, built-in menu
+      acceleration and original-art Equipment expansion in three areas.
 - [ ] Promote full death/revival and remaining boss-phase orchestration
       only after proving their indirect and nonlocal stack continuations.
 - [ ] Continue native promotion from measured hot paths; resolve existing
       native-versus-pure-interpreter timing differences. Keep 00:80E6 interpreted.
 - [x] Use CompanionLauncher 0.2.0 instead of the old pre-boot launcher.
-- [x] Native display/audio/gamepad settings, Apply/Revert, ten QoL toggles,
+- [x] Native display/audio/gamepad settings, Apply/Revert, optional gameplay changes,
       experimental widescreen aspects and preserved settings/bindings.
 - [x] Sword reach: guarded directional extents match the supplied BPS's +/-38.
 - [x] Followers: guarded ally tier-zero velocity +/-1 -> +/-3.
@@ -61,8 +64,13 @@ batches. Generated routine counts are not campaign completion percentages.
 - [x] Keep verified world scenery behind Start and town dialogue; reflow Items
       and Magic frames from original pixels without stretching text/icons.
 - [x] Audit Gold Cave rooms 4, 5 and 6, real door transitions and world extents.
-- [ ] Adapt title/intro, equipment/save layouts and unaudited scripted scenes.
-- [x] Optional Faster menus: one second less fade delay entering Items/Magic.
+- [x] Widen Equipment using exact original title/body/cursor pixels and audited
+      frame/chain/divider sources in room 01, Atland and the cave (1,491 menu fields).
+- [ ] Adapt title/intro, Save and remaining unaudited scripted/menu layouts.
+- [x] Built-in Items/Magic/Equipment transition acceleration with transactional
+      original-resource decoding; 75 streams / 300 original-instruction oracle cases.
+- [ ] Profile remaining original world-loader close work (56 room-01 / 63 Atland
+      blank fields) without broadening unsupported decoder or return-frame guards.
 - [x] Remove Smooth scaling; retain optional Enhanced original pixels.
 - [x] Preserve both raster register journals in development states; fix alternating
       black frames after cold loading, with consecutive-field and hidden GPU checks.
@@ -96,16 +104,17 @@ batches. Generated routine counts are not campaign completion percentages.
       journal-loss, duplicate-session, bounds and guest-failure checks.
 - [x] Resolve the expanded candidate's Ella and handoff timing regressions;
       select 326 native variants (+136), qualified through 95 strict replays.
-- [ ] Investigate 22 deferred exact modes: 20 bank-00 interrupt/display paths,
-      actor-event sound timing at 01C2CD:M1X0 and graphics timing at 02D1C5:M1X0.
+- [ ] Investigate 25 deferred exact modes: 20 bank-00 interrupt/display paths,
+      actor-event sound timing at 01C2CD:M1X0, graphics timing at 02D1C5:M1X0
+      and audio modes 008D82/008DCE/008DFE:M1X0.
       Preserve qualified sibling modes and the interpreter until proven safe.
-- [ ] Natural campaign progression, source/runtime classification of records2A/3F,
+- [ ] Natural campaign progression, source/runtime classification of records 2A/3F,
       unobserved entry routes and complete credits qualification.
 - [ ] Optional in-game map showing Nasir, visited rooms, doors and key locations;
       build from source-proven room data after broad campaign coverage.
 
-Every QoL feature and widescreen defaults off. Exact implementation/evidence:
-[native batch](NATIVE-BATCH9-2026-10-15.md), [QoL](QOL-IMPLEMENTATION.md),
+Optional gameplay QoL and widescreen default off; menu acceleration is core behavior. Exact implementation/evidence:
+[native batch](NATIVE-BATCH14-2026-10-17.md), [QoL](QOL-IMPLEMENTATION.md),
 [widescreen](docs/WIDESCREEN.md).
 
 The supplied BPS is a private reference. Keep the clean ROM identity for

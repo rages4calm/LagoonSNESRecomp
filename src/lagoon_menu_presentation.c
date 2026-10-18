@@ -27,6 +27,7 @@ LagoonMenuPanel LagoonMenuPresentation_Identify(const Ppu *p, const uint8_t *ram
     if(y<4 || y>=25 || x<4 || x>=28)frame=hash_word(frame,p->vram[0x7000+y*32+x]);
   if(frame==0xC8B4967Au)return LAGOON_MENU_ITEMS;
   if(frame==0xB406703Fu)return LAGOON_MENU_MAGIC;
+  if(frame==0x0261EEF5u)return LAGOON_MENU_EQUIPMENT;
   return LAGOON_MENU_NONE;
 }
 static int equal_period(const uint32_t *native, unsigned y0, unsigned y1) {
@@ -37,9 +38,18 @@ static int equal_period(const uint32_t *native, unsigned y0, unsigned y1) {
 }
 static int layout(uint8_t *dst, size_t pitch, const uint32_t *native,
     unsigned width, LagoonMenuPanel panel) {
-  if(!equal_period(native,0,32) || !equal_period(native,200,224) ||
+  int equipment=panel==LAGOON_MENU_EQUIPMENT;
+  /* The longer equipment label overlaps the inner eight pixels of the
+   * ordinary chain witness. Preserve its complete 144px center, and verify
+   * the remaining sixteen pixels of both original 24px joins. The immutable
+   * equipment perimeter fingerprint still proves the full source template. */
+  if(equipment)for(unsigned y=0;y<32;++y)for(unsigned x=0;x<16;++x)
+    if(native[y*256+40+x]!=native[y*256+64+x] ||
+       native[y*256+176+x]!=native[y*256+200+x])return 0;
+  if((!equipment && !equal_period(native,0,32)) || !equal_period(native,200,224) ||
       (native[0]&0xFFFFFFu))return 0;
-  if(panel==LAGOON_MENU_MAGIC)for(unsigned y=130;y<=131;++y)
+  unsigned divider=equipment?154:130;
+  if(panel==LAGOON_MENU_MAGIC || equipment)for(unsigned y=divider;y<=divider+1;++y)
     for(unsigned x=24;x<232;++x)if(native[y*256+x]!=native[y*256+40])return 0;
   unsigned virtual_width=256+48*((width-240)/48);
   int left=((int)width-(int)virtual_width)/2;
@@ -55,12 +65,14 @@ static int layout(uint8_t *dst, size_t pitch, const uint32_t *native,
         if(vx<40)sx=vx;
         else if(vx>=(int)virtual_width-40)sx=vx-(int)extra;
         else if(y<32 || y>=200) {
-          if(x>=center+88 && x<center+168)sx=(int)x-(int)center;
-          else if(x<center+88)sx=40+(vx-40)%24;
+          unsigned title_left=equipment && y<32?56:88;
+          unsigned title_right=equipment && y<32?200:168;
+          if(x>=center+title_left && x<center+title_right)sx=(int)x-(int)center;
+          else if(x<center+title_left)sx=40+(vx-40)%24;
           else sx=168+(int)(x-center-168)%24;
         } else if(x>=center+40 && x<center+216)sx=(int)x-(int)center;
         if(sx>=0 && sx<256)color=native[y*256+(unsigned)sx];
-        if(panel==LAGOON_MENU_MAGIC && (y==130 || y==131) &&
+        if((panel==LAGOON_MENU_MAGIC || equipment) && (y==divider || y==divider+1) &&
             vx>=24 && vx<(int)virtual_width-24)color=native[y*256+40];
       }
       row[x]=color;

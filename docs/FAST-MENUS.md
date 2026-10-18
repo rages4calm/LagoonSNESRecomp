@@ -1,49 +1,70 @@
-# Faster Items and Magic fades
+# Core menu transitions
 
-`lagoon.quality:fast_menus` is optional and defaults off. It changes only the
-three-frame brightness steps used by the proven Items/Magic submenu entry
-fade-out and fade-in to one frame each. A full pair uses 30 fade frames instead
-of 90. It does not remove resource decoding, VRAM queues, world or introduction
-fades, or accelerate unrelated menus. Actual runtime qualification belongs to the
-combined native candidate; standalone tests do not establish a measured release.
+Menu speed is part of the port. Items, Equipment and Magic no longer need an
+optional faster-menu feature. The old `lagoon.quality:fast_menus` feature and
+activation plugin remain as harmless compatibility aliases for existing catalogs;
+the launcher does not expose or change their saved values.
 
-The original Items route spends about 61 additional blank fields doing active
-resource work: resources 7, 8 and 6 pass through `0094A1`, the `009143` decoder,
-and real VRAM queues. These operations remain intact. This option can remove
-roughly one second of the proven fade pair; it does not make loading instant.
+The core implementation has two parts:
 
-## Exact authorization
+- Original brightness steps take one frame instead of three, only when real
+  return frames identify one of these submenu opening/closing paths.
+- A guarded native implementation expands the original compressed resources
+  synchronously. The original VRAM upload/DMA code still consumes the result.
 
-`LagoonFastMenus_Reset(rom,size)` disables the feature and validates the timer
-helper and six fade/caller instruction sites. Plugin activation enables it only
-after those checks pass. The parent calls `LagoonFastMenus_Filter` from the WRAM
-write hook with the scoped interpreter context and live RAM.
+Unknown resources, changed instruction/payload bytes, unrecognized stack chains,
+wrong CPU modes and ordinary room loads retain the original native/interpreter
+path. The original decoder body remains available when the guarded entry refuses.
+The synchronous computation intentionally removes guest work and its intervening
+blank frames; clock parity with the historical slow menu is not claimed.
 
-Only a value-three write to canonical WRAM `023C` at instruction `0084E0`, in
-native CPU mode M1/X0/E0 and an actual interpreter scope, qualifies. Two checked
-guest JSL return frames must identify the matching fade and menu caller:
+## Ownership and refusal
 
-| Direction | Inner return | Items outer return | Magic outer return |
-|---|---|---|---|
-| Fade out | `0083D8` | `02B6B9` | `02B7E3` |
-| Fade in | `008471` | `02B6E6` | `02B817` |
+The dictionary implementation is a handwritten transcription of `$00:9143..9303`.
+It runs on private WRAM and CPU copies. Bounds, dictionary traversal, termination,
+original payload identity, consumed/output sizes and the complete real return
+frame must validate before anything is committed. Refusal leaves WRAM, CPU and
+the result parameter unchanged. The original final RTL consumes the validated
+JSL frame; the original caller then queues and transfers the pixels normally.
 
-Wrong pairs, unknown modes/stacks, native cursors, mismatched ROM bytes, other
-addresses/values and disabled activation pass through. The module never writes
-RAM directly. Its constructor registers only the activation plugin. It does not
-replace the existing write hook, decoder, interrupt handling or interpreter.
+Opening resources 6/7/8 are authorized through the original `0094A1` parent and
+Items/Magic/Equipment helper frames. Closing resources require the actual world
+loader `018874`/`018889` return, its two nested JSR frames, the bank dispatcher
+frame and an exact submenu-close caller. Common close resources 9 and 0 have their
+own original nested caller guards. Merely being in a menu or forced blank is
+insufficient. Ordinary room transitions through the shared loader stay original.
 
-ROM-free unit tests use synthetic instruction-site guards, exercise all four
-contexts and refusals, confirm immutable RAM and 45-to-15 timer ticks per fade,
-and verify reset disables activation. Private combined-run fixtures separately
-sample brightness and end states with fast menus off/on.
+The timer filter also checks original instruction bytes and the complete close
+dispatcher chain. All optional gameplay changes can remain off while core menu
+timing works. The SDK's `hle_guard_func` keeps the original decoder body/modes
+and calls the title guard after its original entry deadline/refresh checks.
 
-A further integrated check enabled **only** `fast_menus`, with camera and recovery
-features disabled. Items reached full brightness at field 1919 instead of 1979:
-60 fields earlier. Forced-blank loading remained 61 fields in both runs. The
-complete framebuffer, WRAM, registers, VRAM, OAM and CGRAM matched at town,
-settled Items and return checkpoints. Guest clock phase differed by 6 and 12
-master ticks at the latter checkpoints, so exact clock parity is not claimed
-between feature modes. This confirms the scoped context is available when fast
-menus is the only optional feature. The private integrated receipt records all
-469 snapshots in each run and the empty/off versus single-feature/on catalogs.
+## Verification
+
+The pure decoder was compared with the original instructions using the SDK's
+65C816 interpreter, poisoned complete WRAM and varied CPU flags, including the
+decimal flag. All 128 KiB of WRAM and A/X/Y/S/D/DB/P were compared immediately
+before the original RTL, including dictionary scratch and dead hardware-stack
+bytes. Guard tests additionally check resource output and genuine return-frame
+consumption, plus transactional refusal for invalid contexts.
+
+Private frozen core qualification measured opening from first dimmed field to
+full brightness: Items 148 to 40, Magic 146 to 38 and Equipment 147 to 39 fields. All
+three close paths improved 199 to 85 fields; forced-blank improved 112 to 56 fields.
+These are real menu inputs and original resources in room01. Remaining 56 blank
+fields perform other original world-loader work and remain a profiling target.
+Menus are faster, not instantaneous.
+
+There are 75 distinct pinned streams: three opening streams, 70 BG/OBJ streams
+observed in the 73-room campaign, and two common close/HUD resources. An independent
+original-instruction oracle matched all 75 across four poisoned WRAM/CPU-flag
+seeds (300 cases). Unknown streams retain the original native decoder. Guard
+tests exercise 225 positive contexts and 1800 transactional refusals. The private
+historical non-menu room03 comparison also remains exact across 861 ordered
+pictures and four full state/clock samples.
+
+Items' settled submenu matches complete historical WRAM and all graphics
+resources; Magic's graphics resources also match, with timer/dead-stack phase
+differences. Equipment animates its cursor, so historical samples after different
+menu timing are not claimed byte-identical. Final matched-host native qualification
+and narrow/wide presentation pairs belong to the batch handoff.

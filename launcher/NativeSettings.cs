@@ -32,13 +32,13 @@ internal static class NativeSettings
             "SDL axis units, 0–32767. Existing controller GUIDs and bindings are preserved.")
     };
     // Add features only after their native implementation has been qualified.
-    internal static readonly string[] Features = { "walk_speed", "start_hp", "camera_center", "sword_reach", "follower_speed", "recovery_time", "exp_boost", "jump_hold", "magic_power", "fast_menus" };
+    internal static readonly string[] Features = { "walk_speed", "start_hp", "camera_center", "sword_reach", "follower_speed", "recovery_time", "exp_boost", "jump_hold", "magic_power" };
     private static string FeatureLabel(string id) => id switch {
         "walk_speed" => "Walking speed: 5 pixels/frame", "start_hp" => "More forgiving opening",
         "camera_center" => "Immediate camera following", "sword_reach" => "Sword reach: 38 pixels",
         "follower_speed" => "Follower speed: 3 pixels/frame", "recovery_time" => "Eight extra protection frames",
         "exp_boost" => "EXP rewards: +50%", "jump_hold" => "Eight-frame jump peak hold",
-        "magic_power" => "Stronger magic", "fast_menus" => "Faster Items and Magic fades", _ => id };
+        "magic_power" => "Stronger magic", _ => id };
     private static readonly OptionDefinition[] SoundtrackOptions = {
         new("audio.soundtrack", "Audio", "Soundtrack", OptionKind.Choice, OptionValue.From("snes"),
             "X68000 is experimental: title, Atland and opening Gold Cave only. Other music uses SNES. Tracks restart on state load; run-ahead and netplay use SNES.",
@@ -64,7 +64,7 @@ internal static class NativeSettings
         .Concat(Fields.Skip(2).Select(x => x.Option)).Concat(SoundtrackOptions).Concat(Features.Select(id =>
         new OptionDefinition("qol." + id, "Quality of life", FeatureLabel(id), OptionKind.Boolean, OptionValue.From(false),
             id == "start_hp" ? "New-game starting stats and level-two growth. Does not rewrite an existing save." :
-            id == "fast_menus" ? "Shorter Items/Magic fade steps. Resource loading and world fades remain unchanged. Restart after Apply." : "Optional native gameplay change. Restart the game after Apply.")));
+ "Optional native gameplay change. Restart the game after Apply.")));
     internal static bool IsNative(string id) => id == EnhancedPixels.Id || Fields.Any(x => x.Id == id) || SoundtrackOptions.Any(x => x.Id == id) || Features.Any(feature => id == "qol." + feature);
     private static string Config(IReadOnlyDictionary<string, JsonElement> values) => values["config.path"].GetString()!;
     private static string State(IReadOnlyDictionary<string, JsonElement> values) =>

@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
   assert(fread(rom,1,0x100000,f)==0x100000); fclose(f);
   memcpy(stock,rom,0x100000);
   enabled_all=0; LagoonQol_OnRomLoaded(rom,0x100000);
-  assert(!memcmp(stock,rom,0x100000)); assert(!read_filter);
+  assert(!memcmp(stock,rom,0x100000)); assert(read_filter);
   for (unsigned i=0;i<0x20000;i++) assert(filter(i,(uint8_t)i)==(uint8_t)i);
   enabled_all=1; LagoonQol_OnRomLoaded(rom,0x100000);
   assert(rom[0xE141]==18 && rom[0xE142]==21 && rom[0xE143]==23);
@@ -201,10 +201,10 @@ int main(int argc, char **argv) {
   /* One failed guard refuses the whole associated ROM feature. */
   memcpy(rom,stock,0x100000); rom[0xFFBB]^=1;
   LagoonQol_OnRomLoaded(rom,0x100000); assert((rom[0x131DC]|rom[0x131DD]<<8)==500);
-  enabled_all=0; LagoonQol_OnRomLoaded(stock,0x100000); assert(!read_filter);
+  enabled_all=0; LagoonQol_OnRomLoaded(stock,0x100000); assert(read_filter);
   enabled_all=2; LagoonQol_OnRomLoaded(stock,0x100000);
   assert(read_filter && !g_camera_center && !g_recovery_time);
-  assert(read_filter(0x501,0x17,NULL)==0x17); /* fast-menu-only context observer */
+  assert(read_filter(0x501,0x17,NULL)==0x17); /* core menu context observer, legacy alias has no control */
   free(rom); free(stock);
   puts("QoL checks passed: off identity, data patches, new-game guard, follower exclusion, recovery/jump timers, guard refusal");
   return 0;

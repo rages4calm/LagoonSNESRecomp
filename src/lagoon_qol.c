@@ -1,6 +1,6 @@
 /* lagoon_qol.c — owner-requested quality-of-life features, opt-in.
  *
- * Every feature here is OFF by default, and the faithful game is what a player
+ * Gameplay features here are OFF by default, and original gameplay is what a player
  * gets if they change nothing. These are trusted static plugins: the mod runtime
  * resolves the enabled set before frame 1 and calls what this file registered
  * under the matching plugin id (docs/MOD_PACKAGES.md), and packages themselves
@@ -235,10 +235,9 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
   if (!rom) {
     return;
   }
-  /* Interpreter write markers need live scoped registers even when the
-   * read-view features are off. The registered filter then returns unchanged. */
-  if(snes_mod_runtime_feature_enabled_c(QOL_PACKAGE_ID,"fast_menus"))
-    cpu_set_wram_read_filter_hook(qol_filter_read);
+  /* Core menu timer writes require scoped interpreter registers even when
+   * optional gameplay features are off. The read view itself stays unchanged. */
+  cpu_set_wram_read_filter_hook(qol_filter_read);
   /* Each data patch is guarded on its own, so one refused patch cannot silence
    * another. With every feature off neither branch runs and the ROM image the
    * guest sees is byte-for-byte the one on disk. */
