@@ -34,6 +34,7 @@
 
 #include "game_rtl.h"
 #include "lagoon_native_recovery.h"
+#include "lagoon_menu_close.h"
 #include "lagoon_soundtrack.h"
 #include "lagoon_state.h"
 #include "lagoon_widescreen.h"
@@ -44,6 +45,7 @@
 void GameRunOneFrame(void)
 {
     LagoonNativeRecovery_BeforeFrame();
+    LagoonMenuClose_BeforeFrame();
     LagoonCampaignDebug_BeforeFrame();
     snes_beam_frame_driver_run_frame();
 }

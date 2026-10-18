@@ -154,7 +154,7 @@ void LagoonWide_Reset(void) {
   s_state_generation = RtlStateGeneration();
 }
 
-static int room_bounds_enabled(unsigned room) { return (room==1 || room==2) || (room>=4 && room<=6); }
+static int room_bounds_enabled(unsigned room) { return (room==1 || room==2) || (room>=4 && room<=6) || room==8; }
 static int audited_room_resources(void) {
   unsigned room=word(0x48e);
   return (!room_bounds_enabled(room) ||
@@ -201,7 +201,7 @@ static int retained_scene_matches(void) {
   unsigned destination=word(0x48e);
   if(!s_retained.valid || s_retained.generation!=RtlStateGeneration() ||
       g_snesrecomp_last_hdmaen ||
-      !(destination==0 || destination==1 || destination==2 || (destination>=3 && destination<=6)) ||
+      !(destination==0 || destination==1 || destination==2 || (destination>=3 && destination<=6) || destination==8) ||
       (g_ppu->bgmode&7)!=1 || (g_ppu->mosaic&3) ||
       PPU_bigTiles(g_ppu,0) || PPU_bigTiles(g_ppu,1) ||
       PPU_bgTileAdr(g_ppu,0)!=0 || PPU_bgTileAdr(g_ppu,1)!=0 ||

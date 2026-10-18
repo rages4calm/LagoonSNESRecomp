@@ -67,6 +67,40 @@ cached margins. Private receipt: `work-native-batch14-20261017-181844/widescreen
 
 ## Integration verification
 
+### Room08 backdrop and Save prompt
+
+The next ordinary-map backdrop uses its own audited resource tuple and exact
+1536 by 1024 extent. Its world, cave-collapse dialogue, Save prompt and return
+to the world can retain original-art margins. The dialog box, text and entire
+native center stay unchanged. All existing character, map, OAM, PPU and state
+generation checks still apply; this is not a general admission of later rooms.
+
+The first Start panel in this fixture still declines for 35 fields when its
+resource ownership cannot be proved. That fallback remains intentional and is
+tested explicitly. Room07 also remains unsupported: its quarter-speed BG2 uses
+a vertical tilemap, requiring a separate parallax resolver. Merely adding its
+room number would not establish correct scenery ownership.
+
+An isolated baseline check also confirmed that Atland's existing Save prompt
+already retained wide scenery before this change. No Save-specific drawing fix
+is claimed there. The private room08 source/actor and complete guest-state
+checks are recorded in
+`work-native-batch15-20261017-191138/widescreen/ROOM08-FOCUSED-QUALIFICATION.json`;
+the final combined native/menu build passed the same two routes with matched
+wide/narrow settings: 2,368 presentation fields and all eight guest components
+at 15 checkpoints agree. Across 1,643 valid wide fields, the backdrop contains
+136,904,490 nonblack margin pixels. Twelve snapshots match original background
+colors plus original OAM/VRAM/CGRAM actor pixels at the exact same coordinates.
+The actual Save and Start maps also match the inspected original UI templates;
+Start's 35-field refusal remains explicit. This is source-pixel and state proof,
+not a fullscreen performance measurement.
+
+Final executable SHA-256: `26b96b8f4c2c02e5be908e424df1a44a810baf4573e84afa971b6e964ff366ba`.
+Manifest SHA-256: `3d6f473e2c69ba3d26f76c9e8c6b0c15e031845dbec64356d6d678effb86398b`.
+Private integrated receipt: `work-native-batch15-20261017-191138/widescreen/final-room08-FINAL-PROOF.json`.
+
+### Historical Items/Magic integration (October15)
+
 Combined executable SHA-256: `14be32d86a553a27f47971bf5479f9900d225c832f6ee5dc016b870d1423a507`.
 
 Same-route wide/narrow checks matched the complete guest framebuffer, WRAM, CPU/PPU register dump, VRAM, OAM, CGRAM and clock information at all four snapshots for both Items and Magic. All 2,007 Items and 2,013 Magic presentation frame/alpha entries matched. Host-composed CRCs differ as expected because the frame is wider; they are not a guest-state parity claim.

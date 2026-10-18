@@ -8,8 +8,9 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 This is a playable development port with generated native routines and an
 interpreter safety net. It is **not a fully native or fully qualified campaign**.
-The selected program has **348 AOT variants, 123 declared LLE variants and
-234 analysis roots**, preserving all 346 previously selected native variants.
+Selected batch 15 has **361 AOT variants, 123 declared LLE variants and 244 analysis
+roots**, preserving all 348 previous native variants and adding 13 original boss
+animation/state modes. The interpreter safety net and prior exclusions remain.
 Native work includes movement, room/actor loading, actor updates, combat helpers,
 damage arithmetic, EXP/gold/level progression, first-boss logic and bounded
 HP/death HUD tails. Remaining death, boss and dispatch paths retain fallback.
@@ -34,29 +35,30 @@ receipts distinguish cheats from real HP changes, rewards and progression.
 Canonical coverage is ingested through the SDK with identity, journal-loss and
 runtime-failure checks; feature-patched ROM captures remain separate.
 
-The larger candidate's Ella rendering glitch and native handoff timing failures
-are resolved in this narrower selected program. **99 frozen replay comparisons**
-match a 346-variant control built with the same updated host/SDK at all
-**151,417 ordered presentations and 2,657 complete checkpoints**, including guest clocks and beam position. All prior timing/audio exclusions and camera seams remain interpreted. Native work now
-includes the original guardian-death escape, revival wrapper, recovery prefixes,
-the HP/MP cap lookup, actor-hit selector setup and original HP/MP recovery loops
-across their cooperative waits. Four source-guarded continuation descriptors
-retain the real return frames and refuse unsupported contexts. Across 26 combat
-and primary replays, 13 execute the new continuations: 19,892 fewer interpreted instruction
-executions, including 19,867 nonreturn instructions, counted by unique PC/mode
-within each fixture. These are replay execution counts, not globally unique PCs
-or a measured wall-clock speedup.
-SRAM is included in strict comparisons. Room 01 uses a fresh matched narrow pair
-for native checks because its new wide margins intentionally change pictures.
-Public analysis seeds and timing selectors reproduce the program without private
-captures. See [batch 14](NATIVE-BATCH14-2026-10-17.md),
-[timing details](tools/NATIVE-TIMING.md), [current status](docs/DEVELOPMENT-STATUS.md),
-[boss checks](tools/CAMPAIGN-BOSSES.md), [endgame checks](tools/CAMPAIGN-ENDGAME.md)
-and [coverage workflow](tools/CAMPAIGN-COVERAGE.md).
+The earlier Ella rendering and native handoff timing regressions remain fixed.
+Native work includes the original guardian-death escape, revival/recovery helpers,
+HP/MP caps, hit selectors and witnessed recovery after cooperative waits. Batch 15
+adds source-closed boss animation counters, staged frame selection and child
+sprite-state helpers. Final matched-host combat/primary checks pass 26/26: 25 fixtures execute new
+work, removing 186,682 interpreted instruction executions, 146,299 excluding returns.
+The new bodies contain 174 unique original PC/mode keys; executions are counted
+exclusively within each replay, not globally unique addresses or measured FPS.
+Final 99 comparisons and actual 79-capture SDK ingestion pass.
+
+All 25 timing/audio deferrals, camera seams and the 0080E6 opening interpreter floor
+remain. The selected 361 program passes 99 matched comparisons against 348 under the same
+updated host: 151,417 ordered presentations and 2,657 full checkpoints, including
+SRAM, registers and guest clocks/beam. Room 01 native parity uses its explicit matched narrow configuration;
+wide output has independent source and pixel checks. Public analysis roots and
+timing selectors reproduce the program without private captures.
+See [batch 15](NATIVE-BATCH15-2026-10-17.md),[timing details](tools/NATIVE-TIMING.md),
+[current status](docs/DEVELOPMENT-STATUS.md),[boss checks](tools/CAMPAIGN-BOSSES.md),
+[endgame checks](tools/CAMPAIGN-ENDGAME.md) and [coverage workflow](tools/CAMPAIGN-COVERAGE.md).
 
 Widescreen supports 16:9, 16:10, 21:9, 32:9 and window-driven aspects in audited
 areas. Supported town dialogue, Items/Magic/Equipment, room-01 interior scenery, outdoor scenery and Gold Cave rooms
-have guarded expansion. Outgoing fades retain proven old scenery until the real
+have guarded expansion. Batch 15 also expands Elf Field (room 08)
+with independently verified background and actor source pixels. Outgoing fades retain proven old scenery until the real
 PPU changes resources. Unsupported areas and effects retain reference output;
 Room 01 status and its audited destination fade retain wide scenery through
 verified torch animations. Equipment now extends its original frame, chain and
@@ -79,9 +81,10 @@ Smooth/bilinear scaling was removed at the user's request. Enhanced original
 pixels remains optional. Fresh version-3 states preserve live execution, PPU
 ports and both raster journals; old/incomplete states refuse cleanly. See
 [save-state details](docs/SAVE-STATES.md). Menu acceleration is now built in: audited Items/Magic/Equipment openings take
-40/38/39 fields instead of 148/146/147. Their room-01 closes take 85 fields instead
-of 199; Atland closes take 92 instead of 226. Other loader work still leaves 56/63
-blank fields, so transitions are not instant. The original upload path and
+40/38/39 fields instead of 148/146/147. Batch 15 closes improve room 01 from 85 to 60
+fields and Atland from 92 to 61, retaining 31/32 blank fields respectively. Original
+queue-full waits still execute. Remaining loader work means transitions are not
+instant. The original upload path and
 unsupported decoder contexts remain intact. See [menu details](docs/FAST-MENUS.md).
 
 The original opening-dispatch interpreter repair remains in place. Existing

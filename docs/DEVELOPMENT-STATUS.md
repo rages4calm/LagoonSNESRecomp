@@ -1,87 +1,71 @@
 # Current development checkpoint — October 17, 2026
 
-Batch 14 is selected. Read [batch 14](../NATIVE-BATCH14-2026-10-17.md) and the
-parent HANDOFF-NATIVE-BATCH14-2026-10-17.md before continuing.
+Batch 15 is selected after final qualification and cold checks. Read
+[batch 15](../NATIVE-BATCH15-2026-10-17.md) and the parent batch 15 handoff when available.
 
-`build/LagoonSNESRecomp.exe`, also frozen as `build/lagoon-native-batch14.exe`.
-Executable SHA256: `9b63dc19d3a9d4f92e269a14b28d8375758e3543d7bfd00205151c94b1a4787a`.
-Manifest SHA256: `8e77084f01c937896a4aeaef1b91aea464acd7c724325dcb5065f93f5deb2027`.
-**348 AOT / 123 declared LLE / 234 roots**; all 346 earlier native modes retained.
+Selected test entry: `build/LagoonSNESRecomp.exe`; frozen copy:
+`build/lagoon-native-batch15.exe`. Current program: **361 AOT / 123 declared LLE / 244 roots**, retaining all 348.
+Selected executable SHA256:
+`26b96b8f4c2c02e5be908e424df1a44a810baf4573e84afa971b6e964ff366ba`.
+Selected manifest SHA256:
+`3d6f473e2c69ba3d26f76c9e8c6b0c15e031845dbec64356d6d678effb86398b`.
 
-## Native recovery and safety
+## Native scope
 
-Original HP/MP recovery continuations `01D4A2:M1X0` and `01D4CC:M1X0` now execute
-across the game's cooperative waits. Four source-validated descriptors cover
-item/revival and actual event/boss caller frames. Single-use provenance checks
-original stack bytes, owner return, SP, M/X/E/DB/D, source identity and timeline
-generation. Unsupported contexts retain LLE. Successful rollback restore clears
-ephemeral authority even when state generation is intentionally preserved.
-E1 stack wrapping is unsupported and refused. No netplay qualification is claimed.
+Thirteen source-closed original boss animation/state modes add 174 unique original
+instruction-PC/mode keys. They use WRAM/ROM calculations and balanced frames;
+the only child call targets existing native AFFA. The original AF1E three-phase
+table is modeled explicitly. Final matched-host 26 comparisons pass: all 13 new modes execute,
+and 25 fixtures remove 186,682 interpreted instruction executions, 146,299 excluding
+returns. Counts deduplicate overlapping root bodies within each fixture. Final matched-build proof binds both exact binaries; this is not a host-FPS or full-native percentage.
 
-Across 26 matched combat/primary replays, 13 execute the new continuations:
-**19,892 fewer interpreted instruction executions, including 19,867 nonreturn instructions**.
-PC/mode keys are deduplicated within each fixture; these are not 19,892 globally
-unique addresses or a measured host speedup. The original guardian nonlocal
-92A0 death leaf remains native, while parent `$01:9266` and broader orchestration retain
-fallback. All 25 prior timing/audio exact deferrals, camera seams and the `0080E6`
-opening interpreter floor remain. No arbitrary jump/fallthrough dispatch was enabled.
+All 348 prior modes, 25 timing/audio deferrals, camera seams and 0080E6 opening
+floor remain. Existing witnessed recovery continuations retain their complete
+source/stack/mode/generation checks. Broader boss/death orchestration and the
+SPC-poll path remain interpreted. No new SDK change is needed this batch.
 
-## Core menus and widescreen
+## Menus and widescreen
 
-Menu speed is built in; the old Faster menus flag/plugin is a compatibility alias.
-Audited Items/Magic/Equipment openings take 40/38/39 fields, previously 148/146/147.
-Room 01 closes take 85 instead of 199; Atland closes 92 instead of 226. Remaining
-world-loader work still leaves 56/63 blank fields respectively. Guarded native
-resource decoding commits CPU/WRAM only after complete source/frame validation;
-unknown contexts execute the original native 9143 body. Original upload/DMA stays.
-75 pinned streams pass 300 independent original-instruction oracle cases.
+Built-in Items/Magic/Equipment openings stay 40/38/39 fields. New map/tile queue
+computation improves room 01 closing 85 to 60 and Atland 92 to 61, with 31/32 blank
+fields still present. Original queue-full waits, uploads and fallback paths stay.
+The 676 new original-opcode oracle cases compare full 128 KiB WRAM and CPU/flags;
+635 production-hook checks include 204 readonly refusals, plus five private real
+entry positives. Previous 300 decoder-oracle cases remain separately covered.
 
-Equipment extends original frame/chain/divider pixels in room 01, Atland and the
-cave. Three-area verification covers 1,491 Equipment fields, 3,305 total presentations
-and 14 checkpoints, retaining the original title/body/cursor. Existing modal
-status/fade/reset checks preserve 2,112 native centers and 13 state/clock samples.
-Unsupported layouts/resources remain guarded. The live custom renderer retains
-its stable-Atland scope; no new locked 60 FPS or full retexture claim.
+Elf Field (room 08) source-qualified narrow/wide checks pass 2,368 presentations
+and 15 complete checkpoints on the selected build. Real background/actor source
+pixels and scene bounds are checked. The initial Start panel retains 35 fallback
+fields; room 07 parallax remains unsupported. Existing Equipment/modal coverage
+and stable-Atland custom rendering remain. No new locked 60 FPS claim.
 
 ## Qualification and reproduction
 
-**99 strict matched-host pairs / 151,417 ordered presentations / 2,657 checkpoints**
-pass, including framebuffer, WRAM, VRAM, OAM, palette memory, SRAM, CPU registers
-and guest clocks/beam. The 346 control and 348 candidate share the updated host,
-SDK and core menu policy. This proves native parity under that policy; historical
-slow-menu clocks intentionally differ. Three separate menu pairs add 5,367 ordered
-presentations and 18 complete checkpoints. Room 01 native parity retains its
-explicit matched narrow configuration; widescreen has separate source proof.
-An independent audit rechecked all 21,256 raw checkpoint-component pairs and the
-ordered presentation files rather than trusting report booleans alone.
+All 99 final comparisons match151,417 ordered presentations and 2,657 complete
+checkpoints. The independent audit rereads 21,256 raw component pairs and every
+presentation CSV row. Final 361 and 348 programs share identical new menu/wide/SDK
+host source; old menu clocks intentionally differ. Room 01 native parity uses
+its explicit matched narrow input. Elf Field has separate source/pixel proof.
 
-All 79 canonical stock-ROM captures were collected and SDK-ingested under the
-actual final 348 executable/program identity: 12,714 unique raw records, zero loss
-counters and no warnings. Totals are 779,465,595 interpreted instructions and
-2,617,665,034 interpreted guest cycles. Do not credit differences from older
-selected-build totals solely to native promotion: core menu/host policy and
-metadata also changed. The matched 26 proof above isolates native recovery work.
-These observations do not automatically promote code.
+Actual canonical 79 SDK ingestion accepts 779,259,162 interpreted instructions,
+2,616,804,523 guest cycles, 8,252 PC/mode variants (8,243 addresses),514 transfers
+and 12,713 unique raw records under the final 26b96/3d6f identity. All loss counters
+are zero and warnings are empty. Keep these totals separate from the matched 26
+execution proof and historical host-policy costs; ingestion promotes no code.
 
-Public source/roots/selectors reproduce the selected program. The upstream pin
-remains `a6be9756285f26ccc74539c811d4d23d57d8c33d`; the 54-path cumulative framework
-patch was applied to a fresh pinned clone and all 54 source texts matched the live
-SDK after line-ending normalization. Reconstructed guarded-HLE 3 and continuation
-matcher 1 tests pass. The real bridge harness passes 198 checks, including rollback
-invalidation with unchanged generation. Preserve the deliberately dirty local
-SDK; do not reset it or stage its gitlink. Seven protected owner files are unchanged.
+Actual public regeneration reproduces all 17 generated C files byte-for-byte;
+only module build-lineage identity differs. Public roots/config/selectors
+reproduce the program. The upstream a6be975 pin and
+54-path framework patch are unchanged. Preserve the deliberately dirty SDK and
+do not stage its gitlink. Owner files stay protected; all seven owner files remain unchanged. Cold selected
+native checks and the direct Items replay pass. Source publication follows the
+completed verification batch.
 
 ## Remaining work
 
-1. Broader death/revival and boss orchestration, promoting only source-proven
-   stack/width contracts with actual native execution and exact matched replays.
-2. Remaining menu/transition loader work, other layout/actor ownership checks,
-   custom-renderer scope and normally paced frame-time measurements.
-3. Natural campaign progression, records 2A/3F entry classification, full credits,
-   optional soundtrack/audio and controller/GPU hardware qualification. The
-   optional in-game map should follow source-backed room/door evidence.
-
-Audio diagnostic captures remain optional; accelerated PCM output-ring overflow
-can differ even for an identical executable. No full audio or hardware parity is
-claimed. Smooth stays removed, Enhanced optional, state format 3/raster journals
-mandatory and retexture shelved. Publish substantial ROM-free source batches.
+Broader native death/boss orchestration; remaining menu-close loader work;
+room 07 parallax and guarded Start/Save/scripted layouts; records 2A/3F entry
+classification; natural campaign/full credits; optional soundtrack/audio;
+and broader hardware/controller/frame-time qualification. The optional in-game
+map follows source-proven room and door data. Keep interpreter fallback until
+its replacements have source, actual-execution and exact matched-replay proof.

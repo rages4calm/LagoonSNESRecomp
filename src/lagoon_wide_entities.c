@@ -195,7 +195,8 @@ int LagoonWideEntities_BoundedRoom(unsigned room,unsigned width,unsigned height)
       (room==2 && width==512 && height==512) ||
       (room==4 && width==768 && height==256) ||
       (room==5 && width==1536 && height==1280) ||
-      (room==6 && width==512 && height==256);
+      (room==6 && width==512 && height==256) ||
+      (room==8 && width==1536 && height==1024);
 }
 
 int LagoonWideEntities_AuditedRoom(unsigned room,unsigned bg,unsigned obj,
@@ -204,7 +205,8 @@ int LagoonWideEntities_AuditedRoom(unsigned room,unsigned bg,unsigned obj,
   return (room==0 && bg==0x138000 && obj==0x198000 && d0==0x068000) ||
          (room>=3 && room<=6 && bg==0x128b77 && obj==0x1d8000 && d0==0x069298) ||
          (room==1 && bg==0x139a7a && obj==0x1a8000 && d0==0x0689e0) ||
-         (room==2 && bg==0x128000 && obj==0x1a8000 && d0==0x068e90);
+         (room==2 && bg==0x128000 && obj==0x1a8000 && d0==0x068e90) ||
+         (room==8 && bg==0x12b297 && obj==0x1891e4 && d0==0x06999c);
 }
 
 int LagoonWideEntities_WorldCharacters(const uint16_t *vram,

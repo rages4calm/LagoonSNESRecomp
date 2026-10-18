@@ -68,3 +68,48 @@ resources; Magic's graphics resources also match, with timer/dead-stack phase
 differences. Equipment animates its cursor, so historical samples after different
 menu timing are not claimed byte-identical. Final matched-host native qualification
 and narrow/wide presentation pairs belong to the batch handoff.
+
+## Closing map and queue work (batch15)
+
+The close loader now performs two bounded RAM computations in native C:
+
+- `02:C5C6` fills the original 32 KiB map and expands both metatile planes, then
+  resumes the original RTL at `02:C64D`.
+- `00:89EC` builds only the world loader's original 1x1 tile rectangles. The
+  original 480-entry queue capacity stays fixed. A full queue resumes at `00:8A97`,
+  so the original PHX/PHY/JSL8985 wait, NMI upload and register restoration still
+  execute. Other rectangles and callers use the original interpreter.
+
+Both hooks require the original instruction bytes, native CPU widths, binary
+arithmetic, direct page 0, the original submenu-close caller/dispatcher frames,
+forced blank and valid source bounds. Unknown PCs/frames/modes/data refuse
+without changing RAM, CPU or the pending redirect. Map output is transactional;
+the fixed tile path validates every bound before its first write and has no
+allocation or other fallible work afterward.
+
+Private source qualification measured room01 Items, Magic and Equipment closing
+at 60 fields instead of batch14's 85; town 61 instead of 92; outdoor room02 60 instead of 85.
+Opening stays 40/38/39 fields. Forced blank is 31 fields (town 32). The remaining
+loader still spends time on original DMA waits and the broader 0189F5 coordinate
+and initialization loop. Reducing that needs a separate parent-loop model;
+these hooks do not skip it or speed unrelated room loads.
+
+The independent original-opcode oracle covers 73 room map configurations across
+four poisoned RAM/CPU-flag seeds (292 cases), plus 384 tile cases including the
+full queue, FFFF sentinel, destination wrapping, carry and overflow. All 128 KiB
+of WRAM and architectural registers/flags match at the original RTL/wait seams.
+Decimal mode is explicitly refused. The actual full-queue PHX/PHY/JSL wait and
+next-field restoration were witnessed at runtime. Instrumentation separately
+matched the same updated-core program exactly across 1,762 pictures and six full
+state/clock checkpoints; comparing old/new menu timing is intentionally unequal.
+
+Reproduce the ROM-free tests and original-opcode checks with your own clean ROM:
+
+```powershell
+./tools/test_core_menus.ps1 -Rom '<path to clean Lagoon USA ROM>' `
+  -OutDir '<fresh private output directory>' -Compiler '<path to clang.exe>'
+```
+
+The tests contain source addresses, dimensions and expected counts, not ROM
+assets or captured game-state payloads. Final integrated build qualification
+belongs to the current batch handoff.

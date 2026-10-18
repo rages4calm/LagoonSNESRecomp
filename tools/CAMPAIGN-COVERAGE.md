@@ -250,11 +250,11 @@ The 341-variant executable's 79 canonical stock-ROM captures were collected and
 ingested by the SDK: 779,468,994 interpreted instructions, 2,617,679,683 guest
 cycles, 8,412 PC/mode variants (8,403 addresses), 518 transfers and 12,723 unique
 raw records. All four loss counters are zero and audit warnings are empty.
-Against the matched326 fixture set, interpreted instructions fall by 35,302.
+Against the matched 326 fixture set, interpreted instructions fall by 35,302.
 
 The original room-01 wide capture intentionally changes presentation margins.
 Its strict historical CRC comparison remains a difference. Canonical room-01
-qualification uses a fresh matched326/341 narrow host config pair with the same
+qualification uses a fresh matched 326/ 341 narrow host config pair with the same
 guest route, seed, setup and features. That presentation-config exception is
 explicit in the registry. Other canonical fixtures retain their original
 matched inputs. These remain assisted replays; only the known script-only2A
@@ -282,10 +282,10 @@ than established classifications. Map crops alone cannot resolve their IDs.
 
 All 79 canonical stock-ROM captures were collected from the actual selected 348
 binary and ingested as one compatible identity. SDK audit accepted 779,465,595
-interpreted instructions,2,617,665,034 interpreted guest cycles, 8,372 PC/mode
+interpreted instructions, 2,617,665,034 interpreted guest cycles, 8,372 PC/mode
 variants (8,363 addresses), 515 transfer variants and 12,714 unique raw records.
 All four loss counters are zero; capture IDs are unique and warnings are empty.
-The exact executable/program hashes appear in[batch14](../NATIVE-BATCH14-2026-10-17.md).
+The exact executable/program hashes appear in [batch 14](../NATIVE-BATCH14-2026-10-17.md).
 
 Each capture is bound to a successful strict comparison against an actual 346
 control built with the same updated host/SDK/core menu policy. All 99 regression
@@ -303,3 +303,28 @@ completion percentage or attribute differences from historical 346 statistics
 solely to native work: core menu/host policy and metadata also changed. Current
 native gain is isolated by matched-host controls. Ingestion does not generate
 code, change policy or automatically promote observations.
+
+
+## Batch 15 refresh
+
+All 79 actual canonical captures from the final 361 executable were collected and
+SDK-ingested under one program/build identity. Accepted totals: 779,259,162
+interpreted instructions, 2,616,804,523 guest cycles, 8,252 PC/mode variants (8,243
+addresses),514 transfer variants and 12,713 unique raw records. Capture IDs are
+unique, all four loss counters are zero and audit warnings are empty.
+
+Every capture binds to a successful final comparison against the 348 program
+built with the same updated menu/widescreen/SDK host source. The full 99 suite
+matches 151,417 ordered presentations and 2,657 complete checkpoints; independent
+raw review checks all 21,256 component pairs and CSV rows. Room 01 retains its
+explicit matched narrow input. Elf Field and menu timing have separate source
+and runtime evidence. Records 2A/3F remain entry/classification gaps; inherited
+scenario/setup labels are declared context, not new independent victory audits.
+
+The separate final 26 matched execution proof removes 186,682 interpreted
+instruction executions, 146,299 nonreturn, across 25 active fixtures. All 13 new
+modes execute, with 174 globally unique original body-PC/mode keys. Overlapping
+bodies are deduplicated per replay. Do not add these counts to canonical 79 totals,
+interpret historical cost changes solely as native gains, or infer whole-game
+completion, independent hardware parity or host FPS. Current profiles do not
+automatically promote code; public source/config policy remains authoritative.

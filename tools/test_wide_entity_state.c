@@ -117,6 +117,15 @@ static void audited_rooms(void) {
   for(unsigned room=4;room<=6;++room)
     assert(LagoonWideEntities_AuditedRoom(room,0x128b77,0x1d8000,0x069298,0x069298,0x7f0000,0x7f4000));
   assert(!LagoonWideEntities_AuditedRoom(7,0x128b77,0x1d8000,0x069298,0x069298,0x7f0000,0x7f4000));
+  assert(!LagoonWideEntities_BoundedRoom(7,1024,1024));
+  assert(LagoonWideEntities_BoundedRoom(8,1536,1024));
+  assert(!LagoonWideEntities_BoundedRoom(8,1536,768));
+  assert(!LagoonWideEntities_BoundedRoom(8,1024,1024));
+  assert(LagoonWideEntities_AuditedRoom(8,0x12b297,0x1891e4,0x06999c,0x06999c,0x7f0000,0x7f4000));
+  assert(!LagoonWideEntities_AuditedRoom(8,0x12b297,0x1891e4,0x06999c,0x069298,0x7f0000,0x7f4000));
+  assert(!LagoonWideEntities_AuditedRoom(8,0x12b297,0x198000,0x06999c,0x06999c,0x7f0000,0x7f4000));
+  assert(!LagoonWideEntities_AuditedRoom(8,0x12b297,0x1891e4,0x06999c,0x06999c,0x7f0000,0x7f8000));
+  assert(!LagoonWideEntities_AuditedRoom(7,0x12b297,0x1891e4,0x06999c,0x06999c,0x7f0000,0x7f4000));
   assert(LagoonWideEntities_AuditedRoom(0,0x138000,0x198000,0x068000,0x068000,0x7f0000,0x7f4000));
   assert(LagoonWideEntities_AuditedRoom(2,0x128000,0x1a8000,0x068e90,0x068e90,0x7f0000,0x7f4000));
   assert(LagoonWideEntities_AuditedRoom(3,0x128b77,0x1d8000,0x069298,0x069298,0x7f0000,0x7f4000));

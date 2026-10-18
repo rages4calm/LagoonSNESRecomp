@@ -26,6 +26,10 @@ batches. Generated routine counts are not campaign completion percentages.
 - [x] Batch 14: source-guarded HP/MP recovery continuations across original waits,
       all 346 prior modes retained, 99 exact matched-host replays, built-in menu
       acceleration and original-art Equipment expansion in three areas.
+- [x] Batch 15 selected after final matched-host qualification: 13 source-closed
+      boss animation/state modes (361 total), native map/tile queue work for menu
+      close, and guarded Elf Field widescreen. All 99 native comparisons, actual
+      canonical 79 ingestion, final wide checks and cold selected checks pass.
 - [ ] Promote full death/revival and remaining boss-phase orchestration
       only after proving their indirect and nonlocal stack continuations.
 - [ ] Continue native promotion from measured hot paths; resolve existing
@@ -56,7 +60,7 @@ batches. Generated routine counts are not campaign completion percentages.
       Current reset/load generation guards cancel stale host timers safely.
 - [x] Experimental additional world backgrounds at original pixel scale;
       16:9, 16:10, 21:9, 32:9 and window-driven aspects.
-- [ ] Complete widescreen off-screen entity composition/graphics staging,
+- [ ] Qualify room 07 parallax; continue widescreen off-screen entity composition/graphics staging,
       parallax, map bounds, room transitions, HUD/dialogue and campaign coverage.
 - [x] Expand audited outdoor room 2 using actual raster scroll anchors and
       mask beyond its real 512 by 512 extent. Natural walking, menu, doors and
@@ -66,11 +70,12 @@ batches. Generated routine counts are not campaign completion percentages.
 - [x] Audit Gold Cave rooms 4, 5 and 6, real door transitions and world extents.
 - [x] Widen Equipment using exact original title/body/cursor pixels and audited
       frame/chain/divider sources in room 01, Atland and the cave (1,491 menu fields).
-- [ ] Adapt title/intro, Save and remaining unaudited scripted/menu layouts.
+- [ ] Adapt title/intro, remaining Save/scripted layouts and guarded Start panels;
+      room 08 still keeps 35 conservative Start fallback fields.
 - [x] Built-in Items/Magic/Equipment transition acceleration with transactional
       original-resource decoding; 75 streams / 300 original-instruction oracle cases.
-- [ ] Profile remaining original world-loader close work (56 room-01 / 63 Atland
-      blank fields) without broadening unsupported decoder or return-frame guards.
+- [ ] Profile remaining original world-loader close work (31 room 01 /32 Atland
+      blank fields after batch 15 acceleration) without broadening unsupported decoder or return-frame guards.
 - [x] Remove Smooth scaling; retain optional Enhanced original pixels.
 - [x] Preserve both raster register journals in development states; fix alternating
       black frames after cold loading, with consecutive-field and hidden GPU checks.

@@ -85,7 +85,7 @@ it is not evidence that the actor-event data calculations themselves are wrong.
 The qualified native bodies in other modes and at other addresses remain
 independent of this deferral.
 
-## Graphics deferral and batch11 acceptance
+## Graphics deferral and batch 11 acceptance
 
 Graphics helper `02D1C5:M1X0` separately changed observed beam position in
 replays. Keeping that exact new mode interpreted restored those checks. Together
@@ -124,15 +124,15 @@ and the separately qualified intentional room-01 widescreen margin changes.
 
 ## Batch 13 death and cooperative recovery
 
-Original92A0 nonlocal guardian escape is native under the existing paired-call
+Original 92A0 nonlocal guardian escape is native under the existing paired-call
 ABI; its parent `$01:9266` remains interpreted. Six actual double-PLA escapes preserve
 guest PC/SP, memory, clocks and pictures. D481 and recovery entries/prefixes use
 source-specific940D normal-return closure, with no generic HUD contract change.
 Additional post-wait roots did not gain native execution: current LLE dispatch
-bounces at real calls, not arbitrary jumps/fallthroughs. SPC-poll937C similarly
+bounces at real calls, not arbitrary jumps/fallthroughs. SPC-poll 937C similarly
 remains inside its interpreted parent and is excluded from native gain claims.
 Native recovery after the first yield needs a proven continuation ABI, rather
-than more entry declarations. See [batch13](../NATIVE-BATCH13-2026-10-17.md).
+than more entry declarations. See [batch 13](../NATIVE-BATCH13-2026-10-17.md).
 
 The strict comparator additionally checks declared APURAM/DSP-register/PCM
 outputs by SHA256, length and run-relative output path. All other diagnostics
@@ -163,7 +163,7 @@ are rejected until wrapped stack witnesses exist. The continuation path also
 honors the existing bounce-disable and exact-mode exclusion gates, and clears
 the interpreter write-site context before native dispatch.
 
-Actual matched 346/348 comparisons pass 99/99: 151,417 ordered presentations and
+Actual matched 346/ 348 comparisons pass 99/99: 151,417 ordered presentations and
 2,657 complete checkpoints/clocks, with SRAM required. Both executables share
 the updated host/SDK/menu policy. Across the 26 combat/primary pairs, 13 execute
 new continuation work: 19,892 interpreted instruction executions disappear, including 19,867
@@ -186,3 +186,30 @@ passed explicitly; true returns use the correct normal/yield host-stack pop.
 outputs. Unknown menu contexts retain the original 9143 body. Intentional menu
 timing changes are qualified separately, not masked in native comparisons.
 See [batch 14](../NATIVE-BATCH14-2026-10-17.md).
+
+
+## Batch 15: bounded original boss animation/state handlers
+
+The selected 361-mode program retains all 348 previous native modes and adds 13 M1X0
+handlers with 174 unique original instruction-PC/mode keys. Original ROM/source
+review proves balanced returns, no mode changes or hardware/audio/scheduler
+calls, an already-native AFFA child and the exact AF1E three-word phase table.
+No SDK change, generic exit widening, arbitrary jump bounce or old timing/audio
+exclusion removal is required.
+
+Final matched-host 26 comparisons pass against the 348 control: all 13 new modes execute
+and 25 fixtures remove 186,682 interpreted instruction executions, 146,299 excluding
+returns. Exclusive PC/mode accounting deduplicates overlapping bodies per replay;
+this is not 186,682 distinct addresses or a wall-clock gain. Final matched-host accounting binds the exact 433f control and 26b96 candidate. Core map/tile queue acceleration intentionally
+changes old menu clocks, so the final 348 control and 361 candidate share that
+same updated host before strict native comparison.
+
+The new close-hook proof checks actual production registration/callbacks,
+original return chains, all three submenu owners, CPU mode/DB/D, source/scene
+flags and original code hashes. 635 public synthetic checks include 15 positives
+and 204 complete CPU/128 KiB-WRAM/redirect readonly refusals. Five private actual
+entries additionally pass. Full queue redirects before original 8A97 PHX/PHY/JSL
+wait; runtime tracing independently observes that wait and following restoration.
+The 676 original-opcode map/queue oracle cases preserve full WRAM and CPU/flags;
+previous 300 decoder cases are separate. Unknown callback PCs now explicitly
+refuse. See [batch 15](../NATIVE-BATCH15-2026-10-17.md) and [core menu scope](../docs/FAST-MENUS.md).
