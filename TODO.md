@@ -3,6 +3,38 @@
 Keep the interpreter safety net and publish source in substantial, verified
 batches. Generated routine counts are not campaign completion percentages.
 
+- [x] Batch23: native A7D6 paired player selector and complete AAC1 ordinary
+      Nasir death animation, including original AB1D drawing/RTS; other/fall
+      death AAF6 and ordinary walking A7FA remain interpreted.
+- [x] Native 9346 setup and 9368/9371 boss/special-actor death flash loop across
+      six real render/wait cycles; thirteen source/mode/stack/generation-owned
+      descriptors retain real saved flags/X and original owner frames.
+- [x] 57,600 generated-code/original-opcode cases, 285 registration checks,
+      1,510 existing ancestor cases,1,377 new flash source cases, actual SDK
+      eight-byte/six-cycle token checks and three configuration tests pass.
+      All 381 unaffected old bodies and exit facts remain exact; only A7B5's
+      source-proven dispatch branch changes to call the new native selector.
+- [x] Ten final old/new strict pairs: seven boss wins, revival, player death
+      and a separate player-animation watch.38,274 ordered observations and 20
+      complete eight-component/clock checkpoints match; AAC1 interpreter37->0.
+      All seven wins take six native flash render/wait pairs via 9321; B449 is
+      source/helper tested only. Existing revival is a regression, not new work.
+- [x] Exact stable room08 Elf Field renderer: three same-exe off/auto routes,
+      3,229 ordered observations, nineteen checkpoints,2,458 replacements,
+      597 draws and 91,202,496 source pixels with zero mismatches. Fix the
+      source-proven opening-quake margin lookup; retain the three old/new
+      strict-false reports for99 intentional expanded-picture changes per route.
+- [x] Integrate 49 upstream SDK commits through 37aba across 61 files additively,
+      preserving local framework changes and SDK HEAD/index. Cumulative patch
+      records the integration; never reset/bootstrap or stage the SDK Gitlink.
+- [x] Install exact tested batch23 27758caa /manifest9b718937 without rebuilding;
+      cold checks match 48 component hashes and110 owner inputs remain unchanged.
+      Hidden1080p EPX real-audio stable07 sample: 550 intervals, 60.09 updates/s,
+      p95 17.35 ms/max 17.81 ms,0 intervals above 25 ms. No scanout/locked60 claim.
+- [ ] Next native: original D8CE/CDB7 revival item/audio/render wait ownership,
+      B816 boss scripts and remaining AAF6 other/fall death. Preserve actual
+      frames, original audio/SPC waits and interpreter fallback.
+
 - [x] Install exact batch22 DDE68792 by moving qualified outputs, cold32-hash
       parity and7 owner-input hashes unchanged; real-audio1080p EPX room07
       stable sample60.09updates/s, p9517.68ms/max18.72ms,0 intervals above25ms.
@@ -12,8 +44,8 @@ batches. Generated routine counts are not campaign completion percentages.
 - [x] Eleven strict affected-route pairs: all seven assisted boss wins, revival,
       final-boss player death and partial HP/MP recovery with stock/centered camera;
       44,579 ordered observations and26 complete state/clock checkpoints.
-- [ ] Broader B816 boss scripts and B43E/9346 death/revival SPC/render ownership;
-      retain exact real-frame guards and the interpreter until qualified.
+- [x] Bounded9346 six-flash ownership completed in batch23; broader special
+      B43E branches, original SPC poll and B816 scripts remain interpreted.
 - [x] Extend the exact custom renderer to room07's independent quarter-speed
       BG2 parallax, source-owned static pages and finite1024x1024 bounds. Three
       fresh off/auto routes match3,252 ordered presentation observations and

@@ -539,6 +539,7 @@ void LagoonWide_BeginFrame(unsigned number) {
   PpuSetWidescreenLayerMask(g_ppu, 3);
   PpuSetWidescreenShadowNativeExactMask(g_ppu, view_parallax()?1:3);
   PpuSetWidescreenLayerClamp(g_ppu, 12); /* BG3 HUD remains native centered */
+  int shadow_y_bias[2]={0,0};
   for (int layer = 0; layer < 2; ++layer) {
     /* BG2 is fully owned static32x64 PPU data with its own per-line scroll.
      * Leave its exact native wrapping active; never seed it from BG1 maps. */
@@ -550,7 +551,14 @@ void LagoonWide_BeginFrame(unsigned number) {
     int wx = camera_x + ((sx - camera_x + 512) & 1023) - 512;
     int wy = camera_y + ((sy - camera_y + 512) & 1023) - 512;
     if (wx < 0) wx = sx;
-    if (wy < 0) wy = sy;
+    if (wy < 0) {
+      if(view_room()==8) {
+        /* Elf Field's actual camera quake crosses signed world zero while
+         * the PPU scroll wraps at1024. Keep its source coordinate signed:
+         * use a2048-pixel positive KEY bias, never physical map wrapping. */
+        shadow_y_bias[layer]=2048;wy+=shadow_y_bias[layer];
+      }else wy=sy;
+    }
     WsShadowSetWorld(layer, wx, wy);
     WsShadowSetScroll(layer, sx, sy);
     WsShadowSetBlankTile(layer, view_tile(layer, -16, -16));
@@ -566,7 +574,7 @@ void LagoonWide_BeginFrame(unsigned number) {
     int x1 = (wx + 256 + g_ppu->extraLeftRight + 8) / 8;
     for (int y = wy / 8; y <= (wy + 232) / 8 && y < 512; ++y)
       for (int x = x0 < 0 ? 0 : x0; x <= x1 && x < 4096; ++x)
-        WsShadowForceTile(layer, x, y, view_tile(layer, x * 8, y * 8));
+        WsShadowForceTile(layer, x, y, view_tile(layer, x * 8, y * 8-shadow_y_bias[layer]));
   }
 }
 
@@ -577,7 +585,7 @@ void LagoonWide_ObserveRaster(const Ppu *ppu,unsigned line,void *context) {
   LagoonSceneRenderer_ObserveRaster(ppu,line,g_ram,g_rom,0x100000,RtlStateGeneration(),
       !s_using_retained && s_was_active && !s_native_fallback && s_world_chars_ready &&
       (word(0x48e)==0 || word(0x48e)==3 || word(0x48e)==4 ||
-       word(0x48e)==5 || word(0x48e)==6 || word(0x48e)==7) && !g_snesrecomp_last_hdmaen);
+       word(0x48e)==5 || word(0x48e)==6 || word(0x48e)==7 || word(0x48e)==8) && !g_snesrecomp_last_hdmaen);
   if(!s_outdoor_frame || line<1 || line>224)return;
   if((s_using_retained ? !s_retained.valid : !audited_room_ready()) || !room_bounds_enabled(view_room()))return;
   if(view_parallax()) {
@@ -647,7 +655,7 @@ void LagoonWide_EndFrame(const uint8_t *field,unsigned number) {
   LagoonSceneRenderer_EndFrame(number,RtlStateGeneration(),
       !s_present_fallback && !s_using_retained && s_was_active &&
       (word(0x48e)==0 || word(0x48e)==3 || word(0x48e)==4 ||
-       word(0x48e)==5 || word(0x48e)==6 || word(0x48e)==7) && !g_snesrecomp_last_hdmaen);
+       word(0x48e)==5 || word(0x48e)==6 || word(0x48e)==7 || word(0x48e)==8) && !g_snesrecomp_last_hdmaen);
   if(!s_present_fallback && s_was_active)retain_completed_scene();
   report_outdoor(number);
   report_scene(number);

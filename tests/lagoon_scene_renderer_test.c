@@ -4,6 +4,9 @@
 #define LAGOON_WIDE_ENTITIES_DECODER_ONLY
 #include "../src/lagoon_wide_entities.c"
 #include "../src/lagoon_scene_renderer.c"
+/* Exercise the actual shared shadow API without changing SDK source. */
+#include "../snesrecomp/runner/src/snes/ws_shadow.c"
+int snes_frame_counter;
 static Ppu p;
 static uint8_t ram[131072],rom[1048576];
 static uint8_t expected[(800*4+16)*224],output[(800*4+16)*224];
@@ -257,6 +260,157 @@ static void room07_guards(const char *rom_path,const char *vram_path) {
   }
   puts("PASS room07 actual compressed source/page guards:1positive,32entry refusals,4raster refusals,generation refusal");
 }
+static void room08_setup(void) {
+  setup();ram[0x48e]=8;ram[0x53]=192;ram[0x55]=128;
+  pointer(0x57,0x12b297);pointer(0x5d,0x1891e4);
+  pointer(0x69,0x06999c);pointer(0x75,0x06999c);
+}
+static void room08_vectors(void) {
+  room08_setup();LagoonSceneRenderer_Reset();s_mode=2;
+  unsigned definitions=0;assert(scene_resources(ram,&definitions)&&definitions==0x3199c);
+  /* Native streamed tile0 is red, owned world-definition tile1 green; the
+   * backdrop is deliberately blue so clipping must explicitly produce black. */
+  for(unsigned i=0;i<4;++i){rom[0x3199c+i*2]=1;rom[0x3199d+i*2]=4;}
+  for(unsigned y=0;y<8;++y)p.vram[16+y]=255;
+  p.cgram[0]=31<<10;p.cgram[17]=31<<5;capture(23);
+  ScenePacket *s=&s_packets[s_complete];assert(s->valid&&s->finite_clip&&!s->parallax);
+  assert(s->world_width==1536&&s->world_height==1024);
+  const unsigned widths[]={256,342,682,800};
+  const int positions[][2]={{0,0},{1535,0},{0,1000},{1535,1000}};
+  for(unsigned k=0;k<4;++k)for(unsigned w=0;w<4;++w) {
+    unsigned width=widths[w];int left=(int)(width-256)/2;
+    s->wx=positions[k][0];s->wy=positions[k][1];s->serial=++s_serial;
+    render(s,width);
+    for(unsigned y=0;y<224;++y)for(unsigned x=0;x<width;++x) {
+      int native=(int)x>=left&&(int)x<left+256;
+      int qx=s->wx+(int)x-left,qy=s->wy+(int)y;
+      uint32_t color=native?0xff0000:qx>=0&&qx<1536&&qy>=0&&qy<1024?0x00ff00:0;
+      assert(s_pixels[y*width+x]==color);
+    }
+  }
+  s->wx=0;s->wy=0;s->count=1;s->objects[0]=(SceneObject){.x=-8,.y=0,.width=1,.height=1,.pixels={0x83e0},.priority=3,.slot=0,.order=1};
+  render(s,682);assert(!s_pixels[205]); /* Even authored OBJ outside the finite world is clipped. */
+  ScenePacket *other=&s_packets[s_complete^1];memcpy(other,s,sizeof(*s));
+  assert(same_source(s,other));other->finite_clip=0;assert(!same_source(s,other));
+  for(unsigned bad=0;bad<32;++bad) {
+    room08_setup();LagoonSceneRenderer_Reset();s_mode=2;
+    switch(bad) {
+      case 0:ram[0x48f]=1;break;case 1:ram[0x48e]=9;break;
+      case 2:ram[0x53]--;break;case 3:ram[0x53]++;break;
+      case 4:ram[0x55]--;break;case 5:ram[0x55]++;break;
+      case 6:ram[0x57]^=1;break;case 7:ram[0x5d]^=1;break;
+      case 8:ram[0x69]^=1;break;case 9:ram[0x75]^=1;break;
+      case 10:ram[0x88]^=1;break;case 11:ram[0x8b]^=1;break;
+      case 12:ram[0x100e]=1;break;case 13:ram[0x50]=2;break;
+      case 14:p.inidisp=14;break;case 15:p.bgXsc[1]=0x7a;break;
+      case 16:p.hScroll[1]++;break;case 17:p.vScroll[1]++;break;
+      case 18:p.bgmode=1;break;case 19:p.bgTileAdr^=1;break;
+      case 20:p.cgadsub=1;break;case 21:p.windowsel=1;break;
+      case 22:p.obsel=3;break;case 23:p.mosaic=1;break;
+      case 24:p.screenEnabled[0]=15;break;case 25:p.screenWindowed[0]=1;break;
+      case 26:p.setini=1;break;case 27:p.hScroll[2]=1;break;
+      case 28:p.vScroll[2]=1;break;case 29:p.oamaddh=0x80;break;
+      case 30:p.cgwsel|=1;break;case 31:ram[0x53]=128;break;
+    }
+    capture(23);assert(!s_packets[s_complete].valid);
+  }
+  room08_setup();LagoonSceneRenderer_Reset();s_mode=2;capture(23);assert(s_packets[s_complete].valid);
+  assert(!LagoonSceneRenderer_TryPresent(output,682*4,expected,682*4,682,224,24));
+  for(unsigned bad=0;bad<5;++bad) {
+    room08_setup();LagoonSceneRenderer_Reset();s_mode=2;
+    for(unsigned line=1;line<=224;++line) {
+      if(line==100){if(bad==0)p.hScroll[1]++;if(bad==1)p.vramWriteCount++;
+        if(bad==2)p.cgram[1]^=1;if(bad==3)p.oamWriteCount++;}
+      LagoonSceneRenderer_ObserveRaster(&p,line,ram,rom,sizeof(rom),bad==4&&line>100?24:23,1);
+    }
+    LagoonSceneRenderer_EndFrame(101,23,1);assert(!s_packets[s_complete].valid);
+  }
+}
+static void read_owned(const char *path,void *bytes,size_t n) {
+  FILE *f=fopen(path,"rb");assert(f&&fread(bytes,1,n,f)==n);assert(fgetc(f)==EOF);fclose(f);
+}
+/* Actual original-loader RAM/VRAM and ROM remain external, never embedded.
+ * Scalar rows independently decode the captured source, not final framebuffer pixels. */
+static unsigned room08_source_tile(const ScenePacket *s,unsigned layer,int x,int y) {
+  unsigned meta=x<0||y<0||x>=2048||y>=2048?ram[0x52]:s->maps[layer][(y/16)*128+x/16];
+  unsigned tile=s->defs[layer][meta*4+((x&8)?1:0)+((y&8)?2:0)];
+  return layer?tile&0xdfff:tile;
+}
+static void room08_shadow_zero(void) {
+  const int phases[]={-3,-2,-1,0,1,2,-1,-3,0};
+  unsigned long checks=0;unsigned old_wrong=0,native_row=0;
+  for(unsigned k=0;k<sizeof(phases)/sizeof(phases[0]);++k) {
+    int phase=phases[k],bias=phase<0?2048:0;
+    p.hScroll[0]=p.hScroll[1]=384;p.vScroll[0]=p.vScroll[1]=phase&1023;
+    ram[0x480]=128;ram[0x481]=1;ram[0x482]=ram[0x483]=0;
+    ram[0x484]=128;ram[0x485]=1;ram[0x486]=ram[0x487]=0;
+    capture(23);ScenePacket *s=&s_packets[s_complete];assert(s->valid&&s->wx==384&&s->wy==phase+1);
+    if(k==0||k==7)WsShadowReset(); /* Both reset and existing-key phase changes. */
+    for(unsigned layer=0;layer<2;++layer) {
+      WsShadowSetWorld(layer,384,phase+bias);WsShadowSetScroll(layer,384,phase&1023);
+    }
+    WsShadowFrame(&p);
+    for(unsigned layer=0;layer<2;++layer) {
+      int world_x=(int)WsShadowWorldX(layer),world_y=(int)WsShadowWorldY(layer);
+      /* Same exact key/source distinction as the title's audited08 path. */
+      int x0=(world_x-213-8)/8,x1=(world_x+256+213+8)/8;
+      for(int y=world_y/8;y<=(world_y+232)/8&&y<512;++y)
+        for(int x=x0<0?0:x0;x<=x1&&x<4096;++x)
+          WsShadowForceTile(layer,x,y,room08_source_tile(s,layer,x*8,y*8-bias));
+      for(unsigned y=0;y<224;++y)for(int x=-213;x<469;++x) {
+        if(x>=0&&x<256)continue;
+        int physical_y=phase+(int)y+1;
+        if(physical_y<0)continue; /* The independent finite mask blacks these pixels. */
+        unsigned expected_tile=room08_source_tile(s,layer,384+x,physical_y);
+        unsigned wrapped_y=(p.vScroll[layer]+y+1)&1023;
+        unsigned got=WsShadowTile(layer,x,wrapped_y,p.hScroll[layer],0,0xdead);
+        assert(got==expected_tile);
+        assert(scalar_graphics(s,got,(384+x)&7,physical_y&7,0,4)==
+          scalar_graphics(s,expected_tile,(384+x)&7,physical_y&7,0,4));
+        ++checks;
+        if(phase<0&&room08_source_tile(s,layer,384+x,(phase&1023)+(int)y+1)!=expected_tile)++old_wrong;
+      }
+      if(phase==-1&&k==2)for(unsigned x=384;x<640;x+=8) {
+        unsigned real=s->vram[0x7000+layer*0x800+((x/8)&31)+((x&256)?0x400:0)];
+        assert(real==room08_source_tile(s,layer,x,0));++native_row;
+      }
+    }
+  }
+  assert(old_wrong>0&&native_row==64);WsShadowReset();
+  printf("PASS actual WsShadow API negative08 Y/key-bias/phase/reset: %lu margin pixels,64native row0 tiles; old raw-scroll policy differs at %u source samples\n",checks,old_wrong);
+}
+static void room08_owned(const char *rom_path,const char *ram_path,const char *vram_path) {
+  room08_setup();read_owned(rom_path,rom,sizeof(rom));read_owned(ram_path,ram,sizeof(ram));
+  read_owned(vram_path,p.vram,sizeof(p.vram));
+  assert(word(ram,0x48e)==8&&word(ram,0x53)==192&&word(ram,0x55)==128);
+  p.hScroll[0]=p.hScroll[1]=word(ram,0x480);p.vScroll[0]=p.vScroll[1]=word(ram,0x482);
+  for(unsigned n=0;n<256;++n)p.cgram[n]=(n*1237)&32767;
+  LagoonSceneRenderer_Reset();s_mode=2;capture(23);ScenePacket *s=&s_packets[s_complete];assert(s->valid&&s->finite_clip);
+  const unsigned widths[]={256,342,682,800};
+  for(unsigned w=0;w<4;++w)for(unsigned y=0;y<224;++y) {
+    unsigned width=widths[w];int left=(int)(width-256)/2;
+    uint8_t depth[800]={0};uint16_t colors[800];for(unsigned x=0;x<width;++x)colors[x]=s->pal[0];
+    background_row(s,width,y,left,0,depth,colors);background_row(s,width,y,left,1,depth,colors);
+    for(unsigned x=0;x<width;++x) {
+      unsigned ez=0,ec=s->pal[0];
+      for(unsigned l=0;l<2;++l) {
+        int native=(int)x>=left&&(int)x<left+256;
+        int qx=(native?(int)s->native_x:s->wx)+(int)x-left,qy=(native?(int)s->native_y:s->wy)+(int)y;
+        unsigned tile;
+        if(native)tile=s->vram[(0x7000+l*0x800+((qy/8)&31)*32+((qx/8)&31)+((qx&256)?0x400:0))&32767];
+        else {
+          if(qx<0||qy<0||qx>=1536||qy>=1024)continue;
+          unsigned meta=s->maps[l][(qy/16)*128+qx/16];tile=s->defs[l][meta*4+((qx&8)?1:0)+((qy&8)?2:0)];if(l)tile&=0xdfff;
+        }
+        unsigned c=scalar_graphics(s,tile,qx&7,qy&7,0,4),z=(tile&0x2000?12:8)-l;
+        if(c&&z>ez){ez=z;ec=s->pal[((tile>>10)&7)*16+c];}
+      }
+      assert(depth[x]==ez&&colors[x]==ec);
+    }
+  }
+  room08_shadow_zero();
+  puts("PASS room08 actual ROM/loader RAM/VRAM scalar oracle independent pixels465920; synthetic edges1863680,32entry/5rasterrefusals,generation");
+}
 int main(int argc,char **argv) {
   setup();LagoonSceneRenderer_Reset();s_mode=2;
   for(unsigned width=256;width<=800;width+=272) {
@@ -359,7 +513,8 @@ int main(int argc,char **argv) {
   setup();for(unsigned line=1;line<=224;++line){if(line==100)p.wsOamLeftHintStrict=1;
     LagoonSceneRenderer_ObserveRaster(&p,line,ram,rom,sizeof(rom),7,1);}
   LagoonSceneRenderer_EndFrame(102,7,1);assert(!s_packets[s_complete].valid);
-  cave_vectors();additional_cave_vectors();cache_oracle();parallax_pixels();
-  assert(argc==1||argc==3);if(argc==3)room07_guards(argv[1],argv[2]);
+  cave_vectors();additional_cave_vectors();cache_oracle();parallax_pixels();room08_vectors();
+  assert(argc==1||argc==3||argc==5);if(argc==3)room07_guards(argv[1],argv[2]);
+  if(argc==5){assert(!strcmp(argv[1],"room08"));room08_owned(argv[2],argv[3],argv[4]);}
   puts("PASS independent planar rendering, immutable cached packets, full-word/pitch gate, verify/auto, reset and raster refusal");return 0;
 }

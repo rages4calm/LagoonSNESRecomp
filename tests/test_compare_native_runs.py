@@ -141,6 +141,40 @@ class StrictComparisonTests(unittest.TestCase):
         self.assertFalse(result['passed'])
         self.assertEqual(result['checkpoints'][0]['components']['wram.bin']['different_bytes'], 1)
 
+    def test_scene_report_destination_is_not_a_render_input(self):
+        for root in (self.a, self.b):
+            self.change_receipt(root, diagnostic_overrides={
+                'LAGOON_SCENE_RENDERER_REPORT': str(root / 'scene.json'),
+                'LAGOON_SCENE_RENDERER': 'off'})
+        (self.a / 'scene.json').write_text('{"renders":0}')
+        (self.b / 'scene.json').write_text('{"renders":12}')
+        self.assertTrue(compare.compare_runs(self.a, self.b)['passed'])
+
+    def test_scene_report_destination_must_stay_inside_run(self):
+        for root in (self.a, self.b):
+            self.change_receipt(root, diagnostic_overrides={
+                'LAGOON_SCENE_RENDERER_REPORT': str(root / 'scene.json')})
+        self.change_receipt(self.b, diagnostic_overrides={
+            'LAGOON_SCENE_RENDERER_REPORT': str(self.b / '..' / 'outside.json')})
+        self.assertFalse(compare.compare_runs(self.a, self.b)['valid_evidence'])
+
+    def test_scene_report_normalization_preserves_pixels_and_mode(self):
+        for root in (self.a, self.b):
+            self.change_receipt(root, diagnostic_overrides={
+                'LAGOON_SCENE_RENDERER_REPORT': str(root / 'scene.json'),
+                'LAGOON_SCENE_RENDERER': 'off'})
+        (self.b / 'presents.csv').write_text(
+            'present,frame,alpha,crc32,luma\n0,1,1.0000,deadbeef,1.000\n')
+        result = compare.compare_runs(self.a, self.b)
+        self.assertFalse(result['passed'])
+        self.assertIsNotNone(result['ordered_presentations']['first_mismatch'])
+        (self.b / 'presents.csv').write_bytes((self.a / 'presents.csv').read_bytes())
+        self.change_receipt(self.b, diagnostic_overrides={
+            'LAGOON_SCENE_RENDERER_REPORT': str(self.b / 'scene.json'),
+            'LAGOON_SCENE_RENDERER': 'auto'})
+        self.assertIn('diagnostic_overrides',
+                      compare.compare_runs(self.a, self.b)['input_differences'])
+
     def test_sram_change_fails_comparison(self):
         (self.b / 'dumps/one.sram.bin').write_bytes(b'\x01\x01')
         result = compare.compare_runs(self.a, self.b)

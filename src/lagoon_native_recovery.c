@@ -46,7 +46,28 @@ static int boss_source(void) {
     source_hash(0x0084DE,0xB)==UINT64_C(0xAE13AFE6E9FF1FC7) &&
     main_actor_source() && bytes(0x01C6AC,main_call,3);
 }
+/* Original PHA flags (one byte), then PHX (two bytes), remain below
+ * each REAL render/wait frame and above its source-owned JSR9346 frame. */
+static const InterpAotContinuation flash_entries[]={
+  {0x019364,0x01C643,0x019368,0x019321,{0x01C694,0x01C694},0,1,0,0,1,3,3,2},
+  {0x019364,0x01C643,0x019368,0x01B449,{0x01C694,0x01C694},0,1,0,0,1,3,3,2},
+  {0x01936D,0x0081B5,0x019371,0x019321,{0x0081BD,0x0081BD},0,1,0,0,1,3,3,2},
+  {0x01936D,0x0081B5,0x019371,0x01B449,{0x0081BD,0x0081BD},0,1,0,0,1,3,3,2}
+};
+static int flash_source(void) {
+  static const unsigned char call[]={0x20,0x46,0x93};
+  return source_hash(0x019346,0x3C)==UINT64_C(0x6C8672DD755B970E) &&
+    source_hash(0x01C643,0x98)==UINT64_C(0xD9D6D43B8EC714F4) &&
+    source_hash(0x0081AB,0x4C)==UINT64_C(0x64F433499AC470F7) &&
+    source_hash(0x0084DE,0xB)==UINT64_C(0xAE13AFE6E9FF1FC7) &&
+    bytes(0x01931E,call,3) && bytes(0x01B446,call,3);
+}
 static int recovery_source(const InterpAotContinuation *d) {
+  if(d->continuation_pc24==0x019368 || d->continuation_pc24==0x019371) {
+    for(unsigned i=0;i<sizeof(flash_entries)/sizeof(flash_entries[0]);++i)
+      if(!memcmp(d,flash_entries+i,sizeof(*d)))return flash_source();
+    return 0;
+  }
   if(d->continuation_pc24==0x01B806 || d->continuation_pc24==0x01B80F) {
     for(unsigned i=0;i<sizeof(boss_entries)/sizeof(boss_entries[0]);++i)
       if(!memcmp(d,boss_entries+i,sizeof(*d)))return boss_source();
@@ -91,16 +112,20 @@ static int recovery_source(const InterpAotContinuation *d) {
  * Child tokens still own their own seven-byte frames and actual wait returns. */
 static struct {uint64_t generation;uint16_t sp,entry_s;uint32_t owner;
   unsigned phase;unsigned char stack[4];} parent;
-static struct {unsigned long long takes[2],hp[2],mp[2],refused[2];unsigned registered,registration_attempts,failed_source_mask;} counts;
+static struct {unsigned long long takes[2],hp[2],mp[2],refused[2];unsigned long long flash_render[2],flash_wait[2];
+  unsigned registered,registration_attempts,failed_source_mask;} counts;
 static const char *report_path;
 static unsigned owner_index(uint32_t pc){return pc==0x01C6AF;}
 static void report(void) {
   if(!report_path || !*report_path)return;
   FILE *f=fopen(report_path,"wb");if(!f)return;
   fprintf(f,"{\"registered\":%u,\"registration_attempts\":%u,\"failed_source_mask\":%u,\"main\":{\"takes\":%llu,\"hp_to_mp\":%llu,\"mp_to_plx\":%llu,\"refusals\":%llu},"
-    "\"render\":{\"takes\":%llu,\"hp_to_mp\":%llu,\"mp_to_plx\":%llu,\"refusals\":%llu}}\n",
+    "\"render\":{\"takes\":%llu,\"hp_to_mp\":%llu,\"mp_to_plx\":%llu,\"refusals\":%llu},"
+    "\"death_flash\":{\"9321\":{\"render_takes\":%llu,\"wait_takes\":%llu},"
+    "\"B449\":{\"render_takes\":%llu,\"wait_takes\":%llu}}}\n",
     counts.registered,counts.registration_attempts,counts.failed_source_mask,counts.takes[0],counts.hp[0],counts.mp[0],counts.refused[0],
-    counts.takes[1],counts.hp[1],counts.mp[1],counts.refused[1]);fclose(f);
+    counts.takes[1],counts.hp[1],counts.mp[1],counts.refused[1],
+    counts.flash_render[0],counts.flash_wait[0],counts.flash_render[1],counts.flash_wait[1]);fclose(f);
 }
 static int parent_live(const CpuState *cpu) {
   return parent.phase && parent.generation==RtlStateGeneration() && cpu &&
@@ -112,6 +137,11 @@ static int recovery_hook(unsigned event,const CpuState *cpu,uint32_t source,
     uint32_t target,const InterpAotContinuation *d,uint16_t owner_entry_s,
     InterpAotAncestor *proposal) {
   if(event==INTERP_CONT_DISCARD){memset(&parent,0,sizeof(parent));return 0;}
+  if(event==INTERP_CONT_TAKE && d && (target==0x019368 || target==0x019371)) {
+    unsigned owner=d->owner_return_pc24==0x01B449;
+    if(target==0x019368)counts.flash_render[owner]++;else counts.flash_wait[owner]++;
+    return 0;
+  }
   if(event==INTERP_CONT_CALL && source==0x01B80B) {
     /* Even a refused/non-suspending new call invalidates the older ancestor. */
     memset(&parent,0,sizeof(parent));return 0;
@@ -168,11 +198,12 @@ void LagoonNativeRecovery_BeforeFrame(void) {
     {0x01930F,0x008985,0x019313,0x019294,{0x00898D,0x00899A},0,1,0,0,1,3,0,2}
   };
   if(!configured && g_rom) {
-    InterpAotContinuation all[9];memcpy(all,entries,sizeof(entries));
+    InterpAotContinuation all[13];memcpy(all,entries,sizeof(entries));
     memcpy(all+5,boss_entries,sizeof(boss_entries));
+    memcpy(all+9,flash_entries,sizeof(flash_entries));
     if(report_path && *report_path){counts.registration_attempts++;counts.failed_source_mask=0;
-      for(unsigned i=0;i<9;i++)if(!recovery_source(all+i))counts.failed_source_mask|=1u<<i;}
-    configured=interp_bridge_set_aot_continuations(all,9,recovery_source);
-    if(configured){interp_bridge_set_aot_continuation_hook(recovery_hook);counts.registered=9;}
+      for(unsigned i=0;i<13;i++)if(!recovery_source(all+i))counts.failed_source_mask|=1u<<i;}
+    configured=interp_bridge_set_aot_continuations(all,13,recovery_source);
+    if(configured){interp_bridge_set_aot_continuation_hook(recovery_hook);counts.registered=13;}
   }
 }

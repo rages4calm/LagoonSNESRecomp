@@ -24,6 +24,12 @@ try {
   & $boss $romPath
   if($LASTEXITCODE){throw 'Boss continuation guard test failed'}
 
+  $flash=Join-Path $target 'native-death-flash.exe'
+  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isrc -Isnesrecomp/runner/src tests/lagoon_death_flash_guard_test.c -o $flash
+  if($LASTEXITCODE){throw 'Death flash guard compilation failed'}
+  & $flash $romPath
+  if($LASTEXITCODE){throw 'Death flash guard test failed'}
+
   # Compile the current production matcher verbatim; no SDK edits or copy tree.
   $header=Get-Content -LiteralPath 'snesrecomp/runner/src/snes/interp_bridge.h' -Raw
   $source=Get-Content -LiteralPath 'snesrecomp/runner/src/snes/interp_bridge.c' -Raw

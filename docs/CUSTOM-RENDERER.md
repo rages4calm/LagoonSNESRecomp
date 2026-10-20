@@ -1,8 +1,8 @@
 # Bounded custom scene renderer
 
 The interpreter safety net remains in place. `src/lagoon_scene_renderer.c` adds
-a bounded live software scene backend for stable Atland, exact Gold Cave03/04/05/06
-and room07 with independently owned parallax, with Widescreen
+a bounded live software scene backend for stable Atland, exact Gold Cave03/04/05/06,
+room07 with independently owned parallax and ordinary room08 Elf Field, with Widescreen
 enabled. It captures its
 own scene packet, independently draws a field, and compares every 32-bit output
 pixel with the existing presentation before allowing replacement. Unsupported
@@ -14,6 +14,56 @@ computes and checks the candidate without replacing the picture. Implementation
 and ROM-free unit tests alone do not prove live gameplay coverage; bounded runtime
 acceptance is recorded separately. There is currently no launcher selector for
 this diagnostic.
+
+Batch23 adds exact stable room08 Elf Field. Its descriptor requires 1536x1024,
+BG12B297, OBJ1891E4, both06999C definition pointers, maps 7F0000/7F4000,
+ordinary WRAM50=0 and PPU layout 71/79/3C. The six animated world characters
+continue through their existing source-owned witness; no animation, actor or
+loading/fading authority is broadened. Finite clipping blacks physical pixels
+outside the exact world after composition. Earlier scene behavior is unchanged.
+
+Runtime qualification also found a real reference-widescreen bug during the
+opening Elf Field camera quake: WRAM camera Y0 and PPU Y1023 place the native
+first visible row at source-worldY0, while the old margin path substituted raw
+Y1023 and read blank map padding. Actual source snapshots prove all 32 native
+BG1 and 32 BG2 first-row tiles equal the original ROM/WRAM world row0.
+Only audited room08 negative-Y presentation keys now receive a 2048 bias, and
+source lookup subtracts that bias. This is a cache-key translation; the physical
+1536x1024 world does not wrap. Signed finite masks, native rendering and other
+rooms remain unchanged. The custom renderer keeps its independent signed camera.
+
+Final executable`27758caa6deb6bc2...`, manifest`9b718937025e37de...`, passes three
+fresh same-executable renderer-off/auto scopes:
+
+| Route | Ordered presentations | Replacements | Independent draws | Source pixels |
+| --- | ---: | ---: | ---: | ---: |
+| Original room08 loader/dialogue |861|604|177|27,039,936|
+| Dialogue, east, status/save and reset |962|705|178|27,192,704|
+| Complete dialogue, menus and reset |1,406|1,149|242|36,969,856|
+
+All 3,229 ordered presentation observations and nineteen seven-component
+checkpoints match, with 2,458 replacements, 597 draws, 91,202,496 source pixels
+and zero mismatches. These are overlapping assisted routes, not complete room
+or campaign coverage. The first scope replaces all 99 previously mismatching
+quake fields, rather than accepting those fields through fallback.
+
+Comparisons against the installed batch22 controls intentionally retain strict
+`passed:false`: each route has the same 99 changed expanded-picture CRCs during
+presentation 326..522. There are no other input or capture differences; all
+nineteen complete native/guest checkpoints and clocks remain exact, as do
+presentation counts, frame numbers and alpha. The repeated intervals are 99
+unique quake fields observed in three overlapping routes. No CRC mask is used.
+This is separately source-qualified visual correction, not strict old-picture
+parity or full per-frame guest/native-center logging.
+
+The helper additionally passes 465,920 scalar pixels from an external owned ROM
+and real loader RAM/VRAM, 1,863,680 synthetic finite-edge pixels, 32 entry refusals,
+five raster refusals and generation refusal. Tests directly exercise the actual
+SDK shadow API across negative phases -3/-2/-1, positive phases, resets and bias
+changes:1,713,372 margin checks and 64 real native-row source checks pass; the old
+raw-scroll policy differs at 513,870 source samples. The SDK implementation is
+included read-only by the test, with no SDK source change. Full-reference equality
+and interpreter fallback remain mandatory; the reference raster still runs.
 
 Batch22 adds stable room07 with exact1024x1024 dimensions, BG129E89,
 OBJ1A906F, definitions069720 and WRAM50=2. BG1 keeps the existing circular
@@ -149,6 +199,8 @@ ROM-free focused test:
 ```powershell
 clang -std=c11 -Wall -Wextra -Werror -I snesrecomp/runner/src tests/lagoon_scene_renderer_test.c -o <private-test.exe>
 & <private-test.exe>
+# Optional exact room08 source/shadow test, using matching private snapshots:
+& <private-test.exe> room08 <private.sfc> <room08.wram.bin> <room08.vram.bin>
 ```
 
 The vectors exercise planar source decoding, a stale native bottom-row upload

@@ -249,3 +249,27 @@ locked frame times or a complete-campaign guarantee. The readonly optional
 LAGOON_FRAME_PROBE diagnostic buffers movement/logic samples until exit.
 The qualifier supports --real-audio for isolated visible/offscreen checks;
 ordinary deterministic tests retain dummy audio.
+
+## Batch 23: updated framework pacing check
+
+After integrating the 61 upstream framework files through
+`37aba0b33c909b31344286f881cfb3086cbaa630` and five new native bodies, the
+installed `27758caa6deb6bc275cb3ef0001d3d3b30cf46b80661d0e4d59ffddc4d6e05d7`
+executable was checked with the existing portable batch22 performance route.
+The manifest is
+`9b718937025e37deae97ed8bd29c72d1f7923184f1fffb7e68e576016f96e7af`.
+
+The hidden 1920x1080 OpenGL/EPX16:9 run uses the real audio device with private
+volume zero. Original doors carry the route through rooms03/04/05/06/07 with
+explicit position assistance, no campaign warp plan, new seed or physical input.
+Stable room07 fields2000..2550 contain550 presentation intervals:60.08677
+updates/s, mean16.64260ms, p9517.347ms, maximum17.811ms and zero intervals over
+25ms. All551 logic samples are room07/loading0. The last33 fields, including
+the final dump at2583, are excluded from these statistics.
+
+The whole route records1,688 custom replacements,665 independent draws,
+50,944,320 source pixels and zero mismatches; those totals include earlier cave
+rooms. The endpoint positively uses room07 custom rendering. This measures CPU
+presentation-call intervals, not physical fullscreen scanout, a locked60fps
+guarantee, room08 performance or the complete campaign. It is an affected-engine
+regression check, not another discovery pass over completed room07 work.

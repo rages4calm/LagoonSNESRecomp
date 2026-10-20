@@ -7,7 +7,8 @@ typedef struct LagoonSceneRendererStats {
   uint64_t resets, packets, refused_packets, renders, independent_pixels;
   uint64_t verified_presents, replaced_presents, mismatches, fallbacks;
 } LagoonSceneRendererStats;
-/* Stable Atland and exact Gold Cave03/04/05/06 plus room07 parallax. Observe lines1..224, then EndFrame.
+/* Stable Atland and exact Gold Cave03/04/05/06 plus room07 parallax
+ * and exact ordinary room08 Elf Field. Observe lines1..224, then EndFrame.
  * All presentation data is copied; TryPresent never reads the mutable guest. */
 void LagoonSceneRenderer_Reset(void);
 void LagoonSceneRenderer_ObserveRaster(const struct Ppu *ppu,unsigned line,

@@ -4,32 +4,40 @@ A work-in-progress Windows port of Lagoon (USA), using SNESRecomp's generated
 native routines alongside its 65816 interpreter safety net. Your own clean ROM
 is required. The executable does not depend on Mesen; it is a development reference.
 
-## Current progress - October 18, 2026
+## Current progress - October 20, 2026
 
-Batch22 adds guarded native boss-refill continuations and the room07 custom
-renderer: **382 AOT /119 analyzed LLE /263 roots**. The interpreter safety net
-remains. Counts are not completion percentages. The owner and friends will
-perform the uninterrupted start-to-finish campaign playtest.
+Batch23 adds native Nasir death animation, guarded boss death-flash loops and
+exact room08 Elf Field custom rendering: **387 AOT /119 analyzed LLE /268 roots**.
+The exact tested build is installed; cold checks match 48 component hashes.
+The interpreter safety net remains. Counts are not completion percentages;
+the owner and friends perform the uninterrupted campaign playtest.
 
-The native sequence now resumes across original HP/MP waits with the real saved
-register and caller frames, including the centered-camera path. All378 previous
-native bodies and exit facts are unchanged. Eleven fresh old/new route pairs
-match44,579 ordered presentation observations and26 complete checkpoints:
-seven assisted boss wins, revival, player death and two partially depleted HP/MP
-refills. The four new generated segments also pass23,040 original-opcode cases.
-This is bounded, assisted evidence, not complete native boss/death orchestration.
+Nasir's original four-stage ordinary death animation and its paired selector
+now run natively. Separately, boss/special-actor death flashes resume across six
+original render/wait cycles with their real saved registers and caller frames.
+Ten final old/new strict route pairs pass 38,274 ordered observations and 20
+complete state/clock checkpoints, including all seven assisted boss wins,
+revival and player death. The watched Nasir animation changes from 37 interpreter
+entries to zero. Existing revival/refill arithmetic is preserved, rather than
+newly rewritten. The five new generated bodies pass 57,600 original-opcode cases.
+These are bounded, assisted checks, not complete native death/boss orchestration.
 
-Room07 joins stable Atland and exact Gold Cave03/04/05/06 in the independent
-custom scene renderer. Its independent parallax background passes three final
-same-executable off/auto routes for positions, edges and original06↔07 doors:
-3,252 ordered observations, twelve seven-component checkpoints,2,082 replacements
-and zero mismatches. Routes overlap. The reference renderer, unsupported-field
-fallback and original art remain; this is not a GPU speedup or complete-area claim.
+Room08 Elf Field joins stable Atland and exact Gold Cave03..07 in the custom
+scene renderer. Three final same-executable off/auto routes match 3,229 ordered
+observations and nineteen checkpoints, with 2,458 replacements and zero mismatches.
+A separately source-proven correction fixes 99 expanded-picture observations
+per route during Elf Field's opening quake. Those three old/new strict image
+reports remain false; native pixels, complete checkpoint components and clocks
+are exact. No CRC differences were hidden. The full reference renderer and
+unsupported-field fallback remain; this is not new artwork or a GPU speedup.
 
-See [batch22](NATIVE-BATCH22-2026-10-18.md),
+See [batch23](NATIVE-BATCH23-2026-10-20.md),
 [the custom renderer](docs/CUSTOM-RENDERER.md) and
-[frame pacing evidence](docs/PERFORMANCE.md). Previous reward and cave renderer
-qualification is preserved in [batch21](NATIVE-BATCH21-2026-10-18.md).
+[frame pacing evidence](docs/PERFORMANCE.md). The final hidden1080p real-audio
+room07 sample measures 60.09 updates/s across 550 intervals, with p95 17.35 ms,
+max 17.81 ms and no interval above 25 ms. This is not a locked60 or scanout claim.
+Previous guarded refill and room07 work remains in
+[batch22](NATIVE-BATCH22-2026-10-18.md).
 
 The five audited menu checks open Items/Magic/Equipment in20/18/19 fields and
 close in22 using twelve original charged DMA jobs. Giles accepts wound dressing

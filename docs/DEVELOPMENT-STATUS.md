@@ -1,6 +1,59 @@
-# Current development checkpoint - October 18, 2026
+# Current development checkpoint - October 20, 2026
 
-Batch22 is qualified, selected and installed: **382 AOT /119 analyzed LLE /263 roots**. Counts are not
+Batch23 is qualified, selected and installed for the focused native/renderer routes:
+**387 AOT /119 analyzed LLE /268 roots**. These are not completion percentages.
+The interpreter safety net and original unsupported-path fallback remain.
+
+Installed executable SHA256:
+`27758caa6deb6bc275cb3ef0001d3d3b30cf46b80661d0e4d59ffddc4d6e05d7`.
+Manifest SHA256:
+`9b718937025e37deae97ed8bd29c72d1f7923184f1fffb7e68e576016f96e7af`.
+The exact tested outputs were installed without rebuilding. Cold player-death
+and Elf Field checks match 48 component hashes; 110 protected owner inputs remain
+unchanged. A hidden1080p OpenGL/EPX16:9 real-audio run traverses original cave
+doors into07. Its 550 stable-room07 intervals measure 60.08677 updates/s,
+p95 17.347 ms and max 17.811 ms, with none above 25 ms. This measures presentation
+calls, not fullscreen scanout, locked60FPS, room08 performance or the campaign.
+
+The five new native bodies cover the original A7D6 paired selector, Nasir's
+complete four-stage AAC1 ordinary death animation and AB1D drawing tail, plus
+9346/9368/9371 boss/special-actor death flashes across six genuine render/waits.
+All 381 unaffected old native bodies and existing exit facts are exact; only
+A7B5's source-proven dispatch branch changes. Thirteen guarded descriptors retain
+original saved bytes, real owner frames and timeline provenance. All seven wins
+positively take the9321 flash owner; alternate B449 has source/helper tests only.
+Other/fall death AAF6 and ordinary walking A7FA remain interpreted. Existing HP/MP
+recovery and consumable revival were regression checked, not newly rewritten.
+
+Ten final old/new strict pairs pass 38,274 ordered observations and 20 complete
+eight-component/clock checkpoints. The separate actual player-death watch removes
+all 37 AAC1 interpreter entries while preserving complete results/clocks. Source
+oracles compare 57,600 actual generated instruction-range cases; sound children
+stop at original callee entries in that oracle, with real sound/scheduling checked
+by matched live routes. These are assisted, bounded checks, not full-game proof.
+
+Exact stable room08 Elf Field adds to Atland and caves03..07. Three final same-exe
+off/auto routes match 3,229 ordered observations and nineteen checkpoints, with
+2,458 replacements,597 draws,91,202,496 pixels and zero mismatches. The opening
+quake exposed a genuine reference-margin Y lookup defect. Its source-qualified
+fix intentionally changes 99 expanded-picture observations per route; all three
+old/new strict image reports remain false, while native pixels and complete
+checkpoint components/clocks remain exact. No CRC or frame differences are masked.
+
+The SDK integrates 49 upstream commits through 37aba across 61 files, preserving
+local patches and the dirty checkout's HEAD/index. See
+[batch23](../NATIVE-BATCH23-2026-10-20.md), [custom rendering](CUSTOM-RENDERER.md)
+and [frame pacing](PERFORMANCE.md) for evidence and limits.
+
+Next: original D8CE/CDB7 revival item/audio/render ownership, B816 boss scripts,
+other/fall death AAF6 and further exact scene resources. Map/door/exit discovery
+and optional zoom-out remain considerations after native/custom-renderer work.
+Owner/friends handle the uninterrupted campaign. Earlier completed work below is
+historical; do not repeat it without a newly affected route.
+
+## Historical batch22 checkpoint
+
+Batch22 was qualified, selected and installed before batch23: **382 AOT /119 analyzed LLE /263 roots**. Counts are not
 completion percentages. The interpreter safety net remains enabled.
 
 Executable `dde68792632ccea8bb80436f630188cf40161ea551bd352349c23c88ed4d9138`;
@@ -26,12 +79,6 @@ positions/edges/door checks give2,082 replacements across3,252 ordered observati
 with twelve seven-component checkpoints and zero mismatches. The reference
 renderer and unsupported-field fallback remain. See [batch22](../NATIVE-BATCH22-2026-10-18.md)
 and [frame pacing](PERFORMANCE.md) for scope and limits.
-
-Next: broader B816 boss-script and B43E/9346 death/revival ownership, then more
-exact custom-renderer families and specifically reported transitions. Optional
-map/door/exit discovery and zoom-out remain deferred. Owner/friends handle the
-uninterrupted natural campaign. Prior completed work below is historical; do not
-repeat it without a newly affected route.
 
 ## Historical batch21 checkpoint
 

@@ -26,7 +26,7 @@ typedef struct ScenePacket {
   unsigned count,lines,frame,serial,valid;
   uint32_t vram_writes,oam_writes;
   int wx,wy,world_width,world_height;
-  unsigned native_x,native_y,bg2_x,bg2_y,parallax;
+  unsigned native_x,native_y,bg2_x,bg2_y,parallax,finite_clip;
   SceneOamPolicy policy;
   uint64_t generation;
 } ScenePacket;
@@ -76,6 +76,10 @@ static int scene_resources(const uint8_t *r,unsigned *definitions) {
   unsigned room=word(r,0x48e),d=ptr(r,0x69);
   if(room==0 && ptr(r,0x57)==0x138000 && ptr(r,0x5d)==0x198000 && d==0x068000) {
     if(!word(r,0x53)||word(r,0x53)>256||!word(r,0x55)||word(r,0x55)>256)return 0;
+  }else if(room==8 && word(r,0x53)==192 && word(r,0x55)==128 &&
+      ptr(r,0x57)==0x12b297 && ptr(r,0x5d)==0x1891e4 && d==0x06999c) {
+    /* Elf Field's ordinary map producer has an exact finite1536x1024 extent.
+     * Its animated characters still require the existing source-owned witness. */
   }else if(room==7 && word(r,0x53)==128 && word(r,0x55)==128 &&
       ptr(r,0x57)==0x129e89 && ptr(r,0x5d)==0x1a906f && d==0x069720 &&
       ptr(r,0x7e)==0x11fb7d && ptr(r,0x81)==0x11fb7d) {
@@ -196,7 +200,7 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
     s->wx=x+(((p->hScroll[0]&1023)-x+512)&1023)-512;
     s->wy=y+(((p->vScroll[0]&1023)-y+512)&1023)-512+1;
     s->native_x=p->hScroll[0];s->native_y=p->vScroll[0]+1;
-    s->parallax=word(r,0x48e)==7;s->bg2_x=p->hScroll[1];s->bg2_y=p->vScroll[1]+1;
+    s->parallax=word(r,0x48e)==7;s->finite_clip=word(r,0x48e)==8;s->bg2_x=p->hScroll[1];s->bg2_y=p->vScroll[1]+1;
     s->world_width=word(r,0x53)*8;s->world_height=word(r,0x55)*8;
     s->count=(unsigned)p->extraObjectCount;
     for(unsigned i=0;i<s->count;++i) {
@@ -328,7 +332,7 @@ static void render(const ScenePacket *s,unsigned width) {
       }
     }
     for(unsigned x=0;x<width;++x) {
-      int outside=s->parallax&&((int)x<left||(int)x>=left+256)&&
+      int outside=(s->parallax||s->finite_clip)&&((int)x<left||(int)x>=left+256)&&
         (s->wx+(int)x-left<0||s->wx+(int)x-left>=s->world_width||
          s->wy+(int)y<0||s->wy+(int)y>=s->world_height);
       s_pixels[y*width+x]=outside?0:s_rgb15[colors[x]&32767];
@@ -339,7 +343,7 @@ static void render(const ScenePacket *s,unsigned width) {
 static int same_source(const ScenePacket *a,const ScenePacket *b) {
   if(a->generation!=b->generation||a->wx!=b->wx||a->wy!=b->wy||a->native_x!=b->native_x||a->native_y!=b->native_y||
     a->world_width!=b->world_width||a->world_height!=b->world_height||a->count!=b->count||
-    a->parallax!=b->parallax||a->bg2_x!=b->bg2_x||a->bg2_y!=b->bg2_y||
+    a->parallax!=b->parallax||a->finite_clip!=b->finite_clip||a->bg2_x!=b->bg2_x||a->bg2_y!=b->bg2_y||
     memcmp(a->regs,b->regs,sizeof(a->regs))||memcmp(&a->policy,&b->policy,sizeof(a->policy))||
     memcmp(a->oam,b->oam,sizeof(a->oam))||memcmp(a->high,b->high,sizeof(a->high))||
     memcmp(a->pal,b->pal,sizeof(a->pal))||memcmp(a->vram,b->vram,sizeof(a->vram))||

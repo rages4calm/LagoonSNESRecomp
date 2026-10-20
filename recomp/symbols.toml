@@ -458,13 +458,13 @@ entry_x = 0
 note = "Batch5 qualified: complete room dispatch table; only first-boss quake handler compiled"
 
 [[func]]
-name = "Lagoon_Boss_BeginDeathAnimation"
+name = "Lagoon_Death_FlashSetup"
 addr = "9346"
 bank = 1
-emit = false
+emit = true
 entry_m = 1
 entry_x = 0
-note = "Deferred: unresolved shared renderer return widths; remains interpreted"
+note = "Batch23 bounded original death flash setup; renderer and SPC poll remain original interpreted boundaries"
 
 [[func]]
 name = "Lagoon_Combat_CalculateDamage"
@@ -656,3 +656,39 @@ emit = true
 entry_m = 1
 entry_x = 0
 note = "Batch22 genuine source guarded boss continuation; manual region boundary and other widths remain interpreted"
+
+[[func]]
+name = "Lagoon_Death_FlashQueue"
+addr = "9368"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch23 original death flash setup and six real wait cycles; source guarded original owner plus three saved bytes, final SPC poll stays interpreted"
+
+[[func]]
+name = "Lagoon_Death_FlashStep"
+addr = "9371"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch23 original death flash setup and six real wait cycles; source guarded original owner plus three saved bytes, final SPC poll stays interpreted"
+
+[[func]]
+name = "Lagoon_Player_AnimationDispatch"
+addr = "a7d6"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch23 actual Nasir low-state selector and complete ordinary death timer animation, original balanced pointer tail frame; walking and other death stay interpreted"
+
+[[func]]
+name = "Lagoon_Player_DeathAnimation"
+addr = "aac1"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch23 actual Nasir low-state selector and complete ordinary death timer animation, original balanced pointer tail frame; walking and other death stay interpreted"
