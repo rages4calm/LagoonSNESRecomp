@@ -3,6 +3,25 @@
 Keep the interpreter safety net and publish source in substantial, verified
 batches. Generated routine counts are not campaign completion percentages.
 
+- [x] Batch25: seven source-backed native boss animation/attack-selection bodies;
+      408 AOT/112 analyzed LLE/287 roots, all previous dispositions/exit facts
+      preserved. 102,144 actual generated-body/original-opcode checks pass.
+- [x] Fourteen primary matched native routes plus six supplemental watch pairs;
+      preserve explicit Thimale saved-route interpreter use and ending limits.
+- [x] Source-checked ordinary actor seams in rooms2C..37; six actual spawned
+      far-enemy kinds in2C/2F/35. Twelve loader pairs and three focused actual
+      enemy pairs pass; original four-family door chain remains qualified.
+- [x] Full-word queue/source/both-context/OAM/atlas/priority/center refusals;
+      unsupported special actors and original audio/dialogue/ending keep floor.
+- [ ] Next native: useful remaining Thimale/endgame script or service ownership,
+      with actual source/mode/stack provenance. Do not redo the completed seven
+      animation bodies, revival consumption, recovery loops or boss refill.
+- [ ] Next renderer: other source-proven actor/scene families and reported gaps.
+      The twelve new authored lists have no ordinary NPCs; do not fabricate NPC
+      coverage. Preserve unsupported/special actor fallback and full reference.
+
+## Batch24 completed work
+
 - [x] Batch24: three original CDB7/CDE0/D8D4 revival/item-consumption bodies
       and eleven boss-script/SPC bodies;401 AOT/112 analyzed LLE/280 roots.
       All 387 prior native entries and old exit facts retained, with only the
@@ -18,7 +37,7 @@ batches. Generated routine counts are not campaign completion percentages.
       pair:49,152 observations/26 checkpoints across recorded builds. Final five
       event stages each take one native wait/ancestor with zero refusals.
 - [x] Add twelve exact custom backgrounds2C..37 in four resource families.
-      Keep new-area far actors disabled, original native OAM actors, full
+      Batch24 originally kept far actors disabled; batch25 extends them. Keep full
       brightness/loading gates and reference fallback; no new fade ownership.
 - [x] Thirteen initial-build renderer pairs:12,241 observations/55 checkpoints,
       8,239 replacements,1,881 draws/287,356,608 pixels, zero mismatches.

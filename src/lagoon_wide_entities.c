@@ -6,6 +6,7 @@
 #include "common_rtl.h"
 #include "config.h"
 #include "lagoon_widescreen.h"
+#include "lagoon_scene_renderer.h"
 #include "snes/dma.h"
 #include "snes/ppu.h"
 #endif
@@ -433,16 +434,16 @@ void LagoonWideEntities_BlankMargins(uint16_t *depth,unsigned origin,unsigned le
   for(unsigned x=origin+256;x<origin+256+right;++x)depth[x]=0x0500;
 }
 
-int LagoonWideEntities_CommonFrame(const uint8_t *rom, size_t size,
-    const uint8_t *r, LagoonWideAnimation *a, int step, uint8_t *frame) {
+static int ordinary_frame(const uint8_t *rom, size_t size,
+    const uint8_t *r, LagoonWideAnimation *a, int step, uint8_t *frame,int additional) {
   if (!rom || !r || !a || !frame || r[10] > 3 || a->phase > 3) return 0;
   unsigned type = r[0x18], kind = r[0x1b], table, delay, value;
   /* First proven ordinary forms. Special/status/death paths may mutate AI,
    * rewards or global state and are deliberately not presentation code. */
-  if (type == 1 && (kind == 41 || kind == 59)) {
+  if (type == 1 && ((kind == 41 || kind == 59) || (additional && kind>=2 && kind<64))) {
     if (!rom_word(rom, size, 0x1f885 + kind * 2, &table)) return 0;
     table |= 0x10000;
-  } else if (type == 2 && kind <= 1 && !(r[1] & 7)) {
+  } else if (type == 2 && (kind <= 1 || additional) && !(r[1] & 7)) {
     table = 0x1f41a + kind * 17;
   } else return 0;
   if (!rom_byte(rom, size, table, &delay) || !delay) return 0;
@@ -452,6 +453,39 @@ int LagoonWideEntities_CommonFrame(const uint8_t *rom, size_t size,
   if (!rom_byte(rom, size, table + 1 + r[10] * 4 + a->phase, &value)) return 0;
   *frame = (uint8_t)(value + (type == 2 ? (r[0x2c] << 4) : 0));
   return 1;
+}
+
+int LagoonWideEntities_CommonFrame(const uint8_t *rom,size_t size,
+    const uint8_t *r,LagoonWideAnimation *a,int step,uint8_t *frame) {
+  return ordinary_frame(rom,size,r,a,step,frame,0);
+}
+static int source_hash(const uint8_t *rom,size_t size,unsigned address,unsigned length,uint64_t expected) {
+  uint64_t hash=UINT64_C(14695981039346656037);unsigned value;
+  for(unsigned i=0;i<length;++i) {
+    if(!rom_byte(rom,size,address+i,&value))return 0;
+    hash=(hash^value)*UINT64_C(1099511628211);
+  }
+  return hash==expected;
+}
+int LagoonWideEntities_AnimationSource(const uint8_t *rom,size_t size,unsigned type) {
+  if(!rom || size!=kRomSize)return 0;
+  /* Source instruction boundaries include the original active-bit dispatch,
+   * ordinary status jump table, normal selector and shared idle reset. The
+   * status4 B131 and death B413 entries never borrow the normal AB5E contract. */
+  if(type==1)return source_hash(rom,size,0x01AC4F,91,UINT64_C(0xa89cd07e01c8c275));
+  return type==2 && source_hash(rom,size,0x01AB31,45,UINT64_C(0x7ace581df63ce6dc)) &&
+    source_hash(rom,size,0x01AB5E,131,UINT64_C(0x04eeafcdc7754770));
+}
+int LagoonWideEntities_FrameForRoom(const uint8_t *rom,size_t size,unsigned room,
+    const uint8_t *r,LagoonWideAnimation *a,int step,uint8_t *frame) {
+  if(room<0x2c || room>0x37)return LagoonWideEntities_CommonFrame(rom,size,r,a,step,frame);
+  if(!r || !LagoonWideEntities_AnimationSource(rom,size,r[0x18]))return 0;
+  unsigned kind=r[0x1b];int allowed=r[0x18]==1;
+  /* Actual authored ordinary enemy families. Kind29's status4 uses B131 and
+   * is deliberately excluded; no special/death/boss frames are inferred. */
+  if(r[0x18]==2)allowed=(room==0x2c && kind>=31 && kind<=33) ||
+      (room==0x2f && (kind==25 || kind==27)) || (room==0x35 && kind==28);
+  return allowed && ordinary_frame(rom,size,r,a,step,frame,1);
 }
 
 void LagoonWideAtlas_Reset(LagoonWideAtlas *a) { if (a) memset(a, 0, sizeof(*a)); }
@@ -771,7 +805,7 @@ static void update_pose(const uint8_t *ram,unsigned e,int queued) {
     unsigned steps=(uint8_t)(ram[0x408]-h->clock); uint8_t ignored;
     if (steps<=8) {
       for(unsigned i=0;i<steps;++i)
-        if(!LagoonWideEntities_CommonFrame(g_rom,kRomSize,r,&h->animation,1,&ignored)) {h->valid=0;return;}
+        if(!LagoonWideEntities_FrameForRoom(g_rom,kRomSize,ram_word(ram,0x48e),r,&h->animation,1,&ignored)) {h->valid=0;return;}
     } else h->animation=(LagoonWideAnimation){r[0x10],r[0x11]};
   }
   h->valid=1;h->type=r[0x18];h->kind=r[0x1b];h->clock=ram[0x408];h->serial=s_frame.serial;
@@ -789,6 +823,14 @@ void LagoonWideEntities_BeginFrame(int enabled) {
   }
   const uint8_t *ram=s_frame.ram;
   if(ram[0x48e]!=g_ram[0x48e] || ram[0x48c]>64) return;
+  unsigned room=ram_word(ram,0x48e);int additional=room>=0x2c && room<=0x37;
+  /* The OAM snapshot and current scene must independently name this exact
+   * authored descriptor. Room numbers or shared OBJ art alone grant nothing. */
+  if(additional && (room!=ram_word(g_ram,0x48e) || ram_word(ram,0x48c)>64 || ram[0x100e] || g_ram[0x100e] ||
+      g_ppu->inidisp!=15 || !LagoonSceneRenderer_AdditionalRoom(ram) ||
+      !LagoonSceneRenderer_AdditionalRoom(g_ram))) {
+    report_status("unsupported-additional-actor-scene",0,0);return;
+  }
   unsigned roomkey=ram_pointer(ram,0x5d) ^ ((unsigned)ram[0x48e]<<24);
   if(roomkey!=s_pose_room_key || s_pose_generation!=s_frame.generation) {
     memset(s_pose,0,sizeof(s_pose));memset(s_kind_witness,0,sizeof(s_kind_witness));s_pose_room_key=roomkey;s_pose_generation=s_frame.generation;
@@ -803,7 +845,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     unsigned offset=ram_word(ram,0xec0+q*6),type=ram[0xec4+q*6];
     if(offset>0x800 || (offset&63)) continue;
     unsigned e=offset/64,a=0x500+offset;queued[e]=1;
-    if(type!=1 && type!=2) continue;
+    if((type!=1 && type!=2) || type!=ram[a+0x18]) continue;
     int n=decode_entity(ram,offset,ram[a+0x1c],0,cells[e]);counts[e]=n;
     if(n<0) continue;
     for(int i=0;i<n;++i) {
@@ -813,11 +855,14 @@ void LagoonWideEntities_BeginFrame(int enabled) {
       used[slot]=1;cell_slot[e][i]=slot;
     }
     LagoonWideAnimation astate={ram[a+0x10],ram[a+0x11]};uint8_t expected;
-    if(LagoonWideEntities_CommonFrame(g_rom,kRomSize,ram+a,&astate,0,&expected)) {
-      if(expected==ram[a+0x1c] && atlas_ok && cells_owned(cells[e],n)) {
+    if(LagoonWideEntities_FrameForRoom(g_rom,kRomSize,room,ram+a,&astate,0,&expected)) {
+      int centered=!additional ||
+        (ram_word(ram,a+12)==((ram_word(ram,a+2)-ram_word(ram,0x480))&65535) &&
+         ram_word(ram,a+14)==((ram_word(ram,a+4)-ram_word(ram,0x482))&65535));
+      if(expected==ram[a+0x1c] && centered && atlas_ok && cells_owned(cells[e],n)) {
         if(s_last_serial!=s_frame.serial) s_frame_witness++;
         s_kind_witness[type-1][ram[a+0x1b]]=1;
-      } else if(expected!=ram[a+0x1c]) {
+      } else if(expected!=ram[a+0x1c] || !centered) {
         s_kind_witness[type-1][ram[a+0x1b]]=0;
         if(s_last_serial!=s_frame.serial) {
           if(s_frame_bad<8 && getenv("LAGOON_WIDE_ENTITY_REPORT"))
@@ -838,7 +883,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     int y=signed_word(ram_word(ram,a+4)-ram_word(ram,0x482));
     if((x>=-96 && x<352) || y < -32 || y>=288) continue;
     uint8_t frame;
-    if(!LagoonWideEntities_CommonFrame(g_rom,kRomSize,ram+a,&s_pose[e].animation,0,&frame)) continue;
+    if(!LagoonWideEntities_FrameForRoom(g_rom,kRomSize,room,ram+a,&s_pose[e].animation,0,&frame)) continue;
     int n=decode_entity(ram,e*64,frame,1,cells[e]);
     if(n<=0 || !cells_owned(cells[e],n)) {
       if(s_far_gated<8 && getenv("LAGOON_WIDE_ENTITY_REPORT"))
@@ -908,7 +953,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
           if(added && cell_report) {
             unsigned a=0x500+e*64;uint8_t frame=0;
             LagoonWideAnimation copy=s_pose[e].animation;
-            LagoonWideEntities_CommonFrame(g_rom,kRomSize,ram+a,&copy,0,&frame);
+            LagoonWideEntities_FrameForRoom(g_rom,kRomSize,room,ram+a,&copy,0,&frame);
             fprintf(cell_report,"%d\t%u\t%u\t%03X\t%u\t%u\t%u\t%d\t%d\t%04X\t%u\n",
                 snes_frame_counter,s_frame.serial,ram[0x408],e*64,ram[a+0x18],ram[a+0x1b],frame,
                 cells[e][i].x,cells[e][i].y,cells[e][i].tile,cells[e][i].size);

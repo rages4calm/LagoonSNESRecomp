@@ -12,6 +12,8 @@ def main():
     p.add_argument('--images',type=Path,nargs='+',required=True)
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--model',default='jev-latest')
+    p.add_argument('--view',choices=('native','expanded'),default='native',
+                   help='Describe the actual supplied capture; expanded includes widescreen margins')
     p.add_argument('--dry-run',action='store_true')
     a=p.parse_args()
     if a.out.exists():p.error('--out must be a fresh file')
@@ -29,7 +31,8 @@ def main():
             if max(image.size)>1568:p.error('Capture exceeds the documented image dimension limit')
             b=io.BytesIO();image.save(b,format='PNG');sent_size=list(image.size)
         assets[ref]={'type':'image','format':'png','data_base64':base64.b64encode(b.getvalue()).decode()}
-        scenes[key]={'capture':ref,'scope':'Original native game view; excludes expanded widescreen margins'}
+        scenes[key]={'capture':ref,'scope':('Original native game view; excludes expanded widescreen margins'
+            if a.view=='native' else 'Complete expanded game presentation, including widescreen scenery and actor margins')}
         bindings.append({'id':key,'path':str(path.resolve()),'sha256':hashlib.sha256(raw).hexdigest(),'size':size,'analysis_size':sent_size,'integer_nearest_scale':scale})
         questions[key]={'type':'choice','instructions':f'Classify only the observed screen in `{key}.capture`. Recommend the next bounded test action from its visible state.',
             'criteria':{'continue_route':'A readable ordinary gameplay scene, possibly with HUD or actors.','dismiss_dialogue':'A readable dialogue/message that should be advanced.','close_menu':'An inventory, equipment or other selectable menu.','wait_transition':'A blank, fading, loading, title or cinematic screen.','inspect_frame':'Random visual noise or a scene too broken or ambiguous to continue automatically.'}}
@@ -47,7 +50,7 @@ def main():
         raise SystemExit(f'TypeSafe HTTP {error.code}: {detail}') from None
     if set(result.get('answers',{}))!=set(questions):raise ValueError('Incomplete Jev answers')
     review=[name for name,answer in result['answers'].items() if answer.get('confidence',0)<0.65 or answer.get('choice')=='inspect_frame']
-    out={'schema':'Lagoon optional Jev coverage triage v1','model':result.get('model'), 'elapsed_seconds':time.monotonic()-started,'usage':result.get('usage'),'answers':result['answers'],'bindings':bindings,'review_queue':review,'game_actions_executed':0,'acceptance_authority':False}
+    out={'schema':'Lagoon optional Jev coverage triage v1','view':a.view,'model':result.get('model'), 'elapsed_seconds':time.monotonic()-started,'usage':result.get('usage'),'answers':result['answers'],'bindings':bindings,'review_queue':review,'game_actions_executed':0,'acceptance_authority':False}
     a.out.parent.mkdir(parents=True,exist_ok=True);a.out.write_text(json.dumps(out,indent=2)+'\n',encoding='utf8')
     print(json.dumps({'model':out['model'],'images':len(bindings),'elapsed_seconds':out['elapsed_seconds'],'usage':out['usage'],'answers':out['answers']},indent=2))
 

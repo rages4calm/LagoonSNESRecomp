@@ -16,6 +16,39 @@ and ROM-free unit tests alone do not prove live gameplay coverage; bounded runti
 acceptance is recorded separately. There is currently no launcher selector for
 this diagnostic.
 
+## Batch25 actor extension
+
+The exact twelve descriptors now permit ordinary native-anchored seams and
+offscreen enemy types25/27/28/31/32/33 where their original source/frame rules
+are proven. These are decimal actor kinds. Actual spawned enemies in rooms2C,
+2F and35 exercise all six; the authored room lists contain no ordinary NPCs.
+No synthetic NPC spawn is claimed as gameplay coverage. Specialkind29/status4
+and all unsupported streams retain the original picture.
+
+The captured and current scene contexts independently require original resources,
+full brightness, no loading and matching generation. The real OAM-kind/frame
+witness must agree with source-projected native coordinates, resident atlas,
+palette, priority and cell bytes before offscreen pose extrapolation. Losing
+that witness revokes authority. Full-word queue bounds include the high byte.
+New extras keep native-center pixels transparent and finite map edges clipped.
+
+The selector oracle executes22,016 actual original NPC/enemy selector calls and
+checks22,016 actual resulting frame states, plus271 negative cases and267
+source-byte mutations. A separate production-observer test uses actual ROM and
+loader atlas data with explicitly synthetic OAM placement:62 farcells,20seamcells,
+1,584 transparent center pixels and465 refused source/context/OAM/atlas cases.
+Those fixture cells are distinct from the three actual-spawn live route pairs.
+
+Final910F actual-enemy pairs pass4,821 ordered observations/18 checkpoints;
+the original four-family door chain adds1,909/7, all with zero mismatches.
+Twelve1CA5 loader pairs pass10,332/48 and preserve all native/guest checkpoint
+components against old controls.214 expanded-image differences are intentional;
+old/new strict comparisons remain false. Independent exact source/object transfer
+binds the later queue-only refusal to final910F without claiming twelve reruns.
+See [batch25](../NATIVE-BATCH25-2026-10-20.md) for build identities and limits.
+
+## Batch24 background qualification
+
 Batch24 adds twelve exact stable ordinary-room descriptors. Shared artwork alone
 does not grant authority: each row requires its original dimensions, full-word
 room ID, both definition pointers, maps7F0000/7F4000 and WRAM50=0.
@@ -32,8 +65,9 @@ loading state and the existing source, raster, generation and whole-picture
 guards. Finite-world pixels outside the physical map are black after composition.
 The proven negative-Y cache-key translation also covers these exact descriptors;
 physical worlds never wrap. Loading/fading fields retain the reference renderer.
-The new contexts explicitly disable the far-actor producer and use native OAM;
-they add no actor or retained-fade authority. Existing0..08 behavior is preserved.
+Batch24 initially used native OAM alone here. Batch25 extends guarded ordinary
+actor seams and far enemies as described below; no retained-fade authority is
+added. Existing0..08 behavior is preserved.
 
 Rooms35..37 additionally require the original animation descriptor01:E058 and
 table01:DD8B: four64-byte sources10:BB00/BB40/BB80/BBC0 uploaded to VRAM word3B00.

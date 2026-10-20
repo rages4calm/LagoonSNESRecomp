@@ -40,6 +40,11 @@ unsigned LagoonWideRetainedMap_Tile(const LagoonWideRetainedMap *map,int layer,i
 typedef struct LagoonWideAnimation { uint8_t timer, phase; } LagoonWideAnimation;
 int LagoonWideEntities_CommonFrame(const uint8_t *rom, size_t rom_size,
     const uint8_t *record, LagoonWideAnimation *animation, int step, uint8_t *frame);
+/* Additional exact room families use the same original ordinary selectors.
+ * Special/death animation dispatches never gain far presentation authority. */
+int LagoonWideEntities_AnimationSource(const uint8_t *rom,size_t rom_size,unsigned type);
+int LagoonWideEntities_FrameForRoom(const uint8_t *rom,size_t rom_size,unsigned room,
+    const uint8_t *record,LagoonWideAnimation *animation,int step,uint8_t *frame);
 enum { kLagoonWideAtlasBytes = 0x2a00 };
 typedef struct LagoonWideAtlas {
   uint8_t owned[kLagoonWideAtlasBytes];

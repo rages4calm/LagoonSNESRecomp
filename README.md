@@ -6,50 +6,51 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress - October 20, 2026
 
-Batch24 extends native revival/item recovery and boss victory scripts, and adds
-exact custom backgrounds for twelve more rooms: **401 AOT /112 analyzed LLE /
-280 roots**. The exact tested build is installed;72 cold component hashes match.
-The interpreter safety net remains. Counts are not completion
-percentages; the owner and friends perform the uninterrupted campaign playtest.
+Batch25 adds seven native boss routines and widens ordinary enemy rendering in
+the twelve recently added rooms, **2C..37**. The selected build contains
+**408 AOT /112 analyzed LLE /287 roots**. These counts are not completion
+percentages. The interpreter safety net remains enabled. Installed cold checks match72
+component hashes; all110 protected inputs remain unchanged.
 
-Fourteen original native bodies are added: three for actual revival/item
-consumption and eleven for boss dialogue setup, progression, post-wait event
-flags, scene-reload return and the original SPC sound-ready polling loop.
-Twenty-two source/mode/stack/generation-owned continuations preserve real calls,
-returns, saved registers and original owner frames. Original dialogue, audio,
-inline script dispatch and unsupported paths keep their interpreter boundaries.
-All prior native entries and old exit-width contracts remain available.
+The new routines cover Eardon, Duma, Thimale, Ella and the Green/Red Evil Spirit
+animation states, plus their original attack-selection helper. **102,144
+generated-code/original-instruction cases pass**, checking RAM, registers, flags,
+stack and CPU/master/coprocessor clocks. Fourteen primary matched assisted
+replays pass 57,065 ordered observations and 28 complete checkpoints; six
+additional matched diagnostic replays check interpreted entry use. Thimale's
+saved route still uses substantial interpreted execution. Original audio,
+dialogue, nonlocal scripts, unsupported modes and the ending loop retain their
+fallbacks; this is not a fully native game or a full credits qualification.
 
-The actual generated-body/original-opcode oracles pass **83,232 cases**, including
-full RAM, registers, flags, stack and CPU/master/coprocessor clocks. Assisted boss
-routes use teleporting and faster defeats for coverage. Separate explicitly staged
-script kinds exercise five genuine waits and a scene-reload branch; these are
-not natural campaign progression. Twelve initial-build checks and a final
-focused wait-handoff recheck pass 49,152 ordered observations and 26 checkpoints
-across the two recorded builds. The final five-wait branch positively takes all
-five native returns and ancestors; unchanged body/object transfer is independently
-verified rather than presented as a fresh full replay of the final executable.
+The twelve exact scene contexts now allow source-checked actor seams and
+offscreen ordinary enemies. Live assisted routes exercise six actual spawned
+enemy kinds in rooms2C/2F/35, with original animation, palette, priority and
+native-view alignment. These authored room lists contain no ordinary NPCs;
+there is no invented NPC spawn or claim of live NPC coverage here. Unknown and
+special-status actors keep the fallback. The renderer still uses original pixel
+art and checks its output against the reference raster.
 
-The custom renderer adds exact rooms **2C..37** across four resource families,
-plus a route through the original 2C→2F→32→35 doors. New areas keep original native
-OAM actors and enable replacement only on fully bright, non-loading fields;
-far actor expansion and new fade ownership remain disabled. Expanded background
-images intentionally differ from the old build. Old/new strict image comparisons
-remain false where that happens; guest/native pixels and checkpoint clocks must
-still match, and no CRC masks turn these differences into strict passes.
-Thirteen initial-build off/auto pairs pass 12,241 observations and 55 checkpoints,
-with 8,239 replacements and zero mismatches. Unchanged renderer objects are
-verified on the final build, whose installed four-family door chain also passes.
+Twelve loader off/auto pairs pass 10,332 ordered observations and 48 checkpoints.
+On the final hardened build, three actual-enemy off/auto routes and a route
+through the original 2C→2F→32→35 doors pass another 6,730 observations and
+25 checkpoints, with zero renderer mismatches. The earlier loader/native
+comparisons are recorded against their actual build; an independently checked
+single-guard source/object transfer binds them to the final build. Intentional
+new margin pixels remain differences in old/new image comparisons.
 
-See [batch24](NATIVE-BATCH24-2026-10-20.md),
+Coverage uses explicit player stat/position cheats and original room loaders,
+combat and scripts. Jev screened twelve native captures and three expanded
+presentations; uncertain output was checked manually. It neither controls
+gameplay nor accepts parity results. The owner and friends perform the
+uninterrupted campaign playtest.
+
+See [batch25](NATIVE-BATCH25-2026-10-20.md),
 [the custom renderer](docs/CUSTOM-RENDERER.md) and
-[frame pacing evidence](docs/PERFORMANCE.md). These checks do not establish a
-fully native game, complete campaign coverage or a locked60/scanout guarantee.
-The installed hidden1080p real-audio room07 sample measures60.09 updates/s,
-p95 17.22 ms, max17.90 ms and no interval above 25 ms across 550 intervals.
-Earlier qualified death animation, refill and scene work remains documented in
-[batch23](NATIVE-BATCH23-2026-10-20.md) and
-[batch22](NATIVE-BATCH22-2026-10-18.md).
+[frame pacing evidence](docs/PERFORMANCE.md). The earlier room07 hidden1080p
+real-audio sample remains historical evidence, not a new-area or scanout claim.
+Earlier qualified recovery, menu and scene work remains documented in
+[batch24](NATIVE-BATCH24-2026-10-20.md) and
+[batch23](NATIVE-BATCH23-2026-10-20.md).
 
 The five audited menu checks open Items/Magic/Equipment in20/18/19 fields and
 close in22 using twelve original charged DMA jobs. Giles accepts wound dressing

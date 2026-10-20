@@ -533,8 +533,10 @@ void LagoonWide_BeginFrame(unsigned number) {
   s_was_active = active;
   s_room_key = key;
   if(s_using_retained)LagoonWideEntities_BeginRetained(active);
-  else LagoonWideEntities_BeginFrame(active && !LagoonSceneRenderer_AdditionalRoom(g_ram));
-  /* New background families retain native OAM only; far actor scope is unchanged. */
+  else LagoonWideEntities_BeginFrame(active);
+  /* Added families require their independent exact descriptor, original
+   * ordinary animation source, complete atlas and current native kind/OAM
+   * alignment witnesses before any far actor gains presentation authority. */
   if (!active) { if(g_config.widescreen)native_ui_frame(); return; }
   if(!s_world_chars_ready && !has_modal_ui() && native_world_map())
     capture_world_characters(NULL);

@@ -1,318 +1,42 @@
 # Current development checkpoint - October 20, 2026
 
-Batch24 is qualified, selected and installed: **401 AOT /112 analyzed LLE /280 roots**. These
-counts are not completion percentages. The interpreter safety net and original
-unsupported-path fallback remain.
+Batch25 selects the exact tested executable
+`910f1c6716b648f96c2ebe8c2c7838e3984ba8cfa32e8ed5d3bf27e338f6f105`,
+manifest `63abf343c3e27f2a008a352df7dd64b4121962fcdd1f0b2dd1ffac44d4d4d598`.
+**408 AOT /112 analyzed LLE /287 roots** are counts, not completion percentages.
+The interpreter safety net and all exact source/mode/stack/generation guards remain.
 
-Installed executable SHA256:
-`14bbf8c764b0238910e48fd2ddfd09a37023daef0d9377129fd208cbc6499fb2`.
-Manifest SHA256:
-`6dc5d93d2bb996c65f32aadbd8ec58b9c94adcb542739f1562209231a7fca04d`.
-The exact qualified outputs were moved into the working runtime without
-rebuilding or creating backup trees. Cold installed revival and four-family door
-checks match 72 component hashes at nine checkpoints;110 owner inputs remain
-unchanged. Installed revival takes one genuine wait and one ancestor return;
-a later retired proposal is safely refused once. The installed renderer chain
-positively replaces each family with zero mismatches.
+Seven new M1X0 boss bodies cover six animation states and their original attack
+selector. 102,144 original-opcode cases pass. Prior401 native entries, prior
+exit facts and guarded continuations remain; only the source-closed boss dispatch
+changes behavior. Two old generated bodies have identifier-only changes.
 
-Three new CDB7/CDE0/D8D4 bodies extend actual revival/item consumption and
-its original return/audio path. Eleven boss bodies cover B81A/B837/B845 setup,
-progression and original inline-dispatch selection; five post-wait event-flag
-stages, B8E1 real helper return, B909 scene-reload return and937C's original
-SPC2141 polling. Every read and charged wait is retained. B816 wrapper, original
-dialogue/audio,80E9 nonlocal dispatch and B90B endgame loop remain interpreted.
-B88E/B8E2 prefixes remain original; native stages follow genuine child returns.
+Fourteen primary matched assisted native comparisons pass57,065 ordered
+observations/28 checkpoints on build1CA5; six supplemental watch pairs repeat
+affected routes for entry accounting. Thimale remains partly interpreted in its
+saved-route fixture. Actual interpreter-entry removal plus compiled source and
+full comparisons is an inference of native use; Release has no native block counter.
 
-All 387 prior native entries and their old exit facts remain. Necessary older
-9371/D8CE tail dispatches enter the new routines. B8D8 retains its native render
-prefix and reaches original B8DD through interpretation, allowing the actual JSL
-to arm its wait token. The player-selector identifier
-rename changes no guest operations. Central registration collects 22 guarded
-continuations. Five event stages witness seven actual stack bytes; revival
-ownership witnesses eleven. The SDK accepts at most 32 descriptors and four
-explicit RTL sites, with old guards refusing newly nonzero extra return sites.
+Rooms2C..37 add guarded actor seams and six ordinary far-enemy kinds. Authored
+NPC lists in these rooms are empty. Native-kind/frame/OAM/atlas/source ownership,
+center alignment and finite-world rules remain mandatory. Specialkind29/status4
+is unsupported. The reference raster remains active; no new-art/GPU speedup claim.
 
-83,232 actual generated-body/original-opcode cases pass:73,728 revival and9,504
-boss cases, including whole128KiB RAM, registers/flags, real saved/dead stack and
-CPU/master/coprocessor clocks. There are1,809 revival and1,658 boss source/policy
-cases, plus96 positive four-site SDK takes and116 stack mutants. SPC bus fixtures
-include864 busy/ready cases and384 actual deadline yields; live APU/sound timing
-remains a separate matched-route check. Child-boundary oracle sentinels stop at
-original callee entry and never fabricate sound, render results or returns.
-Twelve initial-build old/new strict checks on `bcd237ee` pass 46,241 observations
-and 24 checkpoints. After correcting B8D8's actual wait-call handoff, one focused
-final-build `14bbf8c7` pair passes 2,911 observations/two checkpoints, positively
-taking all five waits and five ancestor returns once each, with zero refusals.
-Together these are 13 recorded checks/49,152 observations/26 checkpoints across
-two builds, not 13 full checks on one executable. Independent final transfer
-review verifies all 14 new native body hashes and reused renderer objects;
-83,232 opcode cases retain their exact body binding. Final installed cold checks
-provide separate actual-executable proof.
+Twelve loader off/auto pairs on1CA5 pass10,332 observations/48 checkpoints;
+all old/new native/guest checkpoint components match.214 intentionally changed
+expanded-picture observations remain differences. Final910F adds only a full-word
+queue-count refusal; unchanged source/native objects and the exact diff are bound
+by independent component-transfer evidence. Three final actual-enemy off/auto
+pairs plus the original four-family door chain pass6,730 observations/25
+checkpoints, zero renderer mismatches. Installed cold checks match72 component hashes at nine checkpoints; all110
+protected owner inputs remain byte-identical. Exact tested artifacts were moved,
+with no backups or rebuild.
 
-The renderer adds rooms2C..37 across four exact resource families. New areas
-use original native OAM actors, full-brightness/non-loading authorization and
-reference fallback. No far actors or fades are newly authorized. The thirteen
-same-executable off/auto checks include twelve rooms and the genuine2C→2F→32→35
-door chain. Intentional expanded-background differences keep old/new strict
-image reports false; native pictures and full state/clock comparisons remain
-separate requirements. No CRC mask converts them into strict passes.
-The thirteen initial-build off/auto pairs pass 12,241 ordered observations and 55
-checkpoints:8,239 replacements,1,881 independent draws,287,356,608 source pixels,
-zero mismatches. All thirteen old/new strict expanded-image reports intentionally
-remain false; separate source qualification passes. Final rendering is supported
-by exact reused-object verification plus the actual installed four-family chain,
-not a claim that all thirteen pairs were rerun on the final binary.
+See [batch25](../NATIVE-BATCH25-2026-10-20.md) for exact proof scopes, installed
+cold checks and reproduction. Previous completed recovery, menus, frame pacing
+and backgrounds stay documented in [batch24](../NATIVE-BATCH24-2026-10-20.md).
 
-The final installed hidden1080p EPX16:9 real-audio stable-room07 sample measures
-60.08672 updates/s over 550 intervals, p95 17.2164 ms, max17.8968 ms and none above
-25 ms. This measures presentation calls, not fullscreen scanout, locked60FPS,
-new-room performance or campaign-wide pacing.
-
-Optional Jev-assisted review screened twelve native captures in one 0.557-second
-batch using `jev-1.13.0`; one uncertain result was manually cleared. The helper
-has no controller or acceptance authority. Explicit teleporting, faster defeats
-and staged script kinds0A/0C accelerate bounded coverage; they are not a natural
-campaign claim. SDK upstream remains37aba with the existing cumulative local
-patch; its dirty checkout HEAD/index are preserved.
-
-See [batch24](../NATIVE-BATCH24-2026-10-20.md),
-[custom rendering](CUSTOM-RENDERER.md) and [frame pacing](PERFORMANCE.md).
-Next: further proven native script/death boundaries and exact scene resources.
-The map/door/exit system and optional zoom-out remain later considerations.
-Owner/friends handle the uninterrupted campaign. Do not repeat earlier completed
-work without a newly affected route.
-
-## Historical batch23 checkpoint
-
-Batch23 was qualified, selected and installed before batch24 for these focused routes:
-**387 AOT /119 analyzed LLE /268 roots**. These are not completion percentages.
-The interpreter safety net and original unsupported-path fallback remain.
-
-Installed executable SHA256:
-`27758caa6deb6bc275cb3ef0001d3d3b30cf46b80661d0e4d59ffddc4d6e05d7`.
-Manifest SHA256:
-`9b718937025e37deae97ed8bd29c72d1f7923184f1fffb7e68e576016f96e7af`.
-The exact tested outputs were installed without rebuilding. Cold player-death
-and Elf Field checks match 48 component hashes; 110 protected owner inputs remain
-unchanged. A hidden1080p OpenGL/EPX16:9 real-audio run traverses original cave
-doors into07. Its 550 stable-room07 intervals measure 60.08677 updates/s,
-p95 17.347 ms and max 17.811 ms, with none above 25 ms. This measures presentation
-calls, not fullscreen scanout, locked60FPS, room08 performance or the campaign.
-
-The five new native bodies cover the original A7D6 paired selector, Nasir's
-complete four-stage AAC1 ordinary death animation and AB1D drawing tail, plus
-9346/9368/9371 boss/special-actor death flashes across six genuine render/waits.
-All 381 unaffected old native bodies and existing exit facts are exact; only
-A7B5's source-proven dispatch branch changes. Thirteen guarded descriptors retain
-original saved bytes, real owner frames and timeline provenance. All seven wins
-positively take the9321 flash owner; alternate B449 has source/helper tests only.
-Other/fall death AAF6 and ordinary walking A7FA remain interpreted. Existing HP/MP
-recovery and consumable revival were regression checked, not newly rewritten.
-
-Ten final old/new strict pairs pass 38,274 ordered observations and 20 complete
-eight-component/clock checkpoints. The separate actual player-death watch removes
-all 37 AAC1 interpreter entries while preserving complete results/clocks. Source
-oracles compare 57,600 actual generated instruction-range cases; sound children
-stop at original callee entries in that oracle, with real sound/scheduling checked
-by matched live routes. These are assisted, bounded checks, not full-game proof.
-
-Exact stable room08 Elf Field adds to Atland and caves03..07. Three final same-exe
-off/auto routes match 3,229 ordered observations and nineteen checkpoints, with
-2,458 replacements,597 draws,91,202,496 pixels and zero mismatches. The opening
-quake exposed a genuine reference-margin Y lookup defect. Its source-qualified
-fix intentionally changes 99 expanded-picture observations per route; all three
-old/new strict image reports remain false, while native pixels and complete
-checkpoint components/clocks remain exact. No CRC or frame differences are masked.
-
-The SDK integrates 49 upstream commits through 37aba across 61 files, preserving
-local patches and the dirty checkout's HEAD/index. See
-[batch23](../NATIVE-BATCH23-2026-10-20.md), [custom rendering](CUSTOM-RENDERER.md)
-and [frame pacing](PERFORMANCE.md) for evidence and limits.
-
-Next: original D8CE/CDB7 revival item/audio/render ownership, B816 boss scripts,
-other/fall death AAF6 and further exact scene resources. Map/door/exit discovery
-and optional zoom-out remain considerations after native/custom-renderer work.
-Owner/friends handle the uninterrupted campaign. Earlier completed work below is
-historical; do not repeat it without a newly affected route.
-
-## Historical batch22 checkpoint
-
-Batch22 was qualified, selected and installed before batch23: **382 AOT /119 analyzed LLE /263 roots**. Counts are not
-completion percentages. The interpreter safety net remains enabled.
-
-Executable `dde68792632ccea8bb80436f630188cf40161ea551bd352349c23c88ed4d9138`;
-manifest `32e4c02646d6b8d25740860e432c921d08e37e904a31dab05ee5c72ead12fbf4`.
-
-Exact tested outputs were moved without rebuilding or backups. The installed
-cold centered-camera refill check matches32 component hashes; seven owner inputs
-and the SDK index remain unchanged. Intentional SDK bridge changes are preserved
-in the cumulative patch. Hidden1080p EPX real-audio room07 measures60.09 updates/s,
-p9517.68ms and max18.72ms in a bounded sample; no locked60/fullscreen claim.
-
-Four native segments resume the original boss HP/MP refill across genuine waits,
-with exact source/mode/stack/generation/phase ownership. The approved centered
-camera trampoline retains its real caller frame. All378 prior native bodies and
-all prior exit-width facts remain byte-identical. Eleven affected old/new pairs
-match44,579 ordered observations and 26 complete state/clock checkpoints, including
-all seven assisted boss wins, revival, player death and two partial HP/MP cases.
-Actual generated-code boundary oracle:23,040 cases. This does not certify all
-boss scripts, death recovery or a natural campaign.
-
-The stable room07 custom renderer handles independent parallax. Three same-exe
-positions/edges/door checks give2,082 replacements across3,252 ordered observations,
-with twelve seven-component checkpoints and zero mismatches. The reference
-renderer and unsupported-field fallback remain. See [batch22](../NATIVE-BATCH22-2026-10-18.md)
-and [frame pacing](PERFORMANCE.md) for scope and limits.
-
-## Historical batch21 checkpoint
-
-Batch21 is qualified, selected and installed. Its counts are
-**378 AOT /119 analyzed LLE /259 roots**, not completion
-percentages. The interpreter safety net stays enabled.
-
-Selected executable SHA256:
-`73334f40e4f995f0837178855a856d8d9cf0546f3955a77b9d4f01cdcbe288a4`.
-Manifest SHA256:
-`2f65717b526cf052b4fee89bada5d4267dc76dc8332c004fe3704288c748ce04`.
-See [batch21](../NATIVE-BATCH21-2026-10-18.md).
-The exact tested executable and generated outputs were moved into the working
-runtime without rebuilding or creating backups. The installed cold reward check
-matches all24 component hashes at three checkpoints. All seven owner inputs and
-the intentionally modified SDK working/index contents remain unchanged.
-
-The new B7D4 M1X0 prefix executes16 original instructions and five existing native
-children for gold, EXP and level-up work before its original guarded boundary.
-The actual generated-code/original-opcode oracle passes14,400 cases, including
-4,800 boss-boundary and9,600 ordinary inputs;8,568 cases exercise level-ups.
-All377 prior native modes remain:376 bodies are byte-identical and only B413's
-reward tail dispatch changes. SDK behavior is unchanged; upstream was checked at
-the same b894555 revision. Broader nonlocal/audio/render continuations stay
-interpreted deliberately.
-
-Fresh matched-control strict checks pass all seven boss wins and revival. A
-separate assisted ordinary reward case executes16 fewer interpreter operations
-while preserving complete outputs/clocks, with gold100→103,EXP0→64 and level1→3.
-Enemy EXP64 was explicitly staged; this is no natural multi-level campaign claim.
-
-The stable custom renderer adds exact cave04/05/06 descriptors. Three genuine-door
-same-executable off/auto checks match2,741 ordered presentations across three
-overlapping routes and ten
-checkpoints' seven components. The combined chain has1,478 presentations and795
-replacements; independent room04-ending and room05-ending routes have449/207 and
-814/357 respectively. Each new final room actually replaces a frame. Total
-replacements are1,359 from454 independent draws and34,780,032 drawn pixels,
-with zero mismatches. Position assistance is explicit;
-room loading remains original. Fades, actor authority, original art and
-full-reference comparison are unchanged. This is not a renderer speedup claim.
-
-A separate hidden1080p EPX real-audio run traverses the original03→04→05→06
-doors, with its only diagnostic dump at the end. Across1,328 presentation
-intervals it measures60.02539Hz,p9518.2993ms,max22.8731ms and zero intervals
-above 25ms. Eleven audio high-water waits remain. An earlier capture-heavy route
-had two longer intervals immediately following intermediate checkpoint writes;
-those are not established gameplay regressions. These bounded measurements do
-not establish fullscreen/scanout, locked60FPS or campaign-wide pacing.
-
-Remaining priorities are broader native death/revival/boss orchestration and
-additional exact custom-renderer scenes, followed by reported widescreen gaps.
-Optional door/exit mapping and zoom-out remain deferred until native work and the
-custom renderer are finished. Owner/friends handle the uninterrupted campaign.
-
-## Historical batch20 checkpoint
-
-Batch20 was selected and installed with **377 AOT /119 analyzed LLE /258 roots**.
-The interpreter safety net and existing guarded continuations remain.
-See [batch20](../NATIVE-BATCH20-2026-10-18.md) for full scope.
-
-Selected executable SHA256:
-`15cca706f309e8cc29b3219ac132e6ca31f8525e609687654aea1174ab1de6c8`.
-Manifest SHA256:
-`508aa194317244bf39009da15b398fe8d684e46812f7032402231e9ef4a3c5ce`.
-The exact tested executable was installed without rebuilding. Seven owner inputs
-remain unchanged. Its cold assisted death replay matches all eight components at
-three checkpoints (24 hashes); explicit fixture setup is not natural campaign evidence.
-
-The native ordinary-enemy death-animation B413 prefix executes18 original instructions before returning to
-the existing guarded continuation. Its original-opcode oracle passes11,520 cases.
-Fresh strict comparisons cover focused boss40/boss48, ordinary contact, revival, a death
-fixture with explicit staged setup, and room03 doors. These bounded routes do not
-prove natural full-campaign progression or complete native boss orchestration.
-
-The independent live scene renderer now admits exact stable Gold Cave03 data,
-in addition to Atland. Same-executable off/auto qualification has646 ordered
-presentations,626 actual replacements,311 independent draws and23,825,088 drawn
-pixels, with zero mismatches. Both checkpoints match all seven recorded state
-components. Unsupported/fade fields retain fallback; no new actor producer is
-authorized. Full reference rendering still runs, so no speed improvement is claimed.
-
-A bounded hidden GPU1080p check with real audio measures60.13455Hz presentation,
-p9517.6462ms/max21.2181ms and no intervals above 25ms. The sample has274 original
-two-field gameplay ticks and no slower ticks. Eleven audio high-water waits retain
-the existing safeguards. This batch makes no new fullscreen, physical-scanout,
-locked60 or complete-campaign performance claim.
-
-Upstream integration is additive throughb894555 except the unrelated recomp-net
-pointer update. Local SDK fixes, HEAD and index are preserved; this is not a
-reset/bootstrap of the intentionally modified framework checkout.
-
-Room07 position/edge coverage and its incoming/outgoing parallax fades were
-already qualified in batches17/18. Do not repeat those audits without an affected
-change. Next work remains broader native continuations, custom scene coverage,
-specific unsupported widescreen routes and measured performance reports.
-The optional door/exit map and modest zoom-out remain considerations until native
-work and the custom renderer are finished. Owner/friends own the uninterrupted
-campaign playtest.
-
-## Historical batch19 stabilization
-
-Batch19 was selected and installed before batch20. Its cold installed
-Items and portable no-potion Giles checks passed. Its beta/WIP counts were **376 AOT /
-119 analyzed LLE /258 roots** and the interpreter safety net. Counts are not
-completion percentages. [Batch19](../NATIVE-BATCH19-2026-10-17.md) records full scope;
-[batch18](../NATIVE-BATCH18-2026-10-17.md) is historical.
-
-Selected executable SHA256:
-`432b5a5808eebcf8395d14c2399b43e1402a1149965c16a55a1bf875c8bb0629`.
-Manifest SHA256:
-`f991f7c7bf62e881360c1ee5150af5bff76d90bf3d2c67bdb7e4e853f41bd2a5`.
-
-Five audited menus open Items/Magic/Equipment in20/18/19 fields and close in22
-with twelve real original DMA jobs. Core Giles first aid preserves original
-Yes/No, inventory and escort; five actual guest cases include follower movement
-and repeated/completed guards. Optional sword reach adds3px per lateral side.
-
-Two original RAM-only enemy-position leaves have guarded host implementations
-for normal rooms03..06/type2 only. The oracle passes7,392 full-RAM/CPU cases,
-66 refusals and64 real JSR/RTS returns. All376 bodies remain,374 byteexact plus
-two guarded entries with exact original fallbacks. No new native mode/SDK ABI
-is counted. Removing math's guest instruction time intentionally changes phase;
-AI, collision, audio and hardware work still run. Unknown contexts fall back.
-
-Final1920×1080 real-audio measurements present at60.124 FPS off,60.120 hiddenauto
-and60.116 fullscreenauto. Host interval p95 is17.981/17.496/17.459ms respectively.
-Fields150..1200 show69 three-field updates off versus525 two-field updates and
-zero slower updates auto. Readback fields247..253 are excluded for fullscreen.
-These bounded checks are not a locked60FPS or all-room guarantee.
-
-All44 incoming02 water-fade fields and46 outgoing03 fade fields pass final
-source checks. Outgoing proof covers4,389,504 margin pixel observations and46
-native centers, including actual current OAM actors within guarded eight-pixel
-anchors. Palette/atlas/generation/old-world authority remain mandatory; mixed/
-virtual packets retain full actor-record guards. Unsupported scenes fall back.
-
-Three final same-cleave off/auto boss comparisons have exact pictures/checkpoints/
-clocks; strict reports stay false for declared mode input differences. Cave
-revival has intentionally different cadence and is checked separately: real
-lethal damage4→1, healing1→10, item25 consumed afterward and alive checkpoints.
-Earlier14 strict/3 cleave-qualified/2 unqualified comparisons retain their actual
-results. No mismatch masks or false aggregate strict claims are used.
-
-All50 Python tests, actor/wide/source/menu checks and launcher Apply/Revert plus
-120-frame startup pass. Seven protected owner files and the dirty SDK remain
-unchanged. Preserve source, ROM, settings, saves, soundtrack and Ghidra; use small
-private portable fixtures rather than repeating completed campaign exploration.
-The owner/friends run the uninterrupted campaign. See [PLAYTEST.md](PLAYTEST.md).
-Broader native death/boss orchestration, unsupported scenes, soundtrack mappings
-and hardware/controller coverage remain open. Batch19's custom renderer is
-Atland-only; batch20's stable cave extension is described above. Enhanced original
-pixels is optional and separate from scene rendering.
+Next: source-backed remaining endgame/Thimale services and further actor/scene
+families. The owner and friends perform the natural uninterrupted campaign.
+Optional discovery map/doors/exits and modest15–20% zoom-out remain deferred
+until native and custom renderer coverage is ready. Neither is implemented.
