@@ -69,16 +69,55 @@ static void init_tables(void) {
 static unsigned word(const uint8_t *r,unsigned a){return r[a]|r[a+1]<<8;}
 static unsigned ptr(const uint8_t *r,unsigned a){return word(r,a)|r[a+2]<<16;}
 typedef struct AdditionalFamily { unsigned bg,obj,definitions; } AdditionalFamily;
-typedef struct AdditionalRoom { unsigned room,width,height,family; } AdditionalRoom;
+typedef struct AdditionalRoom { unsigned room,width,height,family,flags,page0,page1; } AdditionalRoom;
 static const AdditionalFamily s_additional_families[]={
-  {0x15a43d,0x1b84d8,0x078c00},{0x15a43d,0x1ba17d,0x0794dc},
-  {0x15b8ac,0x1ba17d,0x079c14},{0x15c815,0x1cc387,0x07a0d8},
-  {0x13d745,0x1db67e,0x06d090},{0x13d745,0x1b8000,0x06d090},
+  {0x15a43d,0x1b84d8,0x078c00},
+  {0x15a43d,0x1ba17d,0x0794dc},
+  {0x15b8ac,0x1ba17d,0x079c14},
+  {0x15c815,0x1cc387,0x07a0d8},
+  {0x13d745,0x1db67e,0x06d090},
+  {0x13d745,0x1b8000,0x06d090},
   {0x12e794,0x1db67e,0x06d984},
-  {0x14abbe,0x1a94fe,0x06cb0c},{0x14c061,0x1aaed9,0x06dc14},
-  {0x14c061,0x19af50,0x06dc14},{0x14c061,0x1aed4a,0x06dc14},
-  {0x14d33d,0x1abf2d,0x06e2f8},{0x12b297,0x1aaed9,0x06999c},
-  {0x12ee12,0x1dc859,0x06e5ac},{0x149197,0x18afb0,0x06b3c4}
+  {0x14abbe,0x1a94fe,0x06cb0c},
+  {0x14c061,0x1aaed9,0x06dc14},
+  {0x14c061,0x19af50,0x06dc14},
+  {0x14c061,0x1aed4a,0x06dc14},
+  {0x14d33d,0x1abf2d,0x06e2f8},
+  {0x12b297,0x1aaed9,0x06999c},
+  {0x12ee12,0x1dc859,0x06e5ac},
+  {0x149197,0x18afb0,0x06b3c4},
+  {0x12b297,0x199f6c,0x06999c},
+  {0x13a421,0x1d9b77,0x06a310},
+  {0x12da6c,0x1d9b77,0x06a97c},
+  {0x148000,0x1c8000,0x06ad44},
+  {0x12da6c,0x18a0b2,0x06a97c},
+  {0x12da6c,0x199f6c,0x06a97c},
+  {0x168000,0x188000,0x06b874},
+  {0x13b55d,0x188000,0x06bc74},
+  {0x13c716,0x1c92f5,0x06c294},
+  {0x14a1bc,0x1c92f5,0x06c880},
+  {0x13c716,0x1cada9,0x06c294},
+  {0x14de0a,0x1adbb7,0x06ec64},
+  {0x13f001,0x1cb607,0x06f20c},
+  {0x158000,0x1cb7f8,0x07848c},
+  {0x158000,0x1dd5c7,0x07848c},
+  {0x14edd5,0x1cb7f8,0x06f694},
+  {0x15918d,0x1cb7f8,0x078860},
+  {0x15d7e5,0x1bb982,0x07a5a0},
+  {0x15d7e5,0x1aed4a,0x07a5a0},
+  {0x168ed1,0x199f6c,0x07ab38},
+  {0x15e7fb,0x1cd41d,0x07add8},
+  {0x138000,0x198000,0x068000},
+  {0x128b77,0x19c637,0x069298},
+  {0x148000,0x18c636,0x06ad44},
+  {0x13c716,0x19e0dd,0x06c294},
+  {0x14c061,0x1bd63d,0x06dc14},
+  {0x14de0a,0x1ceac1,0x06ec64},
+  {0x15f529,0x1be46b,0x06fc3c},
+  {0x15f529,0x18e0a7,0x06fc3c},
+  {0x158000,0x19fd1d,0x07848c},
+  {0x15a43d,0x1cfa11,0x0794dc},
+  {0x15c815,0x1cada9,0x07a0d8}
 };
 /* Exact original descriptors, not authority inferred from shared scenery. */
 static const AdditionalRoom s_additional_rooms[]={
@@ -89,18 +128,68 @@ static const AdditionalRoom s_additional_rooms[]={
   {0x19,128,128,4},{0x1a,32,32,4},{0x1b,32,64,5},{0x1c,96,128,6},
   {0x18,192,224,7},{0x1d,128,128,7},{0x1e,128,128,8},
   {0x1f,64,64,8},{0x20,128,128,9},{0x21,64,64,10},
-  {0x22,128,128,11},{0x23,64,64,12},{0x24,96,96,13},{0x25,64,64,14}
+  {0x22,128,128,11},{0x23,64,64,12},{0x24,96,96,13},{0x25,64,64,14},
+  {0x09,128,128,15,0,0x000000,0x000000},
+  {0x0a,128,128,16,0,0x000000,0x000000},
+  {0x0b,256,256,17,0,0x000000,0x000000},
+  {0x0c,192,224,18,1,0x14fb7f,0x169cf6},
+  {0x0d,256,256,19,0,0x000000,0x000000},
+  {0x0e,32,32,20,0,0x000000,0x000000},
+  {0x0f,32,32,20,0,0x000000,0x000000},
+  {0x10,256,256,14,0,0x000000,0x000000},
+  {0x11,128,160,21,0,0x000000,0x000000},
+  {0x12,64,256,22,1,0x13f633,0x13fa19},
+  {0x13,64,256,22,1,0x13f633,0x13fa19},
+  {0x14,128,256,23,0,0x000000,0x000000},
+  {0x15,128,128,23,0,0x000000,0x000000},
+  {0x16,64,64,24,0,0x000000,0x000000},
+  {0x17,96,96,25,0,0x000000,0x000000},
+  {0x26,256,256,26,0,0x000000,0x000000},
+  {0x27,64,96,27,0,0x000000,0x000000},
+  {0x28,224,256,28,1,0x14f82e,0x12fe89},
+  {0x29,32,64,29,1,0x14f82e,0x12fe89},
+  {0x2a,64,160,30,1,0x13fd84,0x11fe76},
+  {0x2b,128,160,31,0,0x000000,0x000000},
+  {0x38,224,160,32,0,0x000000,0x000000},
+  {0x39,128,96,32,0,0x000000,0x000000},
+  {0x3a,128,64,33,0,0x000000,0x000000},
+  {0x3b,32,32,32,0,0x000000,0x000000},
+  {0x3c,96,64,34,0,0x000000,0x000000},
+  {0x3d,32,64,34,0,0x000000,0x000000},
+  {0x3e,256,256,35,0,0x000000,0x000000},
+  {0x3f,192,192,36,0,0x000000,0x000000},
+  {0x40,32,32,37,0,0x000000,0x000000},
+  {0x41,32,32,38,0,0x000000,0x000000},
+  {0x42,32,32,39,0,0x000000,0x000000},
+  {0x43,32,32,40,0,0x000000,0x000000},
+  {0x44,32,64,41,0,0x000000,0x000000},
+  {0x45,32,32,33,0,0x000000,0x000000},
+  {0x46,32,32,42,0,0x000000,0x000000},
+  {0x47,32,32,43,0,0x000000,0x000000},
+  {0x48,32,32,44,0,0x000000,0x000000},
+  {0x49,32,32,45,0,0x000000,0x000000},
+  {0x4a,32,32,46,0,0x000000,0x000000}
 };
 int LagoonSceneRenderer_AdditionalRoom(const uint8_t *r) {
-  if(!r||r[0x50]||ptr(r,0x88)!=0x7f0000||ptr(r,0x8b)!=0x7f4000)return 0;
+  if(!r||ptr(r,0x88)!=0x7f0000||ptr(r,0x8b)!=0x7f4000)return 0;
   for(unsigned i=0;i<sizeof(s_additional_rooms)/sizeof(s_additional_rooms[0]);++i) {
     const AdditionalRoom *room=&s_additional_rooms[i];
-    if(word(r,0x48e)!=room->room||word(r,0x53)!=room->width||word(r,0x55)!=room->height)continue;
+    if(word(r,0x48e)!=room->room||word(r,0x53)!=room->width||word(r,0x55)!=room->height||r[0x50]!=room->flags)continue;
     const AdditionalFamily *family=&s_additional_families[room->family];
     return ptr(r,0x57)==family->bg&&ptr(r,0x5d)==family->obj&&
-      ptr(r,0x69)==family->definitions&&ptr(r,0x75)==family->definitions;
+      ptr(r,0x69)==family->definitions&&ptr(r,0x75)==family->definitions&&
+      (!room->flags||(ptr(r,0x7e)==room->page0&&ptr(r,0x81)==room->page1));
   }
   return 0;
+}
+int LagoonSceneRenderer_ParallaxRoom(const uint8_t *r) {
+  if(!r)return 0;
+  if(r[0x50]==1)return LagoonSceneRenderer_AdditionalRoom(r);
+  return word(r,0x48e)==7 && r[0x50]==2 && word(r,0x53)==128 && word(r,0x55)==128 &&
+    ptr(r,0x57)==0x129e89 && ptr(r,0x5d)==0x1a906f &&
+    ptr(r,0x69)==0x069720 && ptr(r,0x75)==0x069720 &&
+    ptr(r,0x88)==0x7f0000 && ptr(r,0x8b)==0x7f4000 &&
+    ptr(r,0x7e)==0x11fb7d && ptr(r,0x81)==0x11fb7d;
 }
 /* Exact ordinary scene resources, not permission for arbitrary Mode1 rooms.
  * Both maps use the same immutable ROM definition bank within each descriptor. */
@@ -110,6 +199,9 @@ static int scene_resources(const uint8_t *r,unsigned *definitions) {
   unsigned room=word(r,0x48e),d=ptr(r,0x69);
   if(room==0 && ptr(r,0x57)==0x138000 && ptr(r,0x5d)==0x198000 && d==0x068000) {
     if(!word(r,0x53)||word(r,0x53)>256||!word(r,0x55)||word(r,0x55)>256)return 0;
+  }else if((room==1&&word(r,0x53)==64&&word(r,0x55)==96&&ptr(r,0x57)==0x139a7a&&ptr(r,0x5d)==0x1a8000&&d==0x0689e0)||
+      (room==2&&word(r,0x53)==64&&word(r,0x55)==64&&ptr(r,0x57)==0x128000&&ptr(r,0x5d)==0x1a8000&&d==0x068e90)) {
+    /* Preserve the existing widescreen/fade policy; qualify stable custom pixels. */
   }else if(LagoonSceneRenderer_AdditionalRoom(r)) {
     /* Existing character/PPU/raster ownership must still qualify this packet. */
   }else if(room==8 && word(r,0x53)==192 && word(r,0x55)==128 &&
@@ -134,6 +226,10 @@ static int scene_resources(const uint8_t *r,unsigned *definitions) {
   }
   if(definitions)*definitions=((d>>16)&0x7f)*0x8000+(d&0x7fff);
   return 1;
+}
+int LagoonSceneRenderer_ExactRoom(const uint8_t *r) {
+  return r && (word(r,0x48e)!=0 || (word(r,0x53)==192&&word(r,0x55)==192)) && scene_resources(r,NULL) &&
+    r[0x50]==(LagoonSceneRenderer_ParallaxRoom(r)?(word(r,0x48e)==7?2:1):0);
 }
 static void write_report(void) {
   if(!s_report[0])return;
@@ -172,18 +268,23 @@ void LagoonSceneRenderer_Reset(void) {
   if(!s_exit_registered){atexit(write_report);s_exit_registered=1;}
   report("reset",0,0);
 }
+static int parallax_raster(const Ppu *p,const uint8_t *r) {
+  unsigned camera[4]={word(r,0x480),word(r,0x482),word(r,0x484),word(r,0x486)};
+  unsigned raster[4]={p->hScroll[0]&1023,p->vScroll[0]&1023,p->hScroll[1]&1023,p->vScroll[1]&1023};
+  return LagoonWideEntities_ParallaxRaster(camera,raster);
+}
 static int supported(const Ppu *p,const uint8_t *r,const uint8_t *rom,size_t size,int authority) {
-  int parallax=r&&word(r,0x48e)==7;
+  int parallax=LagoonSceneRenderer_ParallaxRoom(r);
   return p&&authority&&r&&rom&&size==0x100000&&scene_resources(r,NULL)&&
-    !r[0x100e]&&r[0x50]==(parallax?2:0)&&word(r,0x48c)<=64&&
+    !r[0x100e]&&r[0x50]==(parallax?(word(r,0x48e)==7?2:1):0)&&word(r,0x48c)<=64&&
     word(r,0x53)>0&&word(r,0x53)<=256&&word(r,0x55)>0&&word(r,0x55)<=256&&
     p->inidisp==15&&p->bgmode==9&&!p->mosaic&&p->obsel==2&&!p->setini&&
     p->bgXsc[0]==0x71&&p->bgXsc[1]==(parallax?0x7a:0x79)&&p->bgXsc[2]==0x3c&&p->bgTileAdr==0x600&&
     !p->cgadsub&&!(p->cgwsel&1)&&!p->windowsel&&!p->screenWindowed[0]&&!p->screenWindowed[1]&&
     p->screenEnabled[0]==31&&
-    (parallax?(LagoonWideEntities_ParallaxScroll(word(r,0x480),word(r,0x482),word(r,0x484),word(r,0x486))&&
-      LagoonWideEntities_ParallaxScroll(p->hScroll[0],p->vScroll[0],p->hScroll[1],p->vScroll[1])&&
-      LagoonWideEntities_ParallaxMap(PpuRenderVram(p),rom,size)):
+    (parallax?(LagoonWideEntities_ParallaxRoomScroll(word(r,0x48e),word(r,0x480),word(r,0x482),word(r,0x484),word(r,0x486))&&
+      parallax_raster(p,r)&&
+      LagoonWideEntities_ParallaxMapForRoom(PpuRenderVram(p),rom,size,word(r,0x48e))):
       (p->hScroll[0]==p->hScroll[1]&&p->vScroll[0]==p->vScroll[1]))&&
     !p->hScroll[2]&&!p->vScroll[2]&&!(p->oamaddh&0x80)&&p->extraObjectCount<=OBJECTS&&
     (!p->extraObjectCount||p->extraObjects);
@@ -236,7 +337,7 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
     s->wx=x+(((p->hScroll[0]&1023)-x+512)&1023)-512;
     s->wy=y+(((p->vScroll[0]&1023)-y+512)&1023)-512+1;
     s->native_x=p->hScroll[0];s->native_y=p->vScroll[0]+1;
-    s->parallax=word(r,0x48e)==7;s->finite_clip=word(r,0x48e)==8||LagoonSceneRenderer_AdditionalRoom(r);s->bg2_x=p->hScroll[1];s->bg2_y=p->vScroll[1]+1;
+    s->parallax=LagoonSceneRenderer_ParallaxRoom(r);s->finite_clip=word(r,0x48e)==1||word(r,0x48e)==2||word(r,0x48e)==8||LagoonSceneRenderer_AdditionalRoom(r);s->bg2_x=p->hScroll[1];s->bg2_y=p->vScroll[1]+1;
     s->world_width=word(r,0x53)*8;s->world_height=word(r,0x55)*8;
     s->count=(unsigned)p->extraObjectCount;
     for(unsigned i=0;i<s->count;++i) {

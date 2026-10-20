@@ -30,7 +30,9 @@ for file in a.gen.glob('bank*_v2.c'):
 starts=[0x0290a0,0x0290a1,0x0290bd,0x0290be,0x02911c,0x02914c,
         0x0291a2,0x0291a3,0x029242,0x029243,0x029244,0x029245,
         0x029312,0x0294af,0x029525,0x029036]
-support=[]
+manifest=json.loads((a.gen/'program_manifest.json').read_text())
+rng_native=manifest['nodes'].get('009800:M1X0',{}).get('disposition')=='aot_eligible'
+support=[0x009800,0x009848] if rng_native else []
 selected={by_pc[pc] for pc in starts+support};stubs={};bindings={};bodies=[]
 for pc in starts+support:
     name=by_pc[pc];_,body,file=functions[name]
@@ -41,7 +43,7 @@ for pc in starts+support:
         if child not in selected:stubs[child]=functions[child][0]
     bodies.append(body)
 manifest=json.loads((a.gen/'program_manifest.json').read_text())
-assert manifest['nodes'].get('009800:M1X0',{}).get('disposition')!='aot_eligible'
+if rng_native:assert manifest['nodes']['009848:M1X0']['disposition']=='aot_eligible'
 assert manifest['exit_modes']['009800:M1X0']=={'m':1,'x':0}
 for pc in starts[:-1]:
     assert manifest['nodes'][f'{pc:06X}:M1X0']['disposition']=='aot_eligible'
@@ -61,7 +63,7 @@ a.out.mkdir(parents=True,exist_ok=True)
 (a.out/'boss_motion_under_test.h').write_text(header,encoding='utf-8')
 runner=repo/'snesrecomp/runner/src';harness=repo/'tests/lagoon_boss_motion_oracle_test.c'
 binary=a.out/'boss-motion-oracle.exe'
-subprocess.run([a.compiler,'-std=c11','-O2','-Wall','-Wextra','-Wno-unused-label',
+subprocess.run([a.compiler,'-DMOTION_NATIVE_RNG='+str(int(rng_native)),'-std=c11','-O2','-Wall','-Wextra','-Wno-unused-label',
     '-Wno-unused-parameter','-Wno-unused-variable','-I'+str(runner),'-I'+str(a.out.resolve()),
     str(harness),str(runner/'snes/interp816.c'),'-o',str(binary)],check=True)
 r=subprocess.run([str(binary.resolve()),str(a.rom.resolve())],capture_output=True,text=True)
@@ -72,4 +74,4 @@ print(r.stdout,end='');print(r.stderr,end='');r.check_returncode()
     harness_sha256=hashlib.sha256(harness.read_bytes()).hexdigest(),
     tool_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
     interpreter_sha256=hashlib.sha256((runner/'snes/interp816.c').read_bytes()).hexdigest(),
-    stdout=r.stdout,limits='All15 actual new motion bodies including seven RTS slots and the original9036 selector run. Existing906A and unknown pointers stop at actual entries; no fake actor/results. Original009800/9848 RNG instructions run through real3-byteJSL/RTL frames, with a constant-eight-cycle bus and deterministic divider model, not real-device timing proof. FullRAM/registers/flags/Ahigh/saved+deadstack and CPU/master/coprocessor clocks; live scheduler/APU/interrupt qualification separate.'),indent=2)+'\n')
+    stdout=r.stdout,rng_execution='actual_generated_native_bodies'if rng_native else'original_interpreted_service',limits='All15 actual new motion bodies including seven RTS slots and the original9036 selector run. Existing906A and unknown pointers stop at actual entries; no fake actor/results. Original009800/9848 RNG runs through real3-byteJSL/RTL frames (native generated or interpreted according to rng_execution), with a constant-eight-cycle bus and deterministic divider model, not real-device timing proof. FullRAM/registers/flags/Ahigh/saved+deadstack and CPU/master/coprocessor clocks; live scheduler/APU/interrupt qualification separate.'),indent=2)+'\n')

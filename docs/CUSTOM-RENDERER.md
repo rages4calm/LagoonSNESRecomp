@@ -1,21 +1,126 @@
 # Bounded custom scene renderer
 
-The interpreter safety net remains in place. `src/lagoon_scene_renderer.c` adds
-a bounded live software scene backend for stable Atland, exact Gold Cave03/04/05/06,
-room07 with independently owned parallax, ordinary room08 Elf Field and twelve
-exact rooms2C..37 in four resource families, four NPC rooms19..1C and six exact
-field contexts18 /1D /1E /1F /20 /21, plus four exact contexts22..25, with Widescreen
-enabled. It captures its
-own scene packet, independently draws a field, and compares every 32-bit output
-pixel with the existing presentation before allowing replacement. Unsupported
-fields and any mismatch retain the existing picture. This is original pixel art
-and scene geometry, not new art or a D3D12 uploader.
+The interpreter safety net remains in place. `src/lagoon_scene_renderer.c` now
+recognizes all 75 original room descriptors (`00..4A`), including seven exact
+layered scenes and the authored boss arenas. It captures its own scene packet,
+draws it independently and compares every 32-bit pixel with the reference
+presentation before replacement. Exact source, layout, generation, native OAM
+and raster guards remain required. Unsupported fields retain the reference.
+This uses the original pixel art and finite game geometry.
 
 The integration defaults to **auto** for supported stable packets. **Verify**
 computes and checks the candidate without replacing the picture. Implementation
 and ROM-free unit tests alone do not prove live gameplay coverage; bounded runtime
 acceptance is recorded separately. There is currently no launcher selector for
 this diagnostic.
+
+## Batch 29 full room catalog and remaining ordinary actors
+
+The [room matrix](RENDERER-COVERAGE.csv) records all 75 exact BG/OBJ resources,
+definitions, dimensions, animation owners and ordinary actor kinds. Existing
+qualified contexts remain supported. Six further layered contexts
+`0C/12/13/28/29/2A` own two independent original 2KiB BG2 pages with quarter-speed
+camera anchors; none borrows 07's map. Actual room 12 cameraY1824 means wrapped
+BG1 scroll 800 and quarter BG2 scroll 456. Both compressed sources/decoded pages,
+full current/captured resource contexts and raster phases must match. Room 07's
+original camera bounds remain unchanged.
+
+All 17 original animation descriptors have exact sequence contracts and 32 room
+owners. Length and source stride are independent: E010 copies 160 bytes at 128 byte
+spacing, E030 has six ping-pong entries/four distinct sources, and E008 keeps its
+original delay 7. Other owners retain delay 4 and their original phase limits.
+The final correction adds only 32/33/34 ownership of E050/DD80, two 192 byte sources
+10B980/10BA40 for characters 944..949. Fresh loaders show both resident phases;
+the sampled WRAM maps do not use these high characters. This closes a source
+contract omission, without claiming a visible animation defect in those samples.
+
+NPC/enemy kinds are restricted to exact source rooms. Authored script NPC0/1 and
+Lagon NPC8 additionally require the original entry-script and D20C source pins.
+The global NPC0/1 follower producer has separate original loader/table, slot 800
+and 04E1 flag guards. Original C1C6 metadata includes 07's NPC priority override.
+Room 21 NPC0/33 and the selector-zero path have source qualification, without a
+live-far claim for every story branch or escort.
+
+Status 4 enemies (including 13/14/29) and type 5 props can render an **unchanged
+individual guest pose** after genuine native OAM anchors that same entity. The
+witness binds the full 64 byte record except checked camera-derived nativeXY and
+the draw-queue bit, exact room/resources/generation, complete atlas/palette and
+signedDP90. Props use original frame 3E and height correction. Changed frame,
+timer, worldXY, subtype, status, source or graphics revokes that authority.
+No B131 AI, reward/death code or special attack prediction runs for presentation.
+Unseen/changed special far poses, dynamic Nasir art and unowned cells keep their
+native fallback. Source proof does not mean every actor is visible in the margins.
+
+Type 3 multipart bosses and type 4 projectiles retain their original native OAM
+producer. The independent renderer composes that real OAM and verifies its whole
+picture. Arenas 40..48 and story rooms 49/4A have an authored 256 pixel world width
+(44 is 512 pixels high); columns beyond those finite worlds stay black. No larger
+arena or invented world is implied.
+
+Outgoing/fade packets now recognize all exact descriptors, while binding the
+captured maps, full tilemaps, characters, actor sources and generation to the
+actual raster. New/unknown character or tilemap writes revoke the outgoing
+packet before an incomplete incoming upload can borrow it. The old 07->06
+source-owned 136 byte queue exception remains confined to its original contract.
+Incoming partial brightness uses the completed-source reference path; independent
+C replacement still requires full brightness. Room 17's sampled Ella portrait/text
+screen is original fixed Mode 0 UI and correctly retains native presentation.
+
+Broad runtime evidence uses executable`4fbe90fc6ee8e8a0...` and manifest
+`e375af907ee11273...`. Final executable`c0b78249eb5c3381...` differs only by the
+three 32..34 animation-owner rows:117/118 objects, including every generated,
+native and core object, are byte-identical. Independent source review transfers
+unaffected evidence explicitly; the three affected rooms were rerun on final.
+Earlier runs are not relabeled as final-binary runs.
+
+| Bounded route group | Ordered presentations | Checkpoint locations | Custom replacements |
+| --- | ---: | ---: | ---: |
+|40 remaining loaders, broad 4FBE|34,440|40|23,500|
+|19 actual-spawn near/far routes, broad 4FBE|35,227|38|27,564|
+|Original script 2A / synthetic resource 3F, broad 4FBE|1,722|2|1,190|
+|Real doors 09->08 /26->44 /28->29, broad 4FBE|4,428|6|2,954|
+|Affected 32/33/34 loaders, finalC0B|2,583|3|1,818|
+
+Every off/auto pair matches ordered expanded presentations and guest checkpoint
+components/clocks, with zero accepted reference mismatches. Fresh installed FEEF
+controls also match all eight checked guest components and clocks for the 40
+loaders,19 actor routes and final three affected loaders. Isolated 2A/3F are
+same-candidate controls;3F is explicitly a synthetic resource selector, not
+natural campaign reachability. Intentional old/new margin changes and diagnostic
+mode/report-path differences remain visible in receipts.
+
+Actual far observations include NPC16/47/61, enemies 5/6/7/8/11/12/14/23/30/35 and
+prop 3. Kind 14 includes 263 status 4 far-cell observations; prop 3 has 366. These are
+observed cells, not unique actors. Assistance changes only Nasir position in 8 px
+steps with existing camera-centering QoL and protects HP/DEF; no actor records
+or quest outcomes are fabricated. Targets 9/10/13/26/24/34 did not establish
+target-positive far evidence;28's assisted path entered boss 48. Those roles are
+source-qualified, with no complete live-far claim. Native-frame witness refusals
+are conservative gates, not accepted render mismatches. The failed 0C door
+approach is excluded from transition coverage.
+
+Public tests use the verified owner ROM without embedding its bytes:
+`tools/test_wide_remaining.ps1`, `tools/test_wide_parallax_sources.ps1` and
+`tools/test_wide_follower_source.ps1`. Their bounded source/policy evidence is:
+
+- 28,512 actual selectors/poststates;23,556 complete original OAM calls/221,779
+  exact cells, including 3,600 prop calls and bounded status 4 current poses.
+- 649 original DF88/008F19 DMA jobs;96,242 descriptor/table/source/resident-byte
+  mutants and 5,025 all 75-room/17-descriptor ownership checks.
+- 14 actual decompression/queue/NMI DMA jobs for seven layered scenes; independent
+  source/page mutants and 68,705 full-camera/wrapped-raster checks.
+- 2,400 original follower initializations,14,400 selector/draw chains/72,900 cells;
+  17 actual script spawns and full original draw chains.
+- 75 exact descriptors,41 fresh stable source snapshots and one native-UI refusal;
+  19,102,720 scalar source pixels/25,053,952 finite-edge pixels.
+- 21 synthetic unchanged-pose positives/20 source-family fixtures and 5,878 pose
+  refusals;39 actual-source outgoing packets/8,775 incoming-fade protocol checks
+  and 200,802 map/character/source/generation/layout/order refusals.
+
+Source-oracle ABI fixtures, synthetic policy and real assisted routes are separate
+evidence. They do not certify a full native CPU port, an uninterrupted campaign,
+hardware timing, fullscreen scanout or sustained 60 fps across all rooms. The
+owner/friends' natural playtest remains the campaign check.
 
 ## Batch28 rooms22..25 and original NPCs
 
@@ -657,12 +762,11 @@ prototype neither edits nor distributes the supplied ROM, graphics or state.
 
 ## Remaining renderer work
 
-1. Expand supported room/object families and partial-brightness transitions while
-   preserving retained-resource ownership and complete reference comparison.
-2. Add raster changes incrementally, then
-   measure sustained gameplay performance using logging-free hidden tests.
-   A D3D12 uploader, shader or larger framebuffer alone does not establish a
-   correct game-state renderer.
+The original scene catalog is covered. Further actor work concerns changed or
+never-seen special far poses, independently owned multipart/projectile producers,
+and story branches without live-far evidence. New raster/UI behavior needs its
+own source/ownership contract. Natural campaign playtesting and broader
+logging-free performance samples remain separate work.
 
-Higher-resolution art, perspective changes and a full 3D conversion are separate
-projects. This experiment retains the original pixel assets and scene geometry.
+Higher-resolution art, perspective changes and a full3D conversion are separate
+projects. This renderer retains original pixel assets and finite geometry.

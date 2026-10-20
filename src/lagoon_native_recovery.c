@@ -2,6 +2,7 @@
 #include "lagoon_native_recovery.h"
 #include "lagoon_native_revival.h"
 #include "lagoon_native_camera.h"
+#include "lagoon_native_endgame.h"
 #include "snes/interp_bridge.h"
 #include "common_rtl.h"
 #include <string.h>
@@ -102,7 +103,7 @@ static int script_descriptor(const InterpAotContinuation *d) {
 }
 static int recovery_source(const InterpAotContinuation *d) {
   if(!d)return 0;
-  if(script_descriptor(d) || LagoonNativeRevivalSource(d))return 1;
+  if(script_descriptor(d) || LagoonNativeRevivalSource(d) || LagoonNativeEndgameSource(d))return 1;
   /* The earlier source contracts authorize only two RTL sites. Never allow
    * an extension of the shared descriptor ABI to broaden those old guards. */
   if(d->return_sites[2] || d->return_sites[3])return 0;
@@ -217,20 +218,20 @@ static int script_hook(unsigned event,const CpuState *cpu,uint32_t source,uint32
   script_counts.ancestors[i]++;return 1;
 }
 static struct {unsigned long long takes[2],hp[2],mp[2],refused[2];unsigned long long flash_render[2],flash_wait[2];
-  unsigned registered,registration_attempts,failed_source_mask;} counts;
+  unsigned registered,registration_attempts;unsigned long long failed_source_mask;} counts;
 static const char *report_path;
 static unsigned owner_index(uint32_t pc){return pc==0x01C6AF;}
 static void report(void) {
   if(!report_path || !*report_path)return;
   FILE *f=fopen(report_path,"wb");if(!f)return;
-  fprintf(f,"{\"registered\":%u,\"registration_attempts\":%u,\"failed_source_mask\":%u,\"main\":{\"takes\":%llu,\"hp_to_mp\":%llu,\"mp_to_plx\":%llu,\"refusals\":%llu},"
+  fprintf(f,"{\"registered\":%u,\"registration_attempts\":%u,\"failed_source_mask\":%llu,\"main\":{\"takes\":%llu,\"hp_to_mp\":%llu,\"mp_to_plx\":%llu,\"refusals\":%llu},"
     "\"render\":{\"takes\":%llu,\"hp_to_mp\":%llu,\"mp_to_plx\":%llu,\"refusals\":%llu},"
     "\"death_flash\":{\"9321\":{\"render_takes\":%llu,\"wait_takes\":%llu},"
     "\"B449\":{\"render_takes\":%llu,\"wait_takes\":%llu}},"
     "\"boss_script\":{\"dialogue_takes\":%llu,\"audio_takes\":%llu,\"reload_takes\":%llu,"
     "\"wait_takes\":[%llu,%llu,%llu,%llu,%llu],\"ancestor_returns\":[%llu,%llu,%llu,%llu,%llu],\"refusals\":%llu},"
     "\"revival\":{\"wait_takes\":%llu,\"ancestor_returns\":%llu,\"refusals\":%llu},"
-    "\"camera_tail\":{\"calls\":%llu,\"armed\":%llu,\"proposals\":%llu,\"takes\":%llu,\"refusals\":%llu}}\n",
+    "\"camera_tail\":{\"calls\":%llu,\"armed\":%llu,\"proposals\":%llu,\"takes\":%llu,\"refusals\":%llu},",
     counts.registered,counts.registration_attempts,counts.failed_source_mask,counts.takes[0],counts.hp[0],counts.mp[0],counts.refused[0],
     counts.takes[1],counts.hp[1],counts.mp[1],counts.refused[1],
     counts.flash_render[0],counts.flash_wait[0],counts.flash_render[1],counts.flash_wait[1],script_counts.dialogue,script_counts.audio,script_counts.reload,
@@ -238,7 +239,14 @@ static void report(void) {
     script_counts.ancestors[0],script_counts.ancestors[1],script_counts.ancestors[2],script_counts.ancestors[3],script_counts.ancestors[4],script_counts.refusals,
     LagoonNativeRevivalGetStats()->wait_takes,LagoonNativeRevivalGetStats()->ancestor_returns,LagoonNativeRevivalGetStats()->refusals,
     LagoonNativeCameraGetStats()->calls,LagoonNativeCameraGetStats()->armed,LagoonNativeCameraGetStats()->proposals,
-    LagoonNativeCameraGetStats()->takes,LagoonNativeCameraGetStats()->refusals);fclose(f);
+    LagoonNativeCameraGetStats()->takes,LagoonNativeCameraGetStats()->refusals);
+  const LagoonNativeEndgameStats *e=LagoonNativeEndgameGetStats();
+  fprintf(f,"\"endgame_inline\":{\"calls\":[%llu,%llu,%llu],\"armed\":[%llu,%llu,%llu],"
+    "\"proposals\":[%llu,%llu,%llu],\"takes\":[%llu,%llu,%llu],\"refusals\":%llu,\"thor_wait_takes\":[",
+    e->calls[0],e->calls[1],e->calls[2],e->armed[0],e->armed[1],e->armed[2],
+    e->proposals[0],e->proposals[1],e->proposals[2],e->takes[0],e->takes[1],e->takes[2],e->refusals);
+  for(unsigned i=0;i<13;i++)fprintf(f,"%s%llu",i?",":"",e->waits[i]);
+  fprintf(f,"],\"queue_ancestors\":%llu}}\n",e->queue_ancestors);fclose(f);
 }
 static int parent_live(const CpuState *cpu) {
   return parent.phase && parent.generation==RtlStateGeneration() && cpu &&
@@ -250,6 +258,7 @@ static int recovery_hook(unsigned event,const CpuState *cpu,uint32_t source,
     uint32_t target,const InterpAotContinuation *d,uint16_t owner_entry_s,
     InterpAotAncestor *proposal) {
   LagoonNativeCameraObserve(event,cpu,source,target,d,owner_entry_s);
+  if(LagoonNativeEndgameHook(event,cpu,source,target,d,owner_entry_s,proposal))return 1;
   if(LagoonNativeRevivalHook(event,cpu,source,target,d,owner_entry_s,proposal))return 1;
   if(script_hook(event,cpu,source,target,d,owner_entry_s,proposal))return 1;
   if(event==INTERP_CONT_DISCARD){memset(&parent,0,sizeof(parent));return 0;}
@@ -303,6 +312,7 @@ static int recovery_hook(unsigned event,const CpuState *cpu,uint32_t source,
 }
 void LagoonNativeRecovery_BeforeFrame(void) {
   LagoonNativeCameraBeforeFrame();
+  LagoonNativeEndgameBeforeFrame();
   static int configured,report_initialized;
   if(!report_initialized){report_initialized=1;report_path=getenv("LAGOON_NATIVE_RECOVERY_REPORT");
     if(report_path && *report_path)atexit(report);}
@@ -315,14 +325,15 @@ void LagoonNativeRecovery_BeforeFrame(void) {
     {0x01930F,0x008985,0x019313,0x019294,{0x00898D,0x00899A},0,1,0,0,1,3,0,2}
   };
   if(!configured && g_rom) {
-    InterpAotContinuation all[32];memcpy(all,entries,sizeof(entries));
+    InterpAotContinuation all[64];memcpy(all,entries,sizeof(entries));
     memcpy(all+5,boss_entries,sizeof(boss_entries));
     memcpy(all+9,flash_entries,sizeof(flash_entries));
     unsigned total=13;
     memcpy(all+total,script_entries,sizeof(script_entries));total+=sizeof(script_entries)/sizeof(script_entries[0]);
-    total+=LagoonNativeRevivalDescriptors(all+total,32-total);
+    total+=LagoonNativeRevivalDescriptors(all+total,64-total);
+    total+=LagoonNativeEndgameDescriptors(all+total,64-total);
     if(report_path && *report_path){counts.registration_attempts++;counts.failed_source_mask=0;
-      for(unsigned i=0;i<total;i++)if(!recovery_source(all+i))counts.failed_source_mask|=1u<<i;}
+      for(unsigned i=0;i<total;i++)if(!recovery_source(all+i))counts.failed_source_mask|=1ULL<<i;}
     configured=interp_bridge_set_aot_continuations(all,total,recovery_source);
     if(configured){interp_bridge_set_aot_continuation_hook(recovery_hook);counts.registered=total;}
   }

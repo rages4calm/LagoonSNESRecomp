@@ -1,5 +1,38 @@
 # Lagoon widescreen (experimental)
 
+## Batch29 current scene coverage
+
+All75 authored room descriptors now have exact scenery/resource contracts in
+the custom backend, including the remaining towns/dungeons, six additional
+quarter-scroll contexts and eleven boss/story arenas. The renderer checks each
+replacement against the reference raster. Forty newly covered loader pairs
+have34,440 ordered observations,40 complete guest-state/clock checkpoints,
+23,500 replacements and zero mismatches. Separate2A/3F tests add two isolated
+resource contexts;3F uses an explicitly synthetic room-selector fixture and
+does not establish normal campaign reachability.
+
+The portrait dialogue in room17 is original Mode0 artwork, so that interval
+retains its native presentation. Titles and fixed ending art are likewise
+centered. Narrow arenas and map edges stay finite. Exact room coverage is
+independent of every possible quest state, animation status and offscreen actor.
+
+Outgoing retained scenery now recognizes all75 descriptor contexts, with exact
+generation, original map/graphics, palette, OAM and source-packet checks.
+Three actual outgoing doors cover an ordinary map, a boss entrance and a
+layered-to-layered transition; off/auto full state, clocks and ordered pictures
+match, including85 expanded fade fields per outgoing context. Partial incoming
+uploads still refuse rather than reuse unrelated terrain. Additional source
+tests exercise all75 incoming descriptor combinations and altered packets.
+
+New ordinary/NPC/prop source families and unchanged current native pose
+witnesses extend actors conservatively. An unseen or changed unsupported far
+actor does not gain a predicted animation or execute extra AI. Its original
+native-view behavior remains available. Details and the exact per-family
+limits are in [the custom renderer record](CUSTOM-RENDERER.md).
+
+The following sections retain the earlier, narrower audit scopes and original
+executable bindings; they are not the current complete room catalog.
+
 Widescreen is optional and defaults off. Enable `Widescreen = 1` in `[Graphics]`
 and select `WideAspect = 16:9`, `16:10`, `21:9`, `32:9`, or `window` in
 `[Lagoon]`. Window mode follows the drawable aspect. The existing DisplayAspect

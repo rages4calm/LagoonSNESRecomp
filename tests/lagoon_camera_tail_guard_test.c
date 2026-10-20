@@ -67,6 +67,9 @@ static int forged(const CpuState*c,uint32_t source,uint32_t target,InterpAotAnce
   }
   return 1;
 }
+static int valid_long_proposal(const CpuState*c,uint32_t source,uint32_t target,InterpAotAncestor*out) {
+  (void)source;*out=(InterpAotAncestor){target,0x0180CD,c->S,2};return 1;
+}
 int main(int argc,char **argv) {
   assert(argc==2);FILE*f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof(rom),f)==sizeof(rom));fclose(f);
   const uint8_t center[]={0x5A,0x9B,0xD0,0x16,0xDA,0x64,0x41,
@@ -109,6 +112,25 @@ int main(int argc,char **argv) {
   }
   setup();arm();assert(interp_bridge_set_aot_tail_hook(0,NULL));assert(!take());
   assert(!interp_bridge_set_aot_tail_hook(0x1000000,forged));checks++;
-  printf("PASS %u actual title-camera/SDK-owner guard checks; full patched-source mutants, real-CALL witness, exact owner bytes/SP/CPU/RAM/mode/generation, one-shot/refused/unset hooks; guest state read-only\n",checks);
+  /* Both explicitly different jump channels coexist; all other opcodes/sites
+   * remain off. This checks actual SDK routing, not a duplicate title policy. */
+  setup();arm();assert(interp_bridge_set_aot_indirect_long_tail_hook(0x008106,valid_long_proposal));
+  const unsigned sites[]={0x0183F3,0x008106,0x008105,0x0183F2};
+  for(unsigned op=0;op<256;op++)for(unsigned site=0;site<4;site++) {
+    assert(continuation_tail_site(op,sites[site])==
+      ((op==0x4C&&site==0)||(op==0xDC&&site==1)));checks++;
+  }
+  assert(take());checks++;
+  setup();arm();assert(continuation_indirect_long_tail(&cpu,0x008106,0x01A7B5,&out));
+  assert(out.owner_frame==2&&out.entry_s==cpu.S&&out.owner_return_pc24==0x0180CD);checks++;
+  assert(take()); /* DC matching did not replace or consume camera's token. */
+  for(proposal_mutant=0;proposal_mutant<6;proposal_mutant++) {
+    setup();assert(interp_bridge_set_aot_indirect_long_tail_hook(0x008106,forged));
+    assert(!continuation_indirect_long_tail(&cpu,0x008106,0x01A7B5,&out));checks++;
+  }
+  setup();arm();assert(interp_bridge_set_aot_indirect_long_tail_hook(0,NULL));
+  assert(!continuation_tail_site(0xDC,0x008106));assert(take());checks++;
+  assert(!interp_bridge_set_aot_indirect_long_tail_hook(0x1000000,forged));checks++;
+  printf("PASS %u actual title-camera/SDK-owner guard checks; full patched-source mutants, real-CALL witness, exact owner bytes/SP/CPU/RAM/mode/generation, one-shot/refused/unset hooks and independent4C/DC opcode channels; guest state read-only\n",checks);
   return 0;
 }

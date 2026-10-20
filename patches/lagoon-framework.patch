@@ -5540,7 +5540,7 @@ index 484b3f017b4077521dc6fc7dc54ea99ed23c54aa..462683ccb0e45578ed8adcdf69bc0255
          cpu->d = false;
          cpu->k = 0;
 diff --git a/runner/src/snes/interp_bridge.c b/runner/src/snes/interp_bridge.c
-index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f050f0e40 100644
+index c1e48eb..4d4e598 100644
 --- a/runner/src/snes/interp_bridge.c
 +++ b/runner/src/snes/interp_bridge.c
 @@ -21,6 +21,9 @@
@@ -5694,12 +5694,12 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
  static int      s_lle_wai_yield     = 0;
  static int      s_lle_quiescent_yield = 0;
  static uint64_t s_lle_master_deadline = 0;
-@@ -612,11 +702,179 @@ uint32_t g_interp_wlog_pc24 = 0;
+@@ -612,11 +702,205 @@ uint32_t g_interp_wlog_pc24 = 0;
  static uint32_t s_lle_bounce_exclusions[16];
  static size_t   s_lle_bounce_exclusion_count;
  
 +/* BEGIN AOT_CONTINUATION_POLICY -- pure, bounded provenance matcher. */
-+#define AOT_CONTINUATION_MAX 32
++#define AOT_CONTINUATION_MAX 64
 +#define AOT_CONTINUATION_STACK_MAX 16
 +typedef struct AotContinuationToken {
 +    uint64_t generation, serial;
@@ -5713,21 +5713,30 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
 +static InterpAotContinuationGuard s_continuation_guard;
 +static InterpAotTailHook s_aot_tail_hook;
 +static uint32_t s_aot_tail_source;
++/* Separate explicit opcode-DC slot: cannot replace the absolute-JMP hook. */
++static InterpAotTailHook s_aot_indirect_long_tail_hook;
++static uint32_t s_aot_indirect_long_tail_source;
 +
 +int interp_bridge_set_aot_tail_hook(uint32_t source,InterpAotTailHook hook) {
 +    if(source>0xffffffu)return 0;
 +    s_aot_tail_source=source;s_aot_tail_hook=hook;return 1;
 +}
++int interp_bridge_set_aot_indirect_long_tail_hook(uint32_t source,InterpAotTailHook hook) {
++    if(source>0xffffffu)return 0;
++    s_aot_indirect_long_tail_source=source;s_aot_indirect_long_tail_hook=hook;return 1;
++}
 +/* A title proposal cannot supply a new stack, unrelated target or synthesized
-+ * return. The real JMP has already executed; only its source-owned original
-+ * JSR frame may be lent to the ordinary paired-call path below. */
-+static inline int continuation_tail(const CpuState *cpu,uint32_t source,
-+    uint32_t target,InterpAotAncestor *out) {
-+    if(!cpu || !out || !s_aot_tail_hook || source!=s_aot_tail_source ||
++ * return. The real JMP/JML has already executed. Only an existing source-owned
++ * two-byte JSR frame can be lent to the ordinary paired-call path. The long
++ * indirect hook is a separate opt-in slot; all other jump forms stay inert. */
++static inline int continuation_tail_match(const CpuState *cpu,uint32_t source,
++    uint32_t target,uint32_t registered_source,InterpAotTailHook hook,
++    InterpAotAncestor *out) {
++    if(!cpu || !out || !hook || source!=registered_source ||
 +       source>0xffffffu || target>0xffffffu || cpu->emulation ||
 +       cpu->PB!=(target>>16))return 0;
 +    InterpAotAncestor p={0};
-+    if(!s_aot_tail_hook(cpu,source,target,&p) || p.pc24!=target ||
++    if(!hook(cpu,source,target,&p) || p.pc24!=target ||
 +       p.owner_frame!=2 || p.entry_s!=cpu->S || p.entry_s>0x1ffd ||
 +       p.owner_return_pc24>0xffffffu ||
 +       (p.owner_return_pc24>>16)!=(target>>16))return 0;
@@ -5736,6 +5745,19 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
 +    uint16_t ret=(uint16_t)(p.owner_return_pc24-1);
 +    if(ram[p.entry_s+1]!=(ret&255) || ram[p.entry_s+2]!=(ret>>8))return 0;
 +    *out=p;return 1;
++}
++static inline int continuation_tail(const CpuState *cpu,uint32_t source,
++    uint32_t target,InterpAotAncestor *out) {
++    return continuation_tail_match(cpu,source,target,s_aot_tail_source,s_aot_tail_hook,out);
++}
++static inline int continuation_indirect_long_tail(const CpuState *cpu,uint32_t source,
++    uint32_t target,InterpAotAncestor *out) {
++    return continuation_tail_match(cpu,source,target,s_aot_indirect_long_tail_source,
++        s_aot_indirect_long_tail_hook,out);
++}
++static inline int continuation_tail_site(uint8_t opcode,uint32_t source) {
++    return (opcode==0x4C && s_aot_tail_hook && source==s_aot_tail_source) ||
++        (opcode==0xDC && s_aot_indirect_long_tail_hook && source==s_aot_indirect_long_tail_source);
 +}
 +static InterpAotContinuationHook s_continuation_hook;
 +void interp_bridge_set_aot_continuation_hook(InterpAotContinuationHook hook) {
@@ -5786,8 +5808,12 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
 +    s_continuation_count=count;s_continuation_guard=guard;return 1;
 +}
 +static int continuation_context(const CpuState *cpu,const InterpAotContinuation *d) {
++    /* Continuations opt in only for synchronized binary native contexts.
++     * Decimal or contradictory cached/packed widths retain interpretation. */
 +    return cpu->m_flag==d->m && cpu->x_flag==d->x && cpu->emulation==d->e &&
-+        cpu->DB==d->db && cpu->D==d->d;
++        cpu->DB==d->db && cpu->D==d->d && !cpu->_flag_D &&
++        (cpu->P&(CPU_P_M|CPU_P_X|CPU_P_D))==
++            ((d->m?CPU_P_M:0)|(d->x?CPU_P_X:0));
 +}
 +/* The hot interpreter path pays no CPU synchronization/dispatch lookup at an
 + * unrelated RTL. This is only a prefilter; token checks still own authority. */
@@ -5874,7 +5900,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
  static uint32_t *s_interp_file_targets;
  static size_t    s_interp_file_count;
  static int interp_file_target_cmp(const void *a, const void *b) {
-@@ -638,16 +896,22 @@ static void ensure_interp_file_targets_loaded(void) {
+@@ -638,16 +922,22 @@ static void ensure_interp_file_targets_loaded(void) {
      uint32_t *arr = (uint32_t *)malloc(cap * sizeof *arr);
      char line[64];
      while (arr && fgets(line, sizeof line, f)) {
@@ -5901,7 +5927,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
      }
      fclose(f);
      if (arr && n) {
-@@ -668,6 +932,11 @@ int rtl_aot_node_denied(uint32 pc24) {
+@@ -668,6 +958,11 @@ int rtl_aot_node_denied(uint32 pc24) {
      ensure_interp_file_targets_loaded();
      if (!s_interp_file_count) return 0;
      uint32_t key = (uint32_t)pc24 & 0xFFFFFFu;
@@ -5913,7 +5939,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
      return bsearch(&key, s_interp_file_targets, s_interp_file_count,
                     sizeof key, interp_file_target_cmp) != NULL;
  }
-@@ -799,6 +1068,7 @@ static int bridge_cooperative_yield(CpuState *cpu, const Interp816 *in,
+@@ -799,6 +1094,7 @@ static int bridge_cooperative_yield(CpuState *cpu, const Interp816 *in,
      return 1;
  }
  uint32 interp_bridge_lle_resume_pc(void) { return s_lle_resume_pc24; }
@@ -5921,7 +5947,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
  void interp_bridge_set_lle_resume_pc(uint32_t pc) {
      lle_resume_set(pc, INTERP_RESUME_SITE_EXTERNAL, 0);
  }
-@@ -847,6 +1117,10 @@ void interp_bridge_rb_state_load(const void *in) {
+@@ -847,6 +1143,10 @@ void interp_bridge_rb_state_load(const void *in) {
      const InterpBridgeRbState *s = (const InterpBridgeRbState *)in;
      if (!s || s->magic != INTERP_BRIDGE_RB_MAGIC)
          return;
@@ -5932,7 +5958,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
      s_apu_pending_master          = s->apu_pending_master;
      g_interp_bridge_write_epoch   = s->write_epoch;
      s_interp_continuous_read_epoch = s->continuous_read_epoch;
-@@ -1094,12 +1368,7 @@ static int lle_bounce_target_excluded(uint32_t target_pc24) {
+@@ -1094,12 +1394,7 @@ static int lle_bounce_target_excluded(uint32_t target_pc24) {
              (s_lle_bounce_exclusions[i] & 0x7FFFFFu))
              return 1;
      }
@@ -5946,7 +5972,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
      return 0;
  }
  
-@@ -1548,11 +1817,33 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -1548,11 +1843,33 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
          uint8_t db, k, c, z, v, n, i, d, mf, xf, e;
          uint64_t write_epoch;
          uint64_t continuous_read_epoch;
@@ -5981,7 +6007,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
      /* Stable-poll detector state: the architectural state at the last few
       * loop heads this frame branched back to (see the detector below). */
      typedef struct PollHeadState {
-@@ -1623,7 +1914,9 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -1623,7 +1940,9 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
          { static long pct = -1;
            if (pct < 0) { const char *e = getenv("SNESRECOMP_INTERP_PCTRACE");
                           pct = e ? atol(e) : 0; if (pct < 0) pct = 0;
@@ -5992,7 +6018,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
            if (pct && (steps % pct) == 0)
              fprintf(stderr, "[pctrace] step=%ld pc=%06X op=%02X\n", steps,
                      (unsigned)pc_before, bridge_bus_read(cpu, pc_before)); }
-@@ -1659,9 +1952,26 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -1659,9 +1978,26 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
              bridge_apu_flush(cpu);
              return 1;
          }
@@ -6021,7 +6047,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
              sync_interp_to_cpu(&in,cpu);
              bridge_apu_flush(cpu);
              return 1;
-@@ -1934,17 +2244,114 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -1934,17 +2270,114 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
              now.d=in.d; now.mf=in.mf; now.xf=in.xf; now.e=in.e;
              now.write_epoch=g_interp_bridge_write_epoch; now.step=steps;
              now.continuous_read_epoch=s_interp_continuous_read_epoch;
@@ -6147,7 +6173,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
                      now.repeats=old->repeats+1;
                      if (now.repeats>=2) {
                          /* Stable CPU/memory state is a genuine cooperative
-@@ -1971,6 +2378,13 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -1971,6 +2404,13 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
                      break;
                  }
              }
@@ -6161,7 +6187,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
              qring[steps & 63]=now;
          }
          if (s_pre_opcode_hook_count > 0) {
-@@ -2435,16 +2849,32 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2435,16 +2875,32 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
          if (wlog_state_sync)
              sync_interp_to_cpu(&in, cpu);
          cpu->coprocessor_master_cycles = cpu->master_cycles;
@@ -6201,7 +6227,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
          s_interp_bus_timing_active=0;
          if (dtrace && in.dp != dp_before) {
              extern int snes_frame_counter;
-@@ -2502,6 +2932,9 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2502,6 +2958,9 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
                      if (s_apu_pending_master >= bridge_bounce_flush_thresh()) bridge_apu_flush(cpu);
                  }
              }
@@ -6211,16 +6237,15 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
          }
  
          /* Env-gated per-instruction cycle watch (SNESRECOMP_CYC_WATCH="lo-hi"
-@@ -2597,12 +3030,19 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2597,12 +3056,18 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
                               TIER2_KIND_GOTO_GAP, 2);
          }
  
 -        if (is_call) {
-+        /* A registered title hook may consume a witnessed original JSR owner
-+         * after ONE exact actual JMP site. Generic JMP bouncing remains off. */
-+        const int witnessed_tail = auto_quiescent && op==0x4C &&
-+            s_aot_tail_hook && pc_before==s_aot_tail_source &&
-+            lle_yield_bounce_enabled();
++        /* Explicit per-opcode title hooks may consume witnessed original JSR
++         * owners after their exact actual jump sites. Generic jumps stay off. */
++        const int witnessed_tail = auto_quiescent &&
++            continuation_tail_site(op,pc_before) && lle_yield_bounce_enabled();
 +        if (is_call || witnessed_tail) {
              /* The interp just pushed the real hardware return frame (return-1)
               * and set pc to the target. If the target has a compiled body for
@@ -6232,7 +6257,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
              /* Cooperative-scheduler (yield_pc) mode bounces too (fiber-free
               * rich-LLE, docs/LLE_SCHEDULER.md): a bounced body that reaches a
               * yield primitive no longer corrupts the paired-call stack — its
-@@ -2614,7 +3054,11 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2614,7 +3079,12 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
                  (!yield_pc || lle_yield_bounce_enabled()) &&
                  !lle_bounce_target_excluded(target);
              const int has_body  = cpu_dispatch_has_entry(cpu, target);
@@ -6240,12 +6265,13 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
 +            InterpAotAncestor tail_owner={0};
 +            const int owned_tail = witnessed_tail && bounce_ok && has_body &&
 +                !cpu_dispatch_inline_arg_bytes(target) &&
-+                continuation_tail(cpu,pc_before,target,&tail_owner);
++                (op==0xDC ? continuation_indirect_long_tail(cpu,pc_before,target,&tail_owner) :
++                    continuation_tail(cpu,pc_before,target,&tail_owner));
 +            if (bounce_ok && has_body && (is_call || owned_tail)) {
                  /* Paired-call ABI: the interp already pushed the return frame, so
                   * run the target with hrv=frame_size and let its RTS/RTL
                   * HOST-RETURN to us (frame popped, S restored to pre-call). We
-@@ -2624,7 +3068,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2624,7 +3094,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
                   * itself a registered function entry (e.g. $90:EB55 sub_90EB55
                   * right after HandleChargingBeamGfxAudio's JSR), the Samus-draw
                   * +2 leak. frame: JSL(0x22)=3, JSR/JSR(abs,X)=2. */
@@ -6254,7 +6280,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
                  uint16_t _sp_pre = in.sp;
                  /* Compiled body paces its own APU (RtlApuRead/Write); un-suppress
                   * the per-touch catch-up for its duration, then restore the
-@@ -2666,6 +3110,8 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2666,6 +3136,8 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
                  interp_edge_note(pc_before, target, INTERP_EDGE_AOT_CALL, op,
                                   (uint16_t)_sp_pre);
                  g_interp_wlog_pc24 = 0;
@@ -6263,7 +6289,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
                  RecompReturn _air = cpu_dispatch_pc_paired(cpu, target, _fs);
                  s_interp_bounce_owner_depth = _saved_bounce_owner;
                  s_interp_bounce_recomp_base = _saved_bounce_base;
-@@ -2676,7 +3122,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2676,7 +3148,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
                              "sp_pre=$%04X aot_ret=%d sp_post=$%04X\n",
                              op, (unsigned)pc_before, (unsigned)target,
                              (unsigned)_sp_pre, (int)_air, (unsigned)in.sp);
@@ -6272,7 +6298,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
                      (pc_before + (uint32_t)call_len +
                       (uint32_t)cpu_dispatch_inline_arg_bytes(target)) & 0xFFFFFF;
                  edge_expect = ret;
-@@ -2815,7 +3261,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2815,7 +3287,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
                   * of bounce POLICY (a bounce-off harvest soak must still see
                   * gaps) but only for genuine gaps — never for targets that
                   * have a body and merely weren't bounced. */
@@ -6281,7 +6307,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
                      tier2_record(pc_before, target, tier2_entry_mx(cpu),
                                   TIER2_KIND_CALL_GAP, 2);
                  if (_ibrw)
-@@ -2826,6 +3272,72 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2826,6 +3298,72 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
              continue;
          }
  
@@ -6354,7 +6380,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
          /* Host-invoked interrupt handlers (stop_on_rti) must NOT use the
           * RTS/RTL-past-s_enter watermark. Games commonly switch to a private
           * NMI/IRQ stack (TCS to a higher S) and JSR helpers there; the first
-@@ -2885,6 +3397,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2885,6 +3423,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
  
          }
      }
@@ -6362,7 +6388,7 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
      if (trace) {
          itrace_dump(entry_pc24, head, (int)(itn < 8 ? itn : 8), ring, itn);
          interp_bridge_dump_recent_edges(64, stderr);
-@@ -3634,12 +4147,15 @@ RecompReturn interp_tier_run_call_frame(CpuState *cpu, uint32_t target_pc24,
+@@ -3634,12 +4173,15 @@ RecompReturn interp_tier_run_call_frame(CpuState *cpu, uint32_t target_pc24,
      interp_tier_note(target_pc24);
      const uint8_t mx = tier2_entry_mx(cpu);
      tier2_discover(source_pc24, target_pc24, mx, TIER2_KIND_DISPATCH, -1);
@@ -6379,16 +6405,17 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..907939bb4aa0b14ce4ef94ee8bedd95f
          return (RecompReturn)RECOMP_RETURN_LLE_UNWIND_BASE;
      RecompReturn propagated;
 diff --git a/runner/src/snes/interp_bridge.h b/runner/src/snes/interp_bridge.h
-index e01e3ba5b97012b404c4fe1e53d59f2d5ad5746a..377e5183282bf392614e8f613d54fca2fb201d8e 100644
+index e01e3ba..3e9e341 100644
 --- a/runner/src/snes/interp_bridge.h
 +++ b/runner/src/snes/interp_bridge.h
-@@ -120,6 +120,49 @@ void interp_bridge_dump_resume_ring(int n, FILE *out);
+@@ -120,6 +120,55 @@ void interp_bridge_dump_resume_ring(int n, FILE *out);
  void interp_bridge_dump_recent(int n, FILE *out);
  #include "cpu_state.h"
  
 +/* Source-guarded cooperative wait continuations. No registration = inert.
 + * The actual wait JSL and RTL must occur; no arbitrary-PC dispatch is allowed.
-+ * Native E0 mode and linear low-WRAM stack frames only; E1 is rejected.
++ * Synchronized binary native E0 mode and linear low-WRAM stack frames only;
++ * decimal, contradictory packed/cached M/X flags and E1 retain interpretation.
 + * saved_stack_bytes describes original caller-owned saved registers below its
 + * real return frame. All stack bytes are witnessed before the wait and checked
 + * again after its RTL. These tokens are host authority, not saved guest state. */
@@ -6425,6 +6452,11 @@ index e01e3ba5b97012b404c4fe1e53d59f2d5ad5746a..377e5183282bf392614e8f613d54fca2
 +/* END AOT_CONTINUATION_TYPES */
 +void interp_bridge_set_aot_continuation_hook(InterpAotContinuationHook hook);
 +int interp_bridge_set_aot_tail_hook(uint32_t source,InterpAotTailHook hook);
++/* Independent exact-source slot for opcode DC (JML [abs]) only. The actual
++ * instruction must execute before the hook; source/title provenance and the
++ * existing two-byte owner frame are checked just as for the absolute hook.
++ * It cannot replace that hook or authorize arbitrary/other jump opcodes. */
++int interp_bridge_set_aot_indirect_long_tail_hook(uint32_t source,InterpAotTailHook hook);
 +int interp_bridge_set_aot_continuations(const InterpAotContinuation *entries,
 +    unsigned count, InterpAotContinuationGuard guard);
 +
@@ -6432,7 +6464,7 @@ index e01e3ba5b97012b404c4fe1e53d59f2d5ad5746a..377e5183282bf392614e8f613d54fca2
  /* Launch-time main-scheduler AOT policy: -1 default/environment, 0 floor,
   * 1 accelerated. Native interrupt helpers retain their ordinary policy. */
  void interp_bridge_set_scheduler_aot_policy(int enabled);
-@@ -149,6 +192,19 @@ void interp_bridge_set_pre_opcode_hook(uint32_t pc24,
+@@ -149,6 +198,19 @@ void interp_bridge_set_pre_opcode_hook(uint32_t pc24,
  bool interp_bridge_add_pre_opcode_hook(uint32_t pc24, InterpPreOpcodeHook hook);
  void interp_bridge_pre_opcode_redirect(uint32_t pc24);
  
@@ -6813,16 +6845,17 @@ index 491d6025f02d7d85fc03d98d8942f2438f1a06f8..b2a0fe405d706db8ca82b81eff324094
      if legacy_profile_rom_sha256:
 diff --git a/tests/aot_continuation_policy_test.c b/tests/aot_continuation_policy_test.c
 new file mode 100644
-index 0000000000000000000000000000000000000000..d147af33971eced98e8f4bfeba1b7fd19f3a4ceb
+index 0000000..bf5ca63
 --- /dev/null
 +++ b/tests/aot_continuation_policy_test.c
-@@ -0,0 +1,62 @@
+@@ -0,0 +1,76 @@
 +
 +#include <stdint.h>
 +#include <string.h>
 +#include <assert.h>
 +#include <stdio.h>
-+typedef struct CpuState {uint16_t S,D;uint8_t m_flag,x_flag,emulation,DB,PB;uint8_t ram[131072];}CpuState;
++#include "cpu_state.h"
++static uint8_t ram[131072],unchanged_ram[131072];
 +static uint64_t generation=1;
 +static uint64_t RtlStateGeneration(void){return generation;}
 +
@@ -6832,7 +6865,7 @@ index 0000000000000000000000000000000000000000..d147af33971eced98e8f4bfeba1b7fd1
 +static const InterpAotContinuation descriptor={0x019100,0x008100,0x019104,0x019050,{0x008110,0x008120},0,1,0,0,1,3,2,2};
 +static CpuState cpu,unchanged;
 +static void setup(void){
-+ memset(&cpu,0,sizeof(cpu));cpu.S=0x1ff0;cpu.DB=1;cpu.m_flag=1;
++ memset(&cpu,0,sizeof(cpu));memset(ram,0,sizeof ram);cpu.ram=ram;cpu.S=0x1ff0;cpu.DB=1;cpu.m_flag=1;cpu.P=CPU_P_M;
 + cpu.ram[0x1ff1]=3;cpu.ram[0x1ff2]=0x91;cpu.ram[0x1ff3]=1;
 + cpu.ram[0x1ff4]=0x40;cpu.ram[0x1ff5]=0;
 + cpu.ram[0x1ff6]=0x4f;cpu.ram[0x1ff7]=0x90;
@@ -6847,10 +6880,10 @@ index 0000000000000000000000000000000000000000..d147af33971eced98e8f4bfeba1b7fd1
 + setup();assert(continuation_candidate(0x008110,0x019104));
 + assert(!continuation_candidate(0x008111,0x019104));assert(!continuation_candidate(0x008110,0x019105));
 + assert(!take(0x008110,0x019104));assert(arm(0));rtl();assert(!take(0x008110,0x019104));
-+ setup();uint64_t id=arm(0);assert(id);continuation_finish_wait(id,1);rtl();unchanged=cpu;assert(take(0x008110,0x019104));assert(!memcmp(&cpu,&unchanged,sizeof(cpu)));assert(!take(0x008110,0x019104));
++ setup();uint64_t id=arm(0);assert(id);continuation_finish_wait(id,1);rtl();unchanged=cpu;memcpy(unchanged_ram,ram,sizeof ram);assert(take(0x008110,0x019104));assert(!memcmp(&cpu,&unchanged,sizeof(cpu))&&!memcmp(ram,unchanged_ram,sizeof ram));assert(!take(0x008110,0x019104));
 + setup();id=arm(0);continuation_finish_wait(id,0);rtl();assert(!take(0x008110,0x019104));
 + setup();assert(arm(1));rtl();assert(!take(0x008111,0x019104));assert(!take(0x008110,0x019105));assert(take(0x008120,0x019104));
-+ setup();assert(arm(1));rtl();unchanged=cpu;continuation_discard_tokens();assert(!take(0x008110,0x019104));assert(!memcmp(&cpu,&unchanged,sizeof(cpu)));
++ setup();assert(arm(1));rtl();unchanged=cpu;memcpy(unchanged_ram,ram,sizeof ram);continuation_discard_tokens();assert(!take(0x008110,0x019104));assert(!memcmp(&cpu,&unchanged,sizeof(cpu))&&!memcmp(ram,unchanged_ram,sizeof ram));
 + setup();assert(arm(1));rtl();generation++;assert(!take(0x008110,0x019104));
 + setup();assert(arm(1));rtl();cpu.m_flag=0;assert(!take(0x008110,0x019104));
 + setup();assert(arm(1));rtl();cpu.x_flag=1;assert(!take(0x008110,0x019104));
@@ -6858,7 +6891,7 @@ index 0000000000000000000000000000000000000000..d147af33971eced98e8f4bfeba1b7fd1
 + setup();assert(arm(1));rtl();cpu.DB=2;assert(!take(0x008110,0x019104));
 + setup();assert(arm(1));rtl();cpu.emulation=1;assert(!take(0x008110,0x019104));
 + setup();assert(arm(1));rtl();cpu.S++;assert(!take(0x008110,0x019104));
-+ for(unsigned offset=1;offset<=7;++offset){setup();assert(arm(1));rtl();cpu.ram[0x1ff0+offset]^=1;unchanged=cpu;assert(!take(0x008110,0x019104));assert(!memcmp(&cpu,&unchanged,sizeof(cpu)));}
++ for(unsigned offset=1;offset<=7;++offset){setup();assert(arm(1));rtl();cpu.ram[0x1ff0+offset]^=1;unchanged=cpu;memcpy(unchanged_ram,ram,sizeof ram);assert(!take(0x008110,0x019104));assert(!memcmp(&cpu,&unchanged,sizeof(cpu))&&!memcmp(ram,unchanged_ram,sizeof ram));}
 + setup();assert(arm(1));rtl();source_ok=0;assert(!take(0x008110,0x019104));
 + setup();cpu.ram[0x1ff6]^=1;assert(!arm(1));
 + setup();cpu.S=0x1ffc;assert(!arm(1));
@@ -6876,8 +6909,21 @@ index 0000000000000000000000000000000000000000..d147af33971eced98e8f4bfeba1b7fd1
 + continuation_finish_wait(new_serial,1);assert(take(0x008110,0x019104));
 + setup();alternatives[1]=descriptor;assert(!interp_bridge_set_aot_continuations(alternatives,2,guard));
 + invalid=descriptor;invalid.e=1;assert(!interp_bridge_set_aot_continuations(&invalid,1,guard));
++ /* New binary/synchronized ABI guard applies at both actual call and RTL. */
++ for(unsigned m=0;m<4;m++){
++   setup();if(m==0)cpu._flag_D=1;else if(m==1)cpu.P|=CPU_P_D;else if(m==2)cpu.P&=~CPU_P_M;else cpu.P|=CPU_P_X;assert(!arm(1));
++   setup();assert(arm(1));rtl();if(m==0)cpu._flag_D=1;else if(m==1)cpu.P|=CPU_P_D;else if(m==2)cpu.P&=~CPU_P_M;else cpu.P|=CPU_P_X;assert(!take(0x008110,0x019104));
++ }
++ InterpAotContinuation capacity[65];
++ for(unsigned n=0;n<65;n++){capacity[n]=descriptor;capacity[n].owner_return_pc24+=n*4;}
++ for(unsigned n=0;n<64;n++){
++   setup();assert(interp_bridge_set_aot_continuations(capacity,64,guard));
++   unsigned ret=capacity[n].owner_return_pc24-1;cpu.ram[0x1ff6]=ret;cpu.ram[0x1ff7]=ret>>8;
++   assert(arm(1));rtl();assert(take(0x008110,0x019104));
++ }
++ assert(!interp_bridge_set_aot_continuations(capacity,65,guard));
 + assert(interp_bridge_set_aot_continuations(NULL,0,NULL));assert(!arm(1));
-+ puts("continuation ABI matcher: positive, single-use, sync/nested, return/SP/frame/MX/E/DB/D/generation/source/opt-in refusals PASS");
++ puts("continuation ABI matcher: positive, single-use, sync/nested, return/SP/frame/MX/E/DB/D/generation/source/opt-in refusals, binary/packed-P refusals, all64slots/65refusal PASS");
 +}
 diff --git a/tests/aot_deny_modes_test.c b/tests/aot_deny_modes_test.c
 new file mode 100644
@@ -9581,7 +9627,7 @@ index 0000000000000000000000000000000000000000..4c9495d79573bacec12d49c65be807f4
 +    assert not (tmp_path / "recompiler-rs/target").exists()
 diff --git a/tests/v2/test_aot_continuations.py b/tests/v2/test_aot_continuations.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..f7fb4e5b3c1ef5d72fcb5f754738db0a2ec9ff72
+index 0000000..eef8971
 --- /dev/null
 +++ b/tests/v2/test_aot_continuations.py
 @@ -0,0 +1,26 @@
@@ -9602,7 +9648,7 @@ index 0000000000000000000000000000000000000000..f7fb4e5b3c1ef5d72fcb5f754738db0a
 +        path=Path(tmp)
 +        (path/'continuation_policy_under_test.h').write_text(types+policy)
 +        exe=path/('test.exe' if os.name=='nt' else 'test')
-+        subprocess.run([compiler,'-std=c11','-Wall','-Wextra','-Werror','-I',str(path),str(ROOT/'tests/aot_continuation_policy_test.c'),'-o',str(exe)],check=True)
++        subprocess.run([compiler,'-std=c11','-Wall','-Wextra','-Werror','-Wno-unused-function','-I',str(ROOT/'runner/src'),'-I',str(path),str(ROOT/'tests/aot_continuation_policy_test.c'),'-o',str(exe)],check=True)
 +        subprocess.run([str(exe)],check=True)
 +
 +class ContinuationPolicyTests(unittest.TestCase):

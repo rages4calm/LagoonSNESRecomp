@@ -19,6 +19,13 @@ static CampaignWarp s_plan[256];
 static unsigned s_count, s_next;
 static uint64_t s_tick, s_guard_rejections;
 static int s_initialized, s_enabled;
+/* Optional resource-only fixture for the sole descriptor with no authored
+ * incoming door or scriptwarp. It is not a gameplay route or saved state. */
+static int s_fixture_requested, s_fixture_pending;
+static const CpuState *s_fixture_cpu;
+static uint16_t s_fixture_sp;
+static uint64_t s_fixture_generation, s_fixture_tick;
+static uint32_t s_fixture_descriptor;
 static const uint32_t s_trace_pc[]={0x01c8b0,0x01c8b5,0x01c8e2,
     0x01c8e5,0x01c8eb,0x018772,0x018703,0x0180a3,0x018b84};
 static unsigned s_trace_count[sizeof(s_trace_pc)/sizeof(s_trace_pc[0])];
@@ -27,8 +34,19 @@ static unsigned word(const uint8_t *p) { return p[0] | (unsigned)p[1]<<8; }
 static unsigned offset(uint32_t a) { return (a>>16)*0x8000u+(a&0x7fffu); }
 static const uint8_t *rom_at(uint32_t a) { return g_rom+offset(a); }
 
-/* Every accepted address is EXACTLY an existing door record's payload, not
- * merely any ROM bytes that happen to resemble a destination. */
+static uint64_t source_hash(uint32_t a,unsigned n) {
+  uint64_t h=UINT64_C(1469598103934665603);
+  for(unsigned i=0;i<n;i++)h=(h^rom_at(a)[i])*UINT64_C(1099511628211);
+  return h;
+}
+static int script_payload_source(void) {
+  /* NPCscript table slot9 ->C553; original flag18/conditional path reaches
+   * opcode0F atC560 and its seven-byte C561 warp payload, destination2A. */
+  return g_rom && word(rom_at(0x05C359))==0xC553 &&
+    source_hash(0x05C553,23)==UINT64_C(0xEA1980577B4F4BBA);
+}
+/* Every accepted address is an exact existing door row or the separately
+ * source-proven original NPCscript payload C561. Arbitrary lookalikes refuse. */
 static int valid_descriptor(uint32_t address) {
   if (!g_rom || address<0x058004 || address>0x05fff8) return 0;
   int found=0;
@@ -42,7 +60,7 @@ static int valid_descriptor(uint32_t address) {
       if (n==255) return 0;
     }
   }
-  if (!found) return 0;
+  if (!found && !(address==0x05C561 && script_payload_source())) return 0;
   const uint8_t *d=rom_at(address);
   if (d[4]>=75 || d[5]>3) return 0;
   const uint8_t *r=rom_at(0x05b2dfu+d[4]*0x38u);
@@ -93,6 +111,17 @@ static int initialize(void) {
     fprintf(stderr,"[campaign-warp] refused: invalid plan at line%u\n",line_number);
     s_count=0; return 0;
   }
+  const char *fixture=getenv("LAGOON_CAMPAIGN_FIXTURE_ROOM");
+  if(fixture && *fixture) {
+    if((strcmp(fixture,"3f") && strcmp(fixture,"3F")) || s_count!=1 ||
+       s_plan[0].descriptor!=0x05C561 || !script_payload_source() ||
+       source_hash(0x01C87B,112)!=UINT64_C(0x7B173E3364535044)) {
+      fprintf(stderr,"[campaign-warp] refused: only exact3F resource fixture via realC561 payload allowed\n");
+      s_count=0;return 0;
+    }
+    s_fixture_requested=1;
+    fprintf(stderr,"[campaign-warp] explicit synthetic3F resource fixture; not natural campaign reachability\n");
+  }
   atexit(report);
   fprintf(stderr,"[campaign-warp] enabled explicit CHEAT plan entries=%u\n",s_count);
   return 1;
@@ -130,12 +159,37 @@ static void at_door_check(CpuState *cpu,uint32_t pc24) {
   unsigned old_room=g_ram[0x48e],new_room=rom_at(p)[4];
   g_ram[0x40]=(uint8_t)p;g_ram[0x41]=(uint8_t)(p>>8);g_ram[0x42]=(uint8_t)(p>>16);
   cpu->Y=0;
+  if(s_fixture_requested) {
+    s_fixture_pending=1;s_fixture_cpu=cpu;s_fixture_sp=cpu->S;
+    s_fixture_generation=RtlStateGeneration();s_fixture_tick=s_tick;s_fixture_descriptor=p;
+  }
   /* Original opcode/control flow continues unchanged, reading the selected
    * real ROM payload and invoking018772 after original door prerequisites. */
   fprintf(stderr,"[campaign-warp] applied index=%u requested=%" PRIu64 " tick=%" PRIu64
       " old=%02x new=%02x descriptor=%06x sp=%04x return=0180a2 M0X0E0D0DB01 matched-door\n",
       s_next,s_plan[s_next].tick,s_tick,old_room,new_room,p,cpu->S);
   s_next++;
+}
+/* Original C8C8 reads the genuine script payload before this exact STA.
+ * Only replace its lowA destination selector. No ROM/actor/outcome records,
+ * loader code, control-flow, flags or return stack are fabricated. */
+static void at_fixture_room_store(CpuState *cpu,uint32_t pc24) {
+  if(!s_enabled || !s_fixture_pending)return;
+  s_fixture_pending=0;
+  if(!cpu || cpu!=s_fixture_cpu || cpu->ram!=g_ram || pc24!=0x01C8CA ||
+     cpu->PB!=1 || cpu->DB!=1 || cpu->D || cpu->emulation || !cpu->m_flag || cpu->x_flag ||
+     cpu->_flag_D || (cpu->P&(CPU_P_M|CPU_P_X|CPU_P_D))!=CPU_P_M ||
+     cpu->S!=s_fixture_sp || cpu->S>0x1FFD || word(g_ram+cpu->S+1)!=0x80A2 ||
+     cpu->Y!=4 || cpu->A!=0x002A || g_ram[0x100E] ||
+     s_fixture_descriptor!=0x05C561 || word(g_ram+0x40)!=0xC561 || g_ram[0x42]!=5 ||
+     s_fixture_generation!=RtlStateGeneration() || s_tick<s_fixture_tick || s_tick-s_fixture_tick>1 ||
+     !script_payload_source() || source_hash(0x01C87B,112)!=UINT64_C(0x7B173E3364535044) ||
+     word(g_ram+0x502)!=176 || word(g_ram+0x504)!=1040 ||
+     snes_runahead_frames() || snes_netplay_active()) {
+    s_guard_rejections++;fprintf(stderr,"[campaign-warp] refused synthetic3F selector context\n");return;
+  }
+  cpu->A=0x003F;
+  fprintf(stderr,"[campaign-warp] synthetic resource selector2A->3F at originalC8CA; original loader continues\n");
 }
 static void trace_warp(CpuState *cpu,uint32_t pc24) {
   if (!s_enabled || !s_next || !cpu) return;
@@ -157,6 +211,9 @@ void LagoonCampaignDebug_BeforeFrame(void) {
   /* Idempotent and also restores the hook if a runtime reset cleared hooks. */
   if (!interp_bridge_add_pre_opcode_hook(0x01c8b5,at_door_check)) {
     s_enabled=0;fprintf(stderr,"[campaign-warp] refused: hook capacity\n");
+  }
+  if(s_fixture_requested && !interp_bridge_add_pre_opcode_hook(0x01C8CA,at_fixture_room_store)) {
+    s_enabled=0;fprintf(stderr,"[campaign-warp] refused: fixture hook capacity\n");return;
   }
   for (unsigned n=0;n<sizeof(s_trace_pc)/sizeof(s_trace_pc[0]);n++)
     if (!interp_bridge_add_pre_opcode_hook(s_trace_pc[n],trace_warp)) {

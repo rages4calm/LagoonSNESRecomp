@@ -1,60 +1,75 @@
 # Current development checkpoint — October20,2026
 
-Batch28 selects exact tested executable
-`feef9b2199a3f93ca9dabda87eaf924ce9fd0fa71fd91bcedd22abbc2cb38600`,
-manifest `8071eb6c28ab93805384253e7941df5e5c20626bbc5421b9acb77a8e64f72030`.
-425 AOT / 112 analyzed LLE / 304 roots are counts, not completion percentages.
+Batch29 executable:
+`c0b78249eb5c338169a9ab9f4d701fa71db0bbb7665731916b9bf73b5aee2bbd`
+Manifest:
+`e375af907ee1127369de439db42c0717394e4feb29925dd22daccf4d2ebbe74c`
+469 AOT /111 analyzed LLE /347 roots are analysis counts, not completion percentages.
 
-All sixteen authored slots in the ordinary boss motion table now resolve to
-native M1/X0 routines: eight substantive bodies and seven return slots are new;
-one existing target stays unchanged. All410 previous native entries remain,
-409 old bodies are byte-exact and only the source-closed dispatcher changes.
-All393 old mode facts,23 mode sets,4 HLE guards and22 continuations remain.
-Other CPU modes and the original RNG service retain their interpreter floor.
+44 new native bodies cover the original RNG/seed services, Thor/Bird defeat and
+transformation windows, victory NPC setup and24 full credits scene/resource
+helpers. All425 prior native entries remain.420 previous bodies are byte-exact;
+five change only to call the newly native RNG. All445 pre-credits bodies remain
+byte-exact after the credits generation.408 of409 old exit facts remain: one
+unused optimistic02D98E fact is conservatively dropped, with no old native body
+change.23 exit sets and4 HLE guards retain their exact values.
 
-The original-opcode oracle passes466,944 cases:222,944 complete returns,10,528
-real child boundaries (including10,240 unknown-pointer cases),233,472 yields
-before any native instruction, and8,704 actual original RNG service calls through
-real JSL/RTL frames. The deterministic immediate divider is a unit bus model;
-live timing comes from matched runtime checks, not that bus assumption.
+The connected assisted route reaches original Zerah defeat, Thor's transformation,
+Bird death, Thor's pendant, the real door to the final Evil Spirit, all seven
+credits scenes and THE END. Green is a staged original initializer case, not a
+natural quest reachability proof. Ella separately checks native RNG/motion with
+real devices and clocks. The three comparisons cover32,776 observations and12
+complete checkpoints; all96 component hashes and clocks match.46 early outgoing
+Atland pictures per route change with the new widescreen fade coverage. Those
+138 picture changes and strict-false results remain explicit, with no masks.
 
-Five focused boss pairs match23,460 observations and ten eight-component
-checkpoints. An additional original final-encounter route matches6,962 and two
-checkpoints, including positive real Thor-orb motion. Total accepted native
-comparisons:30,422 observations / twelve checkpoints. The Bird motion body passes
-opcode tests but lacks a successful live trigger. Failed sword/phase attempts
-are excluded. Release native-block hooks are disabled; native use is inferred
-from compiled dispatch and removed interpreter entries. No fullcredits claim.
+RNG835,680, motion466,944, inline27,648, transformation-window27,648 and credits
+68,544 original-opcode cases pass their stated scopes. These are distinct tests,
+not a completion percentage or additional campaign playthroughs. The credits
+unit stops at real child boundaries; an old008E2C coarse child has a documented
++6master-clock unit-bus limitation. Actual connected old/new runtime clocks match.
 
-Four renderer contexts22..25 add exact scenery, ordinary enemies19/20 in22 and
-original NPC80..90 in24. All eleven NPCs initialize naturally; only83 is observed
-live beyond the native view. Room22 alone owns the three128-byte animation
-phases. Actual original selectors, OAM and DMA are independently tested; synthetic
-far placement stays separate. Six matched routes pass6,232 observations / eight
-checkpoints,4,767 replacements and zero mismatches. Intentional old/new expanded
-pictures and diagnostic mode/path strict-false reports remain visible. Unsupported
-actors, special rasters, loading and unqualified fades retain their fallback.
+All75 authored room descriptors have exact scenery contracts, including remaining
+towns/dungeons, layered backgrounds and finite boss arenas.40 new loader pairs
+cover34,440 observations/40 checkpoints,23,500 custom replacements and zero
+mismatches.2A's authored script payload and3F's explicit synthetic resource fixture
+have separate off/auto proof;3F is not claimed naturally reachable. Room17's Ella
+portrait is original fixed Mode0 UI, not a missing world background.
 
-A lossless actual1920x1080 Enhanced GPU capture is published with hidden-window,
-32:9 letterbox and dummy-audio scope. Its pre-shader image and16 component hashes
-match the headless route. A concurrent bounded400-interval room24 sample gives
-60.0997 updates/s, p95 17.7887ms, maximum22.5207ms, zero above25ms. This is not
-physical fullscreen scanout, real-device audio or all-room60FPS certification.
-Jev provides read-only visual triage and never accepts parity.
+19 focused actor triples cover35,227 observations/38 checkpoint locations,
+27,564 replacements and zero reference mismatch. Fourteen actual far type/kind
+roles are observed, including an original status4 enemy and a type5 prop.
+Other admitted kinds have source/guard qualification without a live-far claim.
+Unseen or changed unsupported poses remain conservative; no AI is predicted.
+Three actual outgoing doors test ordinary/boss/layered fades with exact guest
+state/clocks and off/auto ordered pictures. Partial incoming uploads still refuse.
 
-The exact tested executable is installed. Cold Ella, town NPC and final-encounter
-checks match48 component hashes / six checkpoints and full ordered pictures.
-All110 protected owner inputs remain unchanged. Advisory report-path differences
-remain visible in strict reports; no mismatch masks or rebuilt installation.
+The main runtime proofs above use the first coherent4FBE executable. The final
+change adds only three animation owner rows for rooms32..34.117 of118 link objects,
+all generated code and all native/core objects remain byte-exact. The affected
+three rooms receive fresh matched controls and final-executable checks. Their
+source noninterference transfer is recorded separately; raw4FBE provenance is
+not relabeled as a new executable run.
 
-See [native details](NATIVE-BATCH28-2026-10-20.md),
-[renderer](CUSTOM-RENDERER.md), [performance](PERFORMANCE.md) and
-[captures](screenshots/README.md). Exact installation/cold verification and owner
-input preservation are recorded in the private compact qualification receipt.
-The original raster and interpreter safety net remain enabled.
+The exact final executable, generation and header were moved into the normal
+install without a backup or rebuild. Installed cold dungeon32 and the connected
+ending match24,821 ordered pictures,72 standard component comparisons across
+nine checkpoints and all108 dump-file pairs including raw pixels/APU/DMA/PPU
+logs. Ending is strict-pass; dungeon32 keeps a strict-false absolute diagnostic
+report-path difference. All110 protected ROM/settings/save inputs are unchanged.
 
-Remaining work: source-backed child/script/audio/endgame services, more exact
-scene/actor resources and concrete transition defects, followed by owner/friends'
-uninterrupted campaign. Original RNG, inline/nonlocal80E9 and B90B ending retain
-their floor. Room21 scripted NPC0/33 and type5 props remain native-view-only.
+A hidden1920x1080 Enhanced32:9 layered room12 sample gives60.09962 presentation
+updates/s, p9517.5905ms, maximum18.5479ms and zero intervals above20ms across400
+intervals. Full pre-shader pixels and16 checkpoint components match headless.
+The public PNG is lossless. This is dummy-audio, bounded presentation-call evidence,
+not fullscreen physical scanout, all-room locked60 or a natural campaign.
+
+The interpreter and original raster remain enabled. Variable script/audio/input,
+nonlocal and special ending display services retain their genuine floors.
+See [native details](NATIVE-BATCH29-2026-10-20.md),
+[renderer](CUSTOM-RENDERER.md), [widescreen](WIDESCREEN.md),
+[performance](PERFORMANCE.md) and [captures](screenshots/README.md).
+
+Remaining: owner/friends' uninterrupted campaign and device testing, concrete
+reported defects, and source-backed promotion of useful safe remaining services.
 Optional map/doors/exits and15–20% zoom-out remain deferred and unimplemented.

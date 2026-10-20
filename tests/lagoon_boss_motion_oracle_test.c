@@ -43,7 +43,12 @@ RecompReturn cpu_dispatch_pc_from(CpuState*c,uint32 pc,uint16 s,uint32 site){(vo
 RecompReturn cpu_unresolved_abandon_balanced(CpuState*c,uint32 site,uint16 s,uint8 h){(void)c;(void)site;(void)s;(void)h;assert(0);return RECOMP_RETURN_NORMAL;}
 uint32_t cpu_region_speed(uint32_t a){(void)a;return 8;}
 uint8 cpu_read8(CpuState*c,uint8 b,uint16 a){int32_t off=cpu_wram_offset(b,a);if(off>=0)return c->open_bus=ram[off];if(b<0x40&&a>=0x4200&&a<0x4300)return c->open_bus=io[a];assert(b<32&&a>=0x8000);return c->open_bus=rom[b*0x8000+(a&0x7fff)];}
-void cpu_write8(CpuState*c,uint8 b,uint16 a,uint8 v){int32_t off=cpu_wram_offset(b,a);assert(off>=0);ram[off]=v;c->open_bus=v;}
+static void io_write(unsigned a,uint8 v) {
+ io[a]=v;if(a==0x4206){unsigned n=io[0x4204]|((unsigned)io[0x4205]<<8);unsigned q=v?n/v:65535;
+  io[0x4214]=q;io[0x4215]=q>>8;}
+}
+void cpu_write8(CpuState*c,uint8 b,uint16 a,uint8 v){int32_t off=cpu_wram_offset(b,a);
+ if(off>=0)ram[off]=v;else{assert(b<0x40&&a>=0x4200&&a<0x4300);io_write(a,v);}c->open_bus=v;}
 uint16 cpu_read16(CpuState*c,uint8 b,uint16 a){unsigned lo=cpu_read8(c,b,a);return lo|((unsigned)cpu_read8(c,b,a+1)<<8);}
 void cpu_write16(CpuState*c,uint8 b,uint16 a,uint16 v){cpu_write8(c,b,a,v);cpu_write8(c,b,a+1,v>>8);}
 RecompReturn interp_tier_dispatch_tail(CpuState*c,uint32 pc,uint32 site,uint16 s,uint8 h){(void)c;(void)site;(void)s;assert(h==2);boundary=pc;return RECOMP_RETURN_NORMAL;}
@@ -77,6 +82,10 @@ RecompReturn interp_tier_run_call_frame(CpuState*c,uint32 pc,uint32 site,uint8 n
  c->coprocessor_master_cycles=c->master_cycles+last;c->master_cycles+=cycles*6+bus_extra;c->cycles+=cycles;
  if(out)*out=site+4;interp816_free(i);service_calls++;return RECOMP_RETURN_NORMAL;
 }
+#if MOTION_NATIVE_RNG
+static void motion_trace_entry(unsigned pc){if(pc==0x009800)service_calls++;}
+#define cpu_trace_func_entry(cpu,pc,name) motion_trace_entry(pc)
+#endif
 #include "boss_motion_under_test.h"
 int main(int argc,char**argv){
  assert(argc==2);FILE*f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof rom,f)==sizeof rom);fclose(f);

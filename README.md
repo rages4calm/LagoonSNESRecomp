@@ -6,40 +6,46 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress - October 20, 2026
 
-Batch28 moves the remaining ordinary boss motion table into native code: eight
-motion routines and seven original return slots, including Ella's movement and
-the final encounter's bird/orb motion. The original RNG service and unsupported
-CPU modes retain the interpreter safety net. All 410 previous native entries
-remain; 409 generated bodies are unchanged. **425 AOT / 112 analyzed LLE / 304
-roots** are analysis counts, not completion percentages.
+Batch29 adds native Thor/Bird transformation and defeat steps, the original RNG
+service, and 24 credits scene/resource helpers. An assisted route now follows
+the original fights through Bird, Thor's pendant, the final Evil Spirit and
+the seven credits scenes to **THE END**. Cheats accelerate coverage; the owner
+and friends still perform the uninterrupted campaign playtest.
 
-The new routines pass 466,944 original-opcode comparison cases and five focused
-assisted boss comparisons: **23,460 ordered observations and ten complete state
-and clock checkpoints**. These checks use cheats and original combat scripts;
-they do not certify an uninterrupted campaign or complete credits sequence.
-An additional final-encounter route matches6,962 observations and two checkpoints
-with the original Thor orbs active. The later bird phase remains opcode-tested
-without a successful live trigger in this batch.
+The three focused native comparisons cover **32,776 ordered observations and
+12 complete state/clock checkpoints**. All 96 checkpoint components match.
+The new widescreen fade handling deliberately changes 46 early pictures per
+route; those differences remain visible in the strict reports. Original-opcode
+tests separately check the RNG, transformation, inline dispatch and credits
+helpers. **469 AOT / 111 analyzed LLE / 347 roots** are analysis counts, not
+completion percentages. Unsupported modes and variable script/audio services
+retain the interpreter safety net.
 
-The custom renderer adds exact room contexts **22 / 23 / 24 / 25**, two ordinary
-enemy kinds and eleven town NPC definitions. Actual enemies and one town NPC
-are verified beyond the original view. Six matched renderer routes pass **6,232
-ordered observations and eight complete checkpoints**, with **4,767 replacements
-and zero mismatches**. Only room22 owns the newly verified three-phase scenery
-animation. Unsupported actors, loading and unqualified fades retain their
-reference fallback. The original raster remains active.
+The custom renderer now has exact scenery contracts for **all 75 authored room
+descriptors**, including towns, dungeons, layered backgrounds and boss arenas.
+Forty newly covered loader routes pass off/auto comparisons with 23,500 custom
+replacements and zero mismatches. Two additional isolated resource contexts are
+tested separately. Fixed portrait/title artwork stays centered, and finite
+arenas retain their real map edges. Source coverage does not imply every
+possible story state or offscreen actor has been played through.
 
-The exact tested executable is installed. Cold Ella, town NPC and final-encounter
-checks match48 component hashes / six checkpoints and full ordered pictures.
-All110 protected owner inputs remain unchanged. Advisory report-path differences
-remain visible in strict reports; no mismatch masks or rebuilt installation.
+More NPC, enemy, prop and animation sources are supported, alongside guarded
+outgoing fades. Unsupported or stale actor poses and partially overwritten
+resources keep their reference fallback. The original raster remains active
+and checks every custom replacement against the reference picture.
 
-See [batch28](docs/NATIVE-BATCH28-2026-10-20.md),
+The final tested executable is installed. Cold dungeon and connected-ending
+checks match 24,821 ordered pictures and nine complete checkpoint sets.
+All110 protected local inputs remain unchanged. Diagnostic output-path
+differences remain explicit in strict reports.
+
+See [batch29](docs/NATIVE-BATCH29-2026-10-20.md),
 [renderer details](docs/CUSTOM-RENDERER.md),
 [1080p captures](docs/screenshots/README.md) and
 [frame pacing evidence](docs/PERFORMANCE.md). The owner and friends perform the
 uninterrupted playtest. Earlier finished camera, recovery, menu and scene work is
-recorded in [batch27](docs/NATIVE-BATCH27-2026-10-20.md),
+recorded in [batch28](docs/NATIVE-BATCH28-2026-10-20.md),
+[batch27](docs/NATIVE-BATCH27-2026-10-20.md),
 [batch26](docs/NATIVE-BATCH26-2026-10-20.md) and
 [batch25](NATIVE-BATCH25-2026-10-20.md).
 
@@ -56,9 +62,9 @@ updates. This is bounded evidence, not a locked60FPS or all-room guarantee.
 Room02's44 incoming water-fade fields and room03's46 outgoing fade fields now
 retain independently source-verified scenery and native center pixels.
 
-Focused checks cover actual damage, seven boss death/defeat endpoints, original
-rewards, consumable revival and quest interactions. Broader native death/boss
-orchestration, unsupported scenes and hardware/controller coverage remain open.
+Focused checks cover actual damage, boss death/defeat endpoints, original
+rewards, consumable revival, quest interactions and the assisted final sequence.
+Special script/display services and hardware/controller coverage remain open.
 Read the [playtest guide](docs/PLAYTEST.md), [batch19 stabilization evidence](NATIVE-BATCH19-2026-10-17.md),
 [current status](docs/DEVELOPMENT-STATUS.md), [todo list](TODO.md),
 [menu details](docs/FAST-MENUS.md), [widescreen scope](docs/WIDESCREEN.md),

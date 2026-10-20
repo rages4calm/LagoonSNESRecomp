@@ -1,5 +1,31 @@
 # Performance and frame pacing
 
+## Batch29 layered room12 bounded sample
+
+The actual hidden1920x1080 OpenGL/Enhanced32:9 capture uses executable
+`4fbe90fc6ee8e8a0ca0c3e6dff891086c8668327ba6285a03d302382c551f1ab`,
+manifest `e375af907ee1127369de439db42c0717394e4feb29925dd22daccf4d2ebbe74c`.
+Room12 is a narrow512-pixel authored mountain pass with a quarter-scroll
+background and camera coordinates beyond the ordinary1024-pixel scroll range.
+The renderer preserves the real map edges rather than inventing more terrain.
+
+Across400 consecutive intervals in fields1200..1600, mean16.63904ms gives
+60.09962 presentation updates/s, p9517.5905ms, p9917.9940ms and maximum18.5479ms.
+Zero intervals exceed20ms. The actor replay coordinator was suspended for the
+sample; a previously running short child was allowed to finish during startup.
+This uses dummy audio and measures presentation calls, not physical scanout,
+real-device audio, all story states or a guaranteed game-wide60FPS.
+
+The route records1408 custom replacements,149 independent draws and zero
+mismatches. Its complete682x224 pre-shader picture and two eight-component
+state/clock checkpoints match a headless SDL run. The actual1920x1080 GPU
+readback is published losslessly; see [capture details](screenshots/README.md).
+Jev provides read-only triage and does not accept rendering correctness.
+
+The final renderer-only addition binds animation to rooms32..34. It does not
+change this room12 contract; final evidence records that source/object scope
+separately from the original captured executable.
+
 ## Batch28 room24 bounded sample
 
 Exact executable `feef9b2199a3f93ca9dabda87eaf924ce9fd0fa71fd91bcedd22abbc2cb38600`,

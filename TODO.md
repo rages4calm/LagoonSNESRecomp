@@ -1,45 +1,44 @@
 # Lagoon continuation
 
 Keep the interpreter safety net, exact source/mode/stack/generation guards and
-reference raster. Publish substantial verified source batches. Analysis counts
-are not campaign completion percentages.
+reference raster. Publish substantial verified batches. Analysis counts are not
+campaign completion percentages.
 
 ## Completed — do not repeat
 
-- [x] Batch28: complete ordinary boss motion dispatcher table, eight meaningful
-  bodies plus seven real RTS slots. Original RNG calls remain interpreted.
-  425 AOT / 112 analyzed LLE / 304 roots; all 410 previous native entries retained.
-  466,944 opcode cases; five boss pairs, 23,460 observations / ten checkpoints.
-  Actual final-encounter orbs add6,962 observations / two checkpoints; Bird12
-  remains opcode-qualified without live-positive coverage.
-- [x] Four exact renderer contexts22..25; enemies19/20, original town NPC80..90,
-  room22 three-phase128-byte animation. Six routes: 6,232 observations / eight
-  checkpoints, 4,767 replacements / zero mismatches. NPC83 verified live far;
-  other admitted NPCs have original-opcode and synthetic ownership checks.
-- [x] Batch27 full AAF6 alternate/fall animation, B573 death progression, six
-  scenes18/1D/1E/1F/20/21, six ordinary far enemies, eight-phase scenery animation.
-- [x] Batch26 centered-camera native handoff and NPC19..1C; batch25 seven boss
-  animation/attack bodies, scenery2C..37 and six ordinary enemy kinds.
-- [x] Prior native damage, ordinary/alternate death, refill, revival, item/SPC and
-  selected boss scripts. Menu opening/closing, cadence,07 parallax,08 field,
-  Gold Cave03..06 and audited town/menu/fade presentation.
-- [x] Guarded CPU enemy helpers, cleave, Giles first aid, optional QoL, Companion
-  Launcher and Enhanced original-pixel presentation.
+- [x] Batch29:44 native bodies: original RNG/seed services, Thor/Bird defeat and
+  transformation windows,24 credits scene/resource helpers. Original assisted
+  fights reach Bird, pendant, final Evil Spirit and THE END. Three native pairs:
+  32,776 observations/12 complete state/clock checkpoints;138 early widescreen
+  picture changes remain explicit.469 AOT/111 analyzed LLE/347 roots.
+- [x] Exact scenery contracts for all75 authored descriptors, including remaining
+  towns/dungeons, six layered contexts and boss arenas.40 new loader pairs and
+  separate2A/3F fixtures; portrait UI and synthetic3F classification are explicit.
+  Source coverage is separate from every possible quest/actor state.
+- [x] Source-backed ordinary actors, story NPCs, props, current-pose witnesses,
+  room animations and outgoing fade packets. Three actual outgoing doors cover
+  ordinary, boss and layered contexts; incomplete incoming resources refuse.
+- [x] Batch28 complete ordinary boss motion table; batch27 alternate/fall/death
+  animation; earlier player damage, death/revival/refill and selected scripts.
+- [x] Centered-camera handoff, fast menus, enemy CPU leaves, cleave, Giles first
+  aid, optional QoL, Companion Launcher and Enhanced original pixels.
 
 ## Remaining
 
-- [ ] Further source-backed child/script/audio/endgame ownership. Original RNG,
-  nonlocal80E9 and B90B ending retain their floors until source and real-frame
-  evidence warrant promotion. Read manifest dispositions, not legacy names.
-- [ ] Further exact scene/actor resources and concrete transition defects.
-  Room21 scripted NPC0/33, type5 props, special raster contexts and unsupported
-  actors still use the appropriate reference/native-view fallback.
-- [ ] Owner/friends' uninterrupted campaign and controller/display/audio testing.
-  Development uses focused assisted regressions with fresh matched controls.
-- [ ] Optional discovery map showing position, doors/exits, linked rooms and key
-  areas after native/renderer work; optional15–20% zoom-out. Neither exists yet.
-- [ ] Owner-run reviewed cleanup when desired. No backup accumulation or retry
-  of previously blocked deletion; retired raw paths are historical evidence.
+- [ ] Owner/friends' uninterrupted campaign, hardware/controller/display/audio
+  checks, and fixes for concrete defects found there. Development uses focused
+  assisted routes rather than repeating historical campaign exploration.
+- [ ] Promote additional variable script/audio/nonlocal/special-display services
+  only when original source, real frames and timing prove a useful safe group.
+  The interpreter remains intentional for those boundaries and unsupported modes.
+- [ ] Unseen or changed unsupported far actors, special projectiles/multipart
+  paths and other unqualified raster states retain their reference/native-view
+  fallback. Do not predict guest AI or claim all story states from a room catalog.
+- [ ] Optional discovery map with position, doors/exits and linked rooms; optional
+  15–20% zoom-out. Both remain deferred and unimplemented.
+- [ ] Owner-run reviewed cleanup when desired. Keep one scratch batch, no project
+  backups or archival work trees. Historical raw paths retire after cleanup.
 
-See [native batch28](docs/NATIVE-BATCH28-2026-10-20.md) and
-[renderer details](docs/CUSTOM-RENDERER.md) for exact evidence limits.
+See [native batch29](docs/NATIVE-BATCH29-2026-10-20.md),
+[renderer details](docs/CUSTOM-RENDERER.md) and
+[current status](docs/DEVELOPMENT-STATUS.md).

@@ -1,0 +1,38 @@
+{
+  "capture_executable_sha256": "4fbe90fc6ee8e8a0ca0c3e6dff891086c8668327ba6285a03d302382c551f1ab",
+  "manifest_sha256": "e375af907ee1127369de439db42c0717394e4feb29925dd22daccf4d2ebbe74c",
+  "image": "batch29-room12-32x9-enhanced-1920x1080.png",
+  "image_sha256": "45fca536840ce06693e343f67b9c00f7d5968e6f5a5643af623d85dbc31cf351",
+  "output_pixels": [
+    1920,
+    1080
+  ],
+  "pre_shader_pixels": [
+    682,
+    224
+  ],
+  "pre_shader_sha256": "c3d34dc3cda731b2fd1cb2cb60e49425319ffb4e00e525fe968d133574ce88ab",
+  "aspect": "32:9",
+  "room_hex": "12",
+  "authored_world_width": 512,
+  "hidden_window": true,
+  "fullscreen": false,
+  "physical_scanout": false,
+  "dummy_audio": true,
+  "enhanced": "EPX original pixels",
+  "lossless_RGBA_exact": true,
+  "headless_exact_component_count": 16,
+  "sample": {
+    "first": 1200,
+    "last": 1600,
+    "intervals": 400,
+    "mean_ms": 16.63904025,
+    "updates_per_second": 60.09962022899728,
+    "p95_ms": 17.590499999999338,
+    "p99_ms": 17.993999999999915,
+    "max_ms": 18.547900000000027,
+    "above20": 0,
+    "above25": 0
+  },
+  "scope": "ActualGPUreadback. Finalrenderer-only3ownerrows concernrooms32..34;captureprovenancekeptat4FBE. Noallroomlocked60oruninterruptedcampaignclaim."
+}

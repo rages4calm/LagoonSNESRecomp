@@ -9,6 +9,7 @@ static uint64_t generation=1;
 uint64_t RtlStateGeneration(void){return generation;}
 int interp_bridge_set_aot_continuations(const InterpAotContinuation*d,unsigned n,InterpAotContinuationGuard guard){(void)d;(void)n;(void)guard;return 1;}
 int interp_bridge_set_aot_tail_hook(uint32_t source,InterpAotTailHook hook){(void)source;(void)hook;return 1;}
+int interp_bridge_set_aot_indirect_long_tail_hook(uint32_t source,InterpAotTailHook hook){(void)source;(void)hook;return 1;}
 void interp_bridge_set_aot_continuation_hook(InterpAotContinuationHook h){(void)h;}
 static CpuState cpu;
 static unsigned checks;
@@ -19,7 +20,7 @@ static void event(unsigned e,uint32_t source,uint32_t target,const InterpAotCont
 }
 static void setup(unsigned i) {
   memset(&cpu,0,sizeof(cpu));memset(ram,0,sizeof(ram));generation=1;g_rom=rom;
-  cpu.ram=ram;cpu.S=0x1fe0;cpu.PB=0;cpu.DB=1;cpu.m_flag=1;
+  cpu.ram=ram;cpu.S=0x1fe0;cpu.PB=0;cpu.DB=1;cpu.m_flag=1;cpu.P=CPU_P_M;
   uint16_t ret=(uint16_t)(script_entries[i+2].owner_return_pc24-1);
   uint8_t stack[]={0xE0,0xB8,1,(uint8_t)ret,(uint8_t)(ret>>8),0x18,0xB8};
   memcpy(ram+cpu.S+1,stack,7);event(INTERP_CONT_DISCARD,0,0,NULL,0);

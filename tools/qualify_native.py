@@ -36,6 +36,12 @@ def validate_diagnostic_range(key,value):
         raise SystemExit('Diagnostic range outside supported bounds: '+key+'='+value)
 
 
+def validate_fixture_room(value,*,campaign_warps,visible,live_input,real_audio,frames):
+    """Only the explicitly isolated3F resource fixture may override a room."""
+    if value not in {'3f','3F'} or not campaign_warps or visible or live_input or real_audio or not 1<=frames<=10000000:
+        raise SystemExit('Room fixture requires literal3f, campaign plan, bounded dummy-audio scripted hidden run')
+
+
 def campaign_setup_writes(data):
     """Record explicit WRAM cheats and refuse the observed invalid-HP fixture.
 
@@ -194,7 +200,7 @@ def main():
     overrides={}
     for spec in args.env:
         key,sep,value=spec.partition('=')
-        if not sep or key not in diagnostic_paths|diagnostic_numbers|diagnostic_booleans|diagnostic_ranges.keys()|{'LAGOON_WIDE_ASPECT','LAGOON_SCENE_RENDERER','LAGOON_ACTOR_COMPUTE'}:
+        if not sep or key not in diagnostic_paths|diagnostic_numbers|diagnostic_booleans|diagnostic_ranges.keys()|{'LAGOON_WIDE_ASPECT','LAGOON_SCENE_RENDERER','LAGOON_ACTOR_COMPUTE','LAGOON_CAMPAIGN_FIXTURE_ROOM'}:
             raise SystemExit('Unsupported diagnostic override: '+spec)
         if key in diagnostic_paths:
             p=Path(value);p=(p if p.is_absolute() else out/p).resolve()
@@ -206,6 +212,9 @@ def main():
             validate_diagnostic_number(value)
         elif key in diagnostic_ranges:
             validate_diagnostic_range(key,value)
+        elif key=='LAGOON_CAMPAIGN_FIXTURE_ROOM':
+            validate_fixture_room(value,campaign_warps=args.campaign_warps,visible=args.visible,
+                live_input=args.live_input,real_audio=args.real_audio,frames=args.frames)
         elif key in {'LAGOON_SCENE_RENDERER','LAGOON_ACTOR_COMPUTE'}:
             choices={'off','verify','auto'} if key=='LAGOON_SCENE_RENDERER' else {'off','on','auto'}
             if value not in choices:

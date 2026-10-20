@@ -69,6 +69,7 @@ static void fixture(unsigned room,unsigned kind) {
   memset(&p,0,sizeof(p));ppu_reset(&p);p.inidisp=15;p.obsel=2;p.bgmode=9;
   read_dump(room,"wram.bin",g_ram,sizeof(g_ram));read_dump(room,"vram.bin",p.vram,sizeof(p.vram));
   read_dump(room,"cgram.bin",p.cgram,sizeof(p.cgram));
+  p.bgXsc[0]=0x71;p.bgXsc[1]=g_ram[0x50]?0x7a:0x79;p.bgXsc[2]=0x3c;p.bgTileAdr=0x600;
   memset(g_ram+0x540,0,0x800);g_ram[0x540]=0xc8;g_ram[0x558]=(uint8_t)actor_type;g_ram[0x55b]=(uint8_t)kind;
   LagoonWideAnimation a={0};assert(LagoonWideEntities_FrameForRoom(g_rom,sizeof(own_rom),room,g_ram+0x540,&a,0,g_ram+0x55c));
   g_config.widescreen=1;LagoonWideEntities_Reset();LagoonWideEntities_Init();atlas();

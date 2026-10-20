@@ -4,7 +4,8 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-typedef struct CpuState {uint16_t S,D;uint8_t m_flag,x_flag,emulation,DB,PB;uint8_t ram[131072];} CpuState;
+#include "cpu_state.h"
+static uint8_t ram[131072],before_ram[131072];
 static uint64_t generation=1;
 static uint64_t RtlStateGeneration(void){return generation;}
 #include "continuation_policy_under_test.h"
@@ -13,7 +14,7 @@ static InterpAotContinuation expected;
 static int source_ok;
 static int guard(const InterpAotContinuation *d){return source_ok && !memcmp(d,&expected,sizeof(*d));}
 static void setup(unsigned saved){
-  memset(&cpu,0,sizeof(cpu));cpu.S=0x1fe0;cpu.DB=1;cpu.m_flag=1;generation=1;source_ok=1;
+  memset(&cpu,0,sizeof(cpu));memset(ram,0,sizeof ram);cpu.ram=ram;cpu.S=0x1fe0;cpu.DB=1;cpu.m_flag=1;cpu.P=CPU_P_M;generation=1;source_ok=1;
   expected=(InterpAotContinuation){0x019100,0x0090db,0x019104,0x019050,
     {0x0090f3,0x00910d,0x009129,0x009139},0,1,0,0,1,3,(uint8_t)saved,2};
   cpu.ram[cpu.S+1]=3;cpu.ram[cpu.S+2]=0x91;cpu.ram[cpu.S+3]=1;
@@ -37,12 +38,12 @@ int main(void){
       setup(saved_sizes[s]);unsigned site=expected.return_sites[slot];
       assert(continuation_candidate(site,0x019104));assert(!continuation_candidate(site+1,0x019104));
       uint64_t id=arm();assert(id);rtl();assert(!take(site));continuation_finish_wait(id,1);
-      before=cpu;assert(take(site));assert(!memcmp(&cpu,&before,sizeof(cpu)));assert(!take(site));++positives;
+      before=cpu;memcpy(before_ram,ram,sizeof ram);assert(take(site));assert(!memcmp(&cpu,&before,sizeof(cpu))&&!memcmp(ram,before_ram,sizeof ram));assert(!take(site));++positives;
     }
     for(unsigned byte=1;byte<=5+saved_sizes[s];++byte){
       setup(saved_sizes[s]);uint64_t id=arm();assert(id);continuation_finish_wait(id,1);rtl();
-      cpu.ram[0x1fe0+byte]^=1;before=cpu;assert(!take(expected.return_sites[slot]));
-      assert(!memcmp(&cpu,&before,sizeof(cpu)));++mutants;
+      cpu.ram[0x1fe0+byte]^=1;before=cpu;memcpy(before_ram,ram,sizeof ram);assert(!take(expected.return_sites[slot]));
+      assert(!memcmp(&cpu,&before,sizeof(cpu))&&!memcmp(ram,before_ram,sizeof ram));++mutants;
     }
     setup(saved_sizes[s]);uint64_t id=arm();continuation_finish_wait(id,1);rtl();++generation;
     assert(!take(expected.return_sites[slot]));

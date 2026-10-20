@@ -9,12 +9,13 @@ static uint64_t generation=1;
 uint64_t RtlStateGeneration(void){return generation;}
 int interp_bridge_set_aot_continuations(const InterpAotContinuation *d,unsigned n,InterpAotContinuationGuard guard){(void)d;(void)n;(void)guard;return 1;}
 int interp_bridge_set_aot_tail_hook(uint32_t source,InterpAotTailHook hook){(void)source;(void)hook;return 1;}
+int interp_bridge_set_aot_indirect_long_tail_hook(uint32_t source,InterpAotTailHook hook){(void)source;(void)hook;return 1;}
 void interp_bridge_set_aot_continuation_hook(InterpAotContinuationHook hook){(void)hook;}
 static CpuState cpu;
 static unsigned checks;
 static void setup(unsigned owner) {
   memset(&cpu,0,sizeof(cpu));memset(ram,0,sizeof(ram));cpu.ram=ram;
-  cpu.S=0x1fe0;cpu.DB=cpu.PB=1;cpu.m_flag=1;generation=1;g_rom=rom;
+  cpu.S=0x1fe0;cpu.DB=cpu.PB=1;cpu.m_flag=1;cpu.P=CPU_P_M;generation=1;g_rom=rom;
   uint16_t ret=(uint16_t)(boss_entries[owner+2].owner_return_pc24-1);
   uint8_t stack[]={0x34,0x12,(uint8_t)ret,(uint8_t)(ret>>8)};
   memcpy(ram+cpu.S+1,stack,4);

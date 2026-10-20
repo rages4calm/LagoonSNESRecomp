@@ -45,6 +45,11 @@ int LagoonWideEntities_CommonFrame(const uint8_t *rom, size_t rom_size,
 int LagoonWideEntities_AnimationSource(const uint8_t *rom,size_t rom_size,unsigned type);
 int LagoonWideEntities_FrameForRoom(const uint8_t *rom,size_t rom_size,unsigned room,
     const uint8_t *record,LagoonWideAnimation *animation,int step,uint8_t *frame);
+int LagoonWideEntities_FrameForContext(const uint8_t *rom,size_t rom_size,const uint8_t *ram,
+    const uint8_t *record,LagoonWideAnimation *animation,int step,uint8_t *frame);
+int LagoonWideEntities_AllowedKind(unsigned room,unsigned type,unsigned kind);
+int LagoonWideEntities_RecordCells(const uint8_t *rom,size_t rom_size,const uint8_t *ram,
+    unsigned entity,unsigned frame,int projected,LagoonWideCell *cells,size_t capacity);
 enum { kLagoonWideAtlasBytes = 0x2a00 };
 typedef struct LagoonWideAtlas {
   uint8_t owned[kLagoonWideAtlasBytes];
@@ -62,17 +67,25 @@ int LagoonWideAtlas_CellOwned(const LagoonWideAtlas *atlas, unsigned base1,
 /* Match initialized native interior tiles against the retained map. */
 int LagoonWideEntities_WorldCharacters(const uint16_t *vram,
     const uint16_t *witness,const uint8_t used[1024]);
-/* Room07's original static32x64 BG2 map and quarter-speed raster contract. */
+/* Original static32x64 BG2 pages and quarter-speed raster contracts.
+ * Unsuffixed Map/Scroll retain the original room07 compatibility bounds. */
 int LagoonWideEntities_ParallaxMap(const uint16_t *vram,const uint8_t *rom,size_t size);
+int LagoonWideEntities_ParallaxMapForRoom(const uint16_t *vram,const uint8_t *rom,size_t size,unsigned room);
 int LagoonWideEntities_ParallaxScroll(unsigned x0,unsigned y0,unsigned x1,unsigned y1);
-/* Room07 outgoing packet: both static BG2 pages and the original four
- * quarter-speed anchors, bound to the state timeline and clean source. */
+int LagoonWideEntities_ParallaxRoomScroll(unsigned room,unsigned x0,unsigned y0,unsigned x1,unsigned y1);
+int LagoonWideEntities_ParallaxRaster(const unsigned camera[4],const unsigned raster[4]);
+/* Exact room-owned outgoing pages and four quarter-speed anchors, bound to
+ * timeline and compressed source. Capture is the room07 compatibility wrapper. */
 typedef struct LagoonWideParallaxPacket {
   uint16_t pages[0x800];
   unsigned camera[4];
   uint64_t generation;
+  unsigned room;
   int valid;
 } LagoonWideParallaxPacket;
+int LagoonWideParallaxPacket_CaptureRoom(LagoonWideParallaxPacket *packet,
+    const uint16_t *vram,const uint8_t *rom,size_t size,uint64_t generation,
+    const unsigned camera[4],unsigned room);
 int LagoonWideParallaxPacket_Capture(LagoonWideParallaxPacket *packet,
     const uint16_t *vram,const uint8_t *rom,size_t size,uint64_t generation,
     const unsigned camera[4]);

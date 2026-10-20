@@ -7,12 +7,14 @@ typedef struct LagoonSceneRendererStats {
   uint64_t resets, packets, refused_packets, renders, independent_pixels;
   uint64_t verified_presents, replaced_presents, mismatches, fallbacks;
 } LagoonSceneRendererStats;
-/* Stable Atland and exact Gold Cave03/04/05/06 plus room07 parallax
- * and exact ordinary room08 Elf Field/selected rooms2C..37. Observe lines1..224, then EndFrame.
+/* Exact authored scene resources00..4A. Observe lines1..224, then EndFrame.
  * All presentation data is copied; TryPresent never reads the mutable guest. */
-/* Pure exact descriptor matcher for ordinary rooms19..1C and2C..37. This is
+/* Pure exact descriptor matcher for the additional rooms09..4A. This is
  * background resource scope, not actor, fade, map-upload or raster authority. */
 int LagoonSceneRenderer_AdditionalRoom(const uint8_t *ram);
+/* Exact source-owned layered scenes, including the original room07 contract. */
+int LagoonSceneRenderer_ParallaxRoom(const uint8_t *ram);
+int LagoonSceneRenderer_ExactRoom(const uint8_t *ram);
 void LagoonSceneRenderer_Reset(void);
 void LagoonSceneRenderer_ObserveRaster(const struct Ppu *ppu,unsigned line,
     const uint8_t *ram,const uint8_t *rom,size_t rom_size,

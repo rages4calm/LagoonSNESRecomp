@@ -1,5 +1,19 @@
 # Fullscreen widescreen captures
 
+## Batch29 layered mountain pass — Enhanced32:9
+
+![Layered room12 with Enhanced original pixels at1920x1080](batch29-room12-32x9-enhanced-1920x1080.png)
+
+Actual1920x1080 OpenGL readback from a hidden, nonfullscreen window, with
+Enhanced original pixels and a32:9 field. This particular authored map is
+only512 pixels wide, so the black beyond its real edges is intentional.
+The HUD stays centered. No resizing, redrawing or cropping was used; decoded
+RGBA pixels match the original BMP exactly. The682x224 pre-shader image and
+two complete state/clock checkpoints match the headless route. This is a GPU
+capture, not physical fullscreen scanout. See [capture metadata](batch29-capture.json)
+and [performance scope](../PERFORMANCE.md). This32:9 stress view is not a
+recommendation to replace16:9 when filling a1080p monitor is the priority.
+
 The first three PNGs were captured from the actual Windows SDL fullscreen output at
 **1920×1080**, with nearest-neighbor filtering and camera centering enabled.
 They retain the monitor's letterboxing for 21:9 and 32:9 fields. Click an image

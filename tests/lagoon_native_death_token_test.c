@@ -4,7 +4,8 @@
 #include <string.h>
 #include <assert.h>
 #include <stdio.h>
-typedef struct CpuState {uint16_t S,D;uint8_t m_flag,x_flag,emulation,DB,PB;uint8_t ram[131072];} CpuState;
+#include "cpu_state.h"
+static uint8_t ram[131072],before_ram[131072];
 static uint64_t generation=1;
 static uint64_t RtlStateGeneration(void){return generation;}
 #include "continuation_policy_under_test.h"
@@ -13,7 +14,7 @@ static int source_guard(const InterpAotContinuation *d){(void)d;return source_ok
 static const InterpAotContinuation descriptor={0x01930f,0x008985,0x019313,0x019294,{0x00898d,0x00899a},0,1,0,0,1,3,0,2};
 static CpuState cpu,before;
 static void setup(void){
-  memset(&cpu,0,sizeof(cpu));cpu.S=0x1ff0;cpu.DB=1;cpu.m_flag=1;
+  memset(&cpu,0,sizeof(cpu));memset(ram,0,sizeof ram);cpu.ram=ram;cpu.S=0x1ff0;cpu.DB=1;cpu.m_flag=1;cpu.P=CPU_P_M;
   /* Real JSL930F return9312, then inherited JSR9291 return9293. */
   const uint8_t stack[]={0x12,0x93,1,0x93,0x92};memcpy(cpu.ram+cpu.S+1,stack,5);
   source_ok=1;generation=1;assert(interp_bridge_set_aot_continuations(&descriptor,1,source_guard));
@@ -41,13 +42,13 @@ int main(void){
   setup();InterpAotAncestor ancestor;
   assert(!continuation_ancestor(&cpu,&descriptor,0,&ancestor));
   setup();assert(!take(0x00898d));
-  setup();uint64_t id=arm(0);assert(id);continuation_finish_wait(id,1);rtl();before=cpu;
-  assert(take(0x00899a));assert(!memcmp(&cpu,&before,sizeof(cpu)));assert(!take(0x00899a));
+  setup();uint64_t id=arm(0);assert(id);continuation_finish_wait(id,1);rtl();before=cpu;memcpy(before_ram,ram,sizeof ram);
+  assert(take(0x00899a));assert(!memcmp(&cpu,&before,sizeof(cpu))&&!memcmp(ram,before_ram,sizeof ram));assert(!take(0x00899a));
   setup();id=arm(0);assert(id);continuation_finish_wait(id,0);rtl();assert(!take(0x00898d));
   setup();assert(arm(1));rtl();assert(!take(0x00898e));assert(take(0x00898d));
   for(unsigned offset=1;offset<=5;offset++){
-    setup();assert(arm(1));rtl();cpu.ram[0x1ff0+offset]^=1;before=cpu;
-    assert(!take(0x00898d));assert(!memcmp(&cpu,&before,sizeof(cpu)));
+    setup();assert(arm(1));rtl();cpu.ram[0x1ff0+offset]^=1;before=cpu;memcpy(before_ram,ram,sizeof ram);
+    assert(!take(0x00898d));assert(!memcmp(&cpu,&before,sizeof(cpu))&&!memcmp(ram,before_ram,sizeof ram));
     setup();cpu.ram[0x1ff0+offset]^=1;assert(!arm(1));
   }
   for(unsigned bad=0;bad<9;bad++){
@@ -55,7 +56,7 @@ int main(void){
     switch(bad){case 0:generation++;break;case 1:cpu.m_flag=0;break;case 2:cpu.x_flag=1;break;
       case 3:cpu.D=1;break;case 4:cpu.DB=2;break;case 5:cpu.emulation=1;break;
       case 6:cpu.S++;break;case 7:source_ok=0;break;case 8:continuation_discard_tokens();break;}
-    before=cpu;assert(!take(0x00898d));assert(!memcmp(&cpu,&before,sizeof(cpu)));
+    before=cpu;memcpy(before_ram,ram,sizeof ram);assert(!take(0x00898d));assert(!memcmp(&cpu,&before,sizeof(cpu))&&!memcmp(ram,before_ram,sizeof ram));
   }
   setup();assert(!continuation_arm(&cpu,0x008985,0x019310,3,1));
   setup();cpu.S=0x1ffb;assert(!arm(1));
@@ -72,8 +73,8 @@ int main(void){
     memcpy(cpu.ram+cpu.S+1,stack,sizeof(stack));cpu.PB=(uint8_t)(boss.wait_pc24>>16);
     id=continuation_arm(&cpu,boss.wait_pc24,boss.call_pc24,3,0);assert(id);
     continuation_finish_wait(id,1);rtl();InterpAotContinuation out;uint16_t outer;
-    before=cpu;assert(continuation_take(&cpu,boss.return_sites[0],boss.continuation_pc24,0x1ff0,&out,&outer));
-    assert(outer==cpu.S+2&&!memcmp(&cpu,&before,sizeof(cpu)));
+    before=cpu;memcpy(before_ram,ram,sizeof ram);assert(continuation_take(&cpu,boss.return_sites[0],boss.continuation_pc24,0x1ff0,&out,&outer));
+    assert(outer==cpu.S+2&&(!memcmp(&cpu,&before,sizeof(cpu))&&!memcmp(ram,before_ram,sizeof ram)));
     assert(!continuation_take(&cpu,boss.return_sites[0],boss.continuation_pc24,0x1ff0,&out,&outer));
   }
   /* Death flash: REAL PHA flag + PHX index + JSR owner make eight bytes.
@@ -89,16 +90,16 @@ int main(void){
       memcpy(cpu.ram+cpu.S+1,stack,sizeof stack);cpu.PB=flash.wait_pc24>>16;
       id=continuation_arm(&cpu,flash.wait_pc24,flash.call_pc24,3,0);assert(id);
       continuation_finish_wait(id,1);rtl();InterpAotContinuation out;uint16_t outer;
-      before=cpu;assert(continuation_take(&cpu,flash.return_sites[0],flash.continuation_pc24,0x1ff0,&out,&outer));
-      assert(outer==cpu.S+3&&!memcmp(&cpu,&before,sizeof cpu));
+      before=cpu;memcpy(before_ram,ram,sizeof ram);assert(continuation_take(&cpu,flash.return_sites[0],flash.continuation_pc24,0x1ff0,&out,&outer));
+      assert(outer==cpu.S+3&&(!memcmp(&cpu,&before,sizeof cpu)&&!memcmp(ram,before_ram,sizeof ram)));
       assert(!continuation_take(&cpu,flash.return_sites[0],flash.continuation_pc24,0x1ff0,&out,&outer));
       for(unsigned bad=1;bad<=8;bad++){
         /* All saved/owner/wait bytes are protected by the ACTUAL matcher. */
         cpu.S=0x1ff0;cpu.PB=flash.wait_pc24>>16;memcpy(cpu.ram+cpu.S+1,stack,sizeof stack);
         assert(continuation_arm(&cpu,flash.wait_pc24,flash.call_pc24,3,1));rtl();
-        cpu.ram[0x1ff0+bad]^=1;before=cpu;
+        cpu.ram[0x1ff0+bad]^=1;before=cpu;memcpy(before_ram,ram,sizeof ram);
         assert(!continuation_take(&cpu,flash.return_sites[0],flash.continuation_pc24,0x1ff0,&out,&outer));
-        assert(!memcmp(&cpu,&before,sizeof cpu));
+        assert((!memcmp(&cpu,&before,sizeof cpu)&&!memcmp(ram,before_ram,sizeof ram)));
       }
     }
   }
@@ -107,8 +108,8 @@ int main(void){
   assert(hook_events[INTERP_CONT_TAKE]);
   cpu.ram[cpu.S+3]=0xff;cpu.ram[cpu.S+4]=0x94;
   for(bad_proposal=0;bad_proposal<8;bad_proposal++){
-    before=cpu;assert(continuation_ancestor(&cpu,&descriptor,cpu.S,&ancestor)==!bad_proposal);
-    assert(!memcmp(&cpu,&before,sizeof(cpu)));
+    before=cpu;memcpy(before_ram,ram,sizeof ram);assert(continuation_ancestor(&cpu,&descriptor,cpu.S,&ancestor)==!bad_proposal);
+    assert(!memcmp(&cpu,&before,sizeof(cpu))&&!memcmp(ram,before_ram,sizeof ram));
   }
   bad_proposal=0;cpu.emulation=1;assert(!continuation_ancestor(&cpu,&descriptor,cpu.S,&ancestor));
   cpu.emulation=0;cpu.PB=0;assert(!continuation_ancestor(&cpu,&descriptor,cpu.S,&ancestor));

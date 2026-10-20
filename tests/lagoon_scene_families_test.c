@@ -107,6 +107,7 @@ static void animation_protocol(unsigned room) {
     assert(!LagoonWideTorches_Begin(&t,24,room,source,bank,at,to,len));++animation_refusals;
   }
 }
+#ifndef LAGOON_SCENE_FAMILY_NO_MAIN
 int main(int argc,char **argv) {
   int town=argc==5 && !strcmp(argv[4],"--town-only");
   int field=argc==5 && !strcmp(argv[4],"--field-only");
@@ -155,3 +156,4 @@ int main(int argc,char **argv) {
   printf("PASS12exactrooms/48loader snapshots; %lu independent source pixels; %lu finite-edge pixels; %lu resource/layout/authority refusals;12generation refusals; %u actual animation phase matches; %lu animation protocol refusals\n",pixel_checks,edge_checks,resource_refusals,animation_matches,animation_refusals);
   return 0;
 }
+#endif

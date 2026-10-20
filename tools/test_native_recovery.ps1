@@ -13,25 +13,25 @@ New-Item -ItemType Directory -Force -Path $target | Out-Null
 Push-Location $repo
 try {
   $exe=Join-Path $target 'native-recovery-guard.exe'
-  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isrc -Isnesrecomp/runner/src tests/lagoon_native_recovery_guard_test.c src/lagoon_native_recovery.c src/lagoon_native_revival.c src/lagoon_native_camera.c -o $exe
+  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isrc -Isnesrecomp/runner/src tests/lagoon_native_recovery_guard_test.c src/lagoon_native_recovery.c src/lagoon_native_revival.c src/lagoon_native_camera.c src/lagoon_native_endgame.c -o $exe
   if($LASTEXITCODE){throw 'Recovery guard compilation failed'}
   & $exe $romPath
   if($LASTEXITCODE){throw 'Recovery guard test failed'}
 
   $boss=Join-Path $target 'native-boss-continuation.exe'
-  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isrc -Isnesrecomp/runner/src tests/lagoon_boss_continuation_test.c src/lagoon_native_revival.c src/lagoon_native_camera.c -o $boss
+  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isrc -Isnesrecomp/runner/src tests/lagoon_boss_continuation_test.c src/lagoon_native_revival.c src/lagoon_native_camera.c src/lagoon_native_endgame.c -o $boss
   if($LASTEXITCODE){throw 'Boss continuation guard compilation failed'}
   & $boss $romPath
   if($LASTEXITCODE){throw 'Boss continuation guard test failed'}
 
   $flash=Join-Path $target 'native-death-flash.exe'
-  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isrc -Isnesrecomp/runner/src tests/lagoon_death_flash_guard_test.c src/lagoon_native_revival.c src/lagoon_native_camera.c -o $flash
+  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isrc -Isnesrecomp/runner/src tests/lagoon_death_flash_guard_test.c src/lagoon_native_revival.c src/lagoon_native_camera.c src/lagoon_native_endgame.c -o $flash
   if($LASTEXITCODE){throw 'Death flash guard compilation failed'}
   & $flash $romPath
   if($LASTEXITCODE){throw 'Death flash guard test failed'}
 
   $script=Join-Path $target 'native-boss-script.exe'
-  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isrc -Isnesrecomp/runner/src tests/lagoon_boss_script_guard_test.c src/lagoon_native_revival.c src/lagoon_native_camera.c -o $script
+  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isrc -Isnesrecomp/runner/src tests/lagoon_boss_script_guard_test.c src/lagoon_native_revival.c src/lagoon_native_camera.c src/lagoon_native_endgame.c -o $script
   if($LASTEXITCODE){throw 'Boss script guard compilation failed'}
   & $script $romPath
   if($LASTEXITCODE){throw 'Boss script guard test failed'}
@@ -44,13 +44,13 @@ try {
   if(-not $types[0] -or -not $policy[0]){throw 'Production matcher markers missing'}
   ($types[0]+$policy[0]) | Set-Content -LiteralPath (Join-Path $target 'continuation_policy_under_test.h') -Encoding UTF8
   $token=Join-Path $target 'native-death-token.exe'
-  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror "-I$target" tests/lagoon_native_death_token_test.c -o $token
+  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isnesrecomp/runner/src "-I$target" tests/lagoon_native_death_token_test.c -o $token
   if($LASTEXITCODE){throw 'Death token matcher compilation failed'}
   & $token
   if($LASTEXITCODE){throw 'Death token matcher test failed'}
 
   $sites=Join-Path $target 'native-return-sites.exe'
-  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror "-I$target" tests/lagoon_continuation_return_sites_test.c -o $sites
+  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isnesrecomp/runner/src "-I$target" tests/lagoon_continuation_return_sites_test.c -o $sites
   if($LASTEXITCODE){throw 'Four-return-site matcher compilation failed'}
   & $sites
   if($LASTEXITCODE){throw 'Four-return-site matcher test failed'}
