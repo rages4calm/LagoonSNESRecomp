@@ -1,6 +1,17 @@
 # Lagoon widescreen (experimental)
 
-## Batch29 current scene coverage
+## Batch30 current actor coverage
+
+The renderer now accepts source-qualified current NPC/enemy/prop records without
+requiring an earlier individual onscreen pose witness. It reads the actual guest
+frame, with full current/captured record, scene/generation/camera/source/atlas and
+finite-frame guards. Four live cases match the original-opcode control and
+renderer off/auto across7,216 pictures/eight checkpoints.806 numeric new far-cell
+observations cover enemies12/13/14/23; NPC21/enemy26 have no target-positive claim.
+No AI, future animation, death-form or multipart/projectile behavior is predicted.
+See [batch30](NATIVE-BATCH30-2026-10-20.md) and [renderer scope](CUSTOM-RENDERER.md).
+
+## Batch29 scenery coverage retained
 
 All75 authored room descriptors now have exact scenery/resource contracts in
 the custom backend, including the remaining towns/dungeons, six additional

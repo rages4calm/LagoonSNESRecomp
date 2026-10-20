@@ -43,7 +43,7 @@ static uint8_t s_kind_witness[2][128];
 static unsigned s_pose_room_key, s_last_far_entity, s_last_far_frame;
 static uint64_t s_pose_generation;
 static int s_last_far_x;
-static uint64_t s_far_emitted, s_frame_witness, s_frame_bad, s_far_gated;
+static uint64_t s_far_emitted, s_frame_witness, s_frame_bad, s_far_gated, s_current_emitted;
 static int s_has_far;
 
 static PpuExtraObject s_objects[kObjects];
@@ -71,12 +71,12 @@ static void report_status(const char *status, unsigned entity, unsigned cell) {
   }
   FILE *f = fopen(path, "w");
   if (!f) return;
-  fprintf(f, "status=%s serial=%u captures=%llu validated=%llu rejected=%llu emitted=%llu live_objects=%zu left=%u right=%u entity=%u cell=%u atlas_ready=%u atlas_bytes=%u frame_witness=%llu frame_bad=%llu far_cells=%llu far_gated=%llu last_far=%03X far_x=%d far_frame=%u\n",
+  fprintf(f, "status=%s serial=%u captures=%llu validated=%llu rejected=%llu emitted=%llu live_objects=%zu left=%u right=%u entity=%u cell=%u atlas_ready=%u atlas_bytes=%u frame_witness=%llu frame_bad=%llu far_cells=%llu far_gated=%llu last_far=%03X far_x=%d far_frame=%u current_cells=%llu\n",
       status, s_frame.serial, (unsigned long long)s_captures, (unsigned long long)s_validated,
       (unsigned long long)s_rejected, (unsigned long long)s_emitted, s_object_count, left, right, entity, cell, s_atlas.ready, s_atlas.completed,
       (unsigned long long)s_frame_witness, (unsigned long long)s_frame_bad,
       (unsigned long long)s_far_emitted, (unsigned long long)s_far_gated,
-      s_last_far_entity, s_last_far_x, s_last_far_frame);
+      s_last_far_entity, s_last_far_x, s_last_far_frame, (unsigned long long)s_current_emitted);
   fclose(f);
 }
 #endif
@@ -728,6 +728,146 @@ int LagoonWideEntities_FrameForContext(const uint8_t *rom,size_t size,const uint
   return LagoonWideEntities_FrameForRoom(rom,size,room,r,a,step,frame);
 }
 static unsigned record_word(const uint8_t *ram,unsigned at){return ram[at]|ram[at+1]<<8;}
+/* Finite original frame-table extents, independently executed through real
+ * 008B71/8211 for every admitted entry. Hashes cover table pointers and every
+ * admitted stream, including shared NPC frames. These are source identities,
+ * not copied graphics. No cache can lend authority after a ROM mutation. */
+typedef struct CurrentFrameSource { unsigned table,count,base,length; uint64_t hash; } CurrentFrameSource;
+static const CurrentFrameSource s_current_frames[76]={
+  {0x009a84,252,0x009a84,3468,UINT64_C(0x2e69abe018e1d1e4)}, /* 00 */
+  {0x00a810,104,0x00a810,1008,UINT64_C(0xe4f8658bd96b3daf)}, /* 01 */
+  {0x00ac00,25,0x00a8e0,856,UINT64_C(0x7b4b5782ceafa841)}, /* 02 */
+  {0x00ac00,25,0x00a8e0,856,UINT64_C(0x7b4b5782ceafa841)}, /* 03 */
+  {0x00ac38,46,0x00ac38,926,UINT64_C(0xe68d9dff6bdbba49)}, /* 04 */
+  {0x00ac38,46,0x00ac38,926,UINT64_C(0xe68d9dff6bdbba49)}, /* 05 */
+  {0x00ac38,46,0x00ac38,926,UINT64_C(0xe68d9dff6bdbba49)}, /* 06 */
+  {0x00ac38,46,0x00ac38,926,UINT64_C(0xe68d9dff6bdbba49)}, /* 07 */
+  {0x00afd6,14,0x00a2a8,3458,UINT64_C(0xbc7ec60a59c70146)}, /* 08 */
+  {0x00b02a,36,0x00b02a,757,UINT64_C(0xa0346984ddc50169)}, /* 09 */
+  {0x00a810,104,0x00a810,1008,UINT64_C(0xe4f8658bd96b3daf)}, /* 0A */
+  {0x00b02a,36,0x00b02a,757,UINT64_C(0xa0346984ddc50169)}, /* 0B */
+  {0x00b31f,24,0x00b31f,818,UINT64_C(0xf56ec5426c47c258)}, /* 0C */
+  {0x00b651,32,0x00b651,705,UINT64_C(0x2e85c99c80680bb7)}, /* 0D */
+  {0x00b912,19,0x00b912,584,UINT64_C(0xd8d0b79c9fcd843a)}, /* 0E */
+  {0x00b912,19,0x00b912,584,UINT64_C(0xd8d0b79c9fcd843a)}, /* 0F */
+  {0x00b912,19,0x00b912,584,UINT64_C(0xd8d0b79c9fcd843a)}, /* 10 */
+  {0x00bb5a,37,0x00bb5a,1135,UINT64_C(0x8822540c302f6101)}, /* 11 */
+  {0x00bfc9,40,0x00a8e0,6044,UINT64_C(0xb77d91550a787dd0)}, /* 12 */
+  {0x00bfc9,40,0x00a8e0,6044,UINT64_C(0xb77d91550a787dd0)}, /* 13 */
+  {0x00bfc9,40,0x00a8e0,6044,UINT64_C(0xb77d91550a787dd0)}, /* 14 */
+  {0x00c07c,42,0x00c07c,1142,UINT64_C(0x29bb62baaa639e83)}, /* 15 */
+  {0x00c07c,42,0x00c07c,1142,UINT64_C(0x29bb62baaa639e83)}, /* 16 */
+  {0x00c07c,42,0x00c07c,1142,UINT64_C(0x29bb62baaa639e83)}, /* 17 */
+  {0x00c4f2,13,0x00c4f2,102,UINT64_C(0x0f7883eb18635871)}, /* 18 */
+  {0x00c558,32,0x00c558,1340,UINT64_C(0x388eec09aea8496f)}, /* 19 */
+  {0x00ca94,73,0x00a8e0,8907,UINT64_C(0x2422ac6c3ebcf0f3)}, /* 1A */
+  {0x00ca94,73,0x00a8e0,8907,UINT64_C(0x2422ac6c3ebcf0f3)}, /* 1B */
+  {0x00a810,104,0x00a810,1008,UINT64_C(0xe4f8658bd96b3daf)}, /* 1C */
+  {0x00ca94,73,0x00a8e0,8907,UINT64_C(0x2422ac6c3ebcf0f3)}, /* 1D */
+  {0x00ca94,73,0x00a8e0,8907,UINT64_C(0x2422ac6c3ebcf0f3)}, /* 1E */
+  {0x00cbab,16,0x00cbab,356,UINT64_C(0xeefca16c8693fa25)}, /* 1F */
+  {0x00cbab,16,0x00cbab,356,UINT64_C(0xeefca16c8693fa25)}, /* 20 */
+  {0x00cd0f,24,0x00cd0f,768,UINT64_C(0x40ec09ce944398ac)}, /* 21 */
+  {0x03cd7a,28,0x03cd7a,1486,UINT64_C(0xbf814474dbbd3f87)}, /* 22 */
+  {0x00d00f,24,0x00d00f,962,UINT64_C(0x09a4550bb993b3b1)}, /* 23 */
+  {0x00d00f,24,0x00d00f,962,UINT64_C(0x09a4550bb993b3b1)}, /* 24 */
+  {0x00a810,104,0x00a810,1008,UINT64_C(0xe4f8658bd96b3daf)}, /* 25 */
+  {0x00d00f,24,0x00d00f,962,UINT64_C(0x09a4550bb993b3b1)}, /* 26 */
+  {0x00d3d1,21,0x00d3d1,469,UINT64_C(0x2b4b01bebe7edb1f)}, /* 27 */
+  {0x00d5a6,2,0x00d5a6,16,UINT64_C(0xec4a29c690e38037)}, /* 28 */
+  {0x00d5b6,14,0x00d5b6,728,UINT64_C(0xdc691f296d448dc9)}, /* 29 */
+  {0x00d88e,31,0x009c7c,16054,UINT64_C(0xd3d6986fa588972b)}, /* 2A */
+  {0x00d5b6,14,0x00d5b6,728,UINT64_C(0xdc691f296d448dc9)}, /* 2B */
+  {0x00d5b6,14,0x00d5b6,728,UINT64_C(0xdc691f296d448dc9)}, /* 2C */
+  {0x00db32,36,0x00db32,1390,UINT64_C(0xee17d8c2f3857ed9)}, /* 2D */
+  {0x00db32,36,0x00db32,1390,UINT64_C(0xee17d8c2f3857ed9)}, /* 2E */
+  {0x00db32,36,0x00db32,1390,UINT64_C(0xee17d8c2f3857ed9)}, /* 2F */
+  {0x00e0a0,20,0x00e0a0,766,UINT64_C(0xd1e7cf6c6bc2002e)}, /* 30 */
+  {0x00e0a0,20,0x00e0a0,766,UINT64_C(0xd1e7cf6c6bc2002e)}, /* 31 */
+  {0x00e0a0,20,0x00e0a0,766,UINT64_C(0xd1e7cf6c6bc2002e)}, /* 32 */
+  {0x00e0a0,20,0x00e0a0,766,UINT64_C(0xd1e7cf6c6bc2002e)}, /* 33 */
+  {0x00e0a0,20,0x00e0a0,766,UINT64_C(0xd1e7cf6c6bc2002e)}, /* 34 */
+  {0x00e0a0,20,0x00e0a0,766,UINT64_C(0xd1e7cf6c6bc2002e)}, /* 35 */
+  {0x00e39e,26,0x00e39e,1038,UINT64_C(0x63026187fc3cd01a)}, /* 36 */
+  {0x00e39e,26,0x00e39e,1038,UINT64_C(0x63026187fc3cd01a)}, /* 37 */
+  {0x00e39e,26,0x00e39e,1038,UINT64_C(0x63026187fc3cd01a)}, /* 38 */
+  {0x00e7ac,12,0x00e7ac,1339,UINT64_C(0xdce28a5ea33b04b1)}, /* 39 */
+  {0x00e7ac,12,0x00e7ac,1339,UINT64_C(0xdce28a5ea33b04b1)}, /* 3A */
+  {0x00e7ac,12,0x00e7ac,1339,UINT64_C(0xdce28a5ea33b04b1)}, /* 3B */
+  {0x00e7ac,12,0x00e7ac,1339,UINT64_C(0xdce28a5ea33b04b1)}, /* 3C */
+  {0x00e7ac,12,0x00e7ac,1339,UINT64_C(0xdce28a5ea33b04b1)}, /* 3D */
+  {0x00a810,104,0x00a810,1008,UINT64_C(0xe4f8658bd96b3daf)}, /* 3E */
+  {0x00ece7,24,0x00ece7,1030,UINT64_C(0xee9e558a5d33f300)}, /* 3F */
+  {0x00f0ed,31,0x00f0ed,2412,UINT64_C(0x18c65dc5a1f27a58)}, /* 40 */
+  {0x03af90,9,0x03af90,1550,UINT64_C(0xd2c520c40384aa0d)}, /* 41 */
+  {0x03b59e,7,0x03b59e,1735,UINT64_C(0x9e0fc75eb0b4ced0)}, /* 42 */
+  {0x03bc65,10,0x03bc65,2232,UINT64_C(0x414ea6fbd3b18159)}, /* 43 */
+  {0x03c51d,12,0x03c51d,731,UINT64_C(0xdadc59eb8b8ec256)}, /* 44 */
+  {0x03c7f8,23,0x03c7f8,1410,UINT64_C(0x43d5f5d876542472)}, /* 45 */
+  {0x03cd7a,28,0x03cd7a,1486,UINT64_C(0xbf814474dbbd3f87)}, /* 46 */
+  {0x03d348,23,0x03d348,3474,UINT64_C(0x1a2e8285af711dd3)}, /* 47 */
+  {0x03e0da,37,0x03e0da,5932,UINT64_C(0xfa6665d102508321)}, /* 48 */
+  {0x03f806,2,0x03f806,32,UINT64_C(0x2df57c12c7e97f87)}, /* 49 */
+  {0x00d5a6,2,0x00d5a6,16,UINT64_C(0xec4a29c690e38037)}, /* 4A */
+  {0x00c4f2,13,0x00c4f2,102,UINT64_C(0x0f7883eb18635871)}, /* 4B */
+};
+int LagoonWideEntities_CurrentSource(const uint8_t *rom,size_t size,unsigned selector,unsigned frame) {
+  if(selector>=76 || frame==255)return 0;
+  const CurrentFrameSource *f=&s_current_frames[selector];
+  /* Four dynamic WRAM packs and two empty records are deliberately outside
+   * the fixed source/atlas contract. */
+  if(frame>=f->count || (selector==0&&(frame<4||frame==168||frame==169)))return 0;
+  unsigned lo,hi,bank;
+  if(!rom_byte(rom,size,0x999d+selector*3,&lo)||!rom_byte(rom,size,0x999e + selector*3,&hi)||
+      !rom_byte(rom,size,0x999f+selector*3,&bank)||(lo|(hi<<8)|(bank<<16))!=f->table ||
+      !source_hash(rom,size,f->base,f->length,f->hash))return 0;
+  static const uint8_t stock_call[]={0x20,0xb5,0xa7},center_call[]={0x20,0xd8,0x83};
+  static const uint8_t center_dispatch[]={
+    0x5a,0x9b,0xd0,0x16,0xda,0x64,0x41,0x20,0xfb,0x83,0x20,0x26,0x84,
+    0x20,0x52,0x84,0x20,0x7d,0x84,0xfa,0xad,0x19,0x05,0x8d,0x19,0x05,
+    0x7a,0x4c,0xb5,0xa7,0xea,0xea,0xea,0xea,0xea};
+  unsigned call=0x80ca;
+  if(!rom||size<0x10000)return 0;
+  if(memcmp(rom+call,stock_call,3)) {
+    if(memcmp(rom+call,center_call,3)||memcmp(rom+0x83d8,center_dispatch,sizeof(center_dispatch))||
+       memcmp(rom+0x809d,"\xea\xea\xea",3))return 0;
+  }else if(memcmp(rom+0x809d,center_call,3))return 0;
+  if(!source_hash(rom,size,0x0180b2,24,UINT64_C(0xcde1e7a18b1664d9)))return 0;
+  if(!source_hash(rom,size,0x0180cd,22,UINT64_C(0x35e70cb4b5b4d9d2)))return 0;
+  if(!source_hash(rom,size,0x01a4d3,24,UINT64_C(0x09abeb222846112b)))return 0;
+  if(!source_hash(rom,size,0x01a5aa,191,UINT64_C(0xacc4bafd082e0a60)))return 0;
+  if(!source_hash(rom,size,0x008b4b,331,UINT64_C(0x679426345d98810a)))return 0;
+  if(!source_hash(rom,size,0x008d0b,43,UINT64_C(0xe45ef8fb2dd76ec9)))return 0;
+  if(!source_hash(rom,size,0x008211,138,UINT64_C(0x1b15a374826ab834)))return 0;
+  if(!source_hash(rom,size,0x01c402,25,UINT64_C(0xe455ff655b106f9a)))return 0;
+  if(!source_hash(rom,size,0x01c486,41,UINT64_C(0x2eb39b5302337bbe)))return 0;
+  return 1;
+}
+int LagoonWideEntities_CurrentFrame(const uint8_t *rom,size_t size,const uint8_t *captured,
+    const uint8_t *current,unsigned entity,uint8_t *frame) {
+  if(!captured||!current||!frame||entity>0x800||(entity&63))return 0;
+  const uint8_t *r=captured+0x500+entity,*now=current+0x500+entity;
+  unsigned room=captured[0x48e]|captured[0x48f]<<8,type=r[24],kind=r[27];
+  if((r[0]&0xc8)!=0xc0 || memcmp(r,now,64) || captured[0x48e]!=current[0x48e] ||
+      captured[0x48f]!=current[0x48f] || captured[0x90]!=current[0x90] || captured[0x91]!=current[0x91] ||
+      !LagoonWideEntities_AllowedKind(room,type,kind) || !follower_record(rom,size,captured,r) ||
+      !follower_record(rom,size,current,now) || (type!=1&&type!=2&&type!=5) ||
+      (type==2&&(r[1]&1)&&kind<37) || (type==5&&r[28]!=0x3e))return 0;
+  for(unsigned q=0;q<2;++q) {
+    const uint8_t *ram=q?current:captured,*record=ram+0x500+entity;
+    unsigned wx=record[2]|record[3]<<8,wy=record[4]|record[5]<<8;
+    unsigned cx=ram[0x480]|ram[0x481]<<8,cy=ram[0x482]|ram[0x483]<<8;
+    if((record[12]|record[13]<<8)!=((wx-cx)&65535) ||
+       (record[14]|record[15]<<8)!=((wy-cy)&65535))return 0;
+  }
+  if((type==1&&!source_hash(rom,size,0x01c1c6,78,UINT64_C(0x923d6369f8f0853c))) ||
+     (type==2&&!source_hash(rom,size,0x01c214,112,UINT64_C(0xd94970056e0ec0f2))) ||
+     (type==5&&!source_hash(rom,size,0x01c44e,97,UINT64_C(0x036e1148b4ed807b))))return 0;
+  unsigned selector=type==5||(type==1&&kind<2)?0:room+1;
+  if(!LagoonWideEntities_CurrentSource(rom,size,selector,r[28]))return 0;
+  *frame=r[28];return 1;
+}
+
 int LagoonWideEntities_RecordCells(const uint8_t *rom,size_t size,const uint8_t *ram,
     unsigned entity,unsigned frame,int projected,LagoonWideCell *cells,size_t capacity) {
   if(!ram||!rom||!cells||entity>0x800||(entity&63))return -1;
@@ -1099,6 +1239,15 @@ static int native_pose_matches(const uint8_t *ram,unsigned e) {
     !memcmp(w->palette,g_ppu->cgram,sizeof(w->palette));
 }
 
+static int current_pose_frame(const uint8_t *ram,unsigned e,uint8_t *frame) {
+  return LagoonSceneRenderer_ExactRoom(ram) && LagoonSceneRenderer_ExactRoom(g_ram) &&
+    !ram[0x100e] && !g_ram[0x100e] && g_ppu->inidisp==15 && g_ppu->bgmode==9 &&
+    g_ppu->bgXsc[0]==0x71 && g_ppu->bgXsc[1]==(ram[0x50]?0x7a:0x79) &&
+    g_ppu->bgXsc[2]==0x3c && g_ppu->bgTileAdr==0x600 && !g_ppu->mosaic &&
+    !g_ppu->setini && !g_ppu->cgadsub && !g_ppu->windowsel && !(g_ppu->cgwsel&1) &&
+    LagoonWideEntities_CurrentFrame(g_rom,kRomSize,ram,g_ram,e*64,frame);
+}
+
 void LagoonWideEntities_BeginFrame(int enabled) {
   s_object_count=0;s_has_far=0;PpuSetExtraObjects(g_ppu,NULL,0);
   if(!enabled || !s_frame.valid) {report_status("inactive-or-no-capture",0,0);return;}
@@ -1126,7 +1275,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
   }
   int atlas_ok=s_atlas.ready && s_atlas.generation==s_frame.generation &&
       s_atlas.room==ram[0x48e] && s_atlas.source==ram_pointer(ram,0x5d);
-  uint8_t used[128]={0},queued[kEntities]={0},far[kEntities]={0},far_frames[kEntities]={0};
+  uint8_t used[128]={0},queued[kEntities]={0},far[kEntities]={0},far_frames[kEntities]={0},current_path[kEntities]={0};
   int cell_slot[kEntities][kCells],counts[kEntities]={0};
   LagoonWideCell cells[kEntities][kCells];
   memset(cell_slot,-1,sizeof(cell_slot));
@@ -1180,14 +1329,14 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     if(queued[e] || !atlas_ok || !LagoonWideEntities_AllowedKind(room,type,kind))continue;
     int ordinary=(type==1||type==2) && kind<(type==1?128:64) && s_pose[e].valid && s_kind_witness[type-1][kind];
     int held=native_pose_matches(ram,e);
-    if(!ordinary&&!held)continue;
     int x=signed_word(ram_word(ram,a+2)-ram_word(ram,0x480));
     int y=signed_word(ram_word(ram,a+4)-ram_word(ram,0x482));
     if((x>=-96 && x<352) || y < -32 || y>=288) continue;
-    uint8_t frame;
+    uint8_t frame;int used_current=0;
     if(!ordinary || !LagoonWideEntities_FrameForContext(g_rom,kRomSize,ram,ram+a,&s_pose[e].animation,0,&frame)) {
-      if(!held)continue;
-      frame=ram[a+0x1c]; /* Exact current guest pose; no attack/AI extrapolation. */
+      uint8_t current_frame;int current=!held&&current_pose_frame(ram,e,&current_frame);
+      if(!held&&!current)continue;
+      used_current=current;frame=current?current_frame:ram[a+0x1c]; /* Exact current guest pose; no attack/AI extrapolation. */
     }
     int n=decode_entity(ram,e*64,frame,1,cells[e]);
     if(n<=0 || !cells_owned(cells[e],n)) {
@@ -1203,7 +1352,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
           c->y<224 && c->y+c->size>0) intersects=1;
     }
     if(!deep || !intersects) continue;
-    counts[e]=n;far[e]=1;far_frames[e]=frame;any_far=1;s_last_far_entity=e*64;s_last_far_x=x;s_last_far_frame=frame;
+    counts[e]=n;far[e]=1;far_frames[e]=frame;current_path[e]=used_current;any_far=1;s_last_far_entity=e*64;s_last_far_x=x;s_last_far_frame=frame;
   }
   /* An unsupported native group in the same deep margins needs its own
    * composition/order contract. Reject new far rendering, retain old path. */
@@ -1242,7 +1391,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     if(snprintf(path,sizeof(path),"%s.cells.tsv",report)<(int)sizeof(path)) {
       cell_report=fopen(path,"a");
       if(cell_report && ftell(cell_report)==0)
-        fprintf(cell_report,"host_frame\tserial\tclock\tentity\ttype\tkind\tframe\tx\ty\ttile\tsize\n");
+        fprintf(cell_report,"host_frame\tserial\tclock\tentity\ttype\tkind\tframe\tx\ty\ttile\tsize\tcurrent_record\n");
     }
   }
   for(unsigned e=1;e<kEntities;++e) if(counts[e]>0 && (queued[e] || (any_far&&far[e]))) {
@@ -1254,12 +1403,12 @@ void LagoonWideEntities_BeginFrame(int enabled) {
         int added=draw_cell(&cells[e][i],0,rank[e]*kCells+i+1,2);
         s_emitted+=added;
         if(far[e]) {
-          s_far_emitted+=added;s_has_far|=added;
+          s_far_emitted+=added;s_has_far|=added;if(current_path[e])s_current_emitted+=added;
           if(added && cell_report) {
             unsigned a=0x500+e*64;uint8_t frame=far_frames[e];
-            fprintf(cell_report,"%d\t%u\t%u\t%03X\t%u\t%u\t%u\t%d\t%d\t%04X\t%u\n",
+            fprintf(cell_report,"%d\t%u\t%u\t%03X\t%u\t%u\t%u\t%d\t%d\t%04X\t%u\t%u\n",
                 snes_frame_counter,s_frame.serial,ram[0x408],e*64,ram[a+0x18],ram[a+0x1b],frame,
-                cells[e][i].x,cells[e][i].y,cells[e][i].tile,cells[e][i].size);
+                cells[e][i].x,cells[e][i].y,cells[e][i].tile,cells[e][i].size,current_path[e]);
           }
         }
       }

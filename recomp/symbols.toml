@@ -207,10 +207,10 @@ note = "Map/attribute sample from indirect 16x16 world tables; hot observed call
 name = "Lagoon_Oam_StageSprite"
 addr = "8211"
 bank = 0
-emit = false
+emit = true
 entry_m = 1
 entry_x = 0
-note = "Interpreted: promotion failed CPU and clock parity on extended route"
+note = "Full source-closed sprite staging, M1X0; original-opcode and precise-clock qualification required. Earlier coarse promotion was refused."
 
 [[func]]
 name = "Lagoon_Entity_CheckJump"

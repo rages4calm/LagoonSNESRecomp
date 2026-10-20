@@ -1,75 +1,56 @@
 # Current development checkpoint — October20,2026
 
-Batch29 executable:
-`c0b78249eb5c338169a9ab9f4d701fa71db0bbb7665731916b9bf73b5aee2bbd`
+Installed batch30 executable:
+`ebc62242e068c530892fada95e15cb0aed3c8773051408ff7a83991613b09cb7`
 Manifest:
-`e375af907ee1127369de439db42c0717394e4feb29925dd22daccf4d2ebbe74c`
-469 AOT /111 analyzed LLE /347 roots are analysis counts, not completion percentages.
+`45228f8b9120cdd01101feffbb08cca6362137716a31f6471b6d28db85131e14`
+480 AOT /102 analyzed LLE /353 roots are counts, not completion percentages.
+Launch `Start Lagoon.cmd`.
 
-44 new native bodies cover the original RNG/seed services, Thor/Bird defeat and
-transformation windows, victory NPC setup and24 full credits scene/resource
-helpers. All425 prior native entries remain.420 previous bodies are byte-exact;
-five change only to call the newly native RNG. All445 pre-credits bodies remain
-byte-exact after the credits generation.408 of409 old exit facts remain: one
-unused optimistic02D98E fact is conservatively dropped, with no old native body
-change.23 exit sets and4 HLE guards retain their exact values.
+Eleven full services add sprite staging/rectangular drawing, map queue and resource
+loading plus four complete callers. Precise instruction/transfer timing closes
+observed palette and full sprite-chain coarse timing discrepancies. All469 prior
+native bodies remain;459 are byte-exact, five old callers only change seven native
+call lines, and five existing bodies gain the qualified timing/tail behavior.
+All436 old facts,23 sets and4 HLE guards remain exact; eight new facts come from
+complete source. The intentionally dirty SDK/index is preserved.
 
-The connected assisted route reaches original Zerah defeat, Thor's transformation,
-Bird death, Thor's pendant, the real door to the final Evil Spirit, all seven
-credits scenes and THE END. Green is a staged original initializer case, not a
-natural quest reachability proof. Ella separately checks native RNG/motion with
-real devices and clocks. The three comparisons cover32,776 observations and12
-complete checkpoints; all96 component hashes and clocks match.46 early outgoing
-Atland pictures per route change with the new widescreen fade coverage. Those
-138 picture changes and strict-false results remain explicit, with no masks.
+The current-record far actor path uses actual guest frames, complete capture/current
+records and finite source contracts, without AI or animation prediction. Source
+qualification covers2,658 finite entries/76 selectors. Four live cases provide
+806 numeric new-path far cells for enemies12/13/14/23. Their7,216 observations,
+eight checkpoints and72 complete dump-component pairs/clocks match candidate
+off/auto and a genuine original-opcode service control. No target-positive claim
+is made for NPC21 or enemy26. Death/multipart/projectile paths remain conservative.
 
-RNG835,680, motion466,944, inline27,648, transformation-window27,648 and credits
-68,544 original-opcode cases pass their stated scopes. These are distinct tests,
-not a completion percentage or additional campaign playthroughs. The credits
-unit stops at real child boundaries; an old008E2C coarse child has a documented
-+6master-clock unit-bus limitation. Actual connected old/new runtime clocks match.
+The native source suite passes162,816 full RAM/register/stack/timing cases;
+credits with the corrected palette child pass68,544. A separate368,640-case
+original timing proof establishes the former palette discrepancy. A targeted
+validation build forces exactly16 services through their actual original opcodes;
+it uses the same host/renderer and is not installed.
 
-All75 authored room descriptors have exact scenery contracts, including remaining
-towns/dungeons, layered backgrounds and finite boss arenas.40 new loader pairs
-cover34,440 observations/40 checkpoints,23,500 custom replacements and zero
-mismatches.2A's authored script payload and3F's explicit synthetic resource fixture
-have separate off/auto proof;3F is not claimed naturally reachable. Room17's Ella
-portrait is original fixed Mode0 UI, not a missing world background.
+Dungeon/menu controls match2,267 pictures and12 core state/clock checkpoint sets.
+Absolute menu diagnostic paths retain strictfalse; four cumulative APU rows differ
+only in host beam attribution, with event/sample values unchanged. The assisted
+ending uses the actual NPC-ready flag, real pendant and authored door, reaches
+the final Evil Spirit and THE END, and matches24,147 ordered pictures against
+the opcode control.57/64 standard components match; remaining dead-stack,
+paused-register, bounded master-phase and audio diagnostic differences remain
+explicit. No broad bit-perfect, audio-waveform or uninterrupted campaign claim.
 
-19 focused actor triples cover35,227 observations/38 checkpoint locations,
-27,564 replacements and zero reference mismatch. Fourteen actual far type/kind
-roles are observed, including an original status4 enemy and a type5 prop.
-Other admitted kinds have source/guard qualification without a live-far claim.
-Unseen or changed unsupported poses remain conservative; no AI is predicted.
-Three actual outgoing doors test ordinary/boss/layered fades with exact guest
-state/clocks and off/auto ordered pictures. Partial incoming uploads still refuse.
+The installed cold ending plus actor14 repeat matches26,028 pictures,10
+checkpoints/80 standard component pairs and all120 dump files against the exact
+selected candidate. Ending strict-passes; actor strictfalse is only its diagnostic
+report path.110 protected ROM/settings/save inputs are unchanged.
 
-The main runtime proofs above use the first coherent4FBE executable. The final
-change adds only three animation owner rows for rooms32..34.117 of118 link objects,
-all generated code and all native/core objects remain byte-exact. The affected
-three rooms receive fresh matched controls and final-executable checks. Their
-source noninterference transfer is recorded separately; raw4FBE provenance is
-not relabeled as a new executable run.
+All75 authored scenery descriptors, previous damage/death/revival/boss/menu/camera
+work and optional QoL remain completed within their documented scopes. Do not
+repeat old campaign or75-room audits. The new hidden1080p Enhanced32:9 actor case
+has zero renderer mismatches but measured pacing spikes; see PERFORMANCE.md.
+The current upstream6af98166 increment (mod docs/legacy compatibility warning)
+is integrated without resetting the SDK or changing the public Gitlink.
 
-The exact final executable, generation and header were moved into the normal
-install without a backup or rebuild. Installed cold dungeon32 and the connected
-ending match24,821 ordered pictures,72 standard component comparisons across
-nine checkpoints and all108 dump-file pairs including raw pixels/APU/DMA/PPU
-logs. Ending is strict-pass; dungeon32 keeps a strict-false absolute diagnostic
-report-path difference. All110 protected ROM/settings/save inputs are unchanged.
-
-A hidden1920x1080 Enhanced32:9 layered room12 sample gives60.09962 presentation
-updates/s, p9517.5905ms, maximum18.5479ms and zero intervals above20ms across400
-intervals. Full pre-shader pixels and16 checkpoint components match headless.
-The public PNG is lossless. This is dummy-audio, bounded presentation-call evidence,
-not fullscreen physical scanout, all-room locked60 or a natural campaign.
-
-The interpreter and original raster remain enabled. Variable script/audio/input,
-nonlocal and special ending display services retain their genuine floors.
-See [native details](NATIVE-BATCH29-2026-10-20.md),
-[renderer](CUSTOM-RENDERER.md), [widescreen](WIDESCREEN.md),
-[performance](PERFORMANCE.md) and [captures](screenshots/README.md).
-
-Remaining: owner/friends' uninterrupted campaign and device testing, concrete
-reported defects, and source-backed promotion of useful safe remaining services.
-Optional map/doors/exits and15–20% zoom-out remain deferred and unimplemented.
+Read [batch30](NATIVE-BATCH30-2026-10-20.md) for precise source, evidence and refusal
+scope. Owner/friends do the uninterrupted campaign, device/controller/audio checks.
+Future changes should address concrete defects or independently owned remaining
+special actors/scripts. Optional map/doors/exits and15-20% zoom-out remain deferred.

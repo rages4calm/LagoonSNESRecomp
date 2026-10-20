@@ -48,6 +48,11 @@ int LagoonWideEntities_FrameForRoom(const uint8_t *rom,size_t rom_size,unsigned 
 int LagoonWideEntities_FrameForContext(const uint8_t *rom,size_t rom_size,const uint8_t *ram,
     const uint8_t *record,LagoonWideAnimation *animation,int step,uint8_t *frame);
 int LagoonWideEntities_AllowedKind(unsigned room,unsigned type,unsigned kind);
+/* Exact current guest frame, independent of old native witnesses or AI.
+ * Caller additionally owns exact scene/layout/generation/atlas and culling. */
+int LagoonWideEntities_CurrentSource(const uint8_t *rom,size_t size,unsigned selector,unsigned frame);
+int LagoonWideEntities_CurrentFrame(const uint8_t *rom,size_t size,const uint8_t *captured,
+    const uint8_t *current,unsigned entity,uint8_t *frame);
 int LagoonWideEntities_RecordCells(const uint8_t *rom,size_t rom_size,const uint8_t *ram,
     unsigned entity,unsigned frame,int projected,LagoonWideCell *cells,size_t capacity);
 enum { kLagoonWideAtlasBytes = 0x2a00 };

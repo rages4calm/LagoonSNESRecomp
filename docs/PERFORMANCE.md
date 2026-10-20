@@ -1,5 +1,26 @@
 # Performance and frame pacing
 
+## Batch30 current-actor bounded GPU sample
+
+The exact installedEBC6 executable was tested in a hidden1920x1080 OpenGL window,
+Enhanced original pixels/32:9, dummy audio and isolated scripted room14. It verifies
+2,122 custom replacements/124,658,688 independent pixel observations with zero
+mismatch; numeric current-record far entries are observed during the route.
+
+All1,681 measured presentation intervals average60.007updates/s, p9518.314ms,
+p9919.416ms, max39.647ms,15 above20ms. A synchronous frame800 readback remains in
+that count. The actual source-observed current-pose interval1245..1884 has639
+intervals,59.869updates/s,p9518.363ms,p9921.421ms,max35.86ms,12 above20ms.
+The final400 intervals give60.095,p9518.077,max22.056,one above20ms, but occur mostly
+after the active-pose interval and do not establish its performance.
+
+These are presentation-call samples, not physical scanout or a locked60FPS claim.
+The diagnostic writes and dummy audio are explicit. No production optimization
+was made from an unattributed outlier, and no fullscreen capture is claimed for
+this hidden-window test. Existing broader pacing evidence below retains its own
+original executable and scope.
+
+
 ## Batch29 layered room12 bounded sample
 
 The actual hidden1920x1080 OpenGL/Enhanced32:9 capture uses executable

@@ -18,7 +18,7 @@ void dma_set_start_observer(DmaStartObserver o){observer=o;}
 void LagoonWide_OnBackgroundDma(unsigned a,unsigned b,unsigned c,unsigned d){(void)a;(void)b;(void)c;(void)d;}
 void LagoonWide_OnVramWrite(unsigned a){(void)a;}
 void LagoonWide_OnParallaxQueueDma(unsigned a){(void)a;}
-static unsigned refusals,native_cells,far_cells,center_pixels;
+static unsigned refusals,native_cells,far_cells,center_pixels,current_independent;
 static unsigned actor_type=2;
 static const char *baseline_root;
 static void put(unsigned a,unsigned value){g_ram[a]=(uint8_t)value;g_ram[a+1]=(uint8_t)(value>>8);}
@@ -100,11 +100,11 @@ static void negatives(void) {
   ++generation;reject();--generation;
   p.inidisp=14;reject();p.inidisp=15;p.obsel=3;reject();p.obsel=2;
   p.oamaddh=0x80;reject();p.oamaddh=0;p.oam[0]^=1;reject();p.oam[0]^=1;
-  unsigned source=0x8000+(0xab5e&32767);own_rom[source]^=1;reject();own_rom[source]^=1;
+  unsigned source=0x8000+(0xab5e&32767);own_rom[source]^=1;LagoonWideEntities_BeginFrame(1);assert(p.extraObjectCount>0);++current_independent;own_rom[source]^=1; /* Current source drawing never executes the ordinary animation selector. */
   s_atlas.ready=0;reject();s_atlas.ready=1;++s_atlas.generation;reject();--s_atlas.generation;
   s_atlas.source^=1;reject();s_atlas.source^=1;s_atlas.room^=1;reject();s_atlas.room^=1;
   s_frame.ram[0x541]=4;reject();s_frame.ram[0x541]=0;
-  s_kind_witness[1][31]=0;reject();
+  s_kind_witness[1][31]=0;LagoonWideEntities_BeginFrame(1);assert(p.extraObjectCount>0);++current_independent;
   fixture(0x2c,31);far();
   LagoonWideCell emitted[64];int cells=decode_entity(s_frame.ram,0x40,s_frame.ram[0x55c],1,emitted);
   assert(cells>0);
@@ -124,7 +124,7 @@ static void negatives(void) {
   fixture(0x2c,31);oam_for_record(100,80,1);
   put(0x542,ram_word(g_ram,0x542)+1);capture();LagoonWideEntities_BeginFrame(1);
   assert(!s_kind_witness[1][31]);++refusals;
-  oam_for_record(-140,80,0);reject();
+  oam_for_record(-140,80,0);LagoonWideEntities_BeginFrame(1);assert(p.extraObjectCount>0);++current_independent; /* A fresh coherent current record has its own source authority. */
   /* Full actual OAM metadata owns position, palette, flips, size and priority. */
   for(unsigned field=0;field<5;++field) {
     fixture(0x2c,31);oam_for_record(250,80,1);
@@ -154,7 +154,7 @@ int main(int argc,char **argv) {
         if(o->x+(int)x>=0 && o->x+(int)x<256) {assert(!o->pixels[y*o->stride+x]);++center_pixels;}
     }
   }
-  negatives();printf("additional production actor policy: six ordinary kind cases in three actual ROM/loader atlas families, %u synthetic far cells/%u original-slot seam cells, %u zero native-center pixels, %u context/source/OAM/atlas/phase refusals PASS\n",far_cells,native_cells,center_pixels,refusals);
+  negatives();printf("additional production actor policy: six ordinary kind cases in three actual ROM/loader atlas families, %u synthetic far cells/%u original-slot seam cells, %u zero native-center pixels, %u context/source/OAM/atlas/phase refusals; %u independent current-record source positives PASS\n",far_cells,native_cells,center_pixels,refusals,current_independent);
   return 0;
 }
 #endif

@@ -6,6 +6,16 @@ campaign completion percentages.
 
 ## Completed — do not repeat
 
+- [x] Batch30: eleven full native OAM/queue/resource services and complete callers;
+  qualified palette/sprite-chain timing.480 AOT/102 analyzed LLE/353 roots,
+  all469 earlier entries retained.162,816 strict service and68,544 credits cases.
+- [x] Guarded current-record NPC/enemy/prop source path:2,658 finite frames;
+  four real actor routes match original-opcode control/off/auto,806 numeric new
+  far cells for enemies12/13/14/23. No new AI/death/multipart prediction.
+- [x] Genuine16-service opcode controls and original-NPC-ready assisted ending
+  fixture, real pendant/door/final fight/THE END. Full strict differences remain
+  documented in batch30; old coarse controls are not relabeled matching.
+
 - [x] Batch29:44 native bodies: original RNG/seed services, Thor/Bird defeat and
   transformation windows,24 credits scene/resource helpers. Original assisted
   fights reach Bird, pendant, final Evil Spirit and THE END. Three native pairs:
@@ -31,7 +41,7 @@ campaign completion percentages.
 - [ ] Promote additional variable script/audio/nonlocal/special-display services
   only when original source, real frames and timing prove a useful safe group.
   The interpreter remains intentional for those boundaries and unsupported modes.
-- [ ] Unseen or changed unsupported far actors, special projectiles/multipart
+- [ ] Remaining unsupported death/dynamic poses, special projectiles/multipart
   paths and other unqualified raster states retain their reference/native-view
   fallback. Do not predict guest AI or claim all story states from a room catalog.
 - [ ] Optional discovery map with position, doors/exits and linked rooms; optional
@@ -39,6 +49,7 @@ campaign completion percentages.
 - [ ] Owner-run reviewed cleanup when desired. Keep one scratch batch, no project
   backups or archival work trees. Historical raw paths retire after cleanup.
 
-See [native batch29](docs/NATIVE-BATCH29-2026-10-20.md),
+See [native batch30](docs/NATIVE-BATCH30-2026-10-20.md),
+[native batch29](docs/NATIVE-BATCH29-2026-10-20.md),
 [renderer details](docs/CUSTOM-RENDERER.md) and
 [current status](docs/DEVELOPMENT-STATUS.md).

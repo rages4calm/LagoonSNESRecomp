@@ -37,7 +37,10 @@ static void current_pose_mutants(void){
  assert(native_pose_matches(s_frame.ram,1));
  ++s_native_pose[1].source;assert(!native_pose_matches(s_frame.ram,1));--s_native_pose[1].source;++pose_refusals;
  /* A stale own witness cannot be substituted by a different entity or kind. */
- s_native_pose[2]=s_native_pose[1];s_native_pose[1].valid=0;reject();++pose_refusals;
+ s_native_pose[2]=s_native_pose[1];s_native_pose[1].valid=0;
+ assert(!native_pose_matches(s_frame.ram,1));++pose_refusals;
+ /* Current original draw source is independently valid without a held pose. */
+ LagoonWideEntities_BeginFrame(1);assert(p.extraObjectCount>0);
 }
 int main(int argc,char**argv){assert(argc==3);baseline_root=argv[2];FILE*f=fopen(argv[1],"rb");assert(f&&fread(own_rom,1,sizeof(own_rom),f)==sizeof(own_rom));fclose(f);
  current_pose_mutants();

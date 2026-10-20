@@ -14,6 +14,65 @@ and ROM-free unit tests alone do not prove live gameplay coverage; bounded runti
 acceptance is recorded separately. There is currently no launcher selector for
 this diagnostic.
 
+## Batch 30 current NPC/enemy pose rendering
+
+The current-pose path now renders source-qualified ordinary NPC, nondeath enemy
+and fixed-frame prop records without requiring that individual actor to have
+previously appeared in the native viewport. It reads the **actual current guest
+frame**. It does not run B131 attack AI, animation dispatch, rewards or death code.
+When the original game leaves a far actor's guest frame unchanged, this path also
+leaves its pose unchanged. Existing ordinary animation and unchanged-pose witness
+paths retain their separate contracts.
+
+This path has its own exact original main-loop/projection/culling and draw-source
+pins, including the complete approved centered-camera alternative. The current
+64 byte record must equal the real OAM-capture record, both native positions must
+match world position minus the actual camera, and the actor must be active and
+outside the original horizontal draw-queue range. Both scenes, timeline,
+full-brightness layout, original actor provenance, completed room art upload,
+all sprite cells and object ordering remain guarded. Source tables and complete
+admitted metasprite streams are hashed without a stale source cache. Only 2,658
+finite original frame entries across 76 selectors qualify. Frame FF, dynamic
+Nasir packs, empty records, death-form enemies and unowned cells remain refused.
+Current colors come from actual live PPU CGRAM, as in the native view; the separate
+held-pose witness still requires its captured atlas and palette identity.
+
+The ROM-pinned `tools/test_wide_current_actors.ps1` executes the original projection,
+culling and sprite writers through the independent opcode interpreter. Its
+bounded evidence is 43,414 real opcode calls, 165,897 exact OAM cells, 4,208 complete
+kind/metadata fixtures and 3,655 original projection/culling boundary cases.
+Every admitted frame is checked against the original sprite writer, including
+its vertical clipping, palette override and priority behavior. There are 31,143
+frame-bound/source/table/stream/current-record/camera/death/FF refusal checks.
+Synthetic producer fixtures separately exercise four coherent pose changes with
+no old native anchor, 330 observer/context/generation/layout/atlas refusal cases,
+2,880 scalar sprite pixels and 48 zero-native-center samples. Those synthetic
+fixtures are not presented as spawned gameplay.
+
+Four actual-spawn assisted recipes on candidate `ebc62242e068c530...`, manifest
+`45228f8b9120cdd0...`, have 7,216 ordered presentations and eight checkpoint
+locations. Candidate off/auto and an original-opcode control for the sixteen
+changed native services match all 72 complete checkpoint component files,
+including native pictures and guest clocks, and all ordered expanded presentation
+records (whole-field CRC/luma).
+There are 5,559 custom replacements, 1,898 independent draws, 289,953,664 checked
+pixels and zero accepted reference mismatches. Old C0B recordings differ under
+the corrected native timing; they are not relabeled as matching controls.
+
+The new current-record branch has 806 observed far cells: enemy 12 (228), enemy 13
+(214), enemy 14 (249), and enemy 23 (115). These are cell observations, not unique
+actors. Assistance changes Nasir's position and protects HP/DEF; it does not
+inject actors or fabricate quest outcomes. The targeted kind 26 recipe has no
+kind 26 far-positive. The room 21 recipe contains real NPC0/33, but remains in an
+original story wait with an unchanged camera and establishes no NPC far-positive.
+Their source qualification and these live limitations stay distinct.
+
+The 75-scene and animation catalog below remains completed. Type 3 multipart
+bosses and type 4 projectiles retain their native producers; authored 256 pixel
+boss-world widths still leave finite black margins. This batch does not claim
+all story states, full-game far-actor coverage, fullscreen display timing or an
+uninterrupted campaign playtest.
+
 ## Batch 29 full room catalog and remaining ordinary actors
 
 The [room matrix](RENDERER-COVERAGE.csv) records all 75 exact BG/OBJ resources,

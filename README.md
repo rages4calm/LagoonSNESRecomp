@@ -6,71 +6,49 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress - October 20, 2026
 
-Batch29 adds native Thor/Bird transformation and defeat steps, the original RNG
-service, and 24 credits scene/resource helpers. An assisted route now follows
-the original fights through Bird, Thor's pendant, the final Evil Spirit and
-the seven credits scenes to **THE END**. Cheats accelerate coverage; the owner
-and friends still perform the uninterrupted campaign playtest.
+Batch30 adds eleven full native services for sprite drawing, tilemap queues and
+resource loading. It also corrects instruction timing in the connected sprite
+chain and the palette-update helper. **480 AOT / 102 analyzed LLE / 353 roots**
+are analysis counts, not completion percentages. All469 previous native entries
+remain; unsupported modes, variable scripts and special hardware/display paths
+keep the interpreter safety net.
 
-The three focused native comparisons cover **32,776 ordered observations and
-12 complete state/clock checkpoints**. All 96 checkpoint components match.
-The new widescreen fade handling deliberately changes 46 early pictures per
-route; those differences remain visible in the strict reports. Original-opcode
-tests separately check the RNG, transformation, inline dispatch and credits
-helpers. **469 AOT / 111 analyzed LLE / 347 roots** are analysis counts, not
-completion percentages. Unsupported modes and variable script/audio services
-retain the interpreter safety net.
+The custom renderer can now draw source-qualified current NPC/enemy/prop poses
+without requiring an earlier onscreen pose witness. It uses the actual guest
+frame and finite original sprite tables, with no enemy AI or animation prediction.
+Four focused actor cases match a genuine original-opcode service control across
+7,216 ordered presentations and eight complete state/clock checkpoints. The new
+path has806 numeric far-cell observations for four enemy kinds; NPC21 and enemy26
+retain source support without a target-positive far-render claim.
 
-The custom renderer now has exact scenery contracts for **all 75 authored room
-descriptors**, including towns, dungeons, layered backgrounds and boss arenas.
-Forty newly covered loader routes pass off/auto comparisons with 23,500 custom
-replacements and zero mismatches. Two additional isolated resource contexts are
-tested separately. Fixed portrait/title artwork stays centered, and finite
-arenas retain their real map edges. Source coverage does not imply every
-possible story state or offscreen actor has been played through.
+Original-opcode tests check162,816 shared-service cases and68,544 credits cases.
+A separate368,640-case timing check confirms the former palette timing error.
+The assisted ending route now waits for Thor's original NPC-ready flag before
+Talk, rather than relying on the old coarse timing. It receives the real pendant,
+uses the authored door, fights the final Evil Spirit and reaches THE END.
+Small dead-stack/scheduler differences and APU diagnostic timestamps remain
+explicit in the original-opcode comparison; these are bounded checks, not a
+natural uninterrupted playthrough or a blanket byte-parity claim.
 
-More NPC, enemy, prop and animation sources are supported, alongside guarded
-outgoing fades. Unsupported or stale actor poses and partially overwritten
-resources keep their reference fallback. The original raster remains active
-and checks every custom replacement against the reference picture.
+The existing scenery contracts cover all75 authored room descriptors. Titles,
+portrait UI and finite world edges retain their original geometry. Every custom
+scene replacement is checked against the reference picture, with fallback for
+unsupported resources, death forms, multipart actors and special projectiles.
 
-The final tested executable is installed. Cold dungeon and connected-ending
-checks match 24,821 ordered pictures and nine complete checkpoint sets.
-All110 protected local inputs remain unchanged. Diagnostic output-path
-differences remain explicit in strict reports.
+Installed cold ending and actor checks match26,028 pictures and all120 dump files
+against the tested candidate;110 protected local inputs remain unchanged.
+Use `Start Lagoon.cmd` for the installed build. The owner and friends perform the
+uninterrupted campaign and device/controller/audio playtest. See
+[batch30 details](docs/NATIVE-BATCH30-2026-10-20.md),
+[renderer scope](docs/CUSTOM-RENDERER.md), [current status](docs/DEVELOPMENT-STATUS.md),
+[playtest guide](docs/PLAYTEST.md), [widescreen](docs/WIDESCREEN.md) and
+[frame pacing](docs/PERFORMANCE.md). Earlier completed work remains in
+[batch29](docs/NATIVE-BATCH29-2026-10-20.md).
 
-See [batch29](docs/NATIVE-BATCH29-2026-10-20.md),
-[renderer details](docs/CUSTOM-RENDERER.md),
-[1080p captures](docs/screenshots/README.md) and
-[frame pacing evidence](docs/PERFORMANCE.md). The owner and friends perform the
-uninterrupted playtest. Earlier finished camera, recovery, menu and scene work is
-recorded in [batch28](docs/NATIVE-BATCH28-2026-10-20.md),
-[batch27](docs/NATIVE-BATCH27-2026-10-20.md),
-[batch26](docs/NATIVE-BATCH26-2026-10-20.md) and
-[batch25](NATIVE-BATCH25-2026-10-20.md).
-
-The five audited menu checks open Items/Magic/Equipment in20/18/19 fields and
-close in22 using twelve original charged DMA jobs. Giles accepts wound dressing
-without a potion and follows through his original quest script. Optional improved
-sword reach adds three lateral pixels on each side to its existing38px reach.
-
-Guarded host computation of two original enemy-position leaves improves measured
-Gold Cave gameplay cadence without skipping AI, collision or hardware work.
-Batch19's1920×1080 real-audio tests measured about60.12 presentation FPS; the sampled
-cave changes from69 three-field updates to525 two-field updates with no slower
-updates. This is bounded evidence, not a locked60FPS or all-room guarantee.
-Room02's44 incoming water-fade fields and room03's46 outgoing fade fields now
-retain independently source-verified scenery and native center pixels.
-
-Focused checks cover actual damage, boss death/defeat endpoints, original
-rewards, consumable revival, quest interactions and the assisted final sequence.
-Special script/display services and hardware/controller coverage remain open.
-Read the [playtest guide](docs/PLAYTEST.md), [batch19 stabilization evidence](NATIVE-BATCH19-2026-10-17.md),
-[current status](docs/DEVELOPMENT-STATUS.md), [todo list](TODO.md),
-[menu details](docs/FAST-MENUS.md), [widescreen scope](docs/WIDESCREEN.md),
-[performance evidence](docs/PERFORMANCE.md) and [save states](docs/SAVE-STATES.md).
-Earlier results remain in [batch18](NATIVE-BATCH18-2026-10-17.md); historical
-exploration is not relabeled as a natural complete playthrough.
+The existing camera, fast menus, damage/death/revival, boss services, cleave,
+Giles first aid, optional QoL, Companion Launcher and Enhanced original pixels
+remain enabled through their existing settings and guards. The optional map
+with doors/exits and15-20% zoom-out remain deferred.
 
 ## Fullscreen screenshots
 
