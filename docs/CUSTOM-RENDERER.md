@@ -4,7 +4,7 @@ The interpreter safety net remains in place. `src/lagoon_scene_renderer.c` adds
 a bounded live software scene backend for stable Atland, exact Gold Cave03/04/05/06,
 room07 with independently owned parallax, ordinary room08 Elf Field and twelve
 exact rooms2C..37 in four resource families, four NPC rooms19..1C and six exact
-field contexts18 /1D /1E /1F /20 /21, with Widescreen
+field contexts18 /1D /1E /1F /20 /21, plus four exact contexts22..25, with Widescreen
 enabled. It captures its
 own scene packet, independently draws a field, and compares every 32-bit output
 pixel with the existing presentation before allowing replacement. Unsupported
@@ -16,6 +16,92 @@ computes and checks the candidate without replacing the picture. Implementation
 and ROM-free unit tests alone do not prove live gameplay coverage; bounded runtime
 acceptance is recorded separately. There is currently no launcher selector for
 this diagnostic.
+
+## Batch28 rooms22..25 and original NPCs
+
+Four further original contexts use the independent scene backend. Exact current
+and captured room/resource pointers, dimensions, both definitions, maps7F0000 /
+7F4000, ordinary WRAM50=0, generation, full brightness and no loading remain
+required. Native raster, OAM/atlas/priority ownership and full-field reference
+comparison remain authoritative. Finite map edges are clipped.
+
+| Room | BG source | OBJ source | Both definitions | Dimensions in pixels |
+| --- | --- | --- | --- | --- |
+|22|14D33D|1ABF2D|06E2F8|1024x1024|
+|23|12B297|1AAED9|06999C|512x512|
+|24|12EE12|1DC859|06E5AC|768x768|
+|25|149197|18AFB0|06B3C4|512x512|
+
+Ordinary enemy kinds19/20 are admitted only in22. NPC kinds80..90 are admitted
+only in24 with that room's exact original descriptor, including native seams.
+Kind numbers are decimal; room numbers and resource addresses are hexadecimal.
+All other actors in these new contexts retain native OAM. This keeps older
+high-NPC restrictions and field/town whitelists intact. NPC/actor status, original
+frame selection, bounded metasprite decoding, matching native coordinates/OAM,
+complete atlas, palette and generation must qualify before extra columns appear.
+Their native-center pixels remain transparent.
+
+The original24 loader genuinely spawns all eleven NPCs80..90. A focused route
+moves the player with eight-pixel position assistance and follows original
+camera/map streaming, NPC movement and animation; NPC83 appears in the right
+margin. Its50 recorded far-cell rows are live observations, not unique actors.
+The other ten NPCs have original-opcode and synthetic ownership qualification,
+with no live-far claim. The22 route similarly records genuine original enemies19
+and20 in5,816 and1,021 far-cell rows. Both routes report zero native-frame
+mismatches and zero unsupported deep-object gates. No actor records, quest flags
+or outcomes are injected. The selected25 loader has no actors; scenery proof
+is not a claim that all possible script-spawned actors are supported.
+
+Only22 adds animation ownership: descriptor01:E028 /table01:DCFE selects three
+128-byte sources10:A880 /10:A900 /10:A980, uploaded to VRAM word3B00. Four animated
+characters944..947 require exact descriptor/table/source bytes, transfer bank,
+length/destination/order, current room/source, generation and completed resident
+phase. All three phases are positively observed live. Rooms23/24/25 have no new
+animation owner:23 cannot borrow room08's animation despite sharing its BG
+source. Existing animation lengths and phase counts remain unchanged. No fade,
+loading or retained outgoing-scene permission is added.
+
+Final coherent candidate`feef9b2199a3f93c...`, manifest`8071eb6c28ab9380...`, passes
+fresh installed0994 controls and same-executable renderer-off/auto pairs:
+
+| Route group | Ordered presentations | Checkpoints | Replacements | Independent draws |
+| --- | ---: | ---: | ---: | ---: |
+| Four original loaders22 /23 /24 /25 |3,444|4|2,468|612|
+| Actual22 enemies and24 NPC83 near/far |2,788|4|2,299|958|
+| Total overlapping observations |6,232|8|4,767|1,570|
+
+These independently draw239,845,760 source pixels with zero mismatches. Every
+same-executable presentation CSV column matches. All eight checkpoint components,
+guest registers/clocks and optional APU traces match both off/auto and old/new.
+Old/new strict reports retain4,383 intentional expanded-picture observations and
+report-path differences; off/auto strict reports retain diagnostic mode/path
+differences. No picture CRC is masked. Bounded internal captures are separate
+from physical display or performance qualification.
+
+Focused source tests execute4,864 actual original NPC/enemy selectors plus4,864
+resulting-state checks,5,378 refusals and267 code-byte mutations. Independent
+complete C1C6 orC214 ->8B71 ->8211 draw calls match1,810 original OAM cells across
+317 admitted fixtures after exercising four enemy variant values;243 invalid/oversized
+decoder fixtures refuse authority. The actual DF88 ->008F19 DMA oracle performs
+15 complete three-phase jobs,1,203 descriptor/table/source/transfer/VRAM byte
+mutations and39 protocol/context/animation-borrow refusals.
+
+Separate production tests use actual ROM/loader resources with explicitly
+synthetic placement for all13 NPC/enemy kinds:114 far cells,31 native seams,
+2,400 transparent native-center pixels,5,107 kind/NPC/prop refusals and4,687
+ownership/source/OAM/atlas/center refusals. Four real loader snapshots pass
+1,863,680 independent background pixels,2,444,288 finite-edge pixels and132
+resource/layout refusals, plus four generation refusals. These fixtures remain
+distinct from the genuinely spawned live routes.
+
+```powershell
+.\tools\test_wide_additional_actors.ps1 -Rooms22To25 -OutDir <private-test-directory> -LoaderSnapshots <fresh-private-loader-root>
+```
+
+The focused wrapper verifies the owner ROM against`rom_identity.txt`. Private
+assets, states and raw proofs remain local. This work does not certify a complete
+campaign, fully native game, fullscreen scanout or renderer speedup. The
+interpreter safety net remains enabled.
 
 ## Batch27 field scenes and ordinary enemies
 

@@ -1,5 +1,28 @@
 # Performance and frame pacing
 
+## Batch28 room24 bounded sample
+
+Exact executable `feef9b2199a3f93ca9dabda87eaf924ce9fd0fa71fd91bcedd22abbc2cb38600`,
+manifest `8071eb6c28ab93805384253e7941df5e5c20626bbc5421b9acb77a8e64f72030`.
+A hidden 1920x1080 OpenGL window uses Enhanced EPX and a 32:9 field, letterboxed
+on the 16:9 output. The assisted original loader and NPC route use dummy audio
+and no physical input. It runs alongside headless native qualification.
+
+The 400 consecutive intervals in source fields1200..1600 average16.6390ms
+(60.0997 presentation updates/sec), p95 17.7887ms, p99 20.1215ms and maximum
+22.5207ms. Five exceed20ms and zero exceed25ms. Mean active processing is2.8475ms.
+The complete route records1,434 replacements,642 independent scene draws and
+zero mismatches. This is a bounded presentation-call sample, not physical
+scanout, isolated hardware benchmarking, real-device audio or all-room60FPS.
+
+The actual GPU readback at1068 is published as a lossless1920x1080 PNG; decoded
+RGBA pixels match the original BMP exactly. The pre-shader expanded image and
+two original checkpoints (16 component hashes) match the headless route. Jev
+only triages the image and executes no game actions.
+
+See [capture and scope](screenshots/README.md). Older measurements below retain
+their original executable bindings.
+
 ## Batch22 room07 actual-door check
 
 Selected executable `dde68792632ccea8bb80436f630188cf40161ea551bd352349c23c88ed4d9138`.

@@ -6,50 +6,42 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress - October 20, 2026
 
-Batch27 adds two complete native routines: the alternate/fall player animation
-and shared boss death progression. Their original timers, sprite tail, cleanup
-service and reward handoff are preserved. Three matched assisted routes pass
-**7,810 ordered observations and six complete state/clock checkpoints**. The
-alternate-animation route uses explicit staged player state; it is not a natural
-fall or complete campaign test.
+Batch28 moves the remaining ordinary boss motion table into native code: eight
+motion routines and seven original return slots, including Ella's movement and
+the final encounter's bird/orb motion. The original RNG service and unsupported
+CPU modes retain the interpreter safety net. All 410 previous native entries
+remain; 409 generated bodies are unchanged. **425 AOT / 112 analyzed LLE / 304
+roots** are analysis counts, not completion percentages.
 
-The selected build contains **410 AOT /112 analyzed LLE /289 roots**. All408
-prior native entries,392 prior mode facts,23 mode sets and four HLE guards remain.
-Counts are not completion percentages. The original inline boss service and
-unsupported modes still use the interpreter safety net; this is not a fully
-native game or a complete credits qualification.
+The new routines pass 466,944 original-opcode comparison cases and five focused
+assisted boss comparisons: **23,460 ordered observations and ten complete state
+and clock checkpoints**. These checks use cheats and original combat scripts;
+they do not certify an uninterrupted campaign or complete credits sequence.
+An additional final-encounter route matches6,962 observations and two checkpoints
+with the original Thor orbs active. The later bird phase remains opcode-tested
+without a successful live trigger in this batch.
 
-The custom renderer adds six exact field contexts: **18 /1D /1E /1F /20 /21**.
-Six actual enemy kinds render beyond the native view, with original animation,
-OAM geometry, palette and priority. Four contexts have independently verified
-8-phase scenery animation. Six loader pairs and three genuine enemy routes
-match **8,927 ordered pictures and twelve complete checkpoints**, with6,665
-replacements and zero renderer mismatches. Intentional new margin pixels remain
-differences in old/new comparisons. Unknown actors, scripted NPCs in21 and
-loading/fading retain the appropriate reference fallback.
+The custom renderer adds exact room contexts **22 / 23 / 24 / 25**, two ordinary
+enemy kinds and eleven town NPC definitions. Actual enemies and one town NPC
+are verified beyond the original view. Six matched renderer routes pass **6,232
+ordered observations and eight complete checkpoints**, with **4,767 replacements
+and zero mismatches**. Only room22 owns the newly verified three-phase scenery
+animation. Unsupported actors, loading and unqualified fades retain their
+reference fallback. The original raster remains active.
 
-The exact tested executable is installed. Cold ordinary-boss, alternate-animation
-and new-field checks match **48 component hashes and full ordered pictures**;
-all110 protected owner inputs remain unchanged. The field comparator retains a
-strict-false advisory report-path difference. No mismatch masks or rebuilt
-installation are used. The original raster remains active.
+The exact tested executable is installed. Cold Ella, town NPC and final-encounter
+checks match48 component hashes / six checkpoints and full ordered pictures.
+All110 protected owner inputs remain unchanged. Advisory report-path differences
+remain visible in strict reports; no mismatch masks or rebuilt installation.
 
-A bounded hidden1920x1080 OpenGL/Enhanced sample in room18 averages60.10
-presentation updates/s,p9517.73ms,max18.28ms across400 intervals,zero above25ms.
-It uses dummy audio and ran alongside headless checks; it is not an isolated
-hardware benchmark, physical scanout or all-room60FPS guarantee. The owner and
-friends perform the uninterrupted campaign; assisted checks here use cheats,
-original room loaders and combat/scripts. Jev provides visual triage only.
-
-See [batch27](docs/NATIVE-BATCH27-2026-10-20.md),
-[the custom renderer](docs/CUSTOM-RENDERER.md),
+See [batch28](docs/NATIVE-BATCH28-2026-10-20.md),
+[renderer details](docs/CUSTOM-RENDERER.md),
 [1080p captures](docs/screenshots/README.md) and
-[frame pacing evidence](docs/PERFORMANCE.md).
-[Batch26](docs/NATIVE-BATCH26-2026-10-20.md) fixed the centered-camera native
-bypass and added the four NPC contexts19..1C. Previously finished boss, recovery,
-menu and scene work remains in [batch25](NATIVE-BATCH25-2026-10-20.md),
-[batch24](NATIVE-BATCH24-2026-10-20.md) and
-[batch23](NATIVE-BATCH23-2026-10-20.md).
+[frame pacing evidence](docs/PERFORMANCE.md). The owner and friends perform the
+uninterrupted playtest. Earlier finished camera, recovery, menu and scene work is
+recorded in [batch27](docs/NATIVE-BATCH27-2026-10-20.md),
+[batch26](docs/NATIVE-BATCH26-2026-10-20.md) and
+[batch25](NATIVE-BATCH25-2026-10-20.md).
 
 The five audited menu checks open Items/Magic/Equipment in20/18/19 fields and
 close in22 using twelve original charged DMA jobs. Giles accepts wound dressing

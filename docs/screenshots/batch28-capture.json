@@ -1,0 +1,25 @@
+{
+  "schema": "Lagoon batch28 actual hidden GPU readback v1",
+  "file": "room24-batch28-32x9-1920x1080.png",
+  "room_hex": "24",
+  "display_frame": 1068,
+  "aspect": "32:9",
+  "resolution": [
+    1920,
+    1080
+  ],
+  "visible_window": false,
+  "fullscreen": false,
+  "hidden_gpu": true,
+  "dummy_audio": true,
+  "enhanced_epx": true,
+  "exe_sha256": "feef9b2199a3f93ca9dabda87eaf924ce9fd0fa71fd91bcedd22abbc2cb38600",
+  "manifest_sha256": "8071eb6c28ab93805384253e7941df5e5c20626bbc5421b9acb77a8e64f72030",
+  "png_sha256": "31d30d115c84f801254dff2aef35d4336929079d25f8464e66e9c13485cf287d",
+  "bmp_sha256": "fef7b6be880350c1f1f0fad8241290c05e049c1c65206ff06b59e83fdf13f55d",
+  "rgba_sha256": "be87b2d4460d586d5aa7bc3f86ce04831ade047b92777a17a0f932fa1d9cdfac",
+  "lossless_no_resize": true,
+  "assisted_route": true,
+  "input_route_sha256": "5eaed9a019896b7c4fd7688a4a5e82514d7af54327194a70f6877f9accaac1a5",
+  "scope": "Actual1920x1080 OpenGL EnhancedEPX32:9 readback in hidden nonfullscreen window with dummy audio. Real originalroom24/NPC83 and onlyplayerposition/statprotection cheats; no actorrecords/story/outcome writes. Letterboxing retained; no scanout/fullscreen/performance/native-completion claim from this image."
+}

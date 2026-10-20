@@ -24,26 +24,27 @@ static void write_byte(void *m,uint32_t address,uint8_t value) {
   assert((bank&127)<64 && a<8192);ram[a]=value;
 }
 int main(int argc,char **argv) {
-  int field=argc==3 && !strcmp(argv[2],"--field-only");assert(argc==2||field);FILE*f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof(rom),f)==sizeof(rom));fclose(f);
+  int field=argc==3 && !strcmp(argv[2],"--field-only");int next=argc==3 && !strcmp(argv[2],"--rooms22-25-only");assert(argc==2||field||next);FILE*f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof(rom),f)==sizeof(rom));fclose(f);
   const unsigned cases[][2]={{0x19,69},{0x19,70},{0x19,71},{0x19,72},{0x19,73},
     {0x19,74},{0x19,75},{0x19,76},{0x19,77},{0x19,78},{0x1a,30},{0x1a,31},
     {0x1a,79},{0x1a,91},{0x1b,18},{0x1c,19},{0x1c,20},{0x1c,21},{0x1c,22},
     {0x1c,23},{0x1c,24},{0x1c,25},{0x1c,26}};
   const unsigned fields[][2]={{0x18,15},{0x18,16},{0x1e,17},{0x1e,18},{0x20,21},{0x20,22}};
   Interp816 *cpu=interp816_init(NULL,read_byte,write_byte);assert(cpu);unsigned checks=0,cells_checked=0,decode_refusals=0;
-  for(unsigned n=0;n<(field?6:23);++n)for(unsigned direction=0;direction<4;++direction)for(unsigned phase=0;phase<4;++phase)
-  for(unsigned variant=0;variant<(field?4:1);++variant)for(unsigned hit=0;hit<(field?3:1);++hit) {
+  for(unsigned n=0;n<(next?13:field?6:23);++n)for(unsigned direction=0;direction<4;++direction)for(unsigned phase=0;phase<4;++phase)
+  for(unsigned variant=0;variant<((field || (next&&n>=11))?4:1);++variant)for(unsigned hit=0;hit<((field || (next&&n>=11))?3:1);++hit) {
     memset(ram,0,sizeof(ram));uint8_t *r=ram+0x540;
-    unsigned room=field?fields[n][0]:cases[n][0],kind=field?fields[n][1]:cases[n][1];ram[0x48e]=(uint8_t)room;
-    r[0]=0xe8;r[24]=field?2:1;r[0x2c]=(uint8_t)variant;if(hit==1)r[1]=0x80;if(hit==2)r[0x1f]=2;r[27]=(uint8_t)kind;r[10]=(uint8_t)direction;r[12]=100;r[14]=100;
+    int enemy=field || (next&&n>=11);
+    unsigned room=next?(enemy?0x22:0x24):field?fields[n][0]:cases[n][0],kind=next?(enemy?19+n-11:80+n):field?fields[n][1]:cases[n][1];ram[0x48e]=(uint8_t)room;
+    r[0]=0xe8;r[24]=enemy?2:1;r[0x2c]=(uint8_t)variant;if(hit==1)r[1]=0x80;if(hit==2)r[0x1f]=2;r[27]=(uint8_t)kind;r[10]=(uint8_t)direction;r[12]=100;r[14]=100;
     LagoonWideAnimation animation={0,(uint8_t)phase};uint8_t frame;
     assert(LagoonWideEntities_FrameForRoom(rom,sizeof(rom),room,r,&animation,0,&frame));r[28]=frame;
-    unsigned offsets=0x8000+((field?0xf7e9:0xfb7f)&32767)+kind*4;
+    unsigned offsets=0x8000+((enemy?0xf7e9:0xfb7f)&32767)+kind*4;
     int x=100+(int16_t)word(rom,offsets),y=100+(int16_t)word(rom,offsets+2);
     LagoonWideCell cells[64];int count=LagoonWideEntities_Decode(rom,sizeof(rom),room+1,frame,x,y,cells,64);
-    if(field && hit)for(int c=0;c<count;++c)cells[c].tile=(cells[c].tile&~0xe00)|0xe00;
-    if(count<0){assert(field);++decode_refusals;continue;}
-    cpu->pc=field?0xc214:0xc1c6;cpu->k=cpu->db=1;cpu->dp=0;cpu->sp=0x1d0;
+    if(enemy && hit)for(int c=0;c<count;++c)cells[c].tile=(cells[c].tile&~0xe00)|0xe00;
+    if(count<0){assert(enemy);++decode_refusals;continue;}
+    cpu->pc=enemy?0xc214:0xc1c6;cpu->k=cpu->db=1;cpu->dp=0;cpu->sp=0x1d0;
     cpu->x=0x40;cpu->y=0x1234;cpu->a=0;cpu->mf=1;cpu->xf=0;
     cpu->e=cpu->d=cpu->c=cpu->n=cpu->v=cpu->z=0;cpu->i=1;
     ram[0x1d1]=0xef;ram[0x1d2]=0x7f;unsigned instructions=0;

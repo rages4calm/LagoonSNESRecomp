@@ -2,10 +2,11 @@ param(
   [Parameter(Mandatory=$true)][string]$OutDir,
   [string]$LoaderSnapshots,
   [switch]$TownOnly,
-  [switch]$FieldOnly
+  [switch]$FieldOnly,
+  [switch]$Rooms22To25
 )
 $ErrorActionPreference='Stop'
-if($TownOnly -and $FieldOnly){throw 'Choose one focused family scope'}
+if((@($TownOnly,$FieldOnly,$Rooms22To25) | Where-Object {$_}).Count -gt 1){throw 'Choose one focused family scope'}
 # Resolve caller-relative paths before changing the PowerShell location. The
 # process working directory used by System.IO can differ from Get-Location.
 $callerPath=(Get-Location).Path
@@ -29,13 +30,14 @@ try {
   $sourceArgs=@($rom)
   if($TownOnly){$sourceArgs+='--town-only'}
   if($FieldOnly){$sourceArgs+='--field-only'}
+  if($Rooms22To25){$sourceArgs+='--rooms22-25-only'}
   & $source @sourceArgs
   if($LASTEXITCODE){throw 'Additional actor source-oracle failed'}
-  if($TownOnly -or $FieldOnly) {
+  if($TownOnly -or $FieldOnly -or $Rooms22To25) {
     $oam=Join-Path $target 'town-original-oam.exe'
     & $env:CC -std=c11 -O2 -DLAGOON_WIDE_ENTITIES_DECODER_ONLY -Isrc -Isnesrecomp/runner/src tools/test_wide_town_oam.c src/lagoon_wide_entities.c snesrecomp/runner/src/snes/interp816.c -o $oam
     if($LASTEXITCODE){throw 'Town original OAM-oracle compilation failed'}
-    $oracleArgs=@($rom);if($FieldOnly){$oracleArgs+='--field-only'}
+    $oracleArgs=@($rom);if($FieldOnly){$oracleArgs+='--field-only'};if($Rooms22To25){$oracleArgs+='--rooms22-25-only'}
     & $oam @oracleArgs
     if($LASTEXITCODE){throw 'Town original OAM-oracle failed'}
     $animation=Join-Path $target 'town-original-animation.exe'
@@ -54,16 +56,16 @@ try {
       '-Isnesrecomp/runner/src/desktop',"-I$env:RETCOMM_TOOLCHAIN_DIR/deps/include",
       '-ffunction-sections','-fdata-sections','-Wl,--gc-sections')
     $producer=Join-Path $target 'additional-actor-producer.exe'
-    $producerSource=if($TownOnly){'tools/test_wide_town_producer.c'}elseif($FieldOnly){'tools/test_wide_field_producer.c'}else{'tools/test_wide_additional_producer.c'}
+    $producerSource=if($Rooms22To25){'tools/test_wide_rooms22_25_producer.c'}elseif($TownOnly){'tools/test_wide_town_producer.c'}elseif($FieldOnly){'tools/test_wide_field_producer.c'}else{'tools/test_wide_additional_producer.c'}
     & $env:CC -std=c11 -O2 @flags $producerSource src/lagoon_scene_renderer.c snesrecomp/runner/src/snes/ppu.c snesrecomp/runner/src/snes/ppu_legacy.c -o $producer
     if($LASTEXITCODE){throw 'Additional actor production-policy compilation failed'}
     & $producer $rom $snapshots
     if($LASTEXITCODE){throw 'Additional actor production-policy failed'}
-    if($TownOnly -or $FieldOnly) {
+    if($TownOnly -or $FieldOnly -or $Rooms22To25) {
       $scene=Join-Path $target 'town-scene-source.exe'
       & $env:CC -std=c11 -O2 -DSNESRECOMP_REVERSE_DEBUG=0 -Isrc -Isnesrecomp/runner/src -Isnesrecomp/runner/src/snes -ffunction-sections -fdata-sections '-Wl,--gc-sections' tests/lagoon_scene_families_test.c -o $scene
       if($LASTEXITCODE){throw 'Town scene source-oracle compilation failed'}
-      $scope=if($FieldOnly){'--field-only'}else{'--town-only'}
+      $scope=if($Rooms22To25){'--rooms22-25-only'}elseif($FieldOnly){'--field-only'}else{'--town-only'}
       & $scene $rom $snapshots 'baseline-' $scope
       if($LASTEXITCODE){throw 'Town scene source-oracle failed'}
     }

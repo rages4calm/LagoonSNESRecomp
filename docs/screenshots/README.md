@@ -115,3 +115,20 @@ with no crop, resize or repainting. This is a hidden nonfullscreen GPU window
 with dummy audio, distinct from the historical visible fullscreen captures.
 See [capture metadata](batch27-capture.json), [renderer scope](../CUSTOM-RENDERER.md)
 and [bounded timing evidence](../PERFORMANCE.md).
+
+## Batch28 - room24 NPC83, 32:9 Enhanced pixels
+
+![Room24 with a genuine NPC83 beyond the original view](room24-batch28-32x9-1920x1080.png)
+
+Actual1920x1080 OpenGL readback from the batch28 candidate, with
+Enhanced original pixels and centered camera. The original room24 NPC83 is
+visible in the right margin after an assisted player-position route. The left
+black region lies beyond the finite map edge; top/bottom letterboxing is retained
+for the32:9 field on a16:9 output.
+
+The PNG preserves every GPU readback pixel without resize, crop or repainting.
+This capture uses a **hidden nonfullscreen window and dummy audio**, distinct
+from the older fullscreen images. The pre-shader field and two existing guest
+checkpoints match the headless NPC route exactly. This image does not certify
+physical scanout or full-game rendering. See [exact capture metadata](batch28-capture.json)
+and [renderer scope](../CUSTOM-RENDERER.md).

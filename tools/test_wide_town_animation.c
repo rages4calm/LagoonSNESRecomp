@@ -44,8 +44,9 @@ static void transfer(unsigned frame,const uint8_t *bytes) {
   for(unsigned n=0;n<length;++n)LagoonWideTorches_Write(&torches,0x7600+n,bytes[n],rom,sizeof(rom));
 }
 int main(int argc,char **argv) {
-  int field=argc==3 && !strcmp(argv[2],"--field-only");assert(argc==2||field);
+  int field=argc==3 && !strcmp(argv[2],"--field-only");int next=argc==3 && !strcmp(argv[2],"--rooms22-25-only");assert(argc==2||field||next);
   if(field){room=0x1e;bg=0x14c061;base=0x9b80;length=416;phases=8;descriptor=0x1e020;table=0x1dce1;index=8;}
+  if(next){room=0x22;bg=0x14d33d;base=0xa880;length=128;phases=3;descriptor=0x1e028;table=0x1dcfe;index=9;}
   FILE*f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof(rom),f)==sizeof(rom));fclose(f);
   assert(kLagoonWideTorchMaxBytes>=length && LagoonWideTorches_Bytes(room,bg)==length);
   Interp816 *cpu=interp816_init(NULL,read_byte,write_byte);assert(cpu);
@@ -100,6 +101,22 @@ int main(int argc,char **argv) {
     for(unsigned n=0;n<2;++n) {
       LagoonWideTorches_Reset(&torches);
       assert(!LagoonWideTorches_Begin(&torches,27,n?0x1d:0x18,0x14abbe,0x10,0x9b80,0x3b00,416));++refusals;
+    }
+  }
+  if(next) {
+    const unsigned absent[][2]={{0x23,0x12b297},{0x24,0x12ee12},{0x25,0x149197}};
+    for(unsigned n=0;n<3;++n)for(unsigned source=0;source<3;++source) {
+      LagoonWideTorches_Reset(&torches);
+      assert(!LagoonWideTorches_Begin(&torches,28,absent[n][0],absent[n][1],0x10,source==0?0xa880:source==1?0x8b40:0x9b80,0x3b00,source==0?128:source==1?192:416));++refusals;
+    }
+    for(unsigned phase=3;phase<=8;++phase) {
+      LagoonWideTorches_Reset(&torches);
+      assert(!LagoonWideTorches_Begin(&torches,28,0x22,0x14d33d,0x10,0xa880+phase*128,0x3b00,128));++refusals;
+    }
+    const unsigned old[][2]={{1,0x139a7a},{2,0x128000},{3,0x128b77},{8,0x12b297},{0x19,0x13d745},{0x1e,0x14c061},{0x35,0x15c815}};
+    for(unsigned n=0;n<7;++n) {
+      LagoonWideTorches_Reset(&torches);
+      assert(!LagoonWideTorches_Begin(&torches,28,old[n][0],old[n][1],0x10,0xa880,0x3b00,128));++refusals;
     }
   }
   printf("original animation: %u original DF88/008F19 configured complete DMA jobs/source resident phases, %u descriptor/table/source/transfer/VRAM byte mutations, %u context/generation/overwrite/order refusals PASS\n",dma_jobs,mutations,refusals);
