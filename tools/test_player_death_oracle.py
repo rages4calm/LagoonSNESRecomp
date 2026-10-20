@@ -44,6 +44,17 @@ a.out.mkdir(parents=True, exist_ok=True)
 header = '\n'.join(f'#define {name}_M1X0 {actual}'
                    for name, actual in zip(names, actual_names) if name + '_M1X0' != actual)
 header += '\n' + '\n'.join(f'RecompReturn {name}(CpuState *cpu);' for name in actual_names)
+# Batch27 adds a real native AAF6 tail. This older bounded selector/AAC1
+# oracle still stops AT that original child entry; its complete body has its
+# own fall/boss-death oracle. Consume only the existing host tail context.
+fall_names=[]
+for _,text in texts:
+    for m in re.finditer(r'RecompReturn (\w+_M1X0)\(CpuState \*cpu\) \{',text):
+        body=text[m.start():text.index('\n}',m.end())+2]
+        if 'cpu_trace_func_entry(cpu, 0x01AAF6,' in body:fall_names.append(m[1])
+assert len(fall_names)<=1
+for name in fall_names:
+    header+=f'\nRecompReturn {name}(CpuState*c){{uint16 s;uint8 h;assert(cpu_take_tailcall_return_context(&s,&h));assert(s==c->S&&h==2);boundary=0x01aaf6;return RECOMP_RETURN_NORMAL;}}\n'
 (a.out / 'player_death_under_test.h').write_text(header + '\n' + '\n'.join(bodies), encoding='utf-8')
 binary = a.out / 'player-death-oracle.exe'
 runner = repo / 'snesrecomp/runner/src'
@@ -72,5 +83,5 @@ result.check_returncode()
     'rom_sha256': expected,
     'harness_sha256': hashlib.sha256((repo / 'tests/lagoon_player_death_oracle_test.c').read_bytes()).hexdigest(),
     'stdout': result.stdout,
-    'limits': 'Actual generated AAC1 and its original AB1D draw tail run completely versus original opcodes, including real RTS. Actual generated A7D6 selector runs all four original low states and unknown high-byte pointer fallbacks, invoking actual native AAC1 or stopping at the original interpreted boundary. No HP/outcome writes or fake child returns. Live route/scheduler proof is separate.'
+    'limits': 'Actual generated AAC1 and its original AB1D draw tail run completely versus original opcodes, including real RTS. Actual generated A7D6 selector runs all four original low states and unknown high-byte pointer fallbacks, invoking actual native AAC1 or stopping at the original child entry. AAF6 is an explicit entry-stop sentinel even when generated natively, with no fabricated child operations/result; full AAF6 is qualified by test_fall_boss_death_oracle.py. No HP/outcome writes. Live route/scheduler proof is separate.'
 }, indent=2) + '\n')

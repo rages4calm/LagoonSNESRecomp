@@ -102,3 +102,16 @@ Both were captured in a **hidden nonfullscreen window**, with dummy audio to
 preserve the bounded assisted-room-loader guard. They are distinct from the
 historical visible fullscreen captures above and are not physical scanout proof.
 See [exact capture metadata](batch26-captures.json) and [renderer scope](../CUSTOM-RENDERER.md).
+
+
+## Batch27 - room18, 16:9 Enhanced pixels
+
+![Room18 in the new custom renderer](room18-batch27-16x9-1920x1080.png)
+
+Actual 1920x1080 OpenGL readback with Enhanced original pixels and centered camera.
+The original assisted room loader and enemy AI run normally; player HP/defense
+are protected for exploration. PNG conversion preserves every readback pixel,
+with no crop, resize or repainting. This is a hidden nonfullscreen GPU window
+with dummy audio, distinct from the historical visible fullscreen captures.
+See [capture metadata](batch27-capture.json), [renderer scope](../CUSTOM-RENDERER.md)
+and [bounded timing evidence](../PERFORMANCE.md).

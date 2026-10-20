@@ -3,7 +3,8 @@
 The interpreter safety net remains in place. `src/lagoon_scene_renderer.c` adds
 a bounded live software scene backend for stable Atland, exact Gold Cave03/04/05/06,
 room07 with independently owned parallax, ordinary room08 Elf Field and twelve
-exact rooms2C..37 in four resource families, plus four NPC rooms19..1C, with Widescreen
+exact rooms2C..37 in four resource families, four NPC rooms19..1C and six exact
+field contexts18 /1D /1E /1F /20 /21, with Widescreen
 enabled. It captures its
 own scene packet, independently draws a field, and compares every 32-bit output
 pixel with the existing presentation before allowing replacement. Unsupported
@@ -15,6 +16,92 @@ computes and checks the candidate without replacing the picture. Implementation
 and ROM-free unit tests alone do not prove live gameplay coverage; bounded runtime
 acceptance is recorded separately. There is currently no launcher selector for
 this diagnostic.
+
+## Batch27 field scenes and ordinary enemies
+
+Six further contexts use exact original resource ownership. Both current and
+captured full-word room IDs, dimensions, BG/OBJ sources, both definition pointers,
+maps7F0000 /7F4000, ordinary WRAM50=0, generation, full brightness and absence of
+loading remain mandatory. Original raster and whole-picture verification remain
+active; finite boundaries mask only added pixels.
+
+| Room | BG source | OBJ source | Both definitions | Dimensions in pixels |
+| --- | --- | --- | --- | --- |
+|18|14ABBE|1A94FE|06CB0C|1536x1792|
+|1D|14ABBE|1A94FE|06CB0C|1024x1024|
+|1E|14C061|1AAED9|06DC14|1024x1024|
+|1F|14C061|1AAED9|06DC14|512x512|
+|20|14C061|19AF50|06DC14|1024x1024|
+|21|14C061|1AED4A|06DC14|512x512|
+
+Actor permission is narrower than scene permission: ordinary enemy kinds15/16
+in18,17/18 in1E and21/22 in20, all decimal. Each requires the original selector,
+metasprite decoder, native OAM/frame/position witness, complete resident atlas,
+palette, priority and exact source context. Added cells keep native-center
+pixels transparent. Room21's original script actually spawns NPC0/33 despite an
+empty initial authored actor list. These NPCs, type5 props and all other actors
+in these six contexts retain native OAM; no new seam/far permission is inferred.
+The previously completed towns and late areas retain their existing scope.
+
+BG14C061 in1E..21 has its own original01:E020 descriptor /01:DCE1 table.
+Eight416-byte sources run from10:9B80 through10:A6E0 with416-byte stride, uploaded
+to VRAM word3B00. Every descriptor/table/source byte, source bank/address, transfer
+length/destination/order, generation and complete resident phase must match.
+Storage accommodates eight bounded phases of at most512bytes; all earlier
+room-specific two/three/four-phase limits remain unchanged. Actual live loader
+observations include all eight phases in1E/1F/20; the selected21 script holds
+phase0. Independent original DF88 ->008F19 tests exercise all eight phases in
+all four contexts,160 complete configured DMA jobs,10,240 byte mutations and110
+context/order/generation/old-phase-boundary refusals. Rooms18/1D gain no animation
+owner and older rooms cannot borrow E020.
+
+Final coherent candidate`0994da88d8c51dcb...`, manifest`2e09a00070df702f...`, passes
+fresh matched controls against installed91D8 and same-executable off/auto pairs:
+
+| Route group | Ordered presentations | Checkpoints | Replacements | Independent draws |
+| --- | ---: | ---: | ---: | ---: |
+| Six original loaders |5,166|6|3,662|1,002|
+| Three actual-enemy near/far routes |3,761|6|3,003|1,154|
+| Total overlapping observations |8,927|12|6,665|2,156|
+
+These independently draw329,367,808 source pixels with zero mismatches. Every
+same-executable presentation CSV column matches; all eight checkpoint components,
+guest registers/clocks and optional APU trace bytes match both off/auto and old/new.
+Old/new strict comparisons remain false for6,089 intentional expanded-picture
+observations and diagnostic report paths; off/auto strict reports retain the
+mode/report-path differences. No picture CRCs are masked.
+
+The assisted routes change only player position/stat protection, use original
+loaders/camera/map streaming/AI and genuinely spawn all six enemy kinds. Recorded
+far-cell rows are594/392 for15/16,1,508/86 for17/18 and60/811 for21/22. These are
+cell observations, not unique actors. Actual enemy variant bytes are0 at the
+captured checkpoints. One transient kind15 native-frame disagreement and27 deep
+unsupported-object gates in the18 route refuse presentation authority; these
+refusals remain recorded rather than being suppressed.
+
+Focused source tests execute6,144 actual original selectors plus6,144 resulting
+state checks,7,945 refusals and267 code-byte mutations. For four animation variant
+values, an independent interpreter executes399 complete original C214 ->8B71
+->8211 calls. All3,093 bounded admitted cells match position, tile, palette,
+priority, flips and size;753 invalid/oversized decoder combinations refuse before
+authority. Separate production observer tests use actual loader resources with
+explicitly synthetic placements:117 far cells,14 seams,1,392 transparent native
+pixels,7,674 kind/NPC/prop refusals and2,562 ownership/source/OAM/atlas refusals.
+Six actual loader snapshots pass2,795,520 independently sampled background pixels,
+3,666,432 finite-edge pixels and198 resource/layout refusals. These unit fixtures
+are distinct from the genuinely spawned live routes.
+
+Reproduce only this focused source scope with the verified owner ROM and fresh
+matching private loader snapshots:
+
+```powershell
+.\tools\test_wide_additional_actors.ps1 -FieldOnly -OutDir <private-test-directory> -LoaderSnapshots <fresh-private-loader-root>
+```
+
+The wrapper pins`rom_identity.txt` SHA256 before compilation. No private assets,
+raw captures or saves are published. These bounded internal-field checks do not
+establish a complete campaign, fully native gameplay, fullscreen scanout or a
+renderer performance improvement. The interpreter safety net remains enabled.
 
 ## Batch26 NPC areas and original animation
 

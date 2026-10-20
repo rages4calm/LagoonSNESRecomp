@@ -109,12 +109,15 @@ static void animation_protocol(unsigned room) {
 }
 int main(int argc,char **argv) {
   int town=argc==5 && !strcmp(argv[4],"--town-only");
-  assert(argc==4 || town);const char *tags[]={"entered","sample-03","sample-07","sample-11"};unsigned animation_matches=0;
-  for(unsigned room=town?0x19:0x2c;room<=(town?0x1c:0x37);++room) {
+  int field=argc==5 && !strcmp(argv[4],"--field-only");
+  assert(argc==4 || town || field);const char *tags[]={"entered","sample-03","sample-07","sample-11"};unsigned animation_matches=0;
+  const unsigned fields[]={0x18,0x1d,0x1e,0x1f,0x20,0x21};
+  for(unsigned n=0;n<(field?6:town?4:12);++n) {
+    unsigned room=field?fields[n]:town?0x19+n:0x2c+n;
     unsigned phases=0;
-    for(unsigned tag=0;tag<(town?1:4);++tag) {
+    for(unsigned tag=0;tag<(town||field?1:4);++tag) {
       char path[2048];setup();read_owned(argv[1],rom,sizeof(rom));
-      const char *name=town?"sample-11":tags[tag];
+      const char *name=town||field?"sample-11":tags[tag];
       file_path(path,sizeof(path),argv[2],argv[3],room,name,"wram.bin");read_owned(path,ram,sizeof(ram));
       file_path(path,sizeof(path),argv[2],argv[3],room,name,"vram.bin");read_owned(path,p.vram,sizeof(p.vram));
       file_path(path,sizeof(path),argv[2],argv[3],room,name,"cgram.bin");read_owned(path,p.cgram,sizeof(p.cgram));
@@ -122,7 +125,7 @@ int main(int argc,char **argv) {
       assert(word(ram,0x48e)==room&&LagoonSceneRenderer_AdditionalRoom(ram));
       LagoonSceneRenderer_Reset();s_mode=2;capture(24);ScenePacket *s=&s_packets[s_complete];assert(s->valid&&s->finite_clip&&!s->parallax);
       scalar_rows(s);if(!tag){finite_edges(s);refuse_resources();}
-      if(!town && room>=0x35){phases|=1u<<animation_snapshot(room);++animation_matches;}
+      if(!town && !field && room>=0x35){phases|=1u<<animation_snapshot(room);++animation_matches;}
       if(!tag) {
         assert(!LagoonSceneRenderer_TryPresent(output,682*4,expected,682*4,682,224,25));
         for(unsigned bad=0;bad<8;++bad) {
@@ -134,7 +137,11 @@ int main(int argc,char **argv) {
         }
       }
     }
-    if(!town && room>=0x35){assert(phases==15);animation_protocol(room);}
+    if(!town && !field && room>=0x35){assert(phases==15);animation_protocol(room);}
+  }
+  if(field) {
+    printf("PASS6exactfieldrooms/6actual loader snapshots; %lu independent source pixels; %lu finite-edge pixels; %lu resource/layout/authority refusals;6generation refusals; no loading/fade authority added\n",pixel_checks,edge_checks,resource_refusals);
+    return 0;
   }
   if(town) {
     printf("PASS4exactNPCrooms/4actual loader snapshots; %lu independent source pixels; %lu finite-edge pixels; %lu resource/layout/authority refusals;4generation refusals; no loading/fade authority added\n",pixel_checks,edge_checks,resource_refusals);

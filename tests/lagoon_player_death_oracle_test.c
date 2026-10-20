@@ -94,6 +94,6 @@ int main(int argc,char **argv) {
   interp816_free(i);count++;
  }
  assert(complete&&unknown&&normal&&other&&blocked);
- printf("PASS %u actual generated Nasir animation/selector original-opcode cases; all4states/actualinheritedframe/stack/flags/timers/stages/A-high/complete128KiBRAM/CPU+master+coprocessor clocks; complete=%u ordinaryLLE=%u otherdeathLLE=%u blocked=%u unknownpointerLLE=%u\n",count,complete,normal,other,blocked,unknown);
+ printf("PASS %u actual generated Nasir animation/selector original-opcode cases; all4states/actualinheritedframe/stack/flags/timers/stages/A-high/complete128KiBRAM/CPU+master+coprocessor clocks; complete=%u ordinaryLLE=%u otherdeathEntryStop=%u blocked=%u unknownpointerLLE=%u\n",count,complete,normal,other,blocked,unknown);
  return 0;
 }

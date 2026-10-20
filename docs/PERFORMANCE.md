@@ -307,4 +307,19 @@ audio pacing, physical scanout or a locked60FPS/all-room guarantee.
 
 An earlier real-audio attempt was refused by the existing campaign guard and
 stayed in room02. It is not new-area coverage. Production cheat guards were
-preserved. Two new1920x1080 readbacks are [documented here](screenshots/README.md#batch26--new-npc-contexts-hidden-gpu-captures).
+preserved. Two new1920x1080 readbacks are [documented here](screenshots/README.md#batch26---new-npc-contexts-hidden-gpu-captures).
+
+
+## Batch27: room18 hidden GPU sample
+
+The coherent 0994 candidate uses actual1920x1080 OpenGL output, Enhanced EPX
+and16:9 scenery. An assisted original room18 loader is followed by an explicit
+600-field idle hold. Four hundred consecutive presentation intervals between
+fields1000 and1400 average16.6393ms (60.0988 updates/s),p9517.7338ms,
+max18.2768ms,zero above25ms. Every sampled logic row remains room18/nonloading.
+Mean active CPU stages total2.1464ms,p952.7964ms,max3.3074ms, excluding waiting.
+The whole1461-field route has1201 verified/replaced presentations and zero
+renderer mismatches. Other isolated headless qualification ran concurrently;
+this is a bounded gameplay/pacing observation, not an isolated hardware benchmark.
+The hidden window uses dummy audio to retain the campaign cheat guard, so it
+certifies neither real-device audio nor physical scanout or all-room60FPS.

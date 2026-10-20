@@ -1,0 +1,24 @@
+{
+  "schema": "Lagoon batch27 actual hidden GPU readback v1",
+  "file": "room18-batch27-16x9-1920x1080.png",
+  "room_hex": "18",
+  "display_frame": 800,
+  "aspect": "16:9",
+  "resolution": [
+    1920,
+    1080
+  ],
+  "visible_window": false,
+  "fullscreen": false,
+  "hidden_gpu": true,
+  "dummy_audio": true,
+  "enhanced_epx": true,
+  "exe_sha256": "0994da88d8c51dcb0647048d03cdc849133869703b6866e7eedce5e4efee4b32",
+  "manifest_sha256": "2e09a00070df702f3123b2d0a75711d28d606def1b34ef7a0a15b3be72be1bfb",
+  "png_sha256": "dc51fbdcf26426253c32790187417c1f57ab9f027deb1961516ba8ab1d78ec2d",
+  "bmp_sha256": "eeb4e75004fbcb930c72cf56a974b9a99c011b07b400a0cd336a330c094f612f",
+  "rgba_sha256": "d65ad9111e63131a331cac709852177cd402b06d38949cf42a8a42c443f8a62e",
+  "lossless_no_resize": true,
+  "assisted_route": true,
+  "scope": "Actual1920x1080 OpenGL Enhancedreadback, original room18 loader/playerprotection; hidden/nonfullscreen/dummy-audio. No scanout/fullscreen or newart claim."
+}

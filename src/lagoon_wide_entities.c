@@ -346,6 +346,8 @@ unsigned LagoonWideTorches_Bytes(unsigned room,unsigned source) {
   /* Town19 owns fifteen animated characters through its independent two
    * frame descriptor01:E018/tableDCB1, not another room's torch animation. */
   if(room==0x19 && source==0x13D745)return 0x1E0;
+  /* Original01:E020/tableDCE1 owns eight416-byte phases for this exact BG. */
+  if(room>=0x1e && room<=0x21 && source==0x14C061)return 0x1A0;
   /* Elf Field's six animated world characters use their own two-frame
    * descriptor; they must not borrow the cave's three torch phases. */
   if(room==8 && source==0x12B297)return 0xC0;
@@ -356,10 +358,10 @@ unsigned LagoonWideTorches_Bytes(unsigned room,unsigned source) {
 }
 static unsigned animation_base(unsigned room) {
   return room==1?0x8000:room==2?0x8300:room==8?0x8B40:room==0x19?0x97C0:
-    room>=0x35&&room<=0x37?0xBB00:0x8900;
+    room>=0x1e&&room<=0x21?0x9B80:room>=0x35&&room<=0x37?0xBB00:0x8900;
 }
 static unsigned animation_variants(unsigned room) {
-  return room==2||(room>=0x35&&room<=0x37)?4:(room==1 || room==8 || room==0x19)?2:3;
+  return room>=0x1e&&room<=0x21?8:room==2||(room>=0x35&&room<=0x37)?4:(room==1 || room==8 || room==0x19)?2:3;
 }
 void LagoonWideTorches_Reset(LagoonWideTorches *t) {
   if(t)memset(t,0,sizeof(*t));
@@ -393,9 +395,9 @@ void LagoonWideTorches_Write(LagoonWideTorches *t,unsigned address,uint8_t value
   unsigned base=animation_base(t->room),frames=animation_variants(t->room);
   unsigned entries=t->room==2?12:frames;
   unsigned descriptor=t->room==1?0x1DFE0:t->room==2?0x1DFE8:t->room==8?0x1DFF8:t->room==0x19?0x1E018:
-    t->room>=0x35&&t->room<=0x37?0x1E058:0x1DFF0;
+    t->room>=0x1e&&t->room<=0x21?0x1E020:t->room>=0x35&&t->room<=0x37?0x1E058:0x1DFF0;
   unsigned table=t->room==1?0x1D9E3:t->room==2?0x1DA42:t->room==8?0x1DA79:t->room==0x19?0x1DCB1:
-    t->room>=0x35&&t->room<=0x37?0x1DD8B:0x1DA6B;
+    t->room>=0x1e&&t->room<=0x21?0x1DCE1:t->room>=0x35&&t->room<=0x37?0x1DD8B:0x1DA6B;
   unsigned source=0x100000+base+t->frame*bytes;
   /* Guard the actual animation selector/descriptor and its source pointers.
    * A modified animation table cannot silently borrow these frame identities. */
@@ -484,17 +486,26 @@ static int town_npc_kind(unsigned room,unsigned kind) {
     (room==0x1a && (kind==30 || kind==31 || kind==79 || kind==91)) ||
     (room==0x1b && kind==18) || (room==0x1c && kind>=19 && kind<=26);
 }
+static int field_room(unsigned room) {
+  return room==0x18 || (room>=0x1d && room<=0x21);
+}
+static int field_enemy_kind(unsigned room,unsigned kind) {
+  return (room==0x18 && (kind==15 || kind==16)) ||
+    (room==0x1e && (kind==17 || kind==18)) || (room==0x20 && (kind==21 || kind==22));
+}
 int LagoonWideEntities_FrameForRoom(const uint8_t *rom,size_t size,unsigned room,
     const uint8_t *r,LagoonWideAnimation *a,int step,uint8_t *frame) {
   int town=room>=0x19 && room<=0x1c;
-  if(!town && (room<0x2c || room>0x37))return LagoonWideEntities_CommonFrame(rom,size,r,a,step,frame);
+  int field=field_room(room);
+  if(!town && !field && (room<0x2c || room>0x37))return LagoonWideEntities_CommonFrame(rom,size,r,a,step,frame);
   if(!r || !LagoonWideEntities_AnimationSource(rom,size,r[0x18]))return 0;
   unsigned kind=r[0x1b];int allowed=r[0x18]==1 && kind<64;
   if(town)allowed=r[0x18]==1 && town_npc_kind(room,kind);
+  if(field)allowed=0; /* Script-spawned NPC0/33 and type5 props retain native OAM. */
   /* Actual authored ordinary enemy families. Kind29's status4 uses B131 and
    * is deliberately excluded; no special/death/boss frames are inferred. */
   if(r[0x18]==2)allowed=(room==0x2c && kind>=31 && kind<=33) ||
-      (room==0x2f && (kind==25 || kind==27)) || (room==0x35 && kind==28);
+      (room==0x2f && (kind==25 || kind==27)) || (room==0x35 && kind==28) || field_enemy_kind(room,kind);
   return allowed && ordinary_frame(rom,size,r,a,step,frame,1);
 }
 
@@ -552,6 +563,10 @@ static int decode_entity(const uint8_t *ram, unsigned entity, unsigned frame,
    * even before a queued cell can gain a native-kind witness. */
   if(type==1 && state>63 && (!town_npc_kind(ram_word(ram,0x48e),state) ||
       !LagoonSceneRenderer_AdditionalRoom(ram)))return -1;
+  /* The new field contexts admit only independently checked ordinary enemies,
+   * including at the native seam. A scripted NPC/prop cannot borrow that proof. */
+  if(field_room(ram_word(ram,0x48e)) && (type!=2 ||
+      !field_enemy_kind(ram_word(ram,0x48e),state) || !LagoonSceneRenderer_AdditionalRoom(ram)))return -1;
   unsigned offsets = type == 1 ? 0x1fb7f : 0x1f7e9;
   if (!rom_word(g_rom, kRomSize, offsets + state * 4, &ox) ||
       !rom_word(g_rom, kRomSize, offsets + state * 4 + 2, &oy)) return -1;
@@ -838,7 +853,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
   }
   const uint8_t *ram=s_frame.ram;
   if(ram[0x48e]!=g_ram[0x48e] || ram[0x48c]>64) return;
-  unsigned room=ram_word(ram,0x48e);int additional=(room>=0x19 && room<=0x1c) || (room>=0x2c && room<=0x37);
+  unsigned room=ram_word(ram,0x48e);int additional=(room>=0x18 && room<=0x21) || (room>=0x2c && room<=0x37);
   /* The OAM snapshot and current scene must independently name this exact
    * authored descriptor. Room numbers or shared OBJ art alone grant nothing. */
   if(additional && (room!=ram_word(g_ram,0x48e) || ram_word(ram,0x48c)>64 || ram[0x100e] || g_ram[0x100e] ||

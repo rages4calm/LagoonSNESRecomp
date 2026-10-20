@@ -112,7 +112,7 @@ void LagoonWideBackground_Write(LagoonWideBackground *background,unsigned addres
  * Only completed, byte-verified transfers in this room/timeline are witnesses. */
 enum { kLagoonWideTorchBytes=0xC0, kLagoonWideTorchMaxBytes=0x200, kLagoonWideTorchAddress=0x7600 };
 typedef struct LagoonWideTorches {
-  uint8_t bytes[4][kLagoonWideTorchMaxBytes];
+  uint8_t bytes[8][kLagoonWideTorchMaxBytes];
   uint8_t pending[kLagoonWideTorchMaxBytes];
   uint64_t generation;
   unsigned room, source, next, left, frame, seen;
@@ -123,7 +123,7 @@ int LagoonWideTorches_Begin(LagoonWideTorches *torches,uint64_t generation,
     unsigned room,unsigned source,unsigned bank,unsigned address,unsigned destination,unsigned length);
 void LagoonWideTorches_Write(LagoonWideTorches *torches,unsigned address,uint8_t value,
     const uint8_t *rom,size_t size);
-/* Returns the actual completed render frame (0..2), or -1 on refusal. */
+/* Returns the actual completed render phase (0..7), or -1 on refusal. */
 int LagoonWideTorches_Match(const LagoonWideTorches *torches,const uint16_t *vram,
     uint64_t generation,unsigned room,unsigned source);
 
