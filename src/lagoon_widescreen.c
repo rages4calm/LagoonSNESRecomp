@@ -160,7 +160,8 @@ void LagoonWide_Reset(void) {
 }
 
 static int room_bounds_enabled(unsigned room) {
-  return (room==1 || room==2) || (room>=3 && room<=8) || (room>=0x2c && room<=0x37);
+  return (room==1 || room==2) || (room>=3 && room<=8) ||
+      (room>=0x19 && room<=0x1c) || (room>=0x2c && room<=0x37);
 }
 static int room07_parallax(void) {
   return word(0x48e)==7 && g_ram[0x50]==2 && pointer(0x57)==0x129e89 &&

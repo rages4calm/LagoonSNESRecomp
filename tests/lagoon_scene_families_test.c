@@ -108,19 +108,21 @@ static void animation_protocol(unsigned room) {
   }
 }
 int main(int argc,char **argv) {
-  assert(argc==4);const char *tags[]={"entered","sample-03","sample-07","sample-11"};unsigned animation_matches=0;
-  for(unsigned room=0x2c;room<=0x37;++room) {
+  int town=argc==5 && !strcmp(argv[4],"--town-only");
+  assert(argc==4 || town);const char *tags[]={"entered","sample-03","sample-07","sample-11"};unsigned animation_matches=0;
+  for(unsigned room=town?0x19:0x2c;room<=(town?0x1c:0x37);++room) {
     unsigned phases=0;
-    for(unsigned tag=0;tag<4;++tag) {
+    for(unsigned tag=0;tag<(town?1:4);++tag) {
       char path[2048];setup();read_owned(argv[1],rom,sizeof(rom));
-      file_path(path,sizeof(path),argv[2],argv[3],room,tags[tag],"wram.bin");read_owned(path,ram,sizeof(ram));
-      file_path(path,sizeof(path),argv[2],argv[3],room,tags[tag],"vram.bin");read_owned(path,p.vram,sizeof(p.vram));
-      file_path(path,sizeof(path),argv[2],argv[3],room,tags[tag],"cgram.bin");read_owned(path,p.cgram,sizeof(p.cgram));
-      file_path(path,sizeof(path),argv[2],argv[3],room,tags[tag],"regs.json");registers(path);
+      const char *name=town?"sample-11":tags[tag];
+      file_path(path,sizeof(path),argv[2],argv[3],room,name,"wram.bin");read_owned(path,ram,sizeof(ram));
+      file_path(path,sizeof(path),argv[2],argv[3],room,name,"vram.bin");read_owned(path,p.vram,sizeof(p.vram));
+      file_path(path,sizeof(path),argv[2],argv[3],room,name,"cgram.bin");read_owned(path,p.cgram,sizeof(p.cgram));
+      file_path(path,sizeof(path),argv[2],argv[3],room,name,"regs.json");registers(path);
       assert(word(ram,0x48e)==room&&LagoonSceneRenderer_AdditionalRoom(ram));
       LagoonSceneRenderer_Reset();s_mode=2;capture(24);ScenePacket *s=&s_packets[s_complete];assert(s->valid&&s->finite_clip&&!s->parallax);
       scalar_rows(s);if(!tag){finite_edges(s);refuse_resources();}
-      if(room>=0x35){phases|=1u<<animation_snapshot(room);++animation_matches;}
+      if(!town && room>=0x35){phases|=1u<<animation_snapshot(room);++animation_matches;}
       if(!tag) {
         assert(!LagoonSceneRenderer_TryPresent(output,682*4,expected,682*4,682,224,25));
         for(unsigned bad=0;bad<8;++bad) {
@@ -132,7 +134,11 @@ int main(int argc,char **argv) {
         }
       }
     }
-    if(room>=0x35){assert(phases==15);animation_protocol(room);}
+    if(!town && room>=0x35){assert(phases==15);animation_protocol(room);}
+  }
+  if(town) {
+    printf("PASS4exactNPCrooms/4actual loader snapshots; %lu independent source pixels; %lu finite-edge pixels; %lu resource/layout/authority refusals;4generation refusals; no loading/fade authority added\n",pixel_checks,edge_checks,resource_refusals);
+    return 0;
   }
   printf("PASS12exactrooms/48loader snapshots; %lu independent source pixels; %lu finite-edge pixels; %lu resource/layout/authority refusals;12generation refusals; %u actual animation phase matches; %lu animation protocol refusals\n",pixel_checks,edge_checks,resource_refusals,animation_matches,animation_refusals);
   return 0;

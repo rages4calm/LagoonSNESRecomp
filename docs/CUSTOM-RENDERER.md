@@ -3,7 +3,7 @@
 The interpreter safety net remains in place. `src/lagoon_scene_renderer.c` adds
 a bounded live software scene backend for stable Atland, exact Gold Cave03/04/05/06,
 room07 with independently owned parallax, ordinary room08 Elf Field and twelve
-exact rooms2C..37 in four resource families, with Widescreen
+exact rooms2C..37 in four resource families, plus four NPC rooms19..1C, with Widescreen
 enabled. It captures its
 own scene packet, independently draws a field, and compares every 32-bit output
 pixel with the existing presentation before allowing replacement. Unsupported
@@ -15,6 +15,96 @@ computes and checks the candidate without replacing the picture. Implementation
 and ROM-free unit tests alone do not prove live gameplay coverage; bounded runtime
 acceptance is recorded separately. There is currently no launcher selector for
 this diagnostic.
+
+## Batch26 NPC areas and original animation
+
+Four connected NPC contexts now use the independent scene renderer. Each requires
+its exact original descriptor, dimensions, both definition pointers, maps7F0000 /
+7F4000, ordinary WRAM50=0, matching captured/current room and generation, full
+brightness15 and no loading. Existing native-center, raster, atlas, palette,
+priority and whole-picture comparison guards remain mandatory.
+
+| Room | BG source | OBJ source | Both definitions | Dimensions in pixels |
+| --- | --- | --- | --- | --- |
+|19|13D745|1DB67E|06D090|1024x1024|
+|1A|13D745|1DB67E|06D090|256x256|
+|1B|13D745|1B8000|06D090|256x512|
+|1C|12E794|1DB67E|06D984|768x1024|
+
+Finite edges remain clipped. The 256-pixel-wide interiors do not gain invented
+scenery outside their authored width. This batch adds no loading, partial-fade
+or retained outgoing-scene authority.
+
+Ordinary NPC animation and metasprites are admitted through exact per-room kind
+lists: decimal69..78 in19;30/31/79/91 in1A;18 in1B;19..26 in1C. The bounded
+128-entry kind witness accommodates these IDs. IDs above63 still require a new
+room's exact descriptor and authored whitelist even for native-anchored seams;
+older areas do not acquire broader actor permission. Far presentation still
+requires a real native OAM/frame/atlas witness and matching projected native
+coordinates. Presentation extrapolation does not run NPC AI or alter guest state.
+The six enemy kinds qualified in batch25 retain their previous scope.
+
+The actual assisted room19 route renders original NPC70 beyond native activation
+in the right margin. It changes player positions in eight-pixel steps so the
+original camera, map streaming, NPC movement and animation execute normally.
+No NPC records, quest flags or results are manufactured. NPC91 has original-opcode
+and synthetic ownership qualification; its conditional live appearance is not
+claimed. The selected original room1C script removes its NPCs at this test's
+story state, so its loader comparison qualifies scenery rather than live NPCs.
+
+Town19 additionally owns fifteen animated characters through original descriptor
+01:E018 and table01:DCB1. Two480-byte sources10:97C0 /10:99A0 upload to VRAM
+word3B00. Only the exact room/BG source, descriptor, table, source bank/address,
+length, destination, ordered complete bytes, generation and matching resident
+VRAM authorize those phases. The bounded animation buffer grows to512bytes;
+all earlier room-specific lengths, tables and phase counts remain unchanged.
+Both original resident phases are positively observed in the live NPC route.
+
+Final batch26 candidate`91d8c0119e304e2c...`, manifest`63abf343c3e27f2a...`, passes
+fresh same-executable renderer-off/auto comparisons:
+
+| Route group | Ordered presentations | Checkpoints | Replacements | Independent draws |
+| --- | ---: | ---: | ---: | ---: |
+| Four original loaders19 /1A /1B /1C |3,444|4|2,478|408|
+| Actual NPC70 near/far route |1,155|2|905|364|
+| Total overlapping observations |4,599|6|3,383|772|
+
+These routes independently draw117,936,896 source pixels with zero mismatches.
+Each loader has one final checkpoint and a complete ordered presentation stream;
+the NPC route has two full eight-component checkpoints. All six old/new native
+and guest checkpoints, registers and clocks remain exact. Old/new strict reports
+remain false for1,938 intentional expanded-picture observations and diagnostic
+report-path differences. No picture CRCs are masked. The NPC off/auto pair also
+matches every presentation CSV column and all eight checkpoint components.
+
+Source checks execute5,888 original NPC selector calls and5,888 resulting-frame
+checks, plus1,272 refusal cases and267 code-byte mutations. An independent
+interpreter executes368 complete original C1C6 ->8B71 ->8211 draw calls;880
+actual OAM cells match the host decoder's position, tile, palette, priority,
+flips and size, including NPC91. Original DF88 ->008F19 code configures ten
+complete animation DMA jobs;2,908 byte mutations and14 protocol/context refusals
+exercise the animation owner. Separate synthetic production-policy tests cover
+23 actual-ROM NPC kinds,4,790 high-kind/old-scene refusals and329 context/source/
+OAM/atlas/alignment refusals. Synthetic placements are not live spawning evidence.
+Four actual loader snapshots additionally pass1,863,680 independent background
+pixel checks,2,444,288 finite-edge checks and132 resource/layout refusals.
+
+An internal expanded NPC capture has238/238 right-margin colors matching the
+actual emitted cells and held resident atlas/palette. This is a bounded source
+color witness, not same-field full guest-memory logging. These headless/internal
+field checks do not establish fullscreen or new-area GPU performance, a complete
+playthrough, or a fully native game. The reference raster and interpreter remain
+active; no renderer speedup is claimed.
+
+Reproduce the focused source tests with the owner ROM and fresh matching private
+loader snapshots:
+
+```powershell
+.\tools\test_wide_additional_actors.ps1 -TownOnly -OutDir <private-test-directory> -LoaderSnapshots <fresh-private-loader-root>
+```
+
+The wrapper verifies the ROM SHA256 from`rom_identity.txt` before compiling or
+running tests. Snapshots and other game assets are not included in public source.
 
 ## Batch25 actor extension
 

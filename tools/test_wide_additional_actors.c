@@ -7,6 +7,7 @@
 #include <string.h>
 static uint8_t rom[0x100000],ram[0x20000];
 static unsigned product,writes,cases,postcases,refusals,source_mutations;
+static int town_only;
 static unsigned word(const uint8_t *p,unsigned a){return p[a]|p[a+1]<<8;}
 static uint8_t read_byte(void *m,uint32_t address) {
   (void)m;unsigned bank=address>>16,a=address&65535;
@@ -33,9 +34,15 @@ static unsigned table_delay(unsigned type,unsigned kind) {
 }
 static void selectors(void) {
   static const unsigned enemies[][2]={{0x2c,31},{0x2c,32},{0x2c,33},{0x2f,25},{0x2f,27},{0x35,28}};
+  static const unsigned towns[][2]={{0x19,69},{0x19,70},{0x19,71},{0x19,72},{0x19,73},
+    {0x19,74},{0x19,75},{0x19,76},{0x19,77},{0x19,78},{0x1a,30},{0x1a,31},
+    {0x1a,79},{0x1a,91},{0x1b,18},{0x1c,19},{0x1c,20},{0x1c,21},{0x1c,22},
+    {0x1c,23},{0x1c,24},{0x1c,25},{0x1c,26}};
   Interp816 *cpu=interp816_init(NULL,read_byte,write_byte);assert(cpu);
-  for(unsigned type=1;type<=2;++type)for(unsigned n=0;n<(type==1?62:6);++n) {
-    unsigned kind=type==1?n+2:enemies[n][1],room=type==1?0x34:enemies[n][0];
+  for(unsigned type=1;type<=(town_only?1:2);++type)
+  for(unsigned n=0;n<(town_only?23:type==1?62:6);++n) {
+    unsigned kind=town_only?towns[n][1]:type==1?n+2:enemies[n][1];
+    unsigned room=town_only?towns[n][0]:type==1?0x34:enemies[n][0];
     unsigned delay=table_delay(type,kind);if(!delay)continue;
     for(unsigned dir=0;dir<4;++dir)for(unsigned phase=0;phase<4;++phase)
     for(unsigned tick=0;tick<4;++tick)for(unsigned idle=0;idle<4;++idle)
@@ -92,9 +99,21 @@ static void negatives(void) {
     assert(!LagoonWideEntities_AnimationSource(rom,sizeof(rom),regions[n][2]));
     rom[off]^=1;++source_mutations;
   }
+  if(town_only) {
+    r[24]=1;r[10]=0;r[1]=0;a.phase=0;
+    for(unsigned room=0x19;room<=0x1c;++room)for(unsigned kind=0;kind<256;++kind) {
+      int allowed=(room==0x19 && kind>=69 && kind<=78) ||
+        (room==0x1a && (kind==30 || kind==31 || kind==79 || kind==91)) ||
+        (room==0x1b && kind==18) || (room==0x1c && kind>=19 && kind<=26);
+      r[27]=(uint8_t)kind;
+      assert(!!LagoonWideEntities_FrameForRoom(rom,sizeof(rom),room,r,&a,0,&frame)==allowed);
+      if(!allowed)++refusals;
+    }
+  }
 }
 int main(int argc,char **argv) {
-  assert(argc==2);FILE *f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof(rom),f)==sizeof(rom));fclose(f);
+  assert(argc==2 || (argc==3 && !strcmp(argv[2],"--town-only")));town_only=argc==3;
+  FILE *f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof(rom),f)==sizeof(rom));fclose(f);
   assert(LagoonWideEntities_AnimationSource(rom,sizeof(rom),1));
   assert(LagoonWideEntities_AnimationSource(rom,sizeof(rom),2));
   selectors();negatives();

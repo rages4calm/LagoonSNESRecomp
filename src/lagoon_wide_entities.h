@@ -110,7 +110,7 @@ void LagoonWideBackground_Write(LagoonWideBackground *background,unsigned addres
 /* Audited room01 two-frame / room02 four-frame / cave three-frame animation,
  * uploaded by $00:8F19. Room02's original12-entry table repeats four frames.
  * Only completed, byte-verified transfers in this room/timeline are witnesses. */
-enum { kLagoonWideTorchBytes=0xC0, kLagoonWideTorchMaxBytes=0x180, kLagoonWideTorchAddress=0x7600 };
+enum { kLagoonWideTorchBytes=0xC0, kLagoonWideTorchMaxBytes=0x200, kLagoonWideTorchAddress=0x7600 };
 typedef struct LagoonWideTorches {
   uint8_t bytes[4][kLagoonWideTorchMaxBytes];
   uint8_t pending[kLagoonWideTorchMaxBytes];

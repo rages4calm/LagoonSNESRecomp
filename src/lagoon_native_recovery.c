@@ -1,6 +1,7 @@
 /* Reenter only witnessed original recovery waits, without fabricating frames. */
 #include "lagoon_native_recovery.h"
 #include "lagoon_native_revival.h"
+#include "lagoon_native_camera.h"
 #include "snes/interp_bridge.h"
 #include "common_rtl.h"
 #include <string.h>
@@ -228,13 +229,16 @@ static void report(void) {
     "\"B449\":{\"render_takes\":%llu,\"wait_takes\":%llu}},"
     "\"boss_script\":{\"dialogue_takes\":%llu,\"audio_takes\":%llu,\"reload_takes\":%llu,"
     "\"wait_takes\":[%llu,%llu,%llu,%llu,%llu],\"ancestor_returns\":[%llu,%llu,%llu,%llu,%llu],\"refusals\":%llu},"
-    "\"revival\":{\"wait_takes\":%llu,\"ancestor_returns\":%llu,\"refusals\":%llu}}\n",
+    "\"revival\":{\"wait_takes\":%llu,\"ancestor_returns\":%llu,\"refusals\":%llu},"
+    "\"camera_tail\":{\"calls\":%llu,\"armed\":%llu,\"proposals\":%llu,\"takes\":%llu,\"refusals\":%llu}}\n",
     counts.registered,counts.registration_attempts,counts.failed_source_mask,counts.takes[0],counts.hp[0],counts.mp[0],counts.refused[0],
     counts.takes[1],counts.hp[1],counts.mp[1],counts.refused[1],
     counts.flash_render[0],counts.flash_wait[0],counts.flash_render[1],counts.flash_wait[1],script_counts.dialogue,script_counts.audio,script_counts.reload,
     script_counts.waits[0],script_counts.waits[1],script_counts.waits[2],script_counts.waits[3],script_counts.waits[4],
     script_counts.ancestors[0],script_counts.ancestors[1],script_counts.ancestors[2],script_counts.ancestors[3],script_counts.ancestors[4],script_counts.refusals,
-    LagoonNativeRevivalGetStats()->wait_takes,LagoonNativeRevivalGetStats()->ancestor_returns,LagoonNativeRevivalGetStats()->refusals);fclose(f);
+    LagoonNativeRevivalGetStats()->wait_takes,LagoonNativeRevivalGetStats()->ancestor_returns,LagoonNativeRevivalGetStats()->refusals,
+    LagoonNativeCameraGetStats()->calls,LagoonNativeCameraGetStats()->armed,LagoonNativeCameraGetStats()->proposals,
+    LagoonNativeCameraGetStats()->takes,LagoonNativeCameraGetStats()->refusals);fclose(f);
 }
 static int parent_live(const CpuState *cpu) {
   return parent.phase && parent.generation==RtlStateGeneration() && cpu &&
@@ -245,6 +249,7 @@ static int parent_live(const CpuState *cpu) {
 static int recovery_hook(unsigned event,const CpuState *cpu,uint32_t source,
     uint32_t target,const InterpAotContinuation *d,uint16_t owner_entry_s,
     InterpAotAncestor *proposal) {
+  LagoonNativeCameraObserve(event,cpu,source,target,d,owner_entry_s);
   if(LagoonNativeRevivalHook(event,cpu,source,target,d,owner_entry_s,proposal))return 1;
   if(script_hook(event,cpu,source,target,d,owner_entry_s,proposal))return 1;
   if(event==INTERP_CONT_DISCARD){memset(&parent,0,sizeof(parent));return 0;}
@@ -297,6 +302,7 @@ static int recovery_hook(unsigned event,const CpuState *cpu,uint32_t source,
   return 1;
 }
 void LagoonNativeRecovery_BeforeFrame(void) {
+  LagoonNativeCameraBeforeFrame();
   static int configured,report_initialized;
   if(!report_initialized){report_initialized=1;report_path=getenv("LAGOON_NATIVE_RECOVERY_REPORT");
     if(report_path && *report_path)atexit(report);}

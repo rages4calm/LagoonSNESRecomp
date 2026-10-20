@@ -19,6 +19,7 @@ void LagoonWide_OnBackgroundDma(unsigned a,unsigned b,unsigned c,unsigned d){(vo
 void LagoonWide_OnVramWrite(unsigned a){(void)a;}
 void LagoonWide_OnParallaxQueueDma(unsigned a){(void)a;}
 static unsigned refusals,native_cells,far_cells,center_pixels;
+static unsigned actor_type=2;
 static const char *baseline_root;
 static void put(unsigned a,unsigned value){g_ram[a]=(uint8_t)value;g_ram[a+1]=(uint8_t)(value>>8);}
 static void read_dump(unsigned room,const char *suffix,void *data,size_t size) {
@@ -34,7 +35,7 @@ static void oam_for_record(int screen_x,int screen_y,int queued) {
   unsigned cx=ram_word(g_ram,0x480),cy=ram_word(g_ram,0x482);
   put(0x542,cx+screen_x);put(0x544,cy+screen_y);
   g_ram[0x540]=queued?0xc8:0xc0;put(0x48c,queued?1:0);
-  put(0xec0,0x40);g_ram[0xec4]=2;
+  put(0xec0,0x40);g_ram[0xec4]=(uint8_t)actor_type;
   memset(g_ram+0x2000,0,544);
   for(unsigned slot=0;slot<128;++slot) {
     g_ram[0x2000+slot*4]=64;g_ram[0x2200+slot/4]|=(uint8_t)(1u<<((slot%4)*2));
@@ -68,11 +69,11 @@ static void fixture(unsigned room,unsigned kind) {
   memset(&p,0,sizeof(p));ppu_reset(&p);p.inidisp=15;p.obsel=2;p.bgmode=9;
   read_dump(room,"wram.bin",g_ram,sizeof(g_ram));read_dump(room,"vram.bin",p.vram,sizeof(p.vram));
   read_dump(room,"cgram.bin",p.cgram,sizeof(p.cgram));
-  memset(g_ram+0x540,0,0x800);g_ram[0x540]=0xc8;g_ram[0x558]=2;g_ram[0x55b]=(uint8_t)kind;
+  memset(g_ram+0x540,0,0x800);g_ram[0x540]=0xc8;g_ram[0x558]=(uint8_t)actor_type;g_ram[0x55b]=(uint8_t)kind;
   LagoonWideAnimation a={0};assert(LagoonWideEntities_FrameForRoom(g_rom,sizeof(own_rom),room,g_ram+0x540,&a,0,g_ram+0x55c));
   g_config.widescreen=1;LagoonWideEntities_Reset();LagoonWideEntities_Init();atlas();
   PpuSetExtraSpace(&p,213);oam_for_record(100,80,1);LagoonWideEntities_BeginFrame(1);
-  assert(s_kind_witness[1][kind] && !p.extraObjectCount);
+  assert(s_kind_witness[actor_type-1][kind] && !p.extraObjectCount);
 }
 static void far(void) {
   oam_for_record(-140,80,0);LagoonWideEntities_BeginFrame(1);
@@ -137,6 +138,7 @@ static void negatives(void) {
     reject();
   }
 }
+#ifndef LAGOON_WIDE_ACTOR_POLICY_NO_MAIN
 int main(int argc,char **argv) {
   assert(argc==3);baseline_root=argv[2];FILE *f=fopen(argv[1],"rb");
   assert(f&&fread(own_rom,1,sizeof(own_rom),f)==sizeof(own_rom));fclose(f);
@@ -154,3 +156,4 @@ int main(int argc,char **argv) {
   negatives();printf("additional production actor policy: six ordinary kind cases in three actual ROM/loader atlas families, %u synthetic far cells/%u original-slot seam cells, %u zero native-center pixels, %u context/source/OAM/atlas/phase refusals PASS\n",far_cells,native_cells,center_pixels,refusals);
   return 0;
 }
+#endif

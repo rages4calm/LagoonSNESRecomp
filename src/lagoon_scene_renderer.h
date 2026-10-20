@@ -10,7 +10,7 @@ typedef struct LagoonSceneRendererStats {
 /* Stable Atland and exact Gold Cave03/04/05/06 plus room07 parallax
  * and exact ordinary room08 Elf Field/selected rooms2C..37. Observe lines1..224, then EndFrame.
  * All presentation data is copied; TryPresent never reads the mutable guest. */
-/* Pure exact descriptor matcher for selected ordinary rooms2C..37. This is
+/* Pure exact descriptor matcher for ordinary rooms19..1C and2C..37. This is
  * background resource scope, not actor, fade, map-upload or raster authority. */
 int LagoonSceneRenderer_AdditionalRoom(const uint8_t *ram);
 void LagoonSceneRenderer_Reset(void);

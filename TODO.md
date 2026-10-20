@@ -3,6 +3,31 @@
 Keep the interpreter safety net and publish source in substantial, verified
 batches. Generated routine counts are not campaign completion percentages.
 
+- [x] Batch26: restore existing native actor/boss dispatch through the approved
+      centered-camera trampoline. Actual witnessed call/JMP/owner frame, source,
+      mode, binary arithmetic, one-shot generation and SDK validation required.
+      No new generated bodies; all408 and all22 continuations retained.
+- [x] 5,599 owner/SDK guard checks and102,144 original-camera/native opcode cases;
+      distinguish14,288 full returns,36,784 genuine child boundaries and51,072
+      deadline-before-native-entry yields. Four final matched affected routes:
+      13,955 observations/eight checkpoints/23,748 actual handoffs, zero refusals.
+- [x] Four exact NPC scene contexts19..1C, independently sourced room19 animated
+      DMA ownership, bounded authored kind91 support without widening old rooms.
+      Four loader pairs plus actual NPC70 far route:4,599 observations/six
+      checkpoints/3,383 replacements/zero mismatch. Synthetic placements and
+      source-only NPC91 proof are distinct from actual NPC70 gameplay.
+- [x] Exact tested91D8 build installed; cold revival/NPC32 component hashes and
+      ordered pictures match;110 owner inputs unchanged. New actual1080p hidden
+      GPU readbacks, bounded room19 dummy-audio pacing sample and Jev triage.
+- [ ] Next native: original child/script/endgame service ownership and other/fall
+      AAF6 death when a source-backed affected route warrants it. Centered-camera
+      dispatch is fixed; do not repeat seven boss bodies, refill or revival.
+- [ ] Next renderer: further exact resources/special actors and concrete transition
+      defects. Keep source/mode/stack/generation guards, unknown-context fallback
+      and original raster. No generic room/kind authorization.
+
+## Batch25 completed work
+
 - [x] Batch25: seven source-backed native boss animation/attack-selection bodies;
       408 AOT/112 analyzed LLE/287 roots, all previous dispositions/exit facts
       preserved. 102,144 actual generated-body/original-opcode checks pass.
@@ -13,10 +38,10 @@ batches. Generated routine counts are not campaign completion percentages.
       enemy pairs pass; original four-family door chain remains qualified.
 - [x] Full-word queue/source/both-context/OAM/atlas/priority/center refusals;
       unsupported special actors and original audio/dialogue/ending keep floor.
-- [ ] Next native: useful remaining Thimale/endgame script or service ownership,
-      with actual source/mode/stack provenance. Do not redo the completed seven
+- [ ] Historical next native: Thimale camera bypass was resolved in batch26; remaining
+      child/endgame service ownership needs actual source/mode/stack provenance. Do not redo the completed seven
       animation bodies, revival consumption, recovery loops or boss refill.
-- [ ] Next renderer: other source-proven actor/scene families and reported gaps.
+- [ ] Historical next renderer: batch26 adds exact NPC19..1C; other families remain.
       The twelve new authored lists have no ordinary NPCs; do not fabricate NPC
       coverage. Preserve unsupported/special actor fallback and full reference.
 

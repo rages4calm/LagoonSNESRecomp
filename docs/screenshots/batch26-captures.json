@@ -1,0 +1,54 @@
+{
+  "schema": "Lagoon batch26 actual hidden GPU readbacks v1",
+  "captures": [
+    {
+      "file": "room19-batch26-32x9-1920x1080.png",
+      "room_hex": "19",
+      "display_frame": 1100,
+      "aspect": "32:9",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "visible_window": false,
+      "fullscreen": false,
+      "hidden_gpu": true,
+      "dummy_audio": true,
+      "enhanced_epx": true,
+      "exe_sha256": "91d8c0119e304e2cc5424d960f00629d0e475916aaedd203f1ba680fce6effb1",
+      "manifest_sha256": "63abf343c3e27f2a008a352df7dd64b4121962fcdd1f0b2dd1ffac44d4d4d598",
+      "png_sha256": "4fccb0c3cfb98dcbfc1038af6050fbeb95115ee56420d4a92880006b6f5f863b",
+      "bmp_sha256": "800de32b03fd76894c8251ecf95826fc4e6fc495510a690231c6c517624045a1",
+      "rgba_sha256": "3d52ea89a37ce6c4667c868f453eaf3925c9ff8db847ba751e17ba2072c5aa9b",
+      "lossless_no_resize": true,
+      "renderer_mismatches": 0,
+      "renderer_replacements": 1505,
+      "assisted_route": true
+    },
+    {
+      "file": "room1a-batch26-16x9-1920x1080.png",
+      "room_hex": "1a",
+      "display_frame": 800,
+      "aspect": "16:9",
+      "resolution": [
+        1920,
+        1080
+      ],
+      "visible_window": false,
+      "fullscreen": false,
+      "hidden_gpu": true,
+      "dummy_audio": true,
+      "enhanced_epx": true,
+      "exe_sha256": "91d8c0119e304e2cc5424d960f00629d0e475916aaedd203f1ba680fce6effb1",
+      "manifest_sha256": "63abf343c3e27f2a008a352df7dd64b4121962fcdd1f0b2dd1ffac44d4d4d598",
+      "png_sha256": "7cacaae96466cd5c87ffea7a8bd8ffd9413d03a6918eff6d297b18ddc8f2e8be",
+      "bmp_sha256": "07766b8a160e0b5f3a9daca38d1ba8006119e9a738cd750cb12cd1197568c8cd",
+      "rgba_sha256": "5c151f8df7b0d8e9c39ba005345e6da39b2bf807351d855bff4ffbe7f3deb796",
+      "lossless_no_resize": true,
+      "renderer_mismatches": 0,
+      "renderer_replacements": 616,
+      "assisted_route": true
+    }
+  ],
+  "scope": "Actual1920x1080 OpenGL readbacks from hidden nonfullscreen windows with Enhanced original pixels; dummy audio preserves the bounded campaign cheat guard; no fullscreen/scanout claim."
+}

@@ -12,6 +12,7 @@ static InterpAotContinuation entries[32];
 static InterpAotContinuationGuard source_guard;
 static unsigned registrations,checks;
 uint64_t RtlStateGeneration(void){return 1;}
+int interp_bridge_set_aot_tail_hook(uint32_t source,InterpAotTailHook hook){(void)source;(void)hook;return 1;}
 void interp_bridge_set_aot_continuation_hook(InterpAotContinuationHook hook){(void)hook;}
 int interp_bridge_set_aot_continuations(const InterpAotContinuation *d,
     unsigned n,InterpAotContinuationGuard guard) {

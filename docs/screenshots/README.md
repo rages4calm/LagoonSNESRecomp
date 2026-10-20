@@ -76,11 +76,29 @@ and diagnostic overhead. A separate clean hidden-GPU interval measured about
 limits](../PERFORMANCE.md); the older 46.2 fps dialogue capture above is a
 historical measurement, not the current controlled result.
 
-## Batch 19 — Gold Cave, 16:9, Enhanced original pixels
+## Batch 19 â€” Gold Cave, 16:9, Enhanced original pixels
 
 ![Gold Cave during the batch19 fullscreen check](gold-cave-batch19-1920x1080.png)
 
-Actual 1920×1080 OpenGL desktop-fullscreen readback from the selected batch19
+Actual 1920Ã—1080 OpenGL desktop-fullscreen readback from the selected batch19
 build, with Enhanced original pixels. PNG preserves the readback resolution
 and colors. This is an assisted performance encounter; the upper black region
 is authored space outside this cave corridor. See [capture metadata](batch19-capture.json).
+
+
+## Batch26 - new NPC contexts, hidden GPU captures
+
+![Room19 with an actual NPC beyond the original view](room19-batch26-32x9-1920x1080.png)
+
+Room19 at32:9, with the real NPC70 patrol visible to Nasir's right. The wide
+field is letterboxed on a16:9 output. Black space at a finite map edge is retained.
+
+![Room1A interior with original NPC artwork](room1a-batch26-16x9-1920x1080.png)
+
+Room1A at16:9; this narrow authored room has finite black margins. These are
+actual1920x1080 OpenGL readbacks from the selected batch26 build, using Enhanced
+original pixels. PNG conversion is lossless, with no resize/crop/repainting.
+Both were captured in a **hidden nonfullscreen window**, with dummy audio to
+preserve the bounded assisted-room-loader guard. They are distinct from the
+historical visible fullscreen captures above and are not physical scanout proof.
+See [exact capture metadata](batch26-captures.json) and [renderer scope](../CUSTOM-RENDERER.md).

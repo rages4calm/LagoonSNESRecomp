@@ -290,3 +290,21 @@ end-dump2583, are excluded. Original actor positioning assistance and private
 volume0 are unchanged. This checks frame pacing after the framework changes;
 it does not measure physical scanout, locked60fps, the twelve newly admitted
 renderer rooms or full-campaign performance.
+
+
+## Batch26: room19 hidden GPU sample
+
+Final91D8 was measured at actual1920x1080 OpenGL output with Enhanced original
+pixels and32:9 scenery. The original assisted room loader ran with dummy audio,
+as required by its bounded cheat guard. In the stable room19 idle interval1250
+through1650,400 consecutive presentation intervals average16.6405ms (60.0944
+updates/s),p9518.3816ms,max23.4213ms,zero above25ms. All401 sampled logic rows
+remain room19 with loading zero. Mean active CPU stages total3.1578ms,
+p954.0782ms,max9.6935ms; frame-delay waiting is excluded from that stage sum.
+The overall route records1,505 verified/replaced presentations and zero renderer
+mismatches. This is a bounded hidden-window dummy-audio sample, not real-device
+audio pacing, physical scanout or a locked60FPS/all-room guarantee.
+
+An earlier real-audio attempt was refused by the existing campaign guard and
+stayed in room02. It is not new-area coverage. Production cheat guards were
+preserved. Two new1920x1080 readbacks are [documented here](screenshots/README.md#batch26--new-npc-contexts-hidden-gpu-captures).

@@ -72,14 +72,17 @@ typedef struct AdditionalFamily { unsigned bg,obj,definitions; } AdditionalFamil
 typedef struct AdditionalRoom { unsigned room,width,height,family; } AdditionalRoom;
 static const AdditionalFamily s_additional_families[]={
   {0x15a43d,0x1b84d8,0x078c00},{0x15a43d,0x1ba17d,0x0794dc},
-  {0x15b8ac,0x1ba17d,0x079c14},{0x15c815,0x1cc387,0x07a0d8}
+  {0x15b8ac,0x1ba17d,0x079c14},{0x15c815,0x1cc387,0x07a0d8},
+  {0x13d745,0x1db67e,0x06d090},{0x13d745,0x1b8000,0x06d090},
+  {0x12e794,0x1db67e,0x06d984}
 };
 /* Exact original descriptors, not authority inferred from shared scenery. */
 static const AdditionalRoom s_additional_rooms[]={
   {0x2c,256,192,0},{0x2d,128,64,0},{0x2e,128,64,0},
   {0x2f,256,192,1},{0x30,64,64,1},{0x31,64,64,1},
   {0x32,256,192,2},{0x33,96,64,2},{0x34,128,64,2},
-  {0x35,256,192,3},{0x36,96,64,3},{0x37,96,64,3}
+  {0x35,256,192,3},{0x36,96,64,3},{0x37,96,64,3},
+  {0x19,128,128,4},{0x1a,32,32,4},{0x1b,32,64,5},{0x1c,96,128,6}
 };
 int LagoonSceneRenderer_AdditionalRoom(const uint8_t *r) {
   if(!r||r[0x50]||ptr(r,0x88)!=0x7f0000||ptr(r,0x8b)!=0x7f4000)return 0;

@@ -81,7 +81,7 @@ def main():
     parser.add_argument('--offscreen',action='store_true',help='Real GPU in a hidden non-fullscreen window; no desktop display changes')
     parser.add_argument('--real-audio',action='store_true',help='Use the actual audio device for an isolated visible/offscreen performance check instead of dummy audio')
     parser.add_argument('--display-screenshot-range',nargs=2,type=int,metavar=('FIRST','LAST'),help='Read back a bounded range of actual GPU frames; requires visible or offscreen')
-    parser.add_argument('--display-screenshot-frame',type=int,help='Capture the actual SDL output at this frame; requires --visible')
+    parser.add_argument('--display-screenshot-frame',type=int,help='Capture the actual SDL output at this frame; requires --visible or --offscreen')
     parser.add_argument('--features',default='',help='Comma-separated lagoon.quality feature ids; creates a private mod catalog')
     parser.add_argument('--feature',action='append',default=[],help='Additional package_id:feature_id; repeatable')
     parser.add_argument('--env',action='append',default=[],help='Allowlisted diagnostic KEY=VALUE; relative output paths stay under --out')
@@ -94,8 +94,8 @@ def main():
     args=parser.parse_args()
     if args.visible and args.offscreen:parser.error('Choose visible OR offscreen')
     if args.real_audio and not (args.visible or args.offscreen):parser.error('--real-audio requires --visible or --offscreen')
-    if args.campaign_warps and (args.visible or args.offscreen or args.live_input):
-        parser.error('Campaign warps require an isolated headless scripted run')
+    if args.campaign_warps and (args.visible or args.live_input):
+        parser.error('Campaign warps require an isolated scripted run without a visible window or physical input')
     if args.no_present_log and args.screenshot_range:
         parser.error('--no-present-log cannot use --screenshot-range, which creates its own per-field CRC log')
     if (args.display_screenshot_frame or args.display_screenshot_range) and not (args.visible or args.offscreen):

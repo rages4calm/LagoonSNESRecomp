@@ -6,49 +6,46 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress - October 20, 2026
 
-Batch25 adds seven native boss routines and widens ordinary enemy rendering in
-the twelve recently added rooms, **2C..37**. The selected build contains
-**408 AOT /112 analyzed LLE /287 roots**. These counts are not completion
-percentages. The interpreter safety net remains enabled. Installed cold checks match72
-component hashes; all110 protected inputs remain unchanged.
+Batch26 fixes a native-dispatch gap caused by the optional centered camera.
+Its real camera trampoline now hands control to the existing native actor/boss
+loop with source, CPU-mode, stack and generation checks. The short Thimale test
+changes 648 interpreted actor-loop entries to 648 actual guarded native handoffs.
+Four longer matched boss/death/revival routes pass **13,955 ordered observations
+and eight complete checkpoints**, recording 23,748 native handoffs.
 
-The new routines cover Eardon, Duma, Thimale, Ella and the Green/Red Evil Spirit
-animation states, plus their original attack-selection helper. **102,144
-generated-code/original-instruction cases pass**, checking RAM, registers, flags,
-stack and CPU/master/coprocessor clocks. Fourteen primary matched assisted
-replays pass 57,065 ordered observations and 28 complete checkpoints; six
-additional matched diagnostic replays check interpreted entry use. Thimale's
-saved route still uses substantial interpreted execution. Original audio,
-dialogue, nonlocal scripts, unsupported modes and the ending loop retain their
-fallbacks; this is not a fully native game or a full credits qualification.
+The selected build remains **408 AOT /112 analyzed LLE /287 roots**; this batch
+adds no generated bodies. These counts are not completion percentages. The
+interpreter safety net remains enabled, including unsupported modes, child
+services, dialogue/audio and the ending loop. This is not a fully native game
+or a complete credits qualification.
 
-The twelve exact scene contexts now allow source-checked actor seams and
-offscreen ordinary enemies. Live assisted routes exercise six actual spawned
-enemy kinds in rooms2C/2F/35, with original animation, palette, priority and
-native-view alignment. These authored room lists contain no ordinary NPCs;
-there is no invented NPC spawn or claim of live NPC coverage here. Unknown and
-special-status actors keep the fallback. The renderer still uses original pixel
-art and checks its output against the reference raster.
+The custom renderer now covers four more exact ordinary NPC contexts,
+**19..1C**, including source-owned animated scenery in19. Four loader off/auto
+pairs and a genuine NPC70 near/far route pass **4,599 ordered presentations and
+six checkpoints**, with 3,383 replacements and zero renderer mismatches.
+Independent original-opcode checks cover the authored NPC selectors, complete
+metasprite drawing and both480-byte animation DMA phases. The previously added
+2C..37 backgrounds and six ordinary enemy kinds remain qualified.
 
-Twelve loader off/auto pairs pass 10,332 ordered observations and 48 checkpoints.
-On the final hardened build, three actual-enemy off/auto routes and a route
-through the original 2C→2F→32→35 doors pass another 6,730 observations and
-25 checkpoints, with zero renderer mismatches. The earlier loader/native
-comparisons are recorded against their actual build; an independently checked
-single-guard source/object transfer binds them to the final build. Intentional
-new margin pixels remain differences in old/new image comparisons.
+The exact tested executable is installed. Cold revival and NPC checks match
+**32 component hashes and all ordered pictures**; all110 protected owner inputs
+remain unchanged. The NPC comparator retains a strict-false advisory report-path
+difference rather than hiding it. The renderer uses original artwork and keeps
+its reference raster and unsupported-context fallback.
 
-Coverage uses explicit player stat/position cheats and original room loaders,
-combat and scripts. Jev screened twelve native captures and three expanded
-presentations; uncertain output was checked manually. It neither controls
-gameplay nor accepts parity results. The owner and friends perform the
-uninterrupted campaign playtest.
+Assisted routes use explicit cheats, original room loaders, combat and scripts.
+Jev triaged four native scenes and the expanded NPC capture; source/state/pixel
+checks decide acceptance. The owner and friends perform the uninterrupted campaign.
+A bounded hidden1920×1080 GPU sample in room19 averages60.09 presentation
+updates/s, with p9518.38ms and max23.42ms across400 intervals. It uses dummy
+audio and is not a real-device audio, scanout or all-room60FPS guarantee.
 
-See [batch25](NATIVE-BATCH25-2026-10-20.md),
-[the custom renderer](docs/CUSTOM-RENDERER.md) and
-[frame pacing evidence](docs/PERFORMANCE.md). The earlier room07 hidden1080p
-real-audio sample remains historical evidence, not a new-area or scanout claim.
-Earlier qualified recovery, menu and scene work remains documented in
+See [batch26](docs/NATIVE-BATCH26-2026-10-20.md),
+[the custom renderer](docs/CUSTOM-RENDERER.md),
+[new1080p captures](docs/screenshots/README.md#batch26--new-npc-contexts-hidden-gpu-captures)
+and [frame pacing evidence](docs/PERFORMANCE.md).
+Earlier completed boss, recovery, menu and scene work remains documented in
+[batch25](NATIVE-BATCH25-2026-10-20.md),
 [batch24](NATIVE-BATCH24-2026-10-20.md) and
 [batch23](NATIVE-BATCH23-2026-10-20.md).
 
