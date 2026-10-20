@@ -345,13 +345,17 @@ unsigned LagoonWideTorches_Bytes(unsigned room,unsigned source) {
   /* Elf Field's six animated world characters use their own two-frame
    * descriptor; they must not borrow the cave's three torch phases. */
   if(room==8 && source==0x12B297)return 0xC0;
+  /* Exact late-room resource family: original descriptor01:E058/tableDD8B
+   * owns four64-byte transfers, not Elf Field/cave frame identities. */
+  if(room>=0x35 && room<=0x37 && source==0x15C815)return 0x40;
   return room>=3 && room<=6 && source==0x128B77 ? 0xC0 : 0;
 }
 static unsigned animation_base(unsigned room) {
-  return room==1?0x8000:room==2?0x8300:room==8?0x8B40:0x8900;
+  return room==1?0x8000:room==2?0x8300:room==8?0x8B40:
+    room>=0x35&&room<=0x37?0xBB00:0x8900;
 }
 static unsigned animation_variants(unsigned room) {
-  return room==2?4:(room==1 || room==8)?2:3;
+  return room==2||(room>=0x35&&room<=0x37)?4:(room==1 || room==8)?2:3;
 }
 void LagoonWideTorches_Reset(LagoonWideTorches *t) {
   if(t)memset(t,0,sizeof(*t));
@@ -384,8 +388,10 @@ void LagoonWideTorches_Write(LagoonWideTorches *t,unsigned address,uint8_t value
   if(t->left)return;
   unsigned base=animation_base(t->room),frames=animation_variants(t->room);
   unsigned entries=t->room==2?12:frames;
-  unsigned descriptor=t->room==1?0x1DFE0:t->room==2?0x1DFE8:t->room==8?0x1DFF8:0x1DFF0;
-  unsigned table=t->room==1?0x1D9E3:t->room==2?0x1DA42:t->room==8?0x1DA79:0x1DA6B;
+  unsigned descriptor=t->room==1?0x1DFE0:t->room==2?0x1DFE8:t->room==8?0x1DFF8:
+    t->room>=0x35&&t->room<=0x37?0x1E058:0x1DFF0;
+  unsigned table=t->room==1?0x1D9E3:t->room==2?0x1DA42:t->room==8?0x1DA79:
+    t->room>=0x35&&t->room<=0x37?0x1DD8B:0x1DA6B;
   unsigned source=0x100000+base+t->frame*bytes;
   /* Guard the actual animation selector/descriptor and its source pointers.
    * A modified animation table cannot silently borrow these frame identities. */

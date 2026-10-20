@@ -1,6 +1,90 @@
 # Current development checkpoint - October 20, 2026
 
-Batch23 is qualified, selected and installed for the focused native/renderer routes:
+Batch24 is qualified, selected and installed: **401 AOT /112 analyzed LLE /280 roots**. These
+counts are not completion percentages. The interpreter safety net and original
+unsupported-path fallback remain.
+
+Installed executable SHA256:
+`14bbf8c764b0238910e48fd2ddfd09a37023daef0d9377129fd208cbc6499fb2`.
+Manifest SHA256:
+`6dc5d93d2bb996c65f32aadbd8ec58b9c94adcb542739f1562209231a7fca04d`.
+The exact qualified outputs were moved into the working runtime without
+rebuilding or creating backup trees. Cold installed revival and four-family door
+checks match 72 component hashes at nine checkpoints;110 owner inputs remain
+unchanged. Installed revival takes one genuine wait and one ancestor return;
+a later retired proposal is safely refused once. The installed renderer chain
+positively replaces each family with zero mismatches.
+
+Three new CDB7/CDE0/D8D4 bodies extend actual revival/item consumption and
+its original return/audio path. Eleven boss bodies cover B81A/B837/B845 setup,
+progression and original inline-dispatch selection; five post-wait event-flag
+stages, B8E1 real helper return, B909 scene-reload return and937C's original
+SPC2141 polling. Every read and charged wait is retained. B816 wrapper, original
+dialogue/audio,80E9 nonlocal dispatch and B90B endgame loop remain interpreted.
+B88E/B8E2 prefixes remain original; native stages follow genuine child returns.
+
+All 387 prior native entries and their old exit facts remain. Necessary older
+9371/D8CE tail dispatches enter the new routines. B8D8 retains its native render
+prefix and reaches original B8DD through interpretation, allowing the actual JSL
+to arm its wait token. The player-selector identifier
+rename changes no guest operations. Central registration collects 22 guarded
+continuations. Five event stages witness seven actual stack bytes; revival
+ownership witnesses eleven. The SDK accepts at most 32 descriptors and four
+explicit RTL sites, with old guards refusing newly nonzero extra return sites.
+
+83,232 actual generated-body/original-opcode cases pass:73,728 revival and9,504
+boss cases, including whole128KiB RAM, registers/flags, real saved/dead stack and
+CPU/master/coprocessor clocks. There are1,809 revival and1,658 boss source/policy
+cases, plus96 positive four-site SDK takes and116 stack mutants. SPC bus fixtures
+include864 busy/ready cases and384 actual deadline yields; live APU/sound timing
+remains a separate matched-route check. Child-boundary oracle sentinels stop at
+original callee entry and never fabricate sound, render results or returns.
+Twelve initial-build old/new strict checks on `bcd237ee` pass 46,241 observations
+and 24 checkpoints. After correcting B8D8's actual wait-call handoff, one focused
+final-build `14bbf8c7` pair passes 2,911 observations/two checkpoints, positively
+taking all five waits and five ancestor returns once each, with zero refusals.
+Together these are 13 recorded checks/49,152 observations/26 checkpoints across
+two builds, not 13 full checks on one executable. Independent final transfer
+review verifies all 14 new native body hashes and reused renderer objects;
+83,232 opcode cases retain their exact body binding. Final installed cold checks
+provide separate actual-executable proof.
+
+The renderer adds rooms2C..37 across four exact resource families. New areas
+use original native OAM actors, full-brightness/non-loading authorization and
+reference fallback. No far actors or fades are newly authorized. The thirteen
+same-executable off/auto checks include twelve rooms and the genuine2C→2F→32→35
+door chain. Intentional expanded-background differences keep old/new strict
+image reports false; native pictures and full state/clock comparisons remain
+separate requirements. No CRC mask converts them into strict passes.
+The thirteen initial-build off/auto pairs pass 12,241 ordered observations and 55
+checkpoints:8,239 replacements,1,881 independent draws,287,356,608 source pixels,
+zero mismatches. All thirteen old/new strict expanded-image reports intentionally
+remain false; separate source qualification passes. Final rendering is supported
+by exact reused-object verification plus the actual installed four-family chain,
+not a claim that all thirteen pairs were rerun on the final binary.
+
+The final installed hidden1080p EPX16:9 real-audio stable-room07 sample measures
+60.08672 updates/s over 550 intervals, p95 17.2164 ms, max17.8968 ms and none above
+25 ms. This measures presentation calls, not fullscreen scanout, locked60FPS,
+new-room performance or campaign-wide pacing.
+
+Optional Jev-assisted review screened twelve native captures in one 0.557-second
+batch using `jev-1.13.0`; one uncertain result was manually cleared. The helper
+has no controller or acceptance authority. Explicit teleporting, faster defeats
+and staged script kinds0A/0C accelerate bounded coverage; they are not a natural
+campaign claim. SDK upstream remains37aba with the existing cumulative local
+patch; its dirty checkout HEAD/index are preserved.
+
+See [batch24](../NATIVE-BATCH24-2026-10-20.md),
+[custom rendering](CUSTOM-RENDERER.md) and [frame pacing](PERFORMANCE.md).
+Next: further proven native script/death boundaries and exact scene resources.
+The map/door/exit system and optional zoom-out remain later considerations.
+Owner/friends handle the uninterrupted campaign. Do not repeat earlier completed
+work without a newly affected route.
+
+## Historical batch23 checkpoint
+
+Batch23 was qualified, selected and installed before batch24 for these focused routes:
 **387 AOT /119 analyzed LLE /268 roots**. These are not completion percentages.
 The interpreter safety net and original unsupported-path fallback remain.
 
@@ -69,7 +153,7 @@ Four native segments resume the original boss HP/MP refill across genuine waits,
 with exact source/mode/stack/generation/phase ownership. The approved centered
 camera trampoline retains its real caller frame. All378 prior native bodies and
 all prior exit-width facts remain byte-identical. Eleven affected old/new pairs
-match44,579 ordered observations and26 complete state/clock checkpoints, including
+match44,579 ordered observations and 26 complete state/clock checkpoints, including
 all seven assisted boss wins, revival, player death and two partial HP/MP cases.
 Actual generated-code boundary oracle:23,040 cases. This does not certify all
 boss scripts, death recovery or a natural campaign.
@@ -124,7 +208,7 @@ full-reference comparison are unchanged. This is not a renderer speedup claim.
 A separate hidden1080p EPX real-audio run traverses the original03→04→05→06
 doors, with its only diagnostic dump at the end. Across1,328 presentation
 intervals it measures60.02539Hz,p9518.2993ms,max22.8731ms and zero intervals
-above25ms. Eleven audio high-water waits remain. An earlier capture-heavy route
+above 25ms. Eleven audio high-water waits remain. An earlier capture-heavy route
 had two longer intervals immediately following intermediate checkpoint writes;
 those are not established gameplay regressions. These bounded measurements do
 not establish fullscreen/scanout, locked60FPS or campaign-wide pacing.
@@ -162,7 +246,7 @@ components. Unsupported/fade fields retain fallback; no new actor producer is
 authorized. Full reference rendering still runs, so no speed improvement is claimed.
 
 A bounded hidden GPU1080p check with real audio measures60.13455Hz presentation,
-p9517.6462ms/max21.2181ms and no intervals above25ms. The sample has274 original
+p9517.6462ms/max21.2181ms and no intervals above 25ms. The sample has274 original
 two-field gameplay ticks and no slower ticks. Eleven audio high-water waits retain
 the existing safeguards. This batch makes no new fullscreen, physical-scanout,
 locked60 or complete-campaign performance claim.

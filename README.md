@@ -6,37 +6,49 @@ is required. The executable does not depend on Mesen; it is a development refere
 
 ## Current progress - October 20, 2026
 
-Batch23 adds native Nasir death animation, guarded boss death-flash loops and
-exact room08 Elf Field custom rendering: **387 AOT /119 analyzed LLE /268 roots**.
-The exact tested build is installed; cold checks match 48 component hashes.
-The interpreter safety net remains. Counts are not completion percentages;
-the owner and friends perform the uninterrupted campaign playtest.
+Batch24 extends native revival/item recovery and boss victory scripts, and adds
+exact custom backgrounds for twelve more rooms: **401 AOT /112 analyzed LLE /
+280 roots**. The exact tested build is installed;72 cold component hashes match.
+The interpreter safety net remains. Counts are not completion
+percentages; the owner and friends perform the uninterrupted campaign playtest.
 
-Nasir's original four-stage ordinary death animation and its paired selector
-now run natively. Separately, boss/special-actor death flashes resume across six
-original render/wait cycles with their real saved registers and caller frames.
-Ten final old/new strict route pairs pass 38,274 ordered observations and 20
-complete state/clock checkpoints, including all seven assisted boss wins,
-revival and player death. The watched Nasir animation changes from 37 interpreter
-entries to zero. Existing revival/refill arithmetic is preserved, rather than
-newly rewritten. The five new generated bodies pass 57,600 original-opcode cases.
-These are bounded, assisted checks, not complete native death/boss orchestration.
+Fourteen original native bodies are added: three for actual revival/item
+consumption and eleven for boss dialogue setup, progression, post-wait event
+flags, scene-reload return and the original SPC sound-ready polling loop.
+Twenty-two source/mode/stack/generation-owned continuations preserve real calls,
+returns, saved registers and original owner frames. Original dialogue, audio,
+inline script dispatch and unsupported paths keep their interpreter boundaries.
+All prior native entries and old exit-width contracts remain available.
 
-Room08 Elf Field joins stable Atland and exact Gold Cave03..07 in the custom
-scene renderer. Three final same-executable off/auto routes match 3,229 ordered
-observations and nineteen checkpoints, with 2,458 replacements and zero mismatches.
-A separately source-proven correction fixes 99 expanded-picture observations
-per route during Elf Field's opening quake. Those three old/new strict image
-reports remain false; native pixels, complete checkpoint components and clocks
-are exact. No CRC differences were hidden. The full reference renderer and
-unsupported-field fallback remain; this is not new artwork or a GPU speedup.
+The actual generated-body/original-opcode oracles pass **83,232 cases**, including
+full RAM, registers, flags, stack and CPU/master/coprocessor clocks. Assisted boss
+routes use teleporting and faster defeats for coverage. Separate explicitly staged
+script kinds exercise five genuine waits and a scene-reload branch; these are
+not natural campaign progression. Twelve initial-build checks and a final
+focused wait-handoff recheck pass 49,152 ordered observations and 26 checkpoints
+across the two recorded builds. The final five-wait branch positively takes all
+five native returns and ancestors; unchanged body/object transfer is independently
+verified rather than presented as a fresh full replay of the final executable.
 
-See [batch23](NATIVE-BATCH23-2026-10-20.md),
+The custom renderer adds exact rooms **2C..37** across four resource families,
+plus a route through the original 2C→2F→32→35 doors. New areas keep original native
+OAM actors and enable replacement only on fully bright, non-loading fields;
+far actor expansion and new fade ownership remain disabled. Expanded background
+images intentionally differ from the old build. Old/new strict image comparisons
+remain false where that happens; guest/native pixels and checkpoint clocks must
+still match, and no CRC masks turn these differences into strict passes.
+Thirteen initial-build off/auto pairs pass 12,241 observations and 55 checkpoints,
+with 8,239 replacements and zero mismatches. Unchanged renderer objects are
+verified on the final build, whose installed four-family door chain also passes.
+
+See [batch24](NATIVE-BATCH24-2026-10-20.md),
 [the custom renderer](docs/CUSTOM-RENDERER.md) and
-[frame pacing evidence](docs/PERFORMANCE.md). The final hidden1080p real-audio
-room07 sample measures 60.09 updates/s across 550 intervals, with p95 17.35 ms,
-max 17.81 ms and no interval above 25 ms. This is not a locked60 or scanout claim.
-Previous guarded refill and room07 work remains in
+[frame pacing evidence](docs/PERFORMANCE.md). These checks do not establish a
+fully native game, complete campaign coverage or a locked60/scanout guarantee.
+The installed hidden1080p real-audio room07 sample measures60.09 updates/s,
+p95 17.22 ms, max17.90 ms and no interval above 25 ms across 550 intervals.
+Earlier qualified death animation, refill and scene work remains documented in
+[batch23](NATIVE-BATCH23-2026-10-20.md) and
 [batch22](NATIVE-BATCH22-2026-10-18.md).
 
 The five audited menu checks open Items/Magic/Equipment in20/18/19 fields and
@@ -67,7 +79,7 @@ exploration is not relabeled as a natural complete playthrough.
 [View the 1,920×1080 fullscreen captures](docs/screenshots/README.md), including
 wide town dialogue, Items/Magic, Atland and Gold Cave.
 
-![Atland dialogue in widescreen fullscreen](docs/screenshots/atland-dialogue-21x9-1,920x1080.png)
+![Atland dialogue in widescreen fullscreen](docs/screenshots/atland-dialogue-21x9-1920x1080.png)
 
 ## Launcher
 

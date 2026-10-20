@@ -44,6 +44,7 @@ add_executable(LagoonSNESRecomp
     src/host_contract.c
     src/game_rtl.c
     src/lagoon_native_recovery.c
+    src/lagoon_native_revival.c
     src/lagoon_state.c
     src/lagoon_fast_menus.c
     src/lagoon_menu_decode.c

@@ -692,3 +692,138 @@ emit = true
 entry_m = 1
 entry_x = 0
 note = "Batch23 actual Nasir low-state selector and complete ordinary death timer animation, original balanced pointer tail frame; walking and other death stay interpreted"
+
+[[func]]
+name = "Lagoon_Boss_VictoryScript"
+addr = "b816"
+bank = 1
+emit = false
+entry_m = 1
+entry_x = 0
+note = "Batch24 source-closed real-frame continuation; original audio, waits and nonlocal dispatch retain interpreter boundaries"
+
+[[func]]
+name = "Lagoon_Boss_DialogueSetup"
+addr = "b81a"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch24 source-closed real-frame continuation; original audio, waits and nonlocal dispatch retain interpreter boundaries"
+
+[[func]]
+name = "Lagoon_Boss_ProgressionAfterDialogue"
+addr = "b837"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch24 source-closed real-frame continuation; original audio, waits and nonlocal dispatch retain interpreter boundaries"
+
+[[func]]
+name = "Lagoon_Boss_InlineScriptSelect"
+addr = "b845"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch24 source-closed real-frame continuation; original audio, waits and nonlocal dispatch retain interpreter boundaries"
+
+[[func]]
+name = "Lagoon_Boss_ScriptWaitReturn"
+addr = "b8e1"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch24 source-closed real-frame continuation; original audio, waits and nonlocal dispatch retain interpreter boundaries"
+
+[[func]]
+name = "Lagoon_Boss_ScriptFlags40"
+addr = "b8a5"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch24 source-closed real-frame continuation; original audio, waits and nonlocal dispatch retain interpreter boundaries"
+
+[[func]]
+name = "Lagoon_Boss_ScriptFlags20"
+addr = "b8ad"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch24 source-closed real-frame continuation; original audio, waits and nonlocal dispatch retain interpreter boundaries"
+
+[[func]]
+name = "Lagoon_Boss_ScriptFlags10"
+addr = "b8b5"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch24 source-closed real-frame continuation; original audio, waits and nonlocal dispatch retain interpreter boundaries"
+
+[[func]]
+name = "Lagoon_Boss_ScriptFlags08"
+addr = "b8bd"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch24 source-closed real-frame continuation; original audio, waits and nonlocal dispatch retain interpreter boundaries"
+
+[[func]]
+name = "Lagoon_Boss_ScriptFlagsFinish"
+addr = "b8c5"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch24 source-closed real-frame continuation; original audio, waits and nonlocal dispatch retain interpreter boundaries"
+
+[[func]]
+name = "Lagoon_Boss_SceneReloadReturn"
+addr = "b909"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch24 source-closed real-frame continuation; original audio, waits and nonlocal dispatch retain interpreter boundaries"
+
+[[func]]
+name = "Lagoon_Death_FlashSpcPoll"
+addr = "937c"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch24 source-closed real-frame continuation; original audio, waits and nonlocal dispatch retain interpreter boundaries"
+
+[[func]]
+name = "Lagoon_Inventory_ConsumeItem"
+addr = "cdb7"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch24 source-closed real-frame continuation; original audio, waits and nonlocal dispatch retain interpreter boundaries"
+
+[[func]]
+name = "Lagoon_Inventory_ConsumeReturn"
+addr = "cde0"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch24 source-closed real-frame continuation; original audio, waits and nonlocal dispatch retain interpreter boundaries"
+
+[[func]]
+name = "Lagoon_Inventory_UseReturn"
+addr = "d8d4"
+bank = 1
+emit = true
+entry_m = 1
+entry_x = 0
+note = "Batch24 source-closed real-frame continuation; original audio, waits and nonlocal dispatch retain interpreter boundaries"

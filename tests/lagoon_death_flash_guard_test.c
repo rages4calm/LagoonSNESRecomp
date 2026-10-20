@@ -25,10 +25,10 @@ int main(int argc,char **argv){
  }
  assert(counts.flash_render[0]==1&&counts.flash_render[1]==1);
  assert(counts.flash_wait[0]==1&&counts.flash_wait[1]==1);
- /* Refuse null ROM and do not authorize the SPC poll as a native entry. */
+ /* Refuse null ROM and do not authorize the SPC poll as a wait continuation. */
  g_rom=NULL;for(unsigned k=0;k<4;k++){assert(!recovery_source(flash_entries+k));checks++;}
  g_rom=rom;InterpAotContinuation poll=flash_entries[2];poll.continuation_pc24=0x01937c;
  assert(!recovery_source(&poll));checks++;
- printf("PASS %u original death-flash source/metadata/readonly cases; both owner sites and both real waits, SPC poll unpromoted\n",checks);
+ printf("PASS %u original death-flash source/metadata/readonly cases; both owner sites and both real waits, SPC poll has no fabricated wait continuation\n",checks);
  return 0;
 }

@@ -159,7 +159,9 @@ void LagoonWide_Reset(void) {
   s_state_generation = RtlStateGeneration();
 }
 
-static int room_bounds_enabled(unsigned room) { return (room==1 || room==2) || (room>=3 && room<=8); }
+static int room_bounds_enabled(unsigned room) {
+  return (room==1 || room==2) || (room>=3 && room<=8) || (room>=0x2c && room<=0x37);
+}
 static int room07_parallax(void) {
   return word(0x48e)==7 && g_ram[0x50]==2 && pointer(0x57)==0x129e89 &&
       pointer(0x5d)==0x1a906f && pointer(0x69)==0x069720 && pointer(0x75)==0x069720 &&
@@ -172,10 +174,11 @@ static int view_parallax(void) {
 }
 static int audited_room_resources(void) {
   unsigned room=word(0x48e);
-  return (room!=7 || room07_parallax()) && (!room_bounds_enabled(room) ||
+  int additional=LagoonSceneRenderer_AdditionalRoom(g_ram);
+  return (room!=7 || room07_parallax()) && (!room_bounds_enabled(room) || additional ||
       LagoonWideEntities_BoundedRoom(room,word(0x53)*8,word(0x55)*8)) &&
-      LagoonWideEntities_AuditedRoom(word(0x48e),pointer(0x57),pointer(0x5d),
-      pointer(0x69),pointer(0x75),pointer(0x88),pointer(0x8b));
+      (additional || LagoonWideEntities_AuditedRoom(word(0x48e),pointer(0x57),pointer(0x5d),
+      pointer(0x69),pointer(0x75),pointer(0x88),pointer(0x8b)));
 }
 static int background_upload_ready(void) {
   return s_background.ready && s_background.generation==RtlStateGeneration() &&
@@ -523,13 +526,15 @@ void LagoonWide_BeginFrame(unsigned number) {
   /*  sets100E before the room loader;  clears it
    * only after map, graphics, palette and entities are installed. */
   int active=audited_room && !modal_ui && g_config.widescreen &&
-      g_ppu->extraLeftRight && world_scene_geometry();
+      g_ppu->extraLeftRight && world_scene_geometry() &&
+      (!LagoonSceneRenderer_AdditionalRoom(g_ram) || (!g_ram[0x100e] && g_ppu->inidisp==15));
   unsigned key = view_room()<<24;
   if (!active || !s_was_active || key != s_room_key) WsShadowReset();
   s_was_active = active;
   s_room_key = key;
   if(s_using_retained)LagoonWideEntities_BeginRetained(active);
-  else LagoonWideEntities_BeginFrame(active);
+  else LagoonWideEntities_BeginFrame(active && !LagoonSceneRenderer_AdditionalRoom(g_ram));
+  /* New background families retain native OAM only; far actor scope is unchanged. */
   if (!active) { if(g_config.widescreen)native_ui_frame(); return; }
   if(!s_world_chars_ready && !has_modal_ui() && native_world_map())
     capture_world_characters(NULL);
@@ -552,7 +557,7 @@ void LagoonWide_BeginFrame(unsigned number) {
     int wy = camera_y + ((sy - camera_y + 512) & 1023) - 512;
     if (wx < 0) wx = sx;
     if (wy < 0) {
-      if(view_room()==8) {
+      if(view_room()==8 || LagoonSceneRenderer_AdditionalRoom(g_ram)) {
         /* Elf Field's actual camera quake crosses signed world zero while
          * the PPU scroll wraps at1024. Keep its source coordinate signed:
          * use a2048-pixel positive KEY bias, never physical map wrapping. */
@@ -585,7 +590,8 @@ void LagoonWide_ObserveRaster(const Ppu *ppu,unsigned line,void *context) {
   LagoonSceneRenderer_ObserveRaster(ppu,line,g_ram,g_rom,0x100000,RtlStateGeneration(),
       !s_using_retained && s_was_active && !s_native_fallback && s_world_chars_ready &&
       (word(0x48e)==0 || word(0x48e)==3 || word(0x48e)==4 ||
-       word(0x48e)==5 || word(0x48e)==6 || word(0x48e)==7 || word(0x48e)==8) && !g_snesrecomp_last_hdmaen);
+       word(0x48e)==5 || word(0x48e)==6 || word(0x48e)==7 || word(0x48e)==8 ||
+       LagoonSceneRenderer_AdditionalRoom(g_ram)) && !g_snesrecomp_last_hdmaen);
   if(!s_outdoor_frame || line<1 || line>224)return;
   if((s_using_retained ? !s_retained.valid : !audited_room_ready()) || !room_bounds_enabled(view_room()))return;
   if(view_parallax()) {
@@ -647,6 +653,7 @@ void LagoonWide_EndFrame(const uint8_t *field,unsigned number) {
   s_present_fallback=s_native_fallback || LagoonWideParallaxQueue_Pending(&s_parallax_queue) ||
       !audited_room_ready() || unsafe_modal_ui() ||
       (word(0x48e)==7 && !world_scene_geometry()) ||
+      (LagoonSceneRenderer_AdditionalRoom(g_ram) && (g_ram[0x100e] || g_ppu->inidisp!=15)) ||
       (!s_using_retained && g_ram[0x100e] && (!native_world_map() || !s_world_chars_ready ||
       !LagoonWideEntities_WorldCharacters(PpuRenderVram(g_ppu),s_world_chars,s_world_char_used)));
   s_outdoor_present=s_outdoor_frame && !s_present_fallback;
@@ -655,8 +662,10 @@ void LagoonWide_EndFrame(const uint8_t *field,unsigned number) {
   LagoonSceneRenderer_EndFrame(number,RtlStateGeneration(),
       !s_present_fallback && !s_using_retained && s_was_active &&
       (word(0x48e)==0 || word(0x48e)==3 || word(0x48e)==4 ||
-       word(0x48e)==5 || word(0x48e)==6 || word(0x48e)==7 || word(0x48e)==8) && !g_snesrecomp_last_hdmaen);
-  if(!s_present_fallback && s_was_active)retain_completed_scene();
+       word(0x48e)==5 || word(0x48e)==6 || word(0x48e)==7 || word(0x48e)==8 ||
+       LagoonSceneRenderer_AdditionalRoom(g_ram)) && !g_snesrecomp_last_hdmaen);
+  if(!s_present_fallback && s_was_active && !LagoonSceneRenderer_AdditionalRoom(g_ram))
+    retain_completed_scene(); /* Added families have no new retained/fade authority. */
   report_outdoor(number);
   report_scene(number);
 }

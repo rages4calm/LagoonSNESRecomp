@@ -1,5 +1,6 @@
 /* Reenter only witnessed original recovery waits, without fabricating frames. */
 #include "lagoon_native_recovery.h"
+#include "lagoon_native_revival.h"
 #include "snes/interp_bridge.h"
 #include "common_rtl.h"
 #include <string.h>
@@ -62,7 +63,48 @@ static int flash_source(void) {
     source_hash(0x0084DE,0xB)==UINT64_C(0xAE13AFE6E9FF1FC7) &&
     bytes(0x01931E,call,3) && bytes(0x01B446,call,3);
 }
+/* Original victory dialogue/audio are interpreted, including their real RTLs.
+ * Inline 80E9 still consumes its own frame and dispatches original table DATA.
+ * Post-dispatch waits can resume only with a separately witnessed B81A frame. */
+static const InterpAotContinuation script_entries[]={
+  {0x01B833,0x028282,0x01B837,0x01B819,{0x02828C,0x02828C},0,1,0,0,1,3,2,2},
+  {0x01B841,0x0090DB,0x01B845,0x01B819,{0x0090F3,0x00910D,0x009129,0x009139},0,1,0,0,1,3,0,2},
+  {0x01B8DD,0x0084E0,0x01B8E1,0x01B8A5,{0x0084E8,0x0084E8},0,1,0,0,1,3,0,2},
+  {0x01B8DD,0x0084E0,0x01B8E1,0x01B8AD,{0x0084E8,0x0084E8},0,1,0,0,1,3,0,2},
+  {0x01B8DD,0x0084E0,0x01B8E1,0x01B8B5,{0x0084E8,0x0084E8},0,1,0,0,1,3,0,2},
+  {0x01B8DD,0x0084E0,0x01B8E1,0x01B8BD,{0x0084E8,0x0084E8},0,1,0,0,1,3,0,2},
+  {0x01B8DD,0x0084E0,0x01B8E1,0x01B8C5,{0x0084E8,0x0084E8},0,1,0,0,1,3,0,2},
+  {0x01B905,0x018703,0x01B909,0x01B819,{0x01876C,0x01876C},0,1,0,0,1,3,2,2}
+};
+static int script_source(void) {
+  return source_hash(0x01B816,0x78)==UINT64_C(0x4D5DB436AE71B2EC) &&
+    source_hash(0x028282,0x0B)==UINT64_C(0x9F5D6D4A4C793014) &&
+    source_hash(0x0090DB,0x5F)==UINT64_C(0xE20AA48F28666155) &&
+    source_hash(0x0080E9,0x20)==UINT64_C(0xD98520CA8A4BEFBC);
+}
+static int script_wait_source(void) {
+  return script_source() &&
+    source_hash(0x01B88E,0x54)==UINT64_C(0x0C689F3AEFD6E75C) &&
+    source_hash(0x0084E0,9)==UINT64_C(0x7866A8232F0855B1);
+}
+static int script_descriptor(const InterpAotContinuation *d) {
+  if(!d)return 0;
+  for(unsigned i=0;i<sizeof(script_entries)/sizeof(script_entries[0]);++i) {
+    if(memcmp(d,script_entries+i,sizeof(*d)))continue;
+    if(i<2)return script_source();
+    if(i<7)return script_wait_source();
+    return script_source() &&
+      source_hash(0x01B8E2,0x29)==UINT64_C(0x259AD0D55DFEE6FD) &&
+      source_hash(0x018703,0x6F)==UINT64_C(0xF9632676A3CE04F2);
+  }
+  return 0;
+}
 static int recovery_source(const InterpAotContinuation *d) {
+  if(!d)return 0;
+  if(script_descriptor(d) || LagoonNativeRevivalSource(d))return 1;
+  /* The earlier source contracts authorize only two RTL sites. Never allow
+   * an extension of the shared descriptor ABI to broaden those old guards. */
+  if(d->return_sites[2] || d->return_sites[3])return 0;
   if(d->continuation_pc24==0x019368 || d->continuation_pc24==0x019371) {
     for(unsigned i=0;i<sizeof(flash_entries)/sizeof(flash_entries[0]);++i)
       if(!memcmp(d,flash_entries+i,sizeof(*d)))return flash_source();
@@ -112,6 +154,67 @@ static int recovery_source(const InterpAotContinuation *d) {
  * Child tokens still own their own seven-byte frames and actual wait returns. */
 static struct {uint64_t generation;uint16_t sp,entry_s;uint32_t owner;
   unsigned phase;unsigned char stack[4];} parent;
+static struct {uint64_t generation;uint16_t sp;unsigned phase;
+  uint32_t owner;unsigned char stack[7];} script_parent;
+static struct {unsigned long long dialogue,audio,reload,waits[5],ancestors[5],refusals;} script_counts;
+static int script_owner_index(uint32_t pc) {
+  for(unsigned i=2;i<7;++i)if(script_entries[i].owner_return_pc24==pc)return (int)i-2;
+  return -1;
+}
+static int script_mode(const CpuState *cpu) {
+  return cpu && cpu->ram && cpu->DB==1 && !cpu->D && cpu->m_flag==1 &&
+    !cpu->x_flag && !cpu->emulation;
+}
+static int script_stack_live(const CpuState *cpu) {
+  return script_parent.phase && script_mode(cpu) && cpu->PB==1 &&
+    script_parent.generation==RtlStateGeneration() && script_parent.sp<=0x1ff8 &&
+    script_wait_source() && !memcmp(script_parent.stack,cpu->ram+script_parent.sp+1,7);
+}
+static int script_hook(unsigned event,const CpuState *cpu,uint32_t source,uint32_t target,
+    const InterpAotContinuation *d,uint16_t owner_entry_s,InterpAotAncestor *proposal) {
+  if(event==INTERP_CONT_DISCARD){memset(&script_parent,0,sizeof(script_parent));return 0;}
+  if(event==INTERP_CONT_CALL && source==0x01B8DD) {
+    /* A new matching call retires even an unconsumed or refused older token. */
+    memset(&script_parent,0,sizeof(script_parent));
+    if(!script_mode(cpu) || cpu->PB!=0 || target!=0x0084E0 || cpu->S>0x1ff8 || !script_wait_source())return 0;
+    const unsigned char *p=cpu->ram+cpu->S+1;
+    uint32_t owner=(uint16_t)(p[3]|p[4]<<8)+1u;
+    owner|=0x010000;
+    if(p[0]!=0xE0 || p[1]!=0xB8 || p[2]!=1 || p[5]!=0x18 || p[6]!=0xB8 ||
+        script_owner_index(owner)<0)return 0;
+    script_parent.generation=RtlStateGeneration();script_parent.sp=cpu->S;
+    script_parent.owner=owner;script_parent.phase=1;
+    memcpy(script_parent.stack,p,7);return 0;
+  }
+  if(event==INTERP_CONT_TAKE && d && script_descriptor(d)) {
+    if(target==0x01B837)script_counts.dialogue++;
+    else if(target==0x01B845)script_counts.audio++;
+    else if(target==0x01B909)script_counts.reload++;
+    else if(target==0x01B8E1) {
+      int i=script_owner_index(d->owner_return_pc24);
+      if(script_parent.phase!=1 || source!=0x0084E8 || !script_stack_live(cpu) ||
+          cpu->S!=script_parent.sp+3 || owner_entry_s!=cpu->S ||
+          d->owner_return_pc24!=script_parent.owner) {
+        script_parent.phase=0;script_counts.refusals++;return 0;
+      }
+      script_parent.phase=2;script_counts.waits[i]++;
+    }
+    return 0;
+  }
+  if(event!=INTERP_CONT_RETURN || !script_parent.phase || !d)return 0;
+  if(d->owner_return_pc24==0x01B819){script_parent.phase=0;return 0;}
+  if(d->continuation_pc24!=0x01B8E1)return 0;
+  int i=script_owner_index(d->owner_return_pc24);
+  int ok=script_parent.phase==2 && i>=0 && proposal && script_descriptor(d) &&
+    script_stack_live(cpu) && cpu->S==script_parent.sp+5 &&
+    owner_entry_s==script_parent.sp+3 && target==script_parent.owner &&
+    d->owner_return_pc24==script_parent.owner;
+  script_parent.phase=0;
+  if(!ok){script_counts.refusals++;return 0;}
+  proposal->pc24=target;proposal->owner_return_pc24=0x01B819;
+  proposal->entry_s=cpu->S;proposal->owner_frame=2;
+  script_counts.ancestors[i]++;return 1;
+}
 static struct {unsigned long long takes[2],hp[2],mp[2],refused[2];unsigned long long flash_render[2],flash_wait[2];
   unsigned registered,registration_attempts,failed_source_mask;} counts;
 static const char *report_path;
@@ -122,10 +225,16 @@ static void report(void) {
   fprintf(f,"{\"registered\":%u,\"registration_attempts\":%u,\"failed_source_mask\":%u,\"main\":{\"takes\":%llu,\"hp_to_mp\":%llu,\"mp_to_plx\":%llu,\"refusals\":%llu},"
     "\"render\":{\"takes\":%llu,\"hp_to_mp\":%llu,\"mp_to_plx\":%llu,\"refusals\":%llu},"
     "\"death_flash\":{\"9321\":{\"render_takes\":%llu,\"wait_takes\":%llu},"
-    "\"B449\":{\"render_takes\":%llu,\"wait_takes\":%llu}}}\n",
+    "\"B449\":{\"render_takes\":%llu,\"wait_takes\":%llu}},"
+    "\"boss_script\":{\"dialogue_takes\":%llu,\"audio_takes\":%llu,\"reload_takes\":%llu,"
+    "\"wait_takes\":[%llu,%llu,%llu,%llu,%llu],\"ancestor_returns\":[%llu,%llu,%llu,%llu,%llu],\"refusals\":%llu},"
+    "\"revival\":{\"wait_takes\":%llu,\"ancestor_returns\":%llu,\"refusals\":%llu}}\n",
     counts.registered,counts.registration_attempts,counts.failed_source_mask,counts.takes[0],counts.hp[0],counts.mp[0],counts.refused[0],
     counts.takes[1],counts.hp[1],counts.mp[1],counts.refused[1],
-    counts.flash_render[0],counts.flash_wait[0],counts.flash_render[1],counts.flash_wait[1]);fclose(f);
+    counts.flash_render[0],counts.flash_wait[0],counts.flash_render[1],counts.flash_wait[1],script_counts.dialogue,script_counts.audio,script_counts.reload,
+    script_counts.waits[0],script_counts.waits[1],script_counts.waits[2],script_counts.waits[3],script_counts.waits[4],
+    script_counts.ancestors[0],script_counts.ancestors[1],script_counts.ancestors[2],script_counts.ancestors[3],script_counts.ancestors[4],script_counts.refusals,
+    LagoonNativeRevivalGetStats()->wait_takes,LagoonNativeRevivalGetStats()->ancestor_returns,LagoonNativeRevivalGetStats()->refusals);fclose(f);
 }
 static int parent_live(const CpuState *cpu) {
   return parent.phase && parent.generation==RtlStateGeneration() && cpu &&
@@ -136,6 +245,8 @@ static int parent_live(const CpuState *cpu) {
 static int recovery_hook(unsigned event,const CpuState *cpu,uint32_t source,
     uint32_t target,const InterpAotContinuation *d,uint16_t owner_entry_s,
     InterpAotAncestor *proposal) {
+  if(LagoonNativeRevivalHook(event,cpu,source,target,d,owner_entry_s,proposal))return 1;
+  if(script_hook(event,cpu,source,target,d,owner_entry_s,proposal))return 1;
   if(event==INTERP_CONT_DISCARD){memset(&parent,0,sizeof(parent));return 0;}
   if(event==INTERP_CONT_TAKE && d && (target==0x019368 || target==0x019371)) {
     unsigned owner=d->owner_return_pc24==0x01B449;
@@ -198,12 +309,15 @@ void LagoonNativeRecovery_BeforeFrame(void) {
     {0x01930F,0x008985,0x019313,0x019294,{0x00898D,0x00899A},0,1,0,0,1,3,0,2}
   };
   if(!configured && g_rom) {
-    InterpAotContinuation all[13];memcpy(all,entries,sizeof(entries));
+    InterpAotContinuation all[32];memcpy(all,entries,sizeof(entries));
     memcpy(all+5,boss_entries,sizeof(boss_entries));
     memcpy(all+9,flash_entries,sizeof(flash_entries));
+    unsigned total=13;
+    memcpy(all+total,script_entries,sizeof(script_entries));total+=sizeof(script_entries)/sizeof(script_entries[0]);
+    total+=LagoonNativeRevivalDescriptors(all+total,32-total);
     if(report_path && *report_path){counts.registration_attempts++;counts.failed_source_mask=0;
-      for(unsigned i=0;i<13;i++)if(!recovery_source(all+i))counts.failed_source_mask|=1u<<i;}
-    configured=interp_bridge_set_aot_continuations(all,13,recovery_source);
-    if(configured){interp_bridge_set_aot_continuation_hook(recovery_hook);counts.registered=13;}
+      for(unsigned i=0;i<total;i++)if(!recovery_source(all+i))counts.failed_source_mask|=1u<<i;}
+    configured=interp_bridge_set_aot_continuations(all,total,recovery_source);
+    if(configured){interp_bridge_set_aot_continuation_hook(recovery_hook);counts.registered=total;}
   }
 }

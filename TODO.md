@@ -3,6 +3,40 @@
 Keep the interpreter safety net and publish source in substantial, verified
 batches. Generated routine counts are not campaign completion percentages.
 
+- [x] Batch24: three original CDB7/CDE0/D8D4 revival/item-consumption bodies
+      and eleven boss-script/SPC bodies;401 AOT/112 analyzed LLE/280 roots.
+      All 387 prior native entries and old exit facts retained, with only the
+      required old tail calls, original B8DD wait-call boundary and an
+      identifier-only selector rename changed.
+- [x] Central22 guarded continuations, including real dialogue/audio returns,
+      five event-flag waits, scene reload and eleven-byte revival ancestor
+      ownership. Bounded SDK capacity32; four exact source-closed RTL sites.
+- [x] 83,232 actual generated-body/original-opcode cases:73,728 revival and
+      9,504 boss cases.1,809 revival and1,658 boss provenance cases pass;
+      actual four-site SDK matcher96 positive cases and116 stack mutants.
+- [x] Twelve initial-build strict native pairs plus one final affected wait-route
+      pair:49,152 observations/26 checkpoints across recorded builds. Final five
+      event stages each take one native wait/ancestor with zero refusals.
+- [x] Add twelve exact custom backgrounds2C..37 in four resource families.
+      Keep new-area far actors disabled, original native OAM actors, full
+      brightness/loading gates and reference fallback; no new fade ownership.
+- [x] Thirteen initial-build renderer pairs:12,241 observations/55 checkpoints,
+      8,239 replacements,1,881 draws/287,356,608 pixels, zero mismatches.
+      Preserve intentional strict-false expanded-image reports; exact unchanged
+      renderer objects and final installed four-family chain separately verified.
+- [x] Install exact final14bbf8c7/manifest6dc5d93d by moving qualified outputs;
+      72 cold component hashes and110 owner inputs match. Actual installed revival
+      wait/ancestor and four-family renderer chain execute positively. Hidden1080p
+      real-audio stable07 sample:550 intervals,60.08672 updates/s,p95 17.2164 ms,
+      max17.8968 ms, zero intervals above 25 ms; no scanout/locked60 claim.
+- [ ] Next native: remaining original boss/script/audio boundaries, B449 live
+      ownership if an affected route requires it, and AAF6 other/fall death.
+      Preserve genuine waits/frames and unsupported-width fallback.
+- [ ] Expand further exact scene resources from affected routes. Map/door/exit
+      discovery and optional zoom-out stay deferred until native/renderer work.
+
+## Historical completed batches
+
 - [x] Batch23: native A7D6 paired player selector and complete AAC1 ordinary
       Nasir death animation, including original AB1D drawing/RTS; other/fall
       death AAF6 and ordinary walking A7FA remain interpreted.
@@ -31,21 +65,21 @@ batches. Generated routine counts are not campaign completion percentages.
       cold checks match 48 component hashes and110 owner inputs remain unchanged.
       Hidden1080p EPX real-audio stable07 sample: 550 intervals, 60.09 updates/s,
       p95 17.35 ms/max 17.81 ms,0 intervals above 25 ms. No scanout/locked60 claim.
-- [ ] Next native: original D8CE/CDB7 revival item/audio/render wait ownership,
-      B816 boss scripts and remaining AAF6 other/fall death. Preserve actual
-      frames, original audio/SPC waits and interpreter fallback.
+- [x] Batch23 next-step item ownership and selected boss-script/SPC boundaries
+      were subsequently implemented in batch24; broader scripts remain open.
 
 - [x] Install exact batch22 DDE68792 by moving qualified outputs, cold32-hash
       parity and7 owner-input hashes unchanged; real-audio1080p EPX room07
-      stable sample60.09updates/s, p9517.68ms/max18.72ms,0 intervals above25ms.
+      stable sample60.09updates/s, p9517.68ms/max18.72ms,0 intervals above 25ms.
 - [x] Batch22: four guarded native boss-refill segments across actual waits,
       preserving all378 old bodies/exit facts;23,040 original-opcode cases,
       281 source/registration and1,510 ancestor-policy cases.
 - [x] Eleven strict affected-route pairs: all seven assisted boss wins, revival,
       final-boss player death and partial HP/MP recovery with stock/centered camera;
-      44,579 ordered observations and26 complete state/clock checkpoints.
+      44,579 ordered observations and 26 complete state/clock checkpoints.
 - [x] Bounded9346 six-flash ownership completed in batch23; broader special
-      B43E branches, original SPC poll and B816 scripts remain interpreted.
+      B43E branches and broader scripts were still interpreted at that checkpoint;
+      batch24 subsequently promotes the source-proven SPC poll and script segments.
 - [x] Extend the exact custom renderer to room07's independent quarter-speed
       BG2 parallax, source-owned static pages and finite1024x1024 bounds. Three
       fresh off/auto routes match3,252 ordered presentation observations and
@@ -65,7 +99,7 @@ batches. Generated routine counts are not campaign completion percentages.
       installed cold reward check matches24 component hashes at three checkpoints,
       seven owner inputs and SDK working/index contents unchanged.
 - [x] Hidden1080p real-audio genuine-door route without interior capture writes:
-      60.025Hz,p9518.299ms,max22.873ms, zero intervals above25ms across1,328
+      60.025Hz,p9518.299ms,max22.873ms, zero intervals above 25ms across1,328
       intervals;11 audio high-water waits retained. No locked60/fullscreen claim.
 - [x] Qualify batch20 candidate377/119/258: native B413's original18-instruction
       ordinary-enemy death-animation prefix,11,520 original-opcode oracle cases; fresh strict boss40,

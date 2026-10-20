@@ -8,14 +8,14 @@
 #include <string.h>
 static uint8_t rom[0x100000],snapshot[0x100000];
 const uint8_t *g_rom;
-static InterpAotContinuation entries[16];
+static InterpAotContinuation entries[32];
 static InterpAotContinuationGuard source_guard;
 static unsigned registrations,checks;
 uint64_t RtlStateGeneration(void){return 1;}
 void interp_bridge_set_aot_continuation_hook(InterpAotContinuationHook hook){(void)hook;}
 int interp_bridge_set_aot_continuations(const InterpAotContinuation *d,
     unsigned n,InterpAotContinuationGuard guard) {
-  assert(n<=16);memcpy(entries,d,n*sizeof(*d));registrations=n;source_guard=guard;
+  assert(n<=32);memcpy(entries,d,n*sizeof(*d));registrations=n;source_guard=guard;
   return 0; /* Keep registration retryable for null/source tests. */
 }
 static void denied(InterpAotContinuation d) {
@@ -26,8 +26,8 @@ int main(int argc,char **argv) {
   assert(argc==2);FILE *f=fopen(argv[1],"rb");assert(f);
   assert(fread(rom,1,sizeof(rom),f)==sizeof(rom));fclose(f);
   LagoonNativeRecovery_BeforeFrame();assert(!registrations);
-  g_rom=rom;LagoonNativeRecovery_BeforeFrame();assert(registrations==13&&source_guard);
-  for(unsigned n=0;n<13;n++){assert(source_guard(entries+n));checks++;}
+  g_rom=rom;LagoonNativeRecovery_BeforeFrame();assert(registrations==22&&source_guard);
+  for(unsigned n=0;n<22;n++){assert(source_guard(entries+n));checks++;}
   InterpAotContinuation good=entries[4],d;
   assert(good.call_pc24==0x01930f && good.continuation_pc24==0x019313);
   assert(good.owner_return_pc24==0x019294 && !good.saved_stack_bytes && good.owner_frame==2);
@@ -44,6 +44,8 @@ int main(int argc,char **argv) {
     }
     denied(d);
   }
+  d=good;d.return_sites[2]=0x00898D;denied(d);
+  d=good;d.return_sites[3]=0x00898D;denied(d);
   const unsigned spans[][2]={{0x985,22},{0x9291,3},{0x92c3,0x2e},{0x9306,0x18},{0xe9,0x20}};
   for(unsigned s=0;s<sizeof(spans)/sizeof(spans[0]);s++)for(unsigned i=0;i<spans[s][1];i++){
     unsigned at=spans[s][0]+i;rom[at]^=1;denied(good);rom[at]^=1;
@@ -54,6 +56,6 @@ int main(int argc,char **argv) {
   memcpy(snapshot,rom,sizeof(rom));assert(source_guard(&good));
   assert(!memcmp(rom,snapshot,sizeof(rom)));checks++;
   g_rom=NULL;denied(good);
-  printf("PASS %u recovery source/metadata checks; thirteen registrations, old guards retained\n",checks);
+  printf("PASS %u recovery source/metadata checks; twenty-two registrations, old guards retained\n",checks);
   return 0;
 }

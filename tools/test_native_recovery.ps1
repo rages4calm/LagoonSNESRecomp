@@ -13,22 +13,28 @@ New-Item -ItemType Directory -Force -Path $target | Out-Null
 Push-Location $repo
 try {
   $exe=Join-Path $target 'native-recovery-guard.exe'
-  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isrc -Isnesrecomp/runner/src tests/lagoon_native_recovery_guard_test.c src/lagoon_native_recovery.c -o $exe
+  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isrc -Isnesrecomp/runner/src tests/lagoon_native_recovery_guard_test.c src/lagoon_native_recovery.c src/lagoon_native_revival.c -o $exe
   if($LASTEXITCODE){throw 'Recovery guard compilation failed'}
   & $exe $romPath
   if($LASTEXITCODE){throw 'Recovery guard test failed'}
 
   $boss=Join-Path $target 'native-boss-continuation.exe'
-  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isrc -Isnesrecomp/runner/src tests/lagoon_boss_continuation_test.c -o $boss
+  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isrc -Isnesrecomp/runner/src tests/lagoon_boss_continuation_test.c src/lagoon_native_revival.c -o $boss
   if($LASTEXITCODE){throw 'Boss continuation guard compilation failed'}
   & $boss $romPath
   if($LASTEXITCODE){throw 'Boss continuation guard test failed'}
 
   $flash=Join-Path $target 'native-death-flash.exe'
-  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isrc -Isnesrecomp/runner/src tests/lagoon_death_flash_guard_test.c -o $flash
+  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isrc -Isnesrecomp/runner/src tests/lagoon_death_flash_guard_test.c src/lagoon_native_revival.c -o $flash
   if($LASTEXITCODE){throw 'Death flash guard compilation failed'}
   & $flash $romPath
   if($LASTEXITCODE){throw 'Death flash guard test failed'}
+
+  $script=Join-Path $target 'native-boss-script.exe'
+  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror -Isrc -Isnesrecomp/runner/src tests/lagoon_boss_script_guard_test.c src/lagoon_native_revival.c -o $script
+  if($LASTEXITCODE){throw 'Boss script guard compilation failed'}
+  & $script $romPath
+  if($LASTEXITCODE){throw 'Boss script guard test failed'}
 
   # Compile the current production matcher verbatim; no SDK edits or copy tree.
   $header=Get-Content -LiteralPath 'snesrecomp/runner/src/snes/interp_bridge.h' -Raw
@@ -42,4 +48,10 @@ try {
   if($LASTEXITCODE){throw 'Death token matcher compilation failed'}
   & $token
   if($LASTEXITCODE){throw 'Death token matcher test failed'}
+
+  $sites=Join-Path $target 'native-return-sites.exe'
+  & $Compiler -std=c11 -O2 -Wall -Wextra -Werror "-I$target" tests/lagoon_continuation_return_sites_test.c -o $sites
+  if($LASTEXITCODE){throw 'Four-return-site matcher compilation failed'}
+  & $sites
+  if($LASTEXITCODE){throw 'Four-return-site matcher test failed'}
 } finally {Pop-Location}

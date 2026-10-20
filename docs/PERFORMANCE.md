@@ -273,3 +273,20 @@ rooms. The endpoint positively uses room07 custom rendering. This measures CPU
 presentation-call intervals, not physical fullscreen scanout, a locked60fps
 guarantee, room08 performance or the complete campaign. It is an affected-engine
 regression check, not another discovery pass over completed room07 work.
+
+## Batch 24: final continuation and renderer batch
+
+The final `14bbf8c764b0238910e48fd2ddfd09a37023daef0d9377129fd208cbc6499fb2`
+build uses manifest
+`6dc5d93d2bb996c65f32aadbd8ec58b9c94adcb542739f1562209231a7fca04d`.
+The same portable original-door route was run after the continuation-table and
+post-boss changes, with no other gameplay or compilation running concurrently.
+Hidden1920x1080 OpenGL/EPX16:9 and the real audio device remain enabled.
+
+All551 stable room07 samples at fields2000..2550 are loading0. Their550 CPU
+presentation intervals measure60.08672 updates/s, mean16.64261ms, p9517.2164ms,
+maximum17.8968ms and zero intervals over25ms. The last33 fields, including
+end-dump2583, are excluded. Original actor positioning assistance and private
+volume0 are unchanged. This checks frame pacing after the framework changes;
+it does not measure physical scanout, locked60fps, the twelve newly admitted
+renderer rooms or full-campaign performance.

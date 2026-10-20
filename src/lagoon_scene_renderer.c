@@ -68,6 +68,30 @@ static void init_tables(void) {
 
 static unsigned word(const uint8_t *r,unsigned a){return r[a]|r[a+1]<<8;}
 static unsigned ptr(const uint8_t *r,unsigned a){return word(r,a)|r[a+2]<<16;}
+typedef struct AdditionalFamily { unsigned bg,obj,definitions; } AdditionalFamily;
+typedef struct AdditionalRoom { unsigned room,width,height,family; } AdditionalRoom;
+static const AdditionalFamily s_additional_families[]={
+  {0x15a43d,0x1b84d8,0x078c00},{0x15a43d,0x1ba17d,0x0794dc},
+  {0x15b8ac,0x1ba17d,0x079c14},{0x15c815,0x1cc387,0x07a0d8}
+};
+/* Exact original descriptors, not authority inferred from shared scenery. */
+static const AdditionalRoom s_additional_rooms[]={
+  {0x2c,256,192,0},{0x2d,128,64,0},{0x2e,128,64,0},
+  {0x2f,256,192,1},{0x30,64,64,1},{0x31,64,64,1},
+  {0x32,256,192,2},{0x33,96,64,2},{0x34,128,64,2},
+  {0x35,256,192,3},{0x36,96,64,3},{0x37,96,64,3}
+};
+int LagoonSceneRenderer_AdditionalRoom(const uint8_t *r) {
+  if(!r||r[0x50]||ptr(r,0x88)!=0x7f0000||ptr(r,0x8b)!=0x7f4000)return 0;
+  for(unsigned i=0;i<sizeof(s_additional_rooms)/sizeof(s_additional_rooms[0]);++i) {
+    const AdditionalRoom *room=&s_additional_rooms[i];
+    if(word(r,0x48e)!=room->room||word(r,0x53)!=room->width||word(r,0x55)!=room->height)continue;
+    const AdditionalFamily *family=&s_additional_families[room->family];
+    return ptr(r,0x57)==family->bg&&ptr(r,0x5d)==family->obj&&
+      ptr(r,0x69)==family->definitions&&ptr(r,0x75)==family->definitions;
+  }
+  return 0;
+}
 /* Exact ordinary scene resources, not permission for arbitrary Mode1 rooms.
  * Both maps use the same immutable ROM definition bank within each descriptor. */
 static int scene_resources(const uint8_t *r,unsigned *definitions) {
@@ -76,6 +100,8 @@ static int scene_resources(const uint8_t *r,unsigned *definitions) {
   unsigned room=word(r,0x48e),d=ptr(r,0x69);
   if(room==0 && ptr(r,0x57)==0x138000 && ptr(r,0x5d)==0x198000 && d==0x068000) {
     if(!word(r,0x53)||word(r,0x53)>256||!word(r,0x55)||word(r,0x55)>256)return 0;
+  }else if(LagoonSceneRenderer_AdditionalRoom(r)) {
+    /* Existing character/PPU/raster ownership must still qualify this packet. */
   }else if(room==8 && word(r,0x53)==192 && word(r,0x55)==128 &&
       ptr(r,0x57)==0x12b297 && ptr(r,0x5d)==0x1891e4 && d==0x06999c) {
     /* Elf Field's ordinary map producer has an exact finite1536x1024 extent.
@@ -200,7 +226,7 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
     s->wx=x+(((p->hScroll[0]&1023)-x+512)&1023)-512;
     s->wy=y+(((p->vScroll[0]&1023)-y+512)&1023)-512+1;
     s->native_x=p->hScroll[0];s->native_y=p->vScroll[0]+1;
-    s->parallax=word(r,0x48e)==7;s->finite_clip=word(r,0x48e)==8;s->bg2_x=p->hScroll[1];s->bg2_y=p->vScroll[1]+1;
+    s->parallax=word(r,0x48e)==7;s->finite_clip=word(r,0x48e)==8||LagoonSceneRenderer_AdditionalRoom(r);s->bg2_x=p->hScroll[1];s->bg2_y=p->vScroll[1]+1;
     s->world_width=word(r,0x53)*8;s->world_height=word(r,0x55)*8;
     s->count=(unsigned)p->extraObjectCount;
     for(unsigned i=0;i<s->count;++i) {

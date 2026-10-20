@@ -2,7 +2,8 @@
 
 The interpreter safety net remains in place. `src/lagoon_scene_renderer.c` adds
 a bounded live software scene backend for stable Atland, exact Gold Cave03/04/05/06,
-room07 with independently owned parallax and ordinary room08 Elf Field, with Widescreen
+room07 with independently owned parallax, ordinary room08 Elf Field and twelve
+exact rooms2C..37 in four resource families, with Widescreen
 enabled. It captures its
 own scene packet, independently draws a field, and compares every 32-bit output
 pixel with the existing presentation before allowing replacement. Unsupported
@@ -14,6 +15,70 @@ computes and checks the candidate without replacing the picture. Implementation
 and ROM-free unit tests alone do not prove live gameplay coverage; bounded runtime
 acceptance is recorded separately. There is currently no launcher selector for
 this diagnostic.
+
+Batch24 adds twelve exact stable ordinary-room descriptors. Shared artwork alone
+does not grant authority: each row requires its original dimensions, full-word
+room ID, both definition pointers, maps7F0000/7F4000 and WRAM50=0.
+
+| Rooms | BG source | OBJ source | Both definitions | Dimensions in pixels |
+| --- | --- | --- | --- | --- |
+|2C/2D/2E|15A43D|1B84D8|078C00|2048x1536 /1024x512 /1024x512|
+|2F/30/31|15A43D|1BA17D|0794DC|2048x1536 /512x512 /512x512|
+|32/33/34|15B8AC|1BA17D|079C14|2048x1536 /768x512 /1024x512|
+|35/36/37|15C815|1CC387|07A0D8|2048x1536 /768x512 /768x512|
+
+All require the observed PPU layout71/79/3C, full brightness15, stable original
+loading state and the existing source, raster, generation and whole-picture
+guards. Finite-world pixels outside the physical map are black after composition.
+The proven negative-Y cache-key translation also covers these exact descriptors;
+physical worlds never wrap. Loading/fading fields retain the reference renderer.
+The new contexts explicitly disable the far-actor producer and use native OAM;
+they add no actor or retained-fade authority. Existing0..08 behavior is preserved.
+
+Rooms35..37 additionally require the original animation descriptor01:E058 and
+table01:DD8B: four64-byte sources10:BB00/BB40/BB80/BBC0 uploaded to VRAM word3B00.
+Complete transfer, source/table/clock, order, size, generation and resident-VRAM
+checks remain mandatory. Guest animation clocks are not simulated.
+
+Component qualification build`bcd237eee3f95b55...`, manifest`b7fc10141e0608d6...`, passes thirteen
+fresh same-executable renderer-off/auto comparisons: twelve original assisted
+room loaders and one original-door chain2C->2F->32->35. Each room has a positive
+final replacement, including all three animated rooms. The chain retains seven
+checkpoints across actual loading transitions, with explicit position assistance
+at original door cells and no room/layout/quest/result flag writes.
+
+| Route group | Ordered presentations | Checkpoints | Replacements | Independent draws |
+| --- | ---: | ---: | ---: | ---: |
+| Twelve original room loaders |10,332|48|7,263|1,572|
+| Original cross-family door chain |1,909|7|976|309|
+| Total overlapping observations |12,241|55|8,239|1,881|
+
+All ordered full-width pictures and all seven checkpoint components match between
+off/auto, with287,356,608 independently drawn source pixels and zero mismatches.
+The reference raster still runs. Comparisons against the old installed controls
+retain strict`passed:false` for all thirteen routes:7,407 expanded-picture CRC
+observations change as the newly admitted backgrounds replace previously absent
+margins. No CRC mask is used. All55 old/new native/guest checkpoints and clocks
+remain exact, as do presentation count, frame and alpha. This separately qualifies
+the source-backed visual extension; it does not claim per-frame guest/native-center
+logging, complete rooms/campaign coverage or a performance gain.
+
+The installed final build is`14bbf8c764b02389...` /manifest`6dc5d93d2bb996c6...`.
+A later boss-only correction hands the original B8DD JSL back to the interpreter
+so all five actual wait frames are witnessed. Its affected staged route passes
+state/picture/clock comparison. Renderer source and reused compiled renderer
+objects are unchanged; independent source review records this component transfer.
+The final installed four-family door chain and revival replay match72 component
+hashes at nine checkpoints, with positive custom replacement and zero mismatches.
+The earlier thirteen renderer pairs are not relabeled as runs of this later binary.
+
+The external-owned-ROM helper verifies48 actual loader snapshots,22,364,160
+independent source pixels,7,332,864 finite-edge pixels,396 resource/layout/authority
+refusals and12 generation refusals. It checks all four actual animation phases
+in each35..37 room and1,824 animation-protocol refusals. Portable inputs are in
+`validation/inputs/batch24/renderer`: explicit executable/manifest/output required,
+zero new seed states. After old executable retirement, historical controls are
+receipts; future changes require fresh matched controls.
 
 Batch23 adds exact stable room08 Elf Field. Its descriptor requires 1536x1024,
 BG12B297, OBJ1891E4, both06999C definition pointers, maps 7F0000/7F4000,
