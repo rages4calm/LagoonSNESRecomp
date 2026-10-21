@@ -35,18 +35,17 @@ static int allowed(const uint8_t *rom,size_t size,unsigned room,unsigned kind){
         source(rom,size,authored[i].pointer,3,authored[i].pointer_hash);
   return 0;
 }
-int LagoonWideMultipart_PropDrawOffset(const uint8_t *rom,size_t size,
-    const uint8_t *p,unsigned queue,int *draw_offset){
-  if(!rom||size!=0x100000||!p||!draw_offset||word(p,0x48e)!=0x40||
+static int prop_packet_source(const uint8_t *rom,size_t size,
+    const uint8_t *p,unsigned queue){
+  if(!rom||size!=0x100000||!p||word(p,0x48e)!=0x40||
       word(p,0x48c)>64||queue>=word(p,0x48c)||queue>=64)return 0;
   unsigned q=0xec0+queue*6;
-  const uint8_t *r=p+0x580;unsigned phase=p[0x3af];
+  const uint8_t *r=p+0x580;
   if(word(p,q)!=0x80||p[q+4]!=5||r[24]!=5||r[27]!=9||r[28]!=0x3e||
       (r[0]&0xc0)!=0xc0||word(r,2)!=128||word(r,4)!=60||
       word(p,q+2)!=word(r,14)||
       word(r,12)!=((word(r,2)-word(p,0x480))&65535)||
-      word(r,14)!=((word(r,4)-word(p,0x482))&65535)||
-      !p[0x3ae]||phase<1||phase>42)return 0;
+      word(r,14)!=((word(r,4)-word(p,0x482))&65535))return 0;
   if(!source(rom,size,0x0180f1,12,UINT64_C(0xbe646d510b3b48ea))||
       !source(rom,size,0x01c026,164,UINT64_C(0x1af59bf53030a61c))||
       !source(rom,size,0x01d8da,31,UINT64_C(0xe5fb5c1ea62cc247))||
@@ -55,6 +54,13 @@ int LagoonWideMultipart_PropDrawOffset(const uint8_t *rom,size_t size,
       !source(rom,size,0x01de11,84,UINT64_C(0x9ee85f4097be1a2c))||
       !source(rom,size,0x05acbc,9,UINT64_C(0x9240a936949bd754))||
       !source(rom,size,0x05c10a,3,UINT64_C(0xaa256a1a94cb4dfd)))return 0;
+  return 1;
+}
+int LagoonWideMultipart_PropDrawOffset(const uint8_t *rom,size_t size,
+    const uint8_t *p,unsigned queue,int *draw_offset){
+  if(!draw_offset||!prop_packet_source(rom,size,p,queue))return 0;
+  unsigned phase=p[0x3af];
+  if(!p[0x3ae]||phase<1||phase>42)return 0;
   unsigned table=at(0x01de11);
   if(word(p,0x90)!=word(rom,table+(phase-1)*2)||word(p,0x92)!=word(p,0x90))return 0;
   if(phase==1){
@@ -68,6 +74,16 @@ int LagoonWideMultipart_PropDrawOffset(const uint8_t *rom,size_t size,
     *draw_offset=0;return 1;
   }
   *draw_offset=(int16_t)word(rom,table+(phase-2)*2);return 1;
+}
+int LagoonWideMultipart_PropTailDrawOffset(const uint8_t *rom,size_t size,
+    const uint8_t *p,unsigned queue,int *draw_offset){
+  if(!draw_offset||!prop_packet_source(rom,size,p,queue)||p[0x3ae]||
+      p[0x3af]!=42||word(p,0x90)||word(p,0x92))return 0;
+  /* C026 used the last DE11 value before DDAD/DE00 cleared90/92 and3AE.
+   * Counter42 persists in later resting packets too. This is only a finite
+   * alternative: current cells take precedence, and the entire visible group
+   * must match original OAM before the caller may use this source value. */
+  *draw_offset=(int16_t)word(rom,at(0x01de11)+41*2);return 1;
 }
 static int append(const uint8_t *rom,size_t size,unsigned selector,unsigned frame,
     int x,int y,int palette,LagoonWideCell out[256],unsigned *total){

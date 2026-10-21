@@ -19,3 +19,9 @@ int LagoonWideMultipart_PacketCells(const uint8_t *rom,size_t rom_size,
  * must still match every original OAM cell. No current/far/resource authority. */
 int LagoonWideMultipart_PropDrawOffset(const uint8_t *rom,size_t rom_size,
     const uint8_t *packet,unsigned queue,int *draw_offset);
+
+/* Inactive phase42/current90=92=0 only. Source-derived terminal +1 candidate;
+ * current whole-group native OAM must fail first. A nonempty complete native
+ * group and all resource/camera/generation guards are still mandatory. */
+int LagoonWideMultipart_PropTailDrawOffset(const uint8_t *rom,size_t rom_size,
+    const uint8_t *packet,unsigned queue,int *draw_offset);

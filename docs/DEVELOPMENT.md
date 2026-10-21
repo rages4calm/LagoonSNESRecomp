@@ -16,6 +16,11 @@ using its actual cross-bank JSL return frame. Counts of
 compiled functions are analysis counts, not completion percentages. Generated
 code alone does not prove that a runtime dispatcher reaches a compiled entry.
 
+The original 34-slot projectile animation table has qualified M1X0 leaf handlers
+and its shared return tail. Other modes and the unresolved spawning/table-jump
+dispatch remain interpreted. Original casting routes verify actual handoffs;
+the full finite animation table has separate original-opcode tests.
+
 The assisted campaign work uses original loaders, doors and event/boss scripts,
 with position/stat assistance to reach affected cases quickly. It is distinct
 from an uninterrupted playthrough. That playtest belongs to the owner and friends.
@@ -83,7 +88,10 @@ added margin pixels in those finite arenas. Extended boss pixels have separate
 synthetic checks. The room 40 queued prop uses a source-proven draw-time shake
 offset before the original post-draw update, including the source-proven first
 activation field, with the complete native OAM match
-still required. Unsupported forms, unowned optional layers and
+still required. Its terminal field can retain the last draw offset after the
+original update clears the shake state. Current cells take precedence; a terminal
+candidate is used only when its complete group matches original OAM and the same
+resource and camera guards. Unsupported forms, unowned optional layers and
 Nasir's dynamic graphics retain fallback. Current and retained packets are
 withdrawn in the same field when an upload replaces resources they own.
 Queued OAM ownership, priority, clipping, palette, camera
@@ -112,6 +120,9 @@ door handoff. Never relax those production guards to obtain a test result.
 
 Frame-time measurements must distinguish normal guest work, rendering,
 per-frame diagnostic file I/O, frame limiting and audio high-water waits.
+Loading an assisted state with a full saved audio queue can briefly wait for the
+real device to drain it. That wall time is not a native CPU execution cost; keep
+the audio wait counters alongside the guest timing rather than discarding PCM.
 Dummy-audio/hidden-window results do not certify real-device audio or scanout.
 Fresh room-loader tests and loaded-state tests differ: loaded states do not
 serialize the custom renderer's resource-ownership witnesses. Re-enter through

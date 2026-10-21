@@ -1203,10 +1203,30 @@ static int decode_entity_offset(const uint8_t *ram,unsigned entity,unsigned fram
 static int decode_entity(const uint8_t *ram,unsigned entity,unsigned frame,int projected,LagoonWideCell *cells) {
   return decode_entity_offset(ram,entity,frame,projected,cells,(int16_t)record_word(ram,0x90));
 }
+static int find_cell(const uint8_t *oam,const LagoonWideCell *c,const uint8_t *used);
+static int queued_group_native_match(const LagoonWideCell *cells,int n) {
+  if(n<=0||n>kCells)return 0;
+  uint8_t used[128]={0};unsigned matched=0;
+  for(int i=0;i<n;++i) {
+    if(cells[i].y<-(int)cells[i].size||cells[i].y>=240)continue;
+    int slot=find_cell(s_frame.oam,&cells[i],used);if(slot<0)return 0;
+    used[slot]=1;matched++;
+  }
+  return matched!=0;
+}
 static int decode_queued_entity(const uint8_t *ram,unsigned entity,unsigned frame,LagoonWideCell *cells,unsigned queue) {
   int prop_offset=(int16_t)record_word(ram,0x90);
   int recovered=LagoonWideMultipart_PropDrawOffset(g_rom,kRomSize,ram,queue,&prop_offset);
   int n=decode_entity_offset(ram,entity,frame,0,cells,prop_offset);
+  int tail;
+  if(!recovered&&n>0&&LagoonWideMultipart_PropTailDrawOffset(g_rom,kRomSize,ram,queue,&tail)&&
+      !queued_group_native_match(cells,n)) {
+    LagoonWideCell candidate[kCells];
+    int count=decode_entity_offset(ram,entity,frame,0,candidate,tail);
+    if(queued_group_native_match(candidate,count)) {
+      memcpy(cells,candidate,count*sizeof(*cells));n=count;recovered=1;
+    }
+  }
   if(recovered) {
     if(memcmp(ram+0x480,g_ram+0x480,4)||!s_atlas.ready||s_atlas.generation!=s_frame.generation||
         s_atlas.room!=ram[0x48e]||s_atlas.source!=ram_pointer(ram,0x5d))return -1;
