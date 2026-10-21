@@ -1,7 +1,7 @@
 # Credits
 
 - **ZOOM and KEMCO** — the original Lagoon games. This project does not include
-  their ROMs, graphics or audio.
+  their ROMs, extracted asset packs or soundtrack files.
 - **oipo, the Lagoon QoL hack author identified by the project owner** — the changes requested for this port
   were inspired by [Lagoon QoL, Romhacking.net hack #9856](https://www.romhacking.net/hacks/9856/).
   The supplied patch was a reference for reach, follower and movement behavior.

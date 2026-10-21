@@ -1,0 +1,88 @@
+# Development
+
+This is a mixed native/interpreter port of the clean USA game. Qualified 65816
+routines are compiled to C; unqualified modes, variable scripts and special
+hardware paths retain the original-opcode interpreter. Do not replace a fallback
+with an empty function, guessed event result or synthetic return.
+
+## Current scope
+
+Scenery contracts cover all 75 authored room descriptors. Native work includes
+player damage, death/revival, recovery/reward loops, boss states, Bird/endgame
+services, sprite staging, resource/tile queues and numeric UI helpers. Counts of
+compiled functions are analysis counts, not completion percentages. Generated
+code alone does not prove that a runtime dispatcher reaches a compiled entry.
+
+The assisted campaign work uses original loaders, doors and event/boss scripts,
+with position/stat assistance to reach affected cases quickly. It is distinct
+from an uninterrupted playthrough. That playtest belongs to the owner and friends.
+Earlier checks are not a reason to rerun the entire campaign for every change.
+
+Remaining work includes unsupported special/multipart actors, dynamic graphics,
+projectiles and display layouts; additional native variable-script services;
+frame-time spikes; and bugs reported during real play. The in-game map with
+position/doors/exits and a possible 15–20% zoom-out remain later considerations.
+[Mike's RPG Center maps](https://mikesrpgcenter.com/lagoon/index.html#maps) and the
+[walkthrough](https://mikesrpgcenter.com/lagoon/walkthrough.html) are route references,
+not proof of runtime state or permission to redistribute their maps.
+
+## Renderer
+
+The custom scene renderer reconstructs supported world backgrounds from actual
+resident resources. It verifies the original center picture before replacing a
+scene and falls back for unknown room/resource/palette/generation combinations.
+It does not stretch a screenshot to fill the margins or invent content past
+finite world edges. [Room catalog](RENDERER-COVERAGE.csv).
+
+`tools/entities.py` reads 0x40-byte actor records starting at WRAM `$0500`.
+These records are observations of the running guest, rather than host-owned AI.
+
+Additional ordinary actors use finite original sprite tables, exact current
+records/frames and resource ownership. They do not predict enemy AI or advance
+animation. Nasir's dynamic graphics and unsupported multipart/projectile forms
+remain conservative. Queued OAM ownership, priority, clipping, palette, camera
+coordinates and resource generation must all match before extending a pose.
+Changing a guard requires source evidence and affected-route checks.
+
+Title/intro/portrait UI can retain original geometry. Qualified dialogue and
+Start views retain their surrounding world; audited Items/Magic/Equipment
+presentation and transitions use original assets. Scene transitions need valid
+resource provenance, not just the previous room's pixels retained indefinitely.
+
+## Qualification
+
+Keep source, architectural mode, actual guest return-stack and generation guards.
+Native promotion is checked against original opcodes with complete memory,
+registers, stack and CPU/master/coprocessor clocks, including internal deadlines.
+Use matched inputs and controls for affected gameplay, ordered presentations and
+complete checkpoints. A matching screenshot alone does not establish correctness.
+Timing, audio, scheduler or dead-stack differences must remain explicit.
+
+See [native timing contracts](../tools/NATIVE-TIMING.md),
+[analysis policy](../recomp/README.md) and
+[bounded campaign warps](../tools/CAMPAIGN-WARPS.md). The cheat hook requires an
+isolated bounded offline run with dummy audio, no run-ahead and an actual original
+door handoff. Never relax those production guards to obtain a test result.
+
+Frame-time measurements must distinguish normal guest work, rendering,
+per-frame diagnostic file I/O, frame limiting and audio high-water waits.
+Dummy-audio/hidden-window results do not certify real-device audio or scanout.
+Fresh room-loader tests and loaded-state tests differ: loaded states do not
+serialize the custom renderer's resource-ownership witnesses. Re-enter through
+an authored door before claiming a source-positive far-actor pacing sample.
+There is no full-game locked-60-FPS claim.
+
+## Build and contribution
+
+[Build instructions](BUILDING.md). Keep the framework patch and dependency licenses.
+Apply/check the cumulative patch on clean checkouts; preserve intentional local
+framework changes in active workspaces. Never reset the SDK or accidentally
+commit a dirty submodule pointer. ROMs, generated C, decomp exports, states,
+extracted assets, audio and raw validation stay private.
+
+Keep changes focused and report what actually ran. Source tests, synthetic
+fixtures, assisted routes, installed-artifact checks and natural playthroughs
+are different evidence. Commit/push substantial verified batches. Development
+handoffs and per-run receipts stay local; Git history preserves old reports.
+Per-symbol notes naming retired batch reports refer to that history, including
+the [pre-consolidation source](https://github.com/rages4calm/LagoonSNESRecomp/tree/b04a6300d8da11d5d16d6676b2e8b556ce548aee).

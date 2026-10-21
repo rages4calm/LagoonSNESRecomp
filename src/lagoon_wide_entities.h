@@ -69,6 +69,24 @@ void LagoonWideAtlas_Write(LagoonWideAtlas *atlas, unsigned byte_address);
 int LagoonWideAtlas_CellOwned(const LagoonWideAtlas *atlas, unsigned base1,
     unsigned base2, const LagoonWideCell *cell);
 
+/* Original common0 death glyphs, separate from the room OBJ atlas and live
+ * Nasir staging pack. Only a completed original512-byte upload grants use. */
+enum { kLagoonWideDeathBytes=0x200 };
+typedef struct LagoonWideDeathAtlas {
+  uint8_t bytes[kLagoonWideDeathBytes];
+  uint64_t generation;
+  unsigned next,left,completed,ready;
+} LagoonWideDeathAtlas;
+int LagoonWideDeath_Source(const uint8_t *rom,size_t size);
+void LagoonWideDeath_Reset(LagoonWideDeathAtlas *atlas);
+int LagoonWideDeath_Begin(LagoonWideDeathAtlas *atlas,uint64_t generation,
+    const uint8_t *rom,size_t size,unsigned bank,unsigned address,unsigned destination,unsigned length);
+void LagoonWideDeath_Write(LagoonWideDeathAtlas *atlas,unsigned address,uint8_t value);
+int LagoonWideDeath_Match(const LagoonWideDeathAtlas *atlas,const uint16_t *vram,
+    const uint8_t *rom,size_t size,uint64_t generation);
+int LagoonWideDeath_CellOwned(const LagoonWideDeathAtlas *atlas,unsigned base1,unsigned base2,
+    const LagoonWideCell *cell);
+
 /* Match initialized native interior tiles against the retained map. */
 int LagoonWideEntities_WorldCharacters(const uint16_t *vram,
     const uint16_t *witness,const uint8_t used[1024]);

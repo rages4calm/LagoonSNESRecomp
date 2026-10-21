@@ -4,7 +4,7 @@
 Usage:
   python tools/entities.py <dump.wram.bin> [--near X,Y [--radius N]] [--all]
 
-Records are 0x40 bytes apart from $7E:0500 (proved in CAMPAIGN-ROUTE.md: the
+Records are 0x40 bytes apart from $7E:0500 (documented in docs/DEVELOPMENT.md: the
 player is record 0 and everything after it repeats the same header shape). Only
 records whose state byte is non-zero are listed unless --all, because an empty
 slot keeps whatever coordinates it had when it was last alive, which reads as a

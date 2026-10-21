@@ -69,7 +69,7 @@
       "camera_center": true,
       "exe_sha256": "14be32d86a553a27f47971bf5479f9900d225c832f6ee5dc016b870d1423a507",
       "route_sha256": "15f4a6c418a24c65b3f433e57dcca235798b17566b71792bb9b5206e284b80c8",
-      "png_sha256": "bbc2036664ea132a1d36a765e30d702494b5ef9305f7cd2f21893b56a5204591",
+      "png_sha256": "3f41ac1683eedd91b35e5b9aad5e09c3192031e4d0227711a1b072022be03c8f",
       "enabled_features": [
         "camera_center",
         "exp_boost",
@@ -81,7 +81,7 @@
         "sword_reach",
         "walk_speed"
       ],
-      "capture": "Actual SDL renderer fullscreen readback before Present; lossless RGBA BMP to PNG; no post-capture resize",
+      "capture": "Actual SDL renderer fullscreen readback before Present; lossless RGB PNG; no post-capture resize",
       "filter": "nearest",
       "scene": "Natural walking and real NPC conversation; typewriter text in progress",
       "script_only_input": true,
@@ -94,7 +94,15 @@
       "observed_simulation_frames": 6423,
       "observed_presentations": 6423,
       "observed_host_seconds": 138.9754161,
-      "observed_cpu_seconds": 24.875
+      "observed_cpu_seconds": 24.875,
+      "original_png_sha256": "bbc2036664ea132a1d36a765e30d702494b5ef9305f7cd2f21893b56a5204591",
+      "encoding_repair": {
+        "date": "2026-10-20",
+        "reason": "Discard all-zero unused readback alpha which made the image invisible in browsers",
+        "rgb_pixels_sha256": "6e75592ea6cd57aa24743f96286d2fbcff26bfae5e18868b07e2e78f58649fd2",
+        "rgb_pixels_unchanged": true,
+        "size_unchanged": true
+      }
     },
     {
       "file": "items-16x9-epx-1920x1080.png",

@@ -168,7 +168,7 @@ static uint64_t g_qol_state_generation;
 static int g_def_written;
 
 /* New-game initialisation is recognised by the freshly cleared party block,
- * not by a timer or by rewriting an existing save's defence. See QOL-IMPLEMENTATION.md. */
+ * not by a timer or by rewriting an existing save's defence. See docs/PLAYING.md. */
 static void qol_start_hp_activated(void) {}
 
 static int g_follower_speed, g_recovery_time, g_jump_hold;

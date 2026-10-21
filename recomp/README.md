@@ -50,4 +50,4 @@ while preserving native sibling modes at the same address. Ordinary
 `force_lle 0080E6` still excludes every mode at that address. These exclusions
 apply to the generated program, rather than depending on a diagnostic deny file.
 See [timing contracts](../tools/NATIVE-TIMING.md) and
-[current qualification](../docs/DEVELOPMENT-STATUS.md) before changing them.
+[current qualification](../docs/DEVELOPMENT.md) before changing them.

@@ -30,7 +30,7 @@ Other
 settings, bindings, mod selections and saves remain in place. Both EPX shader
 files must accompany the selected executable. Restart after Apply. This is a
 pixel treatment, not replacement artwork or smoother gameplay motion. See
-[enhanced pixel details and bounded checks](../docs/ENHANCED-PIXELS.md).
+[display settings](../docs/PLAYING.md#display).
 
 Experimental widescreen defaults off and offers 16:9, 16:10, 21:9, 32:9 and follow
 window choices through `[Graphics] Widescreen` and `[Lagoon] WideAspect`. It expands
@@ -39,13 +39,12 @@ Unsupported scenes retain their original view.
 
 Audio also offers **Original SNES** (default) and **X68000 (partial, experimental)**.
 Select the private imported music folder, choose X68000, Apply and restart.
-The local converted folder is `C:\Users\crono\Desktop\Projects\Lagoon\Soundtracks\X68000`;
-VGZ conversion is already complete, so MP3 files are not required. Title, Atland
+Use a separately imported private soundtrack folder; MP3 files are not required. Title, Atland
 and opening Gold Cave music are mapped; other/missing cues retain SNES audio and
 sound effects stay on the original driver. State loads restart the cue, and
 run-ahead/netplay use SNES. The selector and folder persist as the matching
 `lagoon.soundtrack` feature/resource in native mod state. Nothing enables it
-automatically. See [soundtrack details](../docs/X68000-SOUNDTRACK.md).
+automatically. See [soundtrack details](../docs/SOUNDTRACK.md).
 
 The Quality of life page changes the matching native package's feature selections
 in `mods/preloaded/state.toml` beside the executable. All nine gameplay options default off:
