@@ -1,7 +1,7 @@
 # Credits
 
 - **ZOOM and KEMCO** — the original Lagoon games. This project does not include
-  their ROMs, extracted asset packs or soundtrack files.
+  their ROMs or extracted game graphics.
 - **oipo, the Lagoon QoL hack author identified by the project owner** — the changes requested for this port
   were inspired by [Lagoon QoL, Romhacking.net hack #9856](https://www.romhacking.net/hacks/9856/).
   The supplied patch was a reference for reach, follower and movement behavior.
@@ -10,7 +10,9 @@
   Giles first-aid rewrite are project choices.
 - **Hideki Suzuki** — X68000 music, as credited in the supplied VGM package.
   **GTheGuardian** created that package; **Valley Bell** optimized it.
-  Soundtrack files are supplied/imported separately and are not in this repo.
+  The owner-supplied archive was converted to loop-aware PCM for the optional
+  release soundtrack and MP3 for listening. Original music rights remain with
+  their respective owners; the port's source licenses do not claim the music.
 - **RetroPortingToolKit and SNESRecomp contributors** — recompilation, runtime,
   rendering and the interpreter safety net. See the framework's license.
 - **Companion Launcher contributors** — the shared launcher foundation.
@@ -20,3 +22,6 @@
 - **joshleaves / ghidra-snes and Ghidra contributors** — reverse-engineering tools.
 
 Original work and dependency licenses remain with their respective authors.
+
+The sword/lagoon and compass application icons are original AI-generated artwork
+created for this project. They do not replace the game's original artwork.

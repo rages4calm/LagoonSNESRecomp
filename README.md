@@ -4,11 +4,12 @@ A work-in-progress Windows port of **Lagoon (USA)** built with
 [SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp).
 Native gameplay runs alongside an interpreter safety net, with experimental
 widescreen, a custom scene renderer and optional quality-of-life improvements.
-**Bring your own clean USA ROM.** No game assets or soundtrack are bundled.
+**Bring your own clean USA ROM.** No ROM or extracted game graphics are bundled.
 
 ![Atland with Enhanced original pixels at 1920 by 1080](docs/screenshots/atland-epx-1920x1080.png)
 
 [More screenshots](docs/screenshots/README.md) ·
+[Windows preview](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.1.0-preview.1) ·
 [Build](docs/BUILDING.md) · [Playing and settings](docs/PLAYING.md) ·
 [Development](docs/DEVELOPMENT.md) · [Credits](CREDITS.md)
 
@@ -29,14 +30,23 @@ widescreen, a custom scene renderer and optional quality-of-life improvements.
 - **Explored map:** press **M** or **Select+L** to pause and see your position,
   discovered exits, links to visited areas and discovered treasure.
 - **Companion Launcher:** display, audio, input and QoL settings in one place.
-  An imported X68000 soundtrack is an optional, partial experiment.
+  Choose **Original SNES** or the bundled **X68000** music on Audio; no manual
+  conversion or folder selection. Unmapped cues retain SNES music and sound
+  effects remain original. [Music details and MP3s](docs/SOUNDTRACK.md).
 
 ## Run it
 
-This repository currently distributes source, rather than a packaged playable
-release. [Build the game and launcher](docs/BUILDING.md), then open
-**Start Lagoon.cmd**. Companion verifies your ROM before starting the game.
-Settings and saves live beside the executable in `build`.
+Download the **Windows x64 preview ZIP** from
+[Releases](https://github.com/rages4calm/LagoonSNESRecomp/releases).
+Extract the whole ZIP and open **Setup Lagoon.cmd** or **lagoon.Companion.exe**.
+Select your clean USA ROM on Game and Apply, then open Game setup and Run setup.
+Press Play when setup finishes. The playable game executable and self-contained
+Companion are included, each with a custom icon; no compiler, SDK or download is
+needed for setup. Your ROM is verified and is never bundled or copied by setup.
+Preview settings and saves live in the extracted folder's `local` directory.
+
+For a source checkout, [build the game and launcher](docs/BUILDING.md), then open
+**Start Lagoon.cmd**. Development settings and saves remain in `build`.
 
 On a **1920×1080 monitor**, start with desktop fullscreen, **16:9 widescreen**,
 VSync on and optional Enhanced original pixels. Leave linear filtering and frame

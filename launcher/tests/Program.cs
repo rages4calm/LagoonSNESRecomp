@@ -3,6 +3,12 @@ using Companion.Launcher.Core;
 using System.Text;
 
 // Explicit private inputs; no ROM fixtures or owner settings bundled.
+if (args.Length == 2 && args[0] == "--settings-only")
+{
+    SettingsChecks.Run(Path.GetFullPath(args[1]));
+    Console.WriteLine("PASS: isolated settings transactions and bundled two-choice soundtrack selection.");
+    return;
+}
 if (args.Length != 3) throw new ArgumentException("exe rom fresh-output-directory");
 var exe = Path.GetFullPath(args[0]);var rom = Path.GetFullPath(args[1]);
 var output = Path.GetFullPath(args[2]);
@@ -146,20 +152,21 @@ internal static class SettingsChecks
         Directory.CreateDirectory(Path.GetDirectoryName(audioManifest)!);
         File.WriteAllText(audioManifest, "[[feature]]\nid = \"x68000\"\n");
         controller.Reload();
-        var musicFolder = Path.Combine(root, "private music with spaces"); Directory.CreateDirectory(musicFolder);
+        Assert(!adapter.Definition.Options.Any(x => x.Id == "audio.soundtrack-folder"), "Soundtrack folder must not require user setup.");
+        Assert(adapter.Definition.Options.Single(x => x.Id == "audio.soundtrack").Choices!.Select(x => x.Value).SequenceEqual(new[] { "snes", "x68000" }), "Soundtrack must have exactly the two requested choices.");
+        var musicFolder = Path.GetFullPath(Path.Combine(root, "..", "soundtrack", "x68000")); Directory.CreateDirectory(musicFolder);
         File.WriteAllBytes(Path.Combine(musicFolder, "lagoon-x68000.msu"), Array.Empty<byte>());
         File.WriteAllBytes(Path.Combine(musicFolder, "lagoon-x68000-1.pcm"), new byte[] { 77,83,85,49,0,0,0,0,1,0,1,0 });
         controller.SetOption("audio.soundtrack", OptionValue.From("x68000"));
-        controller.SetOption("audio.soundtrack-folder", OptionValue.From(musicFolder));
         controller.Reload(); Assert(controller.Snapshot.Values["audio.soundtrack"].GetString() == "snes", "Soundtrack Revert failed.");
         controller.SetOption("audio.soundtrack", OptionValue.From("x68000"));
-        controller.SetOption("audio.soundtrack-folder", OptionValue.From(musicFolder)); controller.Apply();
-        Assert(controller.Snapshot.Values["audio.soundtrack"].GetString() == "x68000" && controller.Snapshot.Values["audio.soundtrack-folder"].GetString() == musicFolder, "Soundtrack resource round trip failed.");
+        controller.Apply();
+        Assert(controller.Snapshot.Values["audio.soundtrack"].GetString() == "x68000" && File.ReadAllText(state).Contains(System.Text.Json.JsonSerializer.Serialize(musicFolder)), "Bundled soundtrack path was not selected automatically.");
         Assert(File.ReadAllText(state).Contains("feature_id = \"x68000\"") && File.ReadAllText(state).Contains("setting = \"unknown value\""), "Soundtrack resource damaged unknown state.");
         controller.SetOption("audio.volume", OptionValue.From(37)); File.AppendAllText(audioManifest, "# changed externally\n");
         ExpectConflict(controller); controller.Reload();
         controller.SetOption("audio.soundtrack", OptionValue.From("snes")); controller.Apply();
-        Assert(controller.Snapshot.Values["audio.soundtrack-folder"].GetString() == musicFolder, "Disabling soundtrack lost its private folder.");
+        Assert(File.ReadAllText(state).Contains(System.Text.Json.JsonSerializer.Serialize(musicFolder)), "Disabling soundtrack lost its retained resource path.");
         var newConfig = Path.Combine(root, "other.ini"); File.WriteAllText(newConfig, "[Sound]\nVolume=71\n");
         controller.SetOption("config.path", OptionValue.From(newConfig)); controller.SetOption("audio.volume", OptionValue.From(12)); controller.Apply();
         Assert(controller.Snapshot.Values["audio.volume"].GetInt32() == 71 && File.ReadAllText(newConfig) == "[Sound]\nVolume=71\n", "New source overwritten with previous settings.");

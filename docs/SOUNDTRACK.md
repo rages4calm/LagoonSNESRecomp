@@ -1,82 +1,81 @@
 # Optional X68000 soundtrack
 
-The stock SNES soundtrack remains the default. A separately obtained X68000 VGM
-archive can now be converted privately into loop-aware PCM files. Music playback
-inside Lagoon is **experimental and partial**, checked on the opening combat
-route. A converted pack alone does not enable it.
+Choose **Original SNES** or **X68000** on Companion's **Audio** page, then Apply
+and launch. Original SNES remains the default. The prepared soundtrack is included
+in `soundtrack/x68000`; no ripping, converter installation or folder selection is
+needed. The game's lossless 44.1 kHz stereo PCM preserves the VGZ loop points.
+The accompanying MP3 exports are for ordinary music players, while gameplay uses
+PCM so looping does not depend on MP3 encoder delay.
 
-## Use the optional soundtrack
+[Browse the 40 MP3s and playlist](../soundtrack/listening) or
+[download the MP3 album ZIP](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.1.0-preview.1/Lagoon-X68000-MP3.zip).
 
-1. Open Companion's **Audio** page. **Original SNES** is the default.
-2. Set **Imported X68000 music folder** to the converted pack folder. Use your own private output folder.
-3. Choose **X68000 (partial, experimental)**, Apply, then start the game.
+Seventeen source-qualified cues use the matching X68000 themes. Other cues,
+missing or invalid files, run-ahead and netplay keep the SNES soundtrack. SNES
+sound effects remain original. Save-state loads restart the selected track;
+they do not restore its exact sample position.
 
-VGZ archives can be converted using the importer below; MP3 files are not needed. The option replaces title music, Atland and the opening Gold Cave.
-Other music and missing tracks retain SNES audio. SNES sound effects remain.
-Save-state loads restart the selected track rather than restoring its exact
-sample position. Run-ahead and netplay use SNES audio. No owner setting was
-enabled automatically, and no soundtrack files belong in a public package.
+| SNES cue | Location/theme | X68000 archive track |
+|---|---|---|
+| 10 | Title | 01 Premonition |
+| 20 | Atland | 02 Atland |
+| 21 | Worship Site | 03 Keep the Faith |
+| 22 | Shops | 28 Shop |
+| 23 | Denegul | 10 Senegul |
+| 24 | Poper | 13 Town of Disease (Poper) |
+| 25 | Lilaty / Gnome Tree | 17 Lilaty |
+| 30 | Gold Cave | 04 Walking in the Shadows |
+| 31 | Philips Castle | 08 Castle Mark Philips |
+| 32 | Dwarf Desert | 09 Desert Plains |
+| 35 | Siegfried Castle | 15 Castle Siegfried |
+| 37 | Hobbit Valley | 12 Valley |
+| 38 | Cloud | 21 Reach for the Sky |
+| 39 | Ice Cave / Gnome Plain | 18 Ice Cave |
+| 3A | Phantom Hill | 19 Run to the Hill of Phantom |
+| 3B | Lagoon Castle | 22 Master of Water (Castle Lagoon) |
+| 3D | Voloh | 07 Voloh |
 
-## Import a VGM archive
+Cue numbers above are hexadecimal; archive track numbers are decimal. The
+original room descriptors at `$05:B2DF` supply the cue through `$01:8B84` and
+`$00:90DB`. Shop scripts use the four `$01:D052` entries. The runtime checks the
+original six-byte command row, loaded sound banks and actual JSL helper frame
+before replacing music. Ambiguous boss, special and cutscene cues remain SNES;
+the included 40-track archive is not a claim that every track has a game mapping.
+Original shared music cues stay shared between areas. Names pair location themes
+between the two versions; this does not assert identical arrangements.
 
-Use a separately built [libvgm](https://github.com/ValleyBell/libvgm) `vgm2wav`
-executable. The tested reference revision is
-`a6eed945ecf4e5a25cf82004779c6f7e4fd5c319`. Enable **both YM2151 and MSM6258**.
-FFmpeg/libgme is not the converter used here: the OKIM6258 drum/sample device
-must not disappear from the conversion.
+Music is credited to **Hideki Suzuki / ZOOM**. The VGMRips package was created by
+**GTheGuardian**, with optimization by **Valley Bell**. These third-party music
+assets retain their original rights and are separate from the project's source
+code licenses.
 
-```powershell
-python tools/import_x68000_soundtrack.py 'C:/private/Lagoon_(Sharp_X68000).zip' `
-  --vgm2wav 'C:/private/tools/vgm2wav.exe' `
-  --output 'C:/private/Lagoon-X68000-Pack'
-```
+## Reproduce the conversion
 
-The output must be a fresh directory outside this public source checkout.
-`--track 2` performs a bounded Atland conversion before importing everything.
-The input ZIP is read directly; paths inside it are not extracted. Input hashes
-are checked before and after conversion. Failed conversions remain in a private
-`.partial-<id>` directory for inspection and never replace an existing pack.
-
-Outputs are 44.1 kHz, signed 16-bit little-endian stereo:
-
-- `lagoon-x68000-N.pcm`: `MSU1` magic, a little-endian 32-bit loop-start frame,
-  then interleaved samples. N is the **archive track number**, not a guest command.
-- `lagoon-x68000.msu`: empty audio-only data file.
-- `pack.json`: titles, source/converter/output hashes, original VGM total and
-  loop sample counts, loop flags, sound-chip clocks and render measurements.
-- `render-NN.log`: converter identity/device information and rendering diagnostics.
-
-The importer renders exactly one original pass with no fade. The VGM loop-start
-sample is `total_samples - loop_samples`; it is not assumed to be zero. Non-looping
-tracks are marked `loop: false` in the manifest and must be played once. The PCM
-header's zero field alone cannot distinguish a non-looping track from a loop at
-sample zero. The importer requires the rendered sample count to match the source
-and confirms both sound devices initialized. Full-scale sample counts are reported;
-this is not an independent mastering or listening-quality certification.
-
-The supplied archive credits Hideki Suzuki / ZOOM for the music, GTheGuardian for
-the VGMRips pack and Valley Bell for optimization. Generated music, the original
-archive, conversion logs and the converter executable stay private. The converter
-is an external process; its emulator cores are not linked into this MIT game code.
-
-### Building the external converter
-
-In a separate private tool directory, check out the reference libvgm revision and
-[zlib](https://github.com/madler/zlib) tag `v1.3.1`
-(`51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf`). Build/install zlib with CMake, then
-configure libvgm with its install root:
+The supplied `Lagoon_(Sharp_X68000).zip` contains VGZ files, which are compressed
+sound-chip command logs. Use the external [libvgm](https://github.com/ValleyBell/libvgm)
+`vgm2wav` converter with **both YM2151 and MSM6258** enabled:
 
 ```powershell
-cmake -S libvgm -B libvgm-build -G Ninja `
-  -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ `
-  -DBUILD_LIBAUDIO=OFF -DBUILD_PLAYER=OFF -DBUILD_TESTS=OFF -DBUILD_VGM2WAV=ON `
-  -DUSE_SANITIZERS=OFF -DLINK_STATIC_LIBS=OFF -DSNDEMU__ALL=OFF `
-  -DSNDEMU_YM2151_MAME=ON -DSNDEMU_MSM6258_ALL=ON -DZLIB_ROOT=C:/private/zlib-install
-cmake --build libvgm-build --target vgm2wav -j 4
+python tools/import_x68000_soundtrack.py 'C:/music/Lagoon_(Sharp_X68000).zip' `
+  --vgm2wav 'C:/tools/vgm2wav.exe' `
+  --output 'C:/music/Lagoon-X68000-Pack'
 ```
 
-Keep its runtime dependencies beside the external executable or on its tool PATH.
-For the tested dynamic zlib build this includes `libzlib.dll`. Do not copy these
-libraries into the Lagoon game executable. Observe the separate tool/core licenses
-if redistributing a converter; this project does not redistribute that binary.
-The selected YM2151 core is GPL-2.0-or-later; the OKIM6258 core is BSD-3-Clause.
+The output must be a fresh directory. The importer reads ZIP members directly,
+checks source hashes before and after conversion, and renders one pass with no
+fade. It validates both sound devices, exact sample counts and non-silent audio.
+The tested converter revision is `a6eed945ecf4e5a25cf82004779c6f7e4fd5c319`.
+FFmpeg/libgme is not the converter here; omitting the OKIM6258 core loses drums.
+
+`lagoon-x68000-N.pcm` contains an `MSU1` header, original loop-start frame and
+signed 16-bit little-endian stereo samples. `pack.json` records titles,
+source/converter/output hashes, duration, loop flags and sample measurements.
+`lagoon-x68000.msu` is the empty audio-only data file. All 40 tracks are prepared;
+29 Item Get and 31 Say ZOOM! are one-shots, the other 38 have original loops.
+A zero PCM header loop offset alone does not distinguish a one-shot from a loop
+at sample zero. The runtime retains explicit per-track repeat policy.
+
+The converter runs separately; no libvgm emulator core is linked into the game.
+A separately redistributed converter must retain its own licenses: the selected
+YM2151 core is GPL-2.0-or-later and OKIM6258 core is BSD-3-Clause. The release
+includes prepared audio rather than the converter executable.

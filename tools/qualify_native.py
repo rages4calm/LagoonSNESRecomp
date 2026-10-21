@@ -121,7 +121,8 @@ def main():
         if not source.is_dir() or out.is_relative_to(source):
             parser.error('Seed save root must be an existing directory outside this output')
         for original in sorted(source.iterdir()):
-            if original.is_file() and original.suffix.lower() in {'.sav','.srm','.bak'}:
+            if original.is_file() and (original.suffix.lower() in {'.sav','.srm','.bak'}
+                                       or original.name == 'lagoon-exploration.map'):
                 target=out/'saves'/original.name
                 shutil.copy2(original,target)
                 digest=hashlib.sha256(original.read_bytes()).hexdigest()
@@ -193,7 +194,8 @@ def main():
                       'LAGOON_SCENE_RENDERER_REPORT',
                       'LAGOON_NATIVE_RECOVERY_REPORT','LAGOON_FOLLOWER_REPORT',
                       'SNESRECOMP_APURAM_TRACE_FILE','SNESRECOMP_DSPREG_TRACE_FILE','SNESRECOMP_DSPOUT',
-                      'SNESRECOMP_FRAME_TIMING','SNESRECOMP_TITLE_OVERLAY_DUMP'}
+                      'SNESRECOMP_FRAME_TIMING','SNESRECOMP_TITLE_OVERLAY_DUMP',
+                      'SNESRECOMP_TITLE_OVERLAY_DISPLAY_SCREENSHOT'}
     diagnostic_numbers={'SNESRECOMP_HOST_PROFILE_START_FRAME','SNESRECOMP_PPU_HEARTBEAT','LAGOON_MAP_SELFTEST_FRAME'}
     diagnostic_booleans=DIAGNOSTIC_BOOLEANS
     diagnostic_ranges=DIAGNOSTIC_RANGES

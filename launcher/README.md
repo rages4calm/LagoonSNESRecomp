@@ -3,12 +3,19 @@
 Uses the shared Companion Launcher 0.2.0 packages; no shared UI source is copied.
 Build with `powershell -File scripts/build_launcher.ps1 -CompanionRoot <checkout>`
 from the game repository. The build script finds the local package feed and
-restores the pinned lock file. .NET 8 Windows Desktop Runtime is required to run.
+restores the pinned lock file. Developer builds need .NET 8 Windows Desktop
+Runtime. The public Windows preview is self-contained and needs no .NET install.
+
+For a release package, open `Setup Lagoon.cmd`, enter your own clean USA ROM's
+absolute path on Game and Apply, then run Game setup. The game EXE is bundled
+under `game/`; setup needs no compiler, conversion or download. Config, shaders,
+mod preferences and saves stay under `local/`. Companion passes that config and
+an explicit local save root. Packaged files remain unchanged.
 
 The Game page selects the native executable, original USA ROM and existing native
 config.ini. Play verifies ROM SHA256, supplies structured `--no-launcher`, `--rom`
 and `--config` arguments, and retains the executable directory as the working
-directory. Native saves remain in the existing game save directory. Launcher
+directory for development builds. Native saves remain in the existing game save directory. Launcher
 path preferences use Companion's own storage; no save or engine setting migration
 is performed.
 
@@ -37,17 +44,17 @@ window choices through `[Graphics] Widescreen` and `[Lagoon] WideAspect`. It exp
 backgrounds; off-screen NPC/enemy rendering and some rooms remain unfinished.
 Unsupported scenes retain their original view.
 
-Audio also offers **Original SNES** (default) and **X68000 (partial, experimental)**.
-Select the private imported music folder, choose X68000, Apply and restart.
-Use a separately imported private soundtrack folder; MP3 files are not required. Title, Atland
-and opening Gold Cave music are mapped; other/missing cues retain SNES audio and
-sound effects stay on the original driver. State loads restart the cue, and
-run-ahead/netplay use SNES. The selector and folder persist as the matching
-`lagoon.soundtrack` feature/resource in native mod state. Nothing enables it
-automatically. See [soundtrack details](../docs/SOUNDTRACK.md).
+Audio has one **Soundtrack** dropdown: **Original SNES** (default) or **X68000**.
+Choose one, Apply and restart. The release's complete X68000 pack is selected
+automatically from `soundtrack/x68000`; there is no folder field or conversion.
+Developer builds also find the existing workspace's `Soundtracks/X68000` import.
+Missing/unmapped cues retain SNES audio and sound effects keep the original
+driver. The selection persists in the matching `lagoon.soundtrack` native mod
+feature/resource. See [soundtrack details](../docs/SOUNDTRACK.md).
 
 The Quality of life page changes the matching native package's feature selections
-in `mods/preloaded/state.toml` beside the executable. All nine gameplay options default off:
+in `local/mods/preloaded/state.toml` for previews, or beside the executable for
+development builds. All nine gameplay options default off:
 walking speed, opening balance, camera centering, sword reach with modest lateral cleave, follower speed,
 recovery time, EXP rewards, jump peak hold and magic strength. Menu responsiveness
 is built into the port. Giles first aid is also built in: accepting his rescue request

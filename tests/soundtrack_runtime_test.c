@@ -60,6 +60,19 @@ static void context(uint8 *rom, unsigned event, unsigned bank0, unsigned bank1,
   rom[p] = 0x22; rom[p + 1] = helper; rom[p + 2] = helper >> 8; rom[p + 3] = 0x0c;
   g_ram[0x438] = event; g_ram[0x439] = 0;
   g_ram[0x434] = bank0; g_ram[0x436] = bank1;
+  static const struct { unsigned event; uint8_t p[3]; } records[] = {
+    {0x10,{1,2,3}},{0x20,{1,2,0}},{0x21,{3,4,0}},
+    {0x22,{5,6,0}},{0x23,{7,8,0}},{0x24,{9,10,0}},
+    {0x25,{11,12,0}},{0x30,{1,0,0}},{0x31,{2,0,0}},
+    {0x32,{3,0,0}},{0x35,{1,0,0}},{0x37,{3,0,0}},
+    {0x38,{4,0,0}},{0x39,{5,0,0}},{0x3a,{1,0,0}},
+    {0x3b,{2,0,0}},{0x3d,{4,0,0}},
+  };
+  for(unsigned i=0;i<sizeof(records)/sizeof(records[0]);i++)if(event==records[i].event){
+    uint8_t *row=rom+0x679fc+event*6;row[0]=bank0;row[1]=bank1;row[2]=7;
+    memcpy(row+3,records[i].p,3);
+  }
+
 }
 int main(int argc, char **argv) {
   assert(argc == 2); /* Prefix containing generated track 1; track 2 absent, 4 bad. */
@@ -80,7 +93,7 @@ int main(int argc, char **argv) {
   context(rom, 0x61, 1, 1, 0x0cf9c5, 0xfe3d);
   assert(filter(0x2141, 0x12) == 0 && writes == 2); /* SFX preserved. */
   assert(msu1_read(0x2000) & 0x10);
-  context(rom, 0x21, 2, 4, 0x0cf8e0, 0xfe00);
+  context(rom, 0x26, 2, 4, 0x0cf8e0, 0xfe00);
   assert(filter(0x2140, 3) == 0 && !(msu1_read(0x2000) & 0x10)); /* Unknown cue. */
   context(rom, 0x20, 2, 4, 0x0cf8e0, 0xfe00);
   assert(filter(0x2140, 1) == 0); /* Missing PCM. */
@@ -143,7 +156,29 @@ int main(int argc, char **argv) {
   assert(filter(0x2140, 1) == 1);
   LagoonSoundtrack_Reset();
   assert(!(msu1_read(0x2000) & 0x10));
+  /* Newly supported named cues use generated-tone fixtures; no copyrighted
+   * audio is required by this integration test. Exact source rows are checked. */
+  static const unsigned expanded[][3] = {
+    {0x21,2,4},{0x22,2,4},{0x23,2,4},{0x24,2,4},{0x25,2,4},
+    {0x31,2,5},{0x32,2,5},{0x35,2,6},{0x37,2,6},{0x38,2,6},
+    {0x39,2,6},{0x3a,2,7},{0x3b,2,7},{0x3d,2,8},
+  };
+  for(unsigned i=0;i<sizeof(expanded)/sizeof(expanded[0]);i++) {
+    context(rom,expanded[i][0],expanded[i][1],expanded[i][2],0x0cf8e0,0xfe00);
+    unsigned prior=writes;
+    assert(filter(0x2140,1)==1&&writes==prior+1&&last_value==0);
+    assert(msu1_read(0x2000)&0x10);
+    int16_t pcm[32]={0};msu1_mix(pcm,16);
+    assert(pcm[0]==1000&&pcm[1]==-1000);
+    /* A mismatched source row cannot authorize replacing guest audio. */
+    rom[0x679fc+expanded[i][0]*6+3]^=0x80;
+    assert(filter(0x2140,1)==0&&!(msu1_read(0x2000)&0x10));
+  }
+  context(rom,0x23,2,4,0x0cf8e0,0xfe00);
+  assert(filter(0x2140,1)==1);
+  context(rom,0x34,2,5,0x0cf8e0,0xfe00);
+  assert(filter(0x2140,5)==0&&!(msu1_read(0x2000)&0x10)); /* Unmapped boss. */
   free(rom);
-  puts("PASS: PCM mixer, secondary BGM mute, SFX/IPL pass, cue fallback, legacy/new/malformed states, mode change, reset");
+  puts("PASS: PCM mixer, secondary BGM mute, SFX/IPL pass, cue fallback, legacy/new/malformed states, mode change, reset, all14newcue tones and source-row refusal");
   return 0;
 }

@@ -7,6 +7,9 @@ using Companion.Launcher.Core;
 // and unknown launcher preferences only; it is not a second engine settings file.
 internal static class NativeSettings
 {
+    // Preview packages keep writable state beside their local config. Existing
+    // development builds retain their released executable-relative state paths.
+    internal static bool PreviewLayout { get; set; }
     private sealed record Field(string Id, string Section, string Key, OptionDefinition Option);
     private static Field Boolean(string id, string page, string label, string section, string key, bool fallback, string help = "") =>
         new(id, section, key, new(id, page, label, OptionKind.Boolean, OptionValue.From(fallback), help));
@@ -41,10 +44,8 @@ internal static class NativeSettings
         "magic_power" => "Stronger magic", _ => id };
     private static readonly OptionDefinition[] SoundtrackOptions = {
         new("audio.soundtrack", "Audio", "Soundtrack", OptionKind.Choice, OptionValue.From("snes"),
-            "X68000 is experimental: title, Atland and opening Gold Cave only. Other music uses SNES. Tracks restart on state load; run-ahead and netplay use SNES.",
-            Choices: new[] { new ChoiceItem("snes", "Original SNES"), new ChoiceItem("x68000", "X68000 (partial, experimental)") }),
-        new("audio.soundtrack-folder", "Audio", "Imported X68000 music folder", OptionKind.Text, OptionValue.From(""),
-            "Select the folder produced by the VGZ importer. No MP3 files are needed. See the soundtrack setup guide for your local pack location.")
+            "Choose the original SNES music or the bundled X68000 soundtrack. Restart after Apply. Missing or unmapped cues use SNES audio.",
+            Choices: new[] { new ChoiceItem("snes", "Original SNES"), new ChoiceItem("x68000", "X68000") })
     };
     private static readonly OptionDefinition EnhancedPixels = new("video.enhanced-pixels", "Display", "Enhanced original pixels (EPX)", OptionKind.Boolean,
         OptionValue.From(false), "Crisper diagonal edges with the original colors and readable HUD. Selects the OpenGL GPU renderer; turning it off restores previous shader/renderer settings. Restart after Apply. This does not redraw artwork or change movement.");
@@ -67,8 +68,17 @@ internal static class NativeSettings
  "Optional native gameplay change. Restart the game after Apply.")));
     internal static bool IsNative(string id) => id == EnhancedPixels.Id || Fields.Any(x => x.Id == id) || SoundtrackOptions.Any(x => x.Id == id) || Features.Any(feature => id == "qol." + feature);
     private static string Config(IReadOnlyDictionary<string, JsonElement> values) => values["config.path"].GetString()!;
+    internal static string BundledSoundtrackFolder(IReadOnlyDictionary<string, JsonElement> values)
+    {
+        var project = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(values["engine.path"].GetString()!)!, ".."));
+        var bundled = Path.Combine(project, "soundtrack", "x68000");
+        if (PreviewLayout || File.Exists(Path.Combine(bundled, "lagoon-x68000.msu"))) return bundled;
+        // Existing development checkout's active import remains in place.
+        var imported = Path.GetFullPath(Path.Combine(project, "..", "Soundtracks", "X68000"));
+        return File.Exists(Path.Combine(imported, "lagoon-x68000.msu")) ? imported : bundled;
+    }
     private static string State(IReadOnlyDictionary<string, JsonElement> values) =>
-        Path.Combine(Path.GetDirectoryName(values["engine.path"].GetString()!)!, "mods", "preloaded", "state.toml");
+        Path.Combine(Path.GetDirectoryName(values[PreviewLayout ? "config.path" : "engine.path"].GetString()!)!, "mods", "preloaded", "state.toml");
     private static string Manifest(IReadOnlyDictionary<string, JsonElement> values) =>
         Path.Combine(Path.GetDirectoryName(State(values))!, "packages", "lagoon.quality", "1.0.0", "manifest.toml");
     private static string SoundtrackManifest(IReadOnlyDictionary<string, JsonElement> values) =>
@@ -91,7 +101,6 @@ internal static class NativeSettings
         }
         foreach (var id in Features) paths.Values["qol." + id] = OptionValue.From(mods.Feature(id) ?? false);
         paths.Values["audio.soundtrack"] = OptionValue.From(mods.Feature("x68000", "lagoon.soundtrack") == true ? "x68000" : "snes");
-        paths.Values["audio.soundtrack-folder"] = OptionValue.From(mods.SoundtrackFolder() ?? "");
         paths.Values[EnhancedPixels.Id] = OptionValue.From(IsEpx(ini, paths.Values));
         return new(paths.Values, Revision(paths.Revision, config, ini.Original, state, mods.Original, manifest));
     }
@@ -127,11 +136,11 @@ internal static class NativeSettings
             var package = Document.Read(SoundtrackManifest(values));
             if (package.Original == null || !package.DeclaredFeatures().Contains("x68000"))
                 throw new InvalidDataException("This executable's matching soundtrack package is missing.");
-            var folder = values["audio.soundtrack-folder"].GetString() ?? "";
+            var folder = BundledSoundtrackFolder(values);
             if (!Path.IsPathFullyQualified(folder) || !Directory.Exists(folder) || !File.Exists(Path.Combine(folder, "lagoon-x68000.msu")))
-                throw new InvalidDataException("Select the private imported X68000 folder containing lagoon-x68000.msu.");
+                throw new InvalidDataException("The bundled X68000 soundtrack is missing. Extract the complete release package.");
             if (!new[] { 1, 2, 4 }.Any(id => ValidPcm(Path.Combine(folder, $"lagoon-x68000-{id}.pcm"))))
-                throw new InvalidDataException("The selected folder has no valid supported PCM tracks. Run the VGZ importer first.");
+                throw new InvalidDataException("The bundled X68000 soundtrack has no valid supported tracks. Extract the complete release package.");
         }
         var enabledFeatures = Features.Where(id => values.TryGetValue("qol." + id, out var item) && item.GetBoolean()).ToArray();
         if (enabledFeatures.Length > 0)
@@ -192,8 +201,8 @@ internal static class NativeSettings
                 mods.SetFeature(id, values["qol." + id].GetBoolean());
         if (values["audio.soundtrack"].GetRawText() != current.Values["audio.soundtrack"].GetRawText())
             mods.SetFeature("x68000", values["audio.soundtrack"].GetString() == "x68000", "lagoon.soundtrack");
-        if (values["audio.soundtrack-folder"].GetRawText() != current.Values["audio.soundtrack-folder"].GetRawText())
-            mods.SetSoundtrackFolder(values["audio.soundtrack-folder"].GetString() ?? "");
+        if (values["audio.soundtrack"].GetString() == "x68000" && mods.SoundtrackFolder() != BundledSoundtrackFolder(values))
+            mods.SetSoundtrackFolder(BundledSoundtrackFolder(values));
         // Per-file atomic replacement, with rollback if a later commit fails.
         // This is not a filesystem-wide transaction against power loss.
         var writes = new[] { ini, mods }.Where(x => x.Changed).ToArray();

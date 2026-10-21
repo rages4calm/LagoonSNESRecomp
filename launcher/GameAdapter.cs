@@ -14,21 +14,23 @@ public sealed class GameAdapter : JsonGameAdapterBase
     }
 
     private static readonly string Project = FindProject();
+    private static readonly bool PreviewPackage = File.Exists(Path.Combine(Project, "windows-preview.json"));
+    private static readonly string DefaultBuild = Path.Combine(Project, PreviewPackage ? "game" : "build");
     private static readonly GameDefinition Game = new(
         "lagoon", "Lagoon", "Native recompilation in progress · interpreter fallback enabled",
         new[] { new OptionDefinition("engine.path", "Game", "Native executable", OptionKind.Text,
-            OptionValue.From(Path.Combine(Project, "build", "LagoonSNESRecomp.exe")),
-            "The locally built Lagoon executable."),
+            OptionValue.From(Path.Combine(DefaultBuild, "LagoonSNESRecomp.exe")),
+            PreviewPackage ? "The bundled native Lagoon executable." : "The locally built Lagoon executable."),
             new OptionDefinition("rom.path", "Game", "Original USA ROM", OptionKind.Text,
-            OptionValue.From(Path.GetFullPath(Path.Combine(Project, "..", "Lagoon (USA).sfc"))),
+            OptionValue.From(PreviewPackage ? "" : Path.GetFullPath(Path.Combine(Project, "..", "Lagoon (USA).sfc"))),
             "Your clean ROM is checked before Play. The QoL-patched ROM is for analysis only."),
             new OptionDefinition("config.path", "Game", "Native settings file", OptionKind.Text,
-            OptionValue.From(Path.Combine(Project, "build", "config.ini")),
-            "Select an existing file and Apply to load its settings. Native saves stay beside the game.") }.Concat(NativeSettings.Options).ToArray());
+            OptionValue.From(Path.Combine(Project, PreviewPackage ? "local/config.ini" : "build/config.ini")),
+            "After first setup, native saves and settings stay beside the game.") }.Concat(NativeSettings.Options).ToArray(), HasSetup: PreviewPackage);
 
     public GameAdapter(string? dataRoot = null) : base(Game, new[] { new ProfileDescriptor("original", "Original", "original") }, dataRoot ??
         Environment.GetEnvironmentVariable("COMPANION_DATA_ROOT") ??
-        CompanionDataPaths.DesktopRoot()) { }
+        CompanionDataPaths.DesktopRoot()) { NativeSettings.PreviewLayout = PreviewPackage; }
 
     public override SettingsSnapshot ReadSettings(ProfileDescriptor profile)
     {
@@ -48,6 +50,15 @@ public sealed class GameAdapter : JsonGameAdapterBase
         var current = ReadSettings(profile);
         if (current.Revision != expectedRevision) throw new SettingsConflictException();
         var stored = base.ReadSettings(profile);
+        if (PreviewPackage && (!File.Exists(current.Values["engine.path"].GetString()) || !File.Exists(current.Values["config.path"].GetString())))
+        {
+            if (values.Any(x => NativeSettings.IsNative(x.Key) && x.Value.GetRawText() != current.Values[x.Key].GetRawText()))
+                throw new InvalidDataException("Select and Apply your ROM, then run Game setup before changing native settings.");
+            var setupPaths = stored.Values.Where(x => !NativeSettings.IsNative(x.Key)).ToDictionary(x => x.Key, x => x.Value.Clone(), StringComparer.Ordinal);
+            foreach (var pair in values.Where(x => !NativeSettings.IsNative(x.Key))) setupPaths[pair.Key] = pair.Value.Clone();
+            Store(profile).Write(setupPaths, stored.Revision);
+            return;
+        }
         // Changing a source path loads that file on the following refresh. Values
         // from the previous source must never overwrite the newly selected file.
         bool changingSource = new[] { "engine.path", "config.path" }.Any(key =>
@@ -65,11 +76,26 @@ public sealed class GameAdapter : JsonGameAdapterBase
 
     public override Readiness CheckReady(ProfileDescriptor profile, IReadOnlyDictionary<string, JsonElement> values)
     {
+        if (PreviewPackage)
+        {
+            var marker = Path.Combine(Project, "local", "setup-ready.json");
+            if (!File.Exists(marker)) return new(false, "Select your clean USA ROM and Apply, then open Game setup and Run setup.");
+            try
+            {
+                using var ready = JsonDocument.Parse(File.ReadAllText(marker).TrimStart('\uFEFF'));
+                using var contract = JsonDocument.Parse(File.ReadAllText(Path.Combine(Project, "windows-preview.json")));
+                foreach (var field in new[] { "package", "generated_manifest_sha256", "game_sha256" })
+                    if (ready.RootElement.GetProperty(field).GetString() != contract.RootElement.GetProperty(field).GetString())
+                        return new(false, "Setup belongs to a different preview. Extract the new preview into a fresh folder.");
+            }
+            catch (Exception ex) when (ex is IOException or JsonException or KeyNotFoundException)
+            { return new(false, "Setup readiness is incomplete. Run Game setup from a fresh extracted preview."); }
+        }
         var executable = values["engine.path"].GetString() ?? "";
         var rom = values["rom.path"].GetString() ?? "";
         var config = values["config.path"].GetString() ?? "";
         if (!Path.IsPathFullyQualified(executable) || !File.Exists(executable))
-            return new(false, "Select the locally built Lagoon executable, then Apply.");
+            return new(false, PreviewPackage ? "Select your clean USA ROM and Apply, then open Game setup and Run setup." : "Select the locally built Lagoon executable, then Apply.");
         if (!Path.IsPathFullyQualified(rom) || !File.Exists(rom))
             return new(false, "Select your original Lagoon (USA) ROM, then Apply.");
         if (!Path.IsPathFullyQualified(config) || !File.Exists(config))
@@ -93,11 +119,41 @@ public sealed class GameAdapter : JsonGameAdapterBase
         var ready = CheckReady(profile, values);
         if (!ready.Ready) throw new InvalidOperationException("Game content is not ready.");
         if (resume) throw new NotSupportedException("Quick-save resume is not exposed by this adapter yet.");
-        return new(executable, Path.GetDirectoryName(executable)!, new[] {
+        var arguments = new List<string> {
             "--no-launcher", "--rom", values["rom.path"].GetString()!,
-            "--config", values["config.path"].GetString()! });
+            "--config", values["config.path"].GetString()! };
+        // The guest runtime's save-root buffer is bounded. A relative path also
+        // works when the extracted package has a long or non-ASCII parent path.
+        if (PreviewPackage) arguments.AddRange(new[] { "--save-root", "saves" });
+        return new(executable, PreviewPackage ? Path.Combine(Project, "local") : Path.GetDirectoryName(executable)!, arguments);
     }
 
-    // Optional: declare HasSetup/HasAchievements/CanResume and implement those adapter methods.
-    // Existing games must preserve their released save/settings paths instead of adopting new ones blindly.
+    public override async Task SetupAsync(ProfileDescriptor profile, IProgress<OperationProgress>? progress, CancellationToken cancellationToken)
+    {
+        if (!PreviewPackage) throw new InvalidOperationException("First-run setup is provided by the Windows preview package. Development checkouts use tools/regen.sh.");
+        var storedBefore = base.ReadSettings(profile);
+        var before = ReadSettings(profile);
+        var rom = before.Values["rom.path"].GetString() ?? "";
+        if (!Path.IsPathFullyQualified(rom) || !File.Exists(rom)) throw new InvalidDataException("Select an existing absolute ROM path on Game, then Apply.");
+        using (var stream = File.OpenRead(rom))
+            if (!Convert.ToHexString(SHA256.HashData(stream)).Equals("46C811F0CACFFE8F20E1D63072D25D7C47E9BB3FD5124851FD05ACA9884D21FB", StringComparison.Ordinal))
+                throw new InvalidDataException("Select the clean, unheadered Lagoon USA ROM. Patched and different revisions are unsupported.");
+        progress?.Report(new("Verifying your ROM and preparing local settings. No downloads are needed.", 0));
+        var powershell = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe");
+        var result = await SetupProcessRunner.RunAsync(new(powershell, Project, new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", Path.Combine(Project, "scripts", "setup_windows.ps1"), "-Rom", rom }), cancellationToken);
+        if (result.ExitCode != 0) throw new InvalidOperationException("Setup failed. Existing saves and runtime were preserved.\n" + result.StandardError + "\n" + result.StandardOutput);
+        cancellationToken.ThrowIfCancellationRequested();
+        using var ready = JsonDocument.Parse(File.ReadAllText(Path.Combine(Project, "local", "setup-ready.json")).TrimStart('\uFEFF'));
+        var executable = ready.RootElement.GetProperty("executable").GetString()!;
+        var config = ready.RootElement.GetProperty("config").GetString()!;
+        if (!File.Exists(executable) || !File.Exists(config)) throw new InvalidDataException("Setup did not produce a complete playable installation.");
+        // Publish paths only after verified setup. Existing native files are never moved.
+        if (base.ReadSettings(profile).Revision != storedBefore.Revision) throw new SettingsConflictException();
+        var paths = base.ReadSettings(profile);
+        paths.Values["engine.path"] = OptionValue.From(executable);
+        paths.Values["config.path"] = OptionValue.From(config);
+        paths.Values["rom.path"] = OptionValue.From(rom);
+        Store(profile).Write(paths.Values, paths.Revision);
+        progress?.Report(new("Setup complete. Ready to Play.", 1));
+    }
 }

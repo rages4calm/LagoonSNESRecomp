@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Convert an owner-supplied Lagoon VGM/VGZ ZIP into a private PCM pack.
+"""Convert an owner-supplied Lagoon VGM/VGZ ZIP into a loop-aware PCM pack.
 
 Calls the separately built libvgm vgm2wav executable; no emulator library is
 linked into Lagoon. This tool never downloads music or changes game settings.
@@ -91,7 +91,8 @@ def convert(source: Path, converter: Path, output: Path, selected: set[int] | No
             "channels": 2,
             "sample_bits": 16,
             "base": "lagoon-x68000",
-            "game_mapping_status": "not yet qualified; archive track numbers are NOT SNES music command IDs",
+            "game_mapping_status": "17 source-qualified cues; see docs/SOUNDTRACK.md. Archive track numbers are NOT SNES music command IDs",
+            "audio_rights": "Music remains credited to Hideki Suzuki / ZOOM; project MIT license covers code, not third-party music.",
             "tracks": [],
         }
         seen: set[int] = set()
@@ -176,20 +177,17 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archive", type=Path, help="Owner-provided Lagoon_(Sharp_X68000).zip")
     parser.add_argument("--vgm2wav", type=Path, required=True, help="External libvgm converter with YM2151 and MSM6258 enabled")
-    parser.add_argument("--output", type=Path, required=True, help="Fresh private directory outside the source/public checkout")
+    parser.add_argument("--output", type=Path, required=True, help="Fresh directory for the prepared PCM pack")
     parser.add_argument("--track", type=int, action="append", help="Convert only these archive track numbers, for a bounded probe")
     args = parser.parse_args()
     source = args.archive.resolve(strict=True)
     converter = args.vgm2wav.resolve(strict=True)
     output = args.output.resolve()
-    repo = Path(__file__).resolve().parents[1]
-    if output == repo or repo in output.parents:
-        parser.error("Choose a private output directory outside the public source checkout")
     selected = set(args.track) if args.track else None
     if selected is not None and not selected <= set(range(1, 41)):
         parser.error("--track must be between 1 and 40")
     result = convert(source, converter, output, selected)
-    print(f"Private pack complete: {len(result['tracks'])} tracks; source ZIP unchanged. Game integration is not yet qualified.")
+    print(f"Prepared pack complete: {len(result['tracks'])} tracks; source ZIP unchanged. Use the X68000 soundtrack option; unmapped cues keep SNES music.")
 
 
 if __name__ == "__main__":

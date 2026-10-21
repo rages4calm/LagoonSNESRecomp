@@ -77,8 +77,10 @@ An objective journal, route guidance and zoom-out are still future work.
 
 Normal in-game saves remain available. **F1 loads slot 1; Shift+F1 saves it.**
 F2–F10 select the other slots, with Shift to save; F11 opens the state browser.
-Settings live in `build/config.ini`, bindings in `build/keybinds.ini`, and saves
-in `build/saves`. The launcher does not migrate them.
+In a source checkout, settings live in `build/config.ini`, bindings in
+`build/keybinds.ini`, and saves in `build/saves`. The downloadable preview uses
+`local/config.ini`, `local/keybinds.ini` and `local/saves` in its extracted folder.
+The launcher does not migrate existing saves.
 
 Development state formats can change. Incompatible or corrupt states are refused
 before changing the running guest. Use normal game saves for campaign progress.
@@ -87,10 +89,12 @@ one of those effects does not reproduce its remaining optional hold exactly.
 
 ## Audio
 
-Original SNES music is the default. The optional imported X68000 pack currently
-maps opening, Atland and opening Gold Cave music. Missing/unmapped cues retain
-SNES music and sound effects remain on the original driver. See
-[soundtrack setup](SOUNDTRACK.md). No music is bundled.
+On Companion's **Audio** page, choose **Original SNES** or **X68000**, Apply and
+restart the game. The preview includes the converted X68000 pack; no folder
+selection or conversion is needed. Missing/unmapped cues retain SNES music and
+sound effects remain on the original driver. Save-state loads restart the
+replacement track. Run-ahead uses SNES audio. See [soundtrack details and MP3
+listening downloads](SOUNDTRACK.md).
 
 ## Reporting a bug
 

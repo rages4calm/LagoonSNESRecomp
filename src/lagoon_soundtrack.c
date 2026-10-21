@@ -1,6 +1,6 @@
 /* Default-off, partial X68000 replacement plus passive command research.
  * Only verified music-helper calls may be replaced; SFX and IPL pass through.
- * The independent probe never changes writes. Owner audio stays external. */
+ * The independent probe never changes writes. Prepared PCM remains separate from the executable. */
 #include "lagoon_soundtrack.h"
 #include "mod_runtime.h"
 #include "common_rtl.h"
@@ -59,14 +59,53 @@ static uint16_t command_helper(uint16_t reg, uint32_t ret) {
   return 0;
 }
 
-/* Deliberately partial, scene-qualified mapping. Unknown cues keep SNES music.
- * The archive's sequence numbers are not guest command IDs. */
+/* Original018B84 copies each05B2DF room descriptor toDP50; its+34 music
+ * byte becomes DP84 and0090DB plays it through0CF800. These named location
+ * themes use the matching X68000 archive titles. Archive numbers are not
+ * guest command IDs. Ambiguous boss/cutscene cues deliberately keep SNES. */
+typedef struct MusicCue {
+  uint8_t event, track, bank0, bank1, payload[3];
+} MusicCue;
+static const MusicCue cues[] = {
+  {0x10,  1, 1, 1, {1, 2, 3}}, /* Premonition: qualified title cue. */
+  {0x20,  2, 2, 4, {1, 2, 0}}, /* Atland. */
+  {0x21,  3, 2, 4, {3, 4, 0}}, /* Worship Site / Keep the Faith. */
+  {0x22, 28, 2, 4, {5, 6, 0}}, /* All four originalD052 shop entries. */
+  {0x23, 10, 2, 4, {7, 8, 0}}, /* Denegul / Senegul. */
+  {0x24, 13, 2, 4, {9,10, 0}}, /* Poper. */
+  {0x25, 17, 2, 4, {11,12,0}}, /* Lilaty (also originalGnome Tree cue). */
+  {0x30,  4, 2, 5, {1, 0, 0}}, /* Gold Cave / Walking in the Shadows. */
+  {0x31,  8, 2, 5, {2, 0, 0}}, /* Philips Castle. */
+  {0x32,  9, 2, 5, {3, 0, 0}}, /* Dwarf Desert / Desert Plains. */
+  {0x35, 15, 2, 6, {1, 0, 0}}, /* Siegfried Castle. */
+  {0x37, 12, 2, 6, {3, 0, 0}}, /* Hobbit Valley / Valley. */
+  {0x38, 21, 2, 6, {4, 0, 0}}, /* Cloud / Reach for the Sky. */
+  {0x39, 18, 2, 6, {5, 0, 0}}, /* Ice Cave (also originalGnome Plain cue). */
+  {0x3a, 19, 2, 7, {1, 0, 0}}, /* Phantom Hill. */
+  {0x3b, 22, 2, 7, {2, 0, 0}}, /* Lagoon Castle. */
+  {0x3d,  7, 2, 8, {4, 0, 0}}, /* Voloh. */
+};
 static int cue_info(unsigned event, uint8_t *bank0, uint8_t *bank1,
                     uint8_t payload[3]) {
-  if (event == 0x10) { *bank0 = 1; *bank1 = 1; payload[0] = 1; payload[1] = 2; payload[2] = 3; return 1; }
-  if (event == 0x20) { *bank0 = 2; *bank1 = 4; payload[0] = 1; payload[1] = 2; payload[2] = 0; return 2; }
-  if (event == 0x30) { *bank0 = 2; *bank1 = 5; payload[0] = 1; payload[1] = 0; payload[2] = 0; return 4; }
+  for (unsigned i = 0; i < sizeof(cues) / sizeof(cues[0]); ++i) {
+    const MusicCue *c = &cues[i];
+    if (event != c->event) continue;
+    /* Refuse a stale/mismatched source contract rather than suppressing an
+     * unrelated guest command. The ROM is loaded before feature activation. */
+    const uint8_t expected[6] = {c->bank0,c->bank1,7,
+                                 c->payload[0],c->payload[1],c->payload[2]};
+    if (!g_rom || memcmp(g_rom + 0x679fc + event * 6, expected, 6)) return 0;
+    *bank0 = c->bank0; *bank1 = c->bank1;
+    memcpy(payload, c->payload, 3);
+    return c->track;
+  }
   return 0;
+}
+/* Original VGZ headers, not PCM header zero alone, distinguish one-shots.
+ * Both one-shots currently retain SNES cues; keep this policy explicit for
+ * future source-qualified mappings rather than accidentally looping jingles. */
+static int track_loops(unsigned track) {
+  return track >= 1 && track <= 40 && track != 29 && track != 31;
 }
 static unsigned mapped_track(unsigned event) {
   uint8_t bank0, bank1, payload[3];
@@ -112,7 +151,7 @@ static int start_pcm(unsigned event) {
   msu1_write(0x2005, 0);
   if (msu1_read(0x2000) & 0x08) return 0;
   msu1_write(0x2006, 255);
-  msu1_write(0x2007, 3); /* These three archive tracks all loop. */
+  msu1_write(0x2007, (uint8_t)(track_loops(track) ? 3 : 1));
   if (!(msu1_read(0x2000) & 0x10)) return 0;
   playing_event = (int)event;
   fprintf(stderr, "lagoon.soundtrack: event %02x -> X68000 track %u\n", event, track);

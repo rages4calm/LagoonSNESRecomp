@@ -51,3 +51,6 @@ lagoon-exploration.map.tmp
 __pycache__/
 
 .DS_Store
+
+# Explicitly requested listening exports; other local audio remains ignored.
+!/soundtrack/listening/*.mp3

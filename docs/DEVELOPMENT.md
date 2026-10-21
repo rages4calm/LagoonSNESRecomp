@@ -17,9 +17,13 @@ compiled functions are analysis counts, not completion percentages. Generated
 code alone does not prove that a runtime dispatcher reaches a compiled entry.
 
 The original 34-slot projectile animation table has qualified M1X0 leaf handlers
-and its shared return tail. Other modes and the unresolved spawning/table-jump
-dispatch remain interpreted. Original casting routes verify actual handoffs;
-the full finite animation table has separate original-opcode tests.
+and its shared return tail. Its effect dispatch now also qualifies all six
+distinct source handlers, including homing and fork allocation. The complete
+effect closure has 15,104 original-opcode cases; actual casting routes separately
+verify native handoffs for the default effect and homing. Other modes and unknown
+pointers retain the interpreter. The outer projectile loop remains interpreted:
+a private candidate exposed an unsafe unknown-width continuation and was refused.
+The finite animation table has its own separate original-opcode tests.
 
 The assisted campaign work uses original loaders, doors and event/boss scripts,
 with position/stat assistance to reach affected cases quickly. It is distinct

@@ -66,20 +66,20 @@ add_executable(LagoonSNESRecomp
     src/lagoon_campaign_debug.c
 )
 
+if(WIN32)
+    enable_language(RC)
+    target_sources(LagoonSNESRecomp PRIVATE assets/icons/lagoon-game.rc)
+endif()
+
 # ROM identity. rom_identity.txt is the one place the digests live: the build
 # turns it into snesrecomp_rom_identity.h (SNESRECOMP_ROM_EXPECTED_SHA256 and
 # friends) for src/main.c, and tools/regen.sh, scripts/package_release.sh and
 # the release workflow read the same file. A revision bump is one edit there.
 snesrecomp_rom_identity(LagoonSNESRecomp ${CMAKE_SOURCE_DIR}/rom_identity.txt)
 
-# Generated recompiler output. Not committed: it is derived from a copyrighted
-# ROM, so every developer regenerates it locally from their own copy -- and a
-# release does not ship it either. With -DSNESRECOMP_SETUP_HOST=ON and an empty
-# src/gen/, this builds the SETUP HOST instead: the same executable minus the
-# recompiled code, whose only path is the launcher's Generate & rebuild wizard.
-# That is what release zips contain; the player's machine produces the
-# playable binary from their own ROM. Without the option an empty src/gen/ is
-# still a hard error (the framework owns the message).
+# Generated C stays local and is not committed or included as release source.
+# Windows previews include the qualified executable, which still loads and
+# verifies the player's own ROM at runtime; no ROM/assets are embedded.
 set(LAGOON_GENERATED_DIR "${CMAKE_SOURCE_DIR}/src/gen" CACHE PATH
     "Generated program directory; use a private path for coverage candidates")
 snesrecomp_target_generated_code(LagoonSNESRecomp ${LAGOON_GENERATED_DIR})

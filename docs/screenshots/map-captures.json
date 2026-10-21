@@ -1,0 +1,47 @@
+{
+  "schema": "Lagoon actual map captures v1",
+  "captures": [
+    {
+      "file": "atland-map-1920x1080.png",
+      "area": "Atland",
+      "room": "00",
+      "width": 1920,
+      "height": 1080,
+      "source": "Actual OpenGL desktop-fullscreen backbuffer readback of running title overlay",
+      "aspect": "16:9",
+      "enhanced": "EPX",
+      "image_sha256": "f51e755de9a7829772fba12133e96f4d68346293bf534330639505936e2ea2e4",
+      "bmp_rgb_source_sha256": "9e0de8ed6127a7b3fd9305667021223af91087f4f41aa9eaedc8f86550bbb6ec",
+      "executable_sha256": "8e9da25fd4b29abb314680a622f568feb71f95f3926b9406927be045f0cc416c",
+      "manifest_sha256": "0a8491a2b5fa811d59233e3e6bdc9bdf61722e2a20784d8d591cd5b67c657179",
+      "visible_fullscreen": true,
+      "assisted_exploration": true,
+      "exploration": "Private original room-loader route, Nasir coordinate teleports over original neutral floor; live game observes nearby original collision geometry. No fog, exit, chest, or quest flag injection. Private exploration carried into displayed save.",
+      "route_sha256": "fafac16727b9a5ae5e66d9402c6076c896bbc4d616e0ddd6d86126838f9e3b55",
+      "display_route_sha256": "660ec32cde789151cabe636dd80336293caf64d5246221996d688af8be9f0c91",
+      "public_source_base": "6467ad911ebeed703ef400c3c2ef942dfb8cdebf",
+      "scope": "Development screenshot; not uninterrupted campaign or frame pacing evidence. BMP RGB losslessly encoded PNG without crop/rescale/retouch. Undiscovered exit destinations remain unknown."
+    },
+    {
+      "file": "gold-cave-map-1920x1080.png",
+      "area": "Gold Cave",
+      "room": "03",
+      "width": 1920,
+      "height": 1080,
+      "source": "Actual OpenGL desktop-fullscreen backbuffer readback of running title overlay",
+      "aspect": "16:9",
+      "enhanced": "EPX",
+      "image_sha256": "5173d028abb3b00d181c6dd8826c285dcd6f1433efffaeb10281b927cf1c5b63",
+      "bmp_rgb_source_sha256": "bf3cbaf1f0b538f38addcaae087eec069bdc94076eb78b92a0e15310a54a9f02",
+      "executable_sha256": "8e9da25fd4b29abb314680a622f568feb71f95f3926b9406927be045f0cc416c",
+      "manifest_sha256": "0a8491a2b5fa811d59233e3e6bdc9bdf61722e2a20784d8d591cd5b67c657179",
+      "visible_fullscreen": true,
+      "assisted_exploration": true,
+      "exploration": "Private original room-loader route, Nasir coordinate teleports over original neutral floor; live game observes nearby original collision geometry. No fog, exit, chest, or quest flag injection. Private exploration carried into displayed save.",
+      "route_sha256": "10a8f86162ac56334d46ec5f0d485c34f95ef1fd67de12b1aae0f5860d8276ce",
+      "display_route_sha256": "660ec32cde789151cabe636dd80336293caf64d5246221996d688af8be9f0c91",
+      "public_source_base": "6467ad911ebeed703ef400c3c2ef942dfb8cdebf",
+      "scope": "Development screenshot; not uninterrupted campaign or frame pacing evidence. BMP RGB losslessly encoded PNG without crop/rescale/retouch. Undiscovered exit destinations remain unknown."
+    }
+  ]
+}

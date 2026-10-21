@@ -1,9 +1,9 @@
 format_version = 1
 id = "lagoon.soundtrack"
 version = "1.0.0"
-name = "Lagoon Soundtrack Research"
+name = "Lagoon X68000 Soundtrack"
 author = "LagoonSNESRecomp"
-description = "Experimental partial X68000 music replacement and passive diagnostics. Private PCM files required."
+description = "Optional prepared X68000 music for 17 named cues, with SNES fallback and passive development diagnostics."
 license = "MIT"
 resolver = "declarative"
 save_compatibility = "shared"
@@ -25,8 +25,8 @@ id = "lagoon.soundtrack.probe"
 
 [[feature]]
 id = "x68000"
-name = "Development: X68000 music (partial)"
-description = "Experimental title, Atland and opening Gold Cave music. Other cues retain SNES audio. Requires a private imported pack; save/load qualification is unfinished."
+name = "X68000 music"
+description = "Prepared X68000 title, town, shop and area music. Unmapped cues keep SNES audio; sound effects remain original."
 group = "Development"
 default_enabled = false
 
@@ -37,7 +37,7 @@ id = "lagoon.soundtrack.x68000"
 [[resource]]
 feature = "x68000"
 id = "pack"
-label = "Private imported X68000 soundtrack folder"
+label = "X68000 soundtrack pack"
 description = "Folder containing lagoon-x68000-N.pcm from the importer. Missing tracks retain SNES audio."
 format = "directory"
 identity = "snes.msu1.pack"

@@ -36,6 +36,22 @@ The upper black region lies outside the authored cave corridor.
 Actual fullscreen OpenGL output. Text/icons retain original artwork while the
 frame expands. The early inventory is mostly empty. [Metadata](captures.json).
 
+## Explored map — Atland and Gold Cave
+
+![Atland map with Nasir, explored streets, trail and exits](atland-map-1920x1080.png)
+
+![Gold Cave map with corridors, Nasir, discovered exits and treasure markers](gold-cave-map-1920x1080.png)
+
+Actual **1920×1080 desktop-fullscreen OpenGL captures**. The map shows Nasir,
+observed terrain, visited positions, discovered exits and treasure markers.
+Unvisited destinations stay unknown. Open with **M** or **Select+L**; browse
+visited areas with Left/Right and return to Nasir with Y. Gameplay pauses while
+browsing, and exploration saves automatically.
+
+These private development routes used assisted movement to reveal nearby
+geometry through the running game. They do not represent a natural playthrough.
+[Capture metadata](map-captures.json).
+
 ## Later areas — Enhanced pixels
 
 ![Room19 with an NPC beyond the original view](room19-batch26-32x9-1920x1080.png)

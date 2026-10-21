@@ -31,15 +31,15 @@
 # lean zip that fetches the pack on demand (Linux pack ~800 MB, Windows
 # ~200 MB, macOS ~90 MB).
 
-name: Release
+name: Legacy setup host (publishing disabled; use reviewed Windows preview)
 
 on:
   workflow_dispatch:
     inputs:
       publish_release:
-        description: 'Tag this commit and publish a public GitHub Release'
+        description: 'Disabled: legacy setup host is not the Companion preview pipeline'
         type: boolean
-        default: true
+        default: false
       version:
         description: 'Version to release, e.g. 0.2.0 (empty = bump the latest v* tag)'
         type: string
@@ -283,7 +283,9 @@ jobs:
   release:
     name: Tag and publish
     needs: [preflight, build]
-    if: needs.preflight.outputs.publish == 'true'
+    # This legacy path omits the title generation contract/Companion first run.
+    # Public previews are manually audited and clean-unpacked tested first.
+    if: false
     runs-on: ubuntu-24.04
     permissions:
       contents: write
