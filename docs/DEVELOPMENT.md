@@ -9,7 +9,9 @@ with an empty function, guessed event result or synthetic return.
 
 Scenery contracts cover all 75 authored room descriptors. Native work includes
 player damage, death/revival, recovery/reward loops, boss states, Bird/endgame
-services, sprite staging, resource/tile queues and numeric UI helpers. Counts of
+services, sprite staging, resource/tile queues, numeric UI helpers and original
+display fades. The HUD-number dispatcher has a separate, source-guarded handoff
+using its actual cross-bank JSL return frame. Counts of
 compiled functions are analysis counts, not completion percentages. Generated
 code alone does not prove that a runtime dispatcher reaches a compiled entry.
 
@@ -19,7 +21,7 @@ from an uninterrupted playthrough. That playtest belongs to the owner and friend
 Earlier checks are not a reason to rerun the entire campaign for every change.
 
 Remaining work includes unsupported special/multipart actors, dynamic graphics,
-projectiles and display layouts; additional native variable-script services;
+player-magic projectiles and display layouts; additional native variable-script services;
 frame-time spikes; and bugs reported during real play. The in-game map with
 position/doors/exits and a possible 15–20% zoom-out remain later considerations.
 [Mike's RPG Center maps](https://mikesrpgcenter.com/lagoon/index.html#maps) and the
@@ -39,8 +41,11 @@ These records are observations of the running guest, rather than host-owned AI.
 
 Additional ordinary actors use finite original sprite tables, exact current
 records/frames and resource ownership. They do not predict enemy AI or advance
-animation. Nasir's dynamic graphics and unsupported multipart/projectile forms
-remain conservative. Queued OAM ownership, priority, clipping, palette, camera
+animation. Selected enemy projectiles use their actual queued records and finite
+original frames, within the original projectile lifetime and culling bounds.
+They share the original depth order with ordinary actors. Nasir's dynamic graphics,
+player-magic graphics and unsupported multipart forms retain fallback.
+Queued OAM ownership, priority, clipping, palette, camera
 coordinates and resource generation must all match before extending a pose.
 Changing a guard requires source evidence and affected-route checks.
 

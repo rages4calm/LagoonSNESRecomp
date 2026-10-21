@@ -59,10 +59,13 @@ verify that unrelated native entries, existing facts, exit sets and HLE guards
 remain unchanged. Changes to a caller's return width cannot be guessed to make
 analysis green.
 
-A generated root is not proof of live execution. In particular, the bank-table
-`$00:80E6` dispatcher still retains interpreter ownership; compiling a target
-alone does not authorize an unwitnessed native handoff. Source/mode/stack/owner
-and state-generation guards are required for any future bridge.
+A generated root is not proof of live execution. The bank-table `$00:80E6`
+dispatcher executes its original indirect jump. A separate opt-in hook can lend
+the actual three-byte `$00:80E0` JSL frame to the complete `$02:D50B` HUD body,
+only for the qualified selector, caller, source bytes, mode, live registers,
+stack and state generation. The original `$00:80E4` PLB/RTL cleanup still runs.
+Other selectors and contexts retain interpreter ownership. This hook leaves the
+existing two-byte absolute/indirect tail policies unchanged.
 
 ## Practical tests
 

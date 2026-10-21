@@ -246,7 +246,8 @@ static void report(void) {
     e->calls[0],e->calls[1],e->calls[2],e->armed[0],e->armed[1],e->armed[2],
     e->proposals[0],e->proposals[1],e->proposals[2],e->takes[0],e->takes[1],e->takes[2],e->refusals);
   for(unsigned i=0;i<13;i++)fprintf(f,"%s%llu",i?",":"",e->waits[i]);
-  fprintf(f,"],\"queue_ancestors\":%llu}}\n",e->queue_ancestors);fclose(f);
+  fprintf(f,"],\"queue_ancestors\":%llu,\"hud_calls\":%llu,\"hud_armed\":%llu,\"hud_proposals\":%llu,\"hud_takes\":%llu,\"hud_refusals\":%llu}}\n",e->queue_ancestors,
+    e->hud_calls,e->hud_armed,e->hud_proposals,e->hud_takes,e->hud_refusals);fclose(f);
 }
 static int parent_live(const CpuState *cpu) {
   return parent.phase && parent.generation==RtlStateGeneration() && cpu &&

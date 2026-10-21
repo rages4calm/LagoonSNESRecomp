@@ -55,6 +55,20 @@ int LagoonWideEntities_CurrentFrame(const uint8_t *rom,size_t size,const uint8_t
     const uint8_t *current,unsigned entity,uint8_t *frame);
 int LagoonWideEntities_RecordCells(const uint8_t *rom,size_t rom_size,const uint8_t *ram,
     unsigned entity,unsigned frame,int projected,LagoonWideCell *cells,size_t capacity);
+/* Actual queued enemy projectile kinds11..33, read-only original alive band.
+ * Requires the exact full current24-byte record and queue; caller additionally
+ * owns room/generation/layout/palette/atlas/native OAM and stable draw order. */
+int LagoonWideEntities_ProjectileCells(const uint8_t *rom,size_t size,
+    const uint8_t *captured,const uint8_t *current,unsigned queue,
+    LagoonWideCell *cells,size_t capacity);
+
+/* Completed native OAM packet variant. The CPU may already be constructing
+ * its next frame. Caller MUST bind every returned cell to the complete still-
+ * current native OAM, original source packet, room/camera/layout and owned
+ * atlas/palette/generation. No virtual record or extrapolated pose authority. */
+int LagoonWideEntities_ProjectilePacketCells(const uint8_t *rom,size_t size,
+    const uint8_t *packet,unsigned queue,LagoonWideCell *cells,size_t capacity);
+
 enum { kLagoonWideAtlasBytes = 0x2a00 };
 typedef struct LagoonWideAtlas {
   uint8_t owned[kLagoonWideAtlasBytes];

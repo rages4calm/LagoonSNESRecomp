@@ -9,6 +9,7 @@ uint64_t RtlStateGeneration(void){return 1;}
 int interp_bridge_set_aot_continuations(const InterpAotContinuation*d,unsigned n,InterpAotContinuationGuard guard){(void)d;(void)n;(void)guard;return 1;}
 int interp_bridge_set_aot_tail_hook(uint32_t source,InterpAotTailHook hook){(void)source;(void)hook;return 1;}
 int interp_bridge_set_aot_indirect_long_tail_hook(uint32_t source,InterpAotTailHook hook){(void)source;(void)hook;return 1;}
+int interp_bridge_set_aot_indirect_long_call_tail_hook(uint32_t source,InterpAotTailHook hook){(void)source;(void)hook;return 1;}
 void interp_bridge_set_aot_continuation_hook(InterpAotContinuationHook hook){(void)hook;}
 int main(int argc,char **argv){
  assert(argc==2);FILE*f=fopen(argv[1],"rb");assert(f);

@@ -15,7 +15,8 @@ widescreen, a custom scene renderer and optional quality-of-life improvements.
 ## What you can expect
 
 - **Wider views:** 16:9, 16:10, 21:9, 32:9 and window-driven aspects, with
-  additional scenery and supported NPC/enemy sprites beyond the original view.
+  additional scenery, supported NPC/enemy sprites and selected enemy projectiles
+  beyond the original view.
 - **Original artwork, enhanced:** optional EPX treatment preserves the palette
   and keeps the HUD sharp. No replacement artwork is required.
 - **Gameplay options:** faster walking/followers, longer sword reach with a modest
@@ -41,7 +42,8 @@ letterboxing on a 16:9 display. Window scale affects windowed size only.
 ## Project status
 
 This is experimental. Native combat, damage, death/revival, boss services and
-endgame routes have focused checks; the interpreter remains enabled for paths
+endgame routes, display fades and guarded HUD dispatch have focused checks;
+the interpreter remains enabled for paths
 that have not been qualified. Scenery contracts cover all 75 authored room
 descriptors, but that does **not** mean every actor, effect, menu or transition
 supports widescreen. Unsupported content falls back to the original view.

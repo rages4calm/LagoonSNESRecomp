@@ -3,6 +3,7 @@
 typedef struct LagoonNativeEndgameStats {
   unsigned long long calls[3],armed[3],proposals[3],takes[3],refusals;
   unsigned long long waits[13],queue_ancestors;
+  unsigned long long hud_calls,hud_armed,hud_proposals,hud_takes,hud_refusals;
 } LagoonNativeEndgameStats;
 void LagoonNativeEndgameBeforeFrame(void);
 unsigned LagoonNativeEndgameDescriptors(InterpAotContinuation *out,unsigned cap);

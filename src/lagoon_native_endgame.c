@@ -51,6 +51,45 @@ static struct {
   unsigned phase,index,target,selector;uint16_t sp,x,y;unsigned char stack[5];
 } inline_witness;
 static LagoonNativeEndgameStats stats;
+/* The bank-table dispatcher has a real JSL owner, unlike80E9's consumed
+ * inline frame. Its selector18 reaches the complete HUD-number body only. */
+static const SourceSpan hud_spans[]={
+  {0x0080B9,0x30,UINT64_C(0x20E6758A603BECFE)},
+  {0x028030,2,UINT64_C(0x9A7AC600C5585C57)},
+  {0x02D50B,0x43,UINT64_C(0x806CEB29FA113308)},
+  {0x00992D,0x3F,UINT64_C(0xAE38002A0E0BD9DD)},
+  {0x009879,0x59,UINT64_C(0x504714A03684607F)},
+  {0x0089EC,0xB8,UINT64_C(0x62AA24CDE65DA2AF)},
+  {0x018B27,6,UINT64_C(0x42D3CE918B9320C3)},
+  {0x019442,6,UINT64_C(0x42D3CE918B9320C3)},
+  {0x019473,6,UINT64_C(0x42D3CE918B9320C3)}
+};
+static struct {
+  const CpuState *cpu;const unsigned char *ram;uint64_t generation;
+  uint16_t sp,x,y;unsigned phase;unsigned char stack[7];
+} hud;
+static int hud_source(void){return spans_ok(hud_spans,sizeof(hud_spans)/sizeof(*hud_spans));}
+static int hud_mode(const CpuState *c,unsigned pb) {
+  return c && c->ram && c->PB==pb && c->DB==2 && !c->D && c->m_flag==1 &&
+    !c->x_flag && !c->emulation && !c->_flag_D &&
+    (c->P&(CPU_P_M|CPU_P_X|CPU_P_D))==CPU_P_M;
+}
+static int hud_metadata(const CpuState *c) {
+  return c->A==0xB && c->ram[0x10]==0xB && c->ram[0x11]==0xD5 &&
+    c->ram[0x12]==2 && c->ram[0x13]==0x18;
+}
+static int hud_live(const CpuState *c) {
+  return hud.phase && hud_mode(c,2) && hud.cpu==c && hud.ram==c->ram &&
+    hud.generation==RtlStateGeneration() && c->S==hud.sp && c->X==hud.x &&
+    c->Y==hud.y && hud_metadata(c) && !memcmp(c->ram+c->S+1,hud.stack,7) && hud_source();
+}
+static int hud_tail(const CpuState *c,uint32_t source,uint32_t target,InterpAotAncestor *out) {
+  int valid=out && source==0x0080E6 && target==0x02D50B && hud.phase==1 && hud_live(c);
+  hud.phase=0;
+  if(!valid){stats.hud_refusals++;return 0;}
+  *out=(InterpAotAncestor){target,0x0080E4,c->S,3};
+  hud.phase=2;stats.hud_proposals++;return 1;
+}
 static int dispatch_source(void) {
   return spans_ok(dispatch_spans,sizeof(dispatch_spans)/sizeof(*dispatch_spans));
 }
@@ -126,8 +165,20 @@ static int queue_live(const CpuState*c) {
 }
 int LagoonNativeEndgameHook(unsigned event,const CpuState *c,uint32_t source,
     uint32_t target,const InterpAotContinuation *d,uint16_t owner_s,InterpAotAncestor *out) {
-  if(event==INTERP_CONT_DISCARD){memset(&inline_witness,0,sizeof(inline_witness));memset(&queue,0,sizeof(queue));return 0;}
+  if(event==INTERP_CONT_DISCARD){memset(&inline_witness,0,sizeof(inline_witness));memset(&queue,0,sizeof(queue));memset(&hud,0,sizeof(hud));return 0;}
   if(event==INTERP_CONT_CALL) {
+    memset(&hud,0,sizeof(hud));
+    if(source==0x0080E0) {
+      stats.hud_calls++;
+      if(target==0x0080E6 && hud_mode(c,0) && hud_metadata(c) && c->S>=0x100 && c->S<=0x1FF8 &&
+          c->ram[c->S+1]==0xE3 && c->ram[c->S+2]==0x80 && !c->ram[c->S+3] &&
+          c->ram[c->S+7]==1 &&
+          (word(c->ram+c->S+5)==0x8B2C || word(c->ram+c->S+5)==0x9447 ||
+           word(c->ram+c->S+5)==0x9478) && hud_source()) {
+        hud.cpu=c;hud.ram=c->ram;hud.generation=RtlStateGeneration();hud.sp=c->S;
+        hud.x=c->X;hud.y=c->Y;memcpy(hud.stack,c->ram+c->S+1,7);hud.phase=1;stats.hud_armed++;
+      }else stats.hud_refusals++;
+    }
     /* There are no guest calls inside80E9. Any intervening call retires it. */
     memset(&inline_witness,0,sizeof(inline_witness));
     for(unsigned i=0;i<3;i++)if(source==owners[i].call) {
@@ -161,6 +212,11 @@ int LagoonNativeEndgameHook(unsigned event,const CpuState *c,uint32_t source,
     else stats.refusals++;
     inline_witness.phase=0;
   }
+  if(event==INTERP_CONT_TAKE && !d && source==0x0080E6) {
+    if(hud.phase==2 && target==0x02D50B && owner_s==c->S && hud_live(c))stats.hud_takes++;
+    else stats.hud_refusals++;
+    hud.phase=0;
+  }
   int index=descriptor_index(d);
   if(event==INTERP_CONT_TAKE && index>=0) {
     stats.waits[index]++;
@@ -181,4 +237,5 @@ int LagoonNativeEndgameHook(unsigned event,const CpuState *c,uint32_t source,
 const LagoonNativeEndgameStats *LagoonNativeEndgameGetStats(void){return &stats;}
 void LagoonNativeEndgameBeforeFrame(void) {
   if(g_rom)(void)interp_bridge_set_aot_indirect_long_tail_hook(0x008106,inline_tail);
+  if(g_rom)(void)interp_bridge_set_aot_indirect_long_call_tail_hook(0x0080E6,hud_tail);
 }
