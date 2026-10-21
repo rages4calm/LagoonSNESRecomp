@@ -59,6 +59,21 @@ verify that unrelated native entries, existing facts, exit sets and HLE guards
 remain unchanged. Changes to a caller's return width cannot be guessed to make
 analysis green.
 
+Constant-bus instruction tests and matching total clocks do not certify live
+audio-port event timing. Compare the complete checkpoint APU/DMA/PPU-write logs
+as well as the strict comparator's architectural components before accepting a
+promotion. A passing door route alone does not qualify a boss route. Keep any
+service that changes live event timing on the interpreter until that difference
+is resolved; preserve already-qualified sibling modes separately.
+
+The fixed-page transfer leaf `$00:8F8C:M1X0` has a qualified native body. Its
+live-device fixture requests the original two queued pages through `$023B`,
+using guest-loaded buffers and the real NMI/JSR/DMA/RTS path. That assisted
+fixture is distinct from reaching the credits naturally. The frequent M1X0
+services `$00:871C`, `$00:8EC1` and `$00:8EE7` remain interpreted because their
+experimental promotions changed audio event beam positions on a boss route.
+Their passing constant-bus tests do not override that live difference.
+
 A generated root is not proof of live execution. The bank-table `$00:80E6`
 dispatcher executes its original indirect jump. A separate opt-in hook can lend
 the actual three-byte `$00:80E0` JSL frame to the complete `$02:D50B` HUD body,

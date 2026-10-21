@@ -57,7 +57,7 @@ try {
       '-ffunction-sections','-fdata-sections','-Wl,--gc-sections')
     $producer=Join-Path $target 'additional-actor-producer.exe'
     $producerSource=if($Rooms22To25){'tools/test_wide_rooms22_25_producer.c'}elseif($TownOnly){'tools/test_wide_town_producer.c'}elseif($FieldOnly){'tools/test_wide_field_producer.c'}else{'tools/test_wide_additional_producer.c'}
-    & $env:CC -std=c11 -O2 @flags $producerSource src/lagoon_scene_renderer.c snesrecomp/runner/src/snes/ppu.c snesrecomp/runner/src/snes/ppu_legacy.c -o $producer
+    & $env:CC -std=c11 -O2 @flags $producerSource src/lagoon_wide_multipart.c src/lagoon_scene_renderer.c snesrecomp/runner/src/snes/ppu.c snesrecomp/runner/src/snes/ppu_legacy.c -o $producer
     if($LASTEXITCODE){throw 'Additional actor production-policy compilation failed'}
     & $producer $rom $snapshots
     if($LASTEXITCODE){throw 'Additional actor production-policy failed'}

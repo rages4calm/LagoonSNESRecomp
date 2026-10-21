@@ -32,7 +32,7 @@ try {
   Invoke-TestBuild 'wide-entity-pixels' @('tools/test_wide_entity_pixels.c','src/lagoon_wide_entities.c','snesrecomp/runner/src/snes/ppu.c','snesrecomp/runner/src/snes/ppu_legacy.c') $ppuFlags
   Invoke-TestBuild 'shadow-authoritative-map' @('snesrecomp/tests/ppu/ppu_shadow_authoritative_map_test.c','snesrecomp/runner/src/snes/ws_shadow.c','snesrecomp/runner/src/snes/ppu.c','snesrecomp/runner/src/snes/ppu_legacy.c') $ppuFlags
   $retainedFlags = @('-DSDL_MAIN_HANDLED=1','-DSNESRECOMP_SDL3=1','-DSNESRECOMP_REVERSE_DEBUG=0','-Isrc','-Isnesrecomp/runner/src','-Isnesrecomp/runner/src/snes','-Isnesrecomp/runner/src/desktop',"-I$env:RETCOMM_TOOLCHAIN_DIR/deps/include",'-ffunction-sections','-fdata-sections','-Wl,--gc-sections')
-  Invoke-TestBuild 'wide-retained-objects' @('tools/test_wide_retained_objects.c','src/lagoon_wide_entities.c','snesrecomp/runner/src/snes/ppu.c','snesrecomp/runner/src/snes/ppu_legacy.c') $retainedFlags
+  Invoke-TestBuild 'wide-retained-objects' @('tools/test_wide_retained_objects.c','src/lagoon_wide_entities.c','src/lagoon_wide_multipart.c','src/lagoon_scene_renderer.c','snesrecomp/runner/src/snes/ppu.c','snesrecomp/runner/src/snes/ppu_legacy.c') $retainedFlags
   $dmaFlags = @('-DSNESRECOMP_REVERSE_DEBUG=0','-Isnesrecomp/runner/src','-Isnesrecomp/runner/src/snes','-ffunction-sections','-fdata-sections','-Wl,--gc-sections')
   Invoke-TestBuild 'dma-start-observer' @('snesrecomp/tests/runtime_dispatch/dma_start_observer_test.c','snesrecomp/runner/src/snes/dma.c') $dmaFlags
 } finally { Pop-Location }

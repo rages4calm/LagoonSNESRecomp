@@ -58,6 +58,7 @@ add_executable(LagoonSNESRecomp
     src/lagoon_soundtrack.c
     src/lagoon_widescreen.c
     src/lagoon_wide_entities.c
+    src/lagoon_wide_multipart.c
     src/lagoon_scene_renderer.c
     src/lagoon_campaign_debug.c
 )

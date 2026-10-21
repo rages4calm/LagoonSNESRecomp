@@ -2,6 +2,7 @@
  * DMA boundary; never widen guest culling, run guest drawing again, or alter
  * the native viewport. Unsupported streams and ownership fail closed. */
 #include "lagoon_wide_entities.h"
+#include "lagoon_wide_multipart.h"
 #ifndef LAGOON_WIDE_ENTITIES_DECODER_ONLY
 #include "common_rtl.h"
 #include "config.h"
@@ -26,6 +27,9 @@ static WideEntitySnapshot s_frame;
 static unsigned s_serial, s_last_serial;
 static LagoonWideAtlas s_atlas;
 static LagoonWideDeathAtlas s_death_atlas;
+static LagoonWideMagicAtlas s_magic_atlas;
+static int s_has_magic,s_retained_submitted;
+static uint64_t s_magic_emitted,s_multipart_packets,s_multipart_matched,s_multipart_emitted;
 static int s_has_death;
 static uint64_t s_death_emitted,s_death_far,s_projectile_emitted;
 typedef struct WidePoseHistory {
@@ -56,7 +60,9 @@ static uint16_t s_retained_draw_pixels[kObjects][256];
 static size_t s_object_count;
 static struct {
   PpuExtraObject objects[kObjects];
-  uint16_t pixels[kObjects][256],atlas[0x1500],palette[256];
+  uint16_t pixels[kObjects][256],atlas[0x1500],palette[256],magic[0x400];
+  int has_magic,has_common;
+  uint16_t common[256];
   uint8_t records[0x980],oam[544];
   uint64_t generation;
   size_t count;
@@ -74,13 +80,15 @@ static void report_status(const char *status, unsigned entity, unsigned cell) {
   }
   FILE *f = fopen(path, "w");
   if (!f) return;
-  fprintf(f, "status=%s serial=%u captures=%llu validated=%llu rejected=%llu emitted=%llu live_objects=%zu left=%u right=%u entity=%u cell=%u atlas_ready=%u atlas_bytes=%u frame_witness=%llu frame_bad=%llu far_cells=%llu far_gated=%llu last_far=%03X far_x=%d far_frame=%u current_cells=%llu death_owned=%u death_bytes=%u death_cells=%llu death_far=%llu projectile_cells=%llu\n",
+  fprintf(f, "status=%s serial=%u captures=%llu validated=%llu rejected=%llu emitted=%llu live_objects=%zu left=%u right=%u entity=%u cell=%u atlas_ready=%u atlas_bytes=%u frame_witness=%llu frame_bad=%llu far_cells=%llu far_gated=%llu last_far=%03X far_x=%d far_frame=%u current_cells=%llu death_owned=%u death_bytes=%u death_cells=%llu death_far=%llu projectile_cells=%llu magic_owned=%u magic_bytes=%u magic_cells=%llu multipart_packets=%llu multipart_matched=%llu multipart_cells=%llu\n",
       status, s_frame.serial, (unsigned long long)s_captures, (unsigned long long)s_validated,
       (unsigned long long)s_rejected, (unsigned long long)s_emitted, s_object_count, left, right, entity, cell, s_atlas.ready, s_atlas.completed,
       (unsigned long long)s_frame_witness, (unsigned long long)s_frame_bad,
       (unsigned long long)s_far_emitted, (unsigned long long)s_far_gated,
       s_last_far_entity, s_last_far_x, s_last_far_frame, (unsigned long long)s_current_emitted,s_death_atlas.ready,s_death_atlas.completed,
-      (unsigned long long)s_death_emitted,(unsigned long long)s_death_far,(unsigned long long)s_projectile_emitted);
+      (unsigned long long)s_death_emitted,(unsigned long long)s_death_far,(unsigned long long)s_projectile_emitted,
+      s_magic_atlas.ready,s_magic_atlas.completed,(unsigned long long)s_magic_emitted,
+      (unsigned long long)s_multipart_packets,(unsigned long long)s_multipart_matched,(unsigned long long)s_multipart_emitted);
   fclose(f);
 }
 #endif
@@ -968,8 +976,18 @@ int LagoonWideEntities_RecordCells(const uint8_t *rom,size_t size,const uint8_t 
 /* Original enemy projectile records are16 separate24-byte cells, not actor
  * records. Only the real queued/current pose in the original alive band may
  * extend its actual native OAM into margins. No projectile AI/lifetime runs. */
-static int projectile_frame(const uint8_t *r,unsigned *frame) {
+static int projectile_frame(const uint8_t *r,unsigned *frame,int magic) {
   unsigned kind=r[0],clock=r[18],direction=r[16];
+  if(magic) {
+    if(kind<1 || kind>8 || direction>7)return 0;
+    if(kind==1)*frame=0x15+(direction&0xfe)+((clock&2)>>1);
+    else if(kind==2)*frame=0x1d+((clock&2)>>1);
+    else if(kind==3)*frame=0x1f;
+    else if(kind==4) {static const uint8_t frames[4]={0x3c,0x3d,0x3a,0x3b};*frame=frames[clock&3]+(clock>=12?0x72:0);}
+    else if(kind==5 || kind==6)*frame=0x24+direction;
+    else *frame=0xc8+(clock&3);
+    return r[15]==*frame;
+  }
   if(kind<11 || kind>33)return 0;
   if(kind==14) {
     static const uint8_t frames[16]={0xd3,0xd4,0xd5,0xd6,0xdc,0xd7,0xdc,0xd7,
@@ -995,26 +1013,27 @@ static int projectile_frame(const uint8_t *r,unsigned *frame) {
   }
   return r[15]==*frame;
 }
-int LagoonWideEntities_ProjectileCells(const uint8_t *rom,size_t size,
+static int projectile_cells(const uint8_t *rom,size_t size,
     const uint8_t *captured,const uint8_t *current,unsigned queue,
-    LagoonWideCell *cells,size_t capacity) {
+    LagoonWideCell *cells,size_t capacity,int magic) {
   if(!rom || !captured || !current || !cells || queue>=64 ||
       record_word(captured,0x48c)>64 || queue>=captured[0x48c] ||
       record_word(captured,0x48c)!=record_word(current,0x48c) ||
       record_word(captured,0x48e)!=record_word(current,0x48e) ||
       memcmp(captured+0x480,current+0x480,4))return -1;
   unsigned q=0xec0+queue*6,offset=record_word(captured,q);
-  if(offset>=0x180 || offset%24 || record_word(captured,q+4)!=4 ||
+  if(offset>=0x180 || offset%24 || captured[q+4]!=4 ||
       memcmp(captured+q,current+q,6))return -1;
   const uint8_t *r=captured+0xd40+offset;
-  if(memcmp(r,current+0xd40+offset,24) || !r[17] ||
+  if(memcmp(r,current+0xd40+offset,24) || (magic?r[17]!=0:!r[17]) ||
       record_word(captured,q+2)!=record_word(r,11))return -1;
   int x=(int16_t)record_word(r,9),y=(int16_t)record_word(r,11);
   if(x< -96 || x>=352 || y< -32 || y>=288 ||
       record_word(r,9)!=((record_word(r,1)-record_word(captured,0x480))&65535) ||
       record_word(r,11)!=((record_word(r,3)-record_word(captured,0x482))&65535))return -1;
   unsigned frame;
-  if(!projectile_frame(r,&frame) || !LagoonWideEntities_CurrentSource(rom,size,0,frame) ||
+  if(!projectile_frame(r,&frame,magic) || !LagoonWideEntities_CurrentSource(rom,size,0,frame) ||
+      !source_hash(rom,size,0x0180a0,18,UINT64_C(0x0a7a8a4ca9b3487c)) ||
       !source_hash(rom,size,0x01bb08,67,UINT64_C(0x76ea3059d96a66a1)) ||
       !source_hash(rom,size,0x01bb4b,383,UINT64_C(0x5e94d35b289b7be9)) ||
       !source_hash(rom,size,0x01bcca,145,UINT64_C(0x7ec30e4feff41deb)) ||
@@ -1028,6 +1047,16 @@ int LagoonWideEntities_ProjectileCells(const uint8_t *rom,size_t size,
       y-13+(int16_t)oy,cells,capacity);
 }
 
+int LagoonWideEntities_ProjectileCells(const uint8_t *rom,size_t size,
+    const uint8_t *captured,const uint8_t *current,unsigned queue,
+    LagoonWideCell *cells,size_t capacity) {
+  return projectile_cells(rom,size,captured,current,queue,cells,capacity,0);
+}
+int LagoonWideEntities_MagicPacketCells(const uint8_t *rom,size_t size,
+    const uint8_t *packet,unsigned queue,LagoonWideCell *cells,size_t capacity) {
+  return projectile_cells(rom,size,packet,packet,queue,cells,capacity,1);
+}
+
 /* Native OAM remains the completed packet's display carrier even after the
  * next CPU frame advances its projectile clocks or rebuilds the sort queue.
  * This decoder never lends that authority to a virtual/current-record pose;
@@ -1035,6 +1064,78 @@ int LagoonWideEntities_ProjectileCells(const uint8_t *rom,size_t size,
 int LagoonWideEntities_ProjectilePacketCells(const uint8_t *rom,size_t size,
     const uint8_t *packet,unsigned queue,LagoonWideCell *cells,size_t capacity) {
   return LagoonWideEntities_ProjectileCells(rom,size,packet,packet,queue,cells,capacity);
+}
+
+typedef struct MagicSource {
+  unsigned source,compressed,length;
+  uint64_t source_hash,data_hash;
+} MagicSource;
+static const MagicSource magic_sources[]={
+  {0x11cd14,920,1248,UINT64_C(0xf3e1540cef77f4e7),UINT64_C(0x004ed03b5c586f97)},
+  {0x11dd64,1437,1952,UINT64_C(0xe4f34876dc46212b),UINT64_C(0xecd0d9f8ec1aa67a)},
+  {0x11e301,1704,1984,UINT64_C(0x244d53da7e8afa3f),UINT64_C(0xcd6857f429a4ba46)},
+  {0x11efea,915,2016,UINT64_C(0x5c786369d8fb6cb0),UINT64_C(0xd654efa272a3ae83)},
+  {0x11e9a9,1601,1920,UINT64_C(0x46275defbe59e6ba),UINT64_C(0x8f1513a6233de967)}
+};
+static unsigned magic_form(unsigned spell) {
+  return spell<=2?0:spell>=4&&spell<=7?1:spell>=8&&spell<=11?2:
+      spell==12||spell==13||spell==15?3:spell==14?4:5;
+}
+int LagoonWideMagic_Source(const uint8_t *rom,size_t size,unsigned spell) {
+  unsigned form=magic_form(spell);if(form>=5)return 0;
+  const MagicSource *m=&magic_sources[form];
+  return size==0x100000 && source_hash(rom,size,m->source,m->compressed,m->source_hash) &&
+    source_hash(rom,size,0x018ea6,130,UINT64_C(0x2f60137163ce0cf0)) &&
+    source_hash(rom,size,0x018f28,224,UINT64_C(0xf26c0e6ca109d503)) &&
+    source_hash(rom,size,0x0188cd,20,UINT64_C(0x801ae5fb1002d89f)) &&
+    source_hash(rom,size,0x009143,445,UINT64_C(0x734e7c5c9157de09)) &&
+    source_hash(rom,size,0x00908a,81,UINT64_C(0xa4d117801c8e3fec)) &&
+    source_hash(rom,size,0x00884b,56,UINT64_C(0x2b1eec1eca0b79f0)) &&
+    source_hash(rom,size,0x0089a7,13,UINT64_C(0x81364db374fb949a)) &&
+    source_hash(rom,size,0x0087b4,120,UINT64_C(0xeeb909fdbd678929));
+}
+void LagoonWideMagic_Reset(LagoonWideMagicAtlas *a) {if(a)memset(a,0,sizeof(*a));}
+int LagoonWideMagic_Begin(LagoonWideMagicAtlas *a,uint64_t generation,unsigned room,
+    const uint8_t *rom,size_t size,unsigned spell,unsigned bank,unsigned address,
+    unsigned destination,unsigned length) {
+  if(!a)return 0;LagoonWideMagic_Reset(a);
+  unsigned form=magic_form(spell);
+  if(form>=5 || bank!=127 || address!=0x7f80 || destination!=0x5c00 ||
+      length!=magic_sources[form].length || !LagoonWideMagic_Source(rom,size,spell))return 0;
+  a->generation=generation;a->room=room;a->form=form;a->next=0xb800;
+  a->length=a->left=length;return 1;
+}
+void LagoonWideMagic_Write(LagoonWideMagicAtlas *a,unsigned address,uint8_t value) {
+  if(!a)return;
+  if(a->left && address==a->next) {
+    a->bytes[a->completed++]=value;++a->next;--a->left;
+    if(!a->left) {
+      uint64_t h=UINT64_C(14695981039346656037);
+      for(unsigned i=0;i<a->length;++i)h=(h^a->bytes[i])*UINT64_C(1099511628211);
+      a->ready=h==magic_sources[a->form].data_hash;
+    }
+  }else if(a->left || (address>=0xb800&&address<0xc000)) {a->left=0;a->ready=0;}
+}
+int LagoonWideMagic_Match(const LagoonWideMagicAtlas *a,const uint16_t *vram,
+    const uint8_t *rom,size_t size,uint64_t generation,unsigned room,unsigned spell) {
+  if(!a || !vram || !a->ready || a->left || a->completed!=a->length ||
+      a->form>=5 || a->length!=magic_sources[a->form].length ||
+      a->form!=magic_form(spell) || a->generation!=generation || a->room!=room ||
+      !LagoonWideMagic_Source(rom,size,spell) || memcmp(a->bytes,vram+0x5c00,a->length))return 0;
+  uint64_t h=UINT64_C(14695981039346656037);
+  for(unsigned i=0;i<a->length;++i)h=(h^a->bytes[i])*UINT64_C(1099511628211);
+  return h==magic_sources[a->form].data_hash;
+}
+int LagoonWideMagic_CellOwned(const LagoonWideMagicAtlas *a,unsigned base1,unsigned base2,
+    const LagoonWideCell *c) {
+  if(!a || !a->ready || !c || (c->size!=8&&c->size!=16))return 0;
+  unsigned base=c->tile&0x100?base2:base1;
+  for(unsigned y=0;y<c->size;y+=8)for(unsigned x=0;x<c->size;x+=8) {
+    unsigned tile=((((c->tile&255)>>4)+y/8)<<4)|(((c->tile&15)+x/8)&15);
+    unsigned address=((base+tile*16)&0x7fff)*2;
+    if(address<0xb800 || address+32>0xb800+a->length)return 0;
+  }
+  return 1;
 }
 
 void LagoonWideAtlas_Reset(LagoonWideAtlas *a) { if (a) memset(a, 0, sizeof(*a)); }
@@ -1103,19 +1204,32 @@ static int find_cell(const uint8_t *oam,const LagoonWideCell *c,const uint8_t *u
 static void observe_vram_byte(uint32_t adr,uint8_t value) {
   (void)value;
   LagoonWide_OnVramWrite(adr);
+  if(s_magic_atlas.generation!=RtlStateGeneration())LagoonWideMagic_Reset(&s_magic_atlas);
+  LagoonWideMagic_Write(&s_magic_atlas,adr,value);
+  if(adr>=0xb800 && adr<0xc000) {
+    if(s_has_magic && g_ppu) {
+      s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;PpuSetExtraObjects(g_ppu,NULL,0);
+    }
+    if(s_retained_objects.has_magic)s_retained_objects.valid=0;
+  }
   if(s_death_atlas.generation!=RtlStateGeneration())LagoonWideDeath_Reset(&s_death_atlas);
   int death_write=adr>=0x8600 && adr<0x8800;
   LagoonWideDeath_Write(&s_death_atlas,adr,value);
+  if(death_write && s_retained_objects.has_common)s_retained_objects.valid=0;
   if(death_write && s_has_death && g_ppu) {
-    s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;PpuSetExtraObjects(g_ppu,NULL,0);
+    s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;PpuSetExtraObjects(g_ppu,NULL,0);
   }
   if (s_atlas.generation!=RtlStateGeneration()) LagoonWideAtlas_Reset(&s_atlas);
   int was_owned=adr>=0x8800 && adr<0xb200 && s_atlas.owned[adr-0x8800];
   int expected=s_atlas.transfer_left && adr==s_atlas.transfer_next;
   LagoonWideAtlas_Write(&s_atlas,adr);
+  if(adr>=0x8800 && adr<0xb200 && s_retained_submitted) {
+    s_retained_objects.valid=0;s_retained_submitted=0;
+    s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;PpuSetExtraObjects(g_ppu,NULL,0);
+  }
   /* An unrecognized same-frame overwrite must not leave cached far pixels. */
-  if (was_owned && !expected && (s_has_far||s_has_projectile) && g_ppu) {
-    s_object_count=0; s_has_far=0; s_has_projectile=0; PpuSetExtraObjects(g_ppu,NULL,0);
+  if (was_owned && !expected && g_ppu && g_ppu->extraObjectCount) {
+    s_object_count=0; s_has_far=0; s_has_projectile=0;s_has_magic=0;s_retained_submitted=0; PpuSetExtraObjects(g_ppu,NULL,0);
   }
 }
 static void observe_dma(const Dma *dma,unsigned channel,const DmaChannel *t) {
@@ -1129,13 +1243,22 @@ static void observe_dma(const Dma *dma,unsigned channel,const DmaChannel *t) {
     for (unsigned i=0;i<8;++i) channels+=dma->channel[i].dmaActive!=0;
     if (channels==1 && t->mode==1 && t->bAdr==0x18 && !t->fixed && !t->decrement &&
         g_ppu->vramIncrement==1 && g_ppu->vramIncrementOnHigh && !g_ppu->vramRemapMode) {
+      if(g_ppu->vramPointer>=0x5c00 && g_ppu->vramPointer<0x6000) {
+        if(s_has_magic) {s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;PpuSetExtraObjects(g_ppu,NULL,0);}
+        if(s_retained_objects.has_magic)s_retained_objects.valid=0;
+        int accepted=channel==1 && LagoonWideMagic_Begin(&s_magic_atlas,RtlStateGeneration(),
+            ram_word(g_ram,0x48e),g_rom,kRomSize,g_ram[0x537],t->aBank,t->aAdr,g_ppu->vramPointer,t->size);
+        if(!accepted)LagoonWideMagic_Reset(&s_magic_atlas);
+      }
       /* A replacement upload withdraws cached projectile pixels before any
        * newly recognized bytes can establish a different room-atlas owner. */
-      if(s_has_projectile && g_ppu->vramPointer>=0x4400 && g_ppu->vramPointer<0x5900) {
-        s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;PpuSetExtraObjects(g_ppu,NULL,0);
+      if(g_ppu->extraObjectCount && g_ppu->vramPointer>=0x4400 && g_ppu->vramPointer<0x5900) {
+        if(s_retained_submitted)s_retained_objects.valid=0;
+        s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;PpuSetExtraObjects(g_ppu,NULL,0);
       }
       if(g_ppu->vramPointer>=0x4300 && g_ppu->vramPointer<0x4400) {
-        if(s_has_death) {s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;PpuSetExtraObjects(g_ppu,NULL,0);}
+        if(s_retained_objects.has_common)s_retained_objects.valid=0;
+        if(s_has_death) {s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;PpuSetExtraObjects(g_ppu,NULL,0);}
         int accepted=channel==1 && LagoonWideDeath_Begin(&s_death_atlas,RtlStateGeneration(),g_rom,kRomSize,
             t->aBank,t->aAdr,g_ppu->vramPointer,t->size);
         if(!accepted)LagoonWideDeath_Reset(&s_death_atlas);
@@ -1156,9 +1279,9 @@ void LagoonWideEntities_Init(void) {
 }
 void LagoonWideEntities_Reset(void) {
   s_retained_objects.valid=0;
-  s_frame.valid=0; s_last_serial=0; s_object_count=0; s_has_far=0; s_has_projectile=0; s_pose_room_key=0; s_pose_generation=0;
+  s_frame.valid=0; s_last_serial=0; s_object_count=0; s_has_far=0; s_has_projectile=0;s_has_magic=0;s_retained_submitted=0; s_pose_room_key=0; s_pose_generation=0;
   memset(s_pose,0,sizeof(s_pose));memset(s_native_pose,0,sizeof(s_native_pose)); memset(s_kind_witness,0,sizeof(s_kind_witness));
-  LagoonWideAtlas_Reset(&s_atlas);LagoonWideDeath_Reset(&s_death_atlas);s_has_death=0;
+  LagoonWideAtlas_Reset(&s_atlas);LagoonWideDeath_Reset(&s_death_atlas);LagoonWideMagic_Reset(&s_magic_atlas);s_has_death=0;s_has_magic=0;
   if (g_ppu) PpuSetExtraObjects(g_ppu,NULL,0);
 }
 /* A native-anchored margin cell can outlive the CPU clearing the outgoing
@@ -1178,7 +1301,10 @@ static int retained_native_anchor(const PpuExtraObject *o) {
   for(unsigned y=0;y<size;y+=8)for(unsigned x=0;x<size;x+=8) {
     unsigned ch=((((tile&255)>>4)+y/8)<<4)|(((tile&15)+x/8)&15);
     unsigned address=(base+ch*16)&0x7fff;
-    if(address<0x4400 || address+16>0x5900)return 0;
+    if(address<0x4400 || address+16>0x5900) {
+      if(address>=0x4300 && address+16<=0x4400) {if(!s_has_death || !s_death_atlas.ready)return 0;}
+      else if(!s_has_magic || address<0x5c00 || address*2+32>0xb800+s_magic_atlas.length || !s_magic_atlas.ready)return 0;
+    }
   }
   LagoonWideCell cell={o->x,o->y,(uint16_t)tile,(uint8_t)size};uint16_t expected[256];
   if(!LagoonWideEntities_Pixels(PpuRenderVram(g_ppu),g_ppu->cgram,
@@ -1205,7 +1331,10 @@ static int retained_current_cell(const PpuExtraObject *o,LagoonWideCell *cell) {
   for(unsigned yy=0;yy<size;yy+=8)for(unsigned xx=0;xx<size;xx+=8) {
     unsigned ch=((((tile&255)>>4)+yy/8)<<4)|(((tile&15)+xx/8)&15);
     unsigned address=(base+ch*16)&0x7fff;
-    if(address<0x4400 || address+16>0x5900)return 0;
+    if(address<0x4400 || address+16>0x5900) {
+      if(address>=0x4300 && address+16<=0x4400) {if(!s_retained_objects.has_common || !s_death_atlas.ready)return 0;}
+      else if(!s_retained_objects.has_magic || address<0x5c00 || address*2+32>0xb800+s_magic_atlas.length || !s_magic_atlas.ready)return 0;
+    }
   }
   *cell=(LagoonWideCell){x,y,(uint16_t)tile,(uint8_t)size};return 1;
 }
@@ -1250,6 +1379,10 @@ void LagoonWideEntities_RetainScene(void) {
   }
   memcpy(s_retained_objects.atlas,PpuRenderVram(g_ppu)+0x4400,sizeof(s_retained_objects.atlas));
   memcpy(s_retained_objects.palette,g_ppu->cgram,sizeof(s_retained_objects.palette));
+  s_retained_objects.has_common=s_has_death;
+  if(s_has_death)memcpy(s_retained_objects.common,PpuRenderVram(g_ppu)+0x4300,sizeof(s_retained_objects.common));
+  s_retained_objects.has_magic=s_has_magic;
+  if(s_has_magic)memcpy(s_retained_objects.magic,PpuRenderVram(g_ppu)+0x5c00,sizeof(s_retained_objects.magic));
   memcpy(s_retained_objects.records,g_ram+0x540,sizeof(s_retained_objects.records));
   memcpy(s_retained_objects.oam,g_ppu->oam,512);
   memcpy(s_retained_objects.oam+512,g_ppu->highOam,32);
@@ -1273,6 +1406,14 @@ void LagoonWideEntities_RetainedDiagnostic(unsigned *kind,unsigned *address,
   for(unsigned i=0;i<sizeof(s_retained_objects.atlas)/sizeof(uint16_t);++i)
     if(s_retained_objects.atlas[i]!=PpuRenderVram(g_ppu)[0x4400+i]) {
       *kind=3;*address=0x4400+i;*captured=s_retained_objects.atlas[i];*current=PpuRenderVram(g_ppu)[0x4400+i];return;
+    }
+  for(unsigned i=0;s_retained_objects.has_common && i<256;++i)
+    if(s_retained_objects.common[i]!=PpuRenderVram(g_ppu)[0x4300+i]) {
+      *kind=3;*address=0x4300+i;*captured=s_retained_objects.common[i];*current=PpuRenderVram(g_ppu)[0x4300+i];return;
+    }
+  for(unsigned i=0;s_retained_objects.has_magic && i<0x400;++i)
+    if(s_retained_objects.magic[i]!=PpuRenderVram(g_ppu)[0x5c00+i]) {
+      *kind=3;*address=0x5c00+i;*captured=s_retained_objects.magic[i];*current=PpuRenderVram(g_ppu)[0x5c00+i];return;
     }
   for(unsigned i=0;i<256;++i)if(s_retained_objects.palette[i]!=g_ppu->cgram[i]) {
     *kind=4;*address=i;*captured=s_retained_objects.palette[i];*current=g_ppu->cgram[i];return;
@@ -1300,7 +1441,9 @@ int LagoonWideEntities_RetainedSceneValid(void) {
   if(s_retained_objects.obsel!=g_ppu->obsel || s_retained_objects.oam_priority!=PPU_objPriority(g_ppu))return 0;
   if((!s_retained_objects.native_anchors && memcmp(s_retained_objects.records,g_ram+0x540,sizeof(s_retained_objects.records))) ||
       memcmp(s_retained_objects.atlas,PpuRenderVram(g_ppu)+0x4400,sizeof(s_retained_objects.atlas)) ||
-      memcmp(s_retained_objects.palette,g_ppu->cgram,sizeof(s_retained_objects.palette)))return 0;
+      memcmp(s_retained_objects.palette,g_ppu->cgram,sizeof(s_retained_objects.palette)) ||
+      (s_retained_objects.has_magic && memcmp(s_retained_objects.magic,PpuRenderVram(g_ppu)+0x5c00,sizeof(s_retained_objects.magic))) ||
+      (s_retained_objects.has_common && memcmp(s_retained_objects.common,PpuRenderVram(g_ppu)+0x4300,sizeof(s_retained_objects.common))))return 0;
   if(s_retained_objects.native_anchors)return retained_native_current();
   for(size_t i=0;i<s_retained_objects.count;++i) {
     const PpuExtraObject *o=&s_retained_objects.objects[i];
@@ -1315,7 +1458,7 @@ int LagoonWideEntities_RetainedSceneValid(void) {
   return 1;
 }
 void LagoonWideEntities_BeginRetained(int enabled) {
-  s_object_count=0;s_has_far=0;
+  s_object_count=0;s_has_far=0;s_has_magic=0;s_has_death=0;s_has_projectile=0;s_retained_submitted=0;
   PpuSetExtraObjects(g_ppu,NULL,0);
   if(enabled && LagoonWideEntities_RetainedSceneValid()) {
     if(!s_retained_objects.native_anchors)PpuSetExtraObjects(g_ppu,s_retained_objects.objects,s_retained_objects.count);
@@ -1329,6 +1472,9 @@ void LagoonWideEntities_BeginRetained(int enabled) {
       }
       PpuSetExtraObjects(g_ppu,s_retained_draw,s_retained_objects.count);
     }
+    s_retained_submitted=s_retained_objects.count!=0;
+    s_has_magic=s_retained_objects.has_magic && s_retained_objects.count!=0;
+    s_has_death=s_retained_objects.has_common && s_retained_objects.count!=0;
   }
 }
 /* region0=all margin,1=seam strips,2=deep margin. Native opacity is always zero. */
@@ -1413,7 +1559,7 @@ static int current_pose_frame(const uint8_t *ram,unsigned e,uint8_t *frame) {
 }
 
 void LagoonWideEntities_BeginFrame(int enabled) {
-  s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;PpuSetExtraObjects(g_ppu,NULL,0);
+  s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;PpuSetExtraObjects(g_ppu,NULL,0);
   if(!enabled || !s_frame.valid) {report_status("inactive-or-no-capture",0,0);return;}
   if(s_frame.generation!=RtlStateGeneration() || g_ppu->obsel!=2 || PPU_objPriority(g_ppu)) {
     report_status("unsupported-timeline-or-obj-layout",0,0);return;
@@ -1440,9 +1586,9 @@ void LagoonWideEntities_BeginFrame(int enabled) {
   int atlas_ok=s_atlas.ready && s_atlas.generation==s_frame.generation &&
       s_atlas.room==ram[0x48e] && s_atlas.source==ram_pointer(ram,0x5d);
   uint8_t used[128]={0},queued[kEntities]={0},far[kEntities]={0},far_frames[kEntities]={0},current_path[kEntities]={0};
-  int cell_slot[kEntities][kCells],counts[kEntities]={0};
+  int cell_slot[kEntities][kCells],counts[kEntities]={0},multipart[kEntities]={0},common0[kEntities]={0};
   LagoonWideCell cells[kEntities][kCells],projectile_cells[16][kCells];
-  int projectile_counts[16]={0},projectile_slots[16][kCells];
+  int projectile_counts[16]={0},projectile_slots[16][kCells],projectile_magic[16]={0};
   unsigned projectile_y[16]={0};
   memset(projectile_slots,-1,sizeof(projectile_slots));
   memset(cell_slot,-1,sizeof(cell_slot));
@@ -1451,17 +1597,26 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     if(type==4) {
       if(!atlas_ok || !LagoonSceneRenderer_ExactRoom(ram) || !LagoonSceneRenderer_ExactRoom(g_ram) ||
           memcmp(ram+0x480,g_ram+0x480,4))continue;
-      int n=LagoonWideEntities_ProjectilePacketCells(g_rom,kRomSize,ram,q,projectile_cells[offset<0x180?offset/24:0],kCells);
-      if(n<=0 || offset>=0x180 || offset%24)continue;
+      if(offset>=0x180 || offset%24)continue;
       unsigned j=offset/24;
-      if(projectile_counts[j] || !cells_owned(projectile_cells[j],n))continue;
-      /* Native C026 sorts descending unsigned screenY, stably. Ordinary
-       * records are appended first, then projectile records by offset. */
+      int magic=ram[0xd40+offset]>=1 && ram[0xd40+offset]<=8;
+      int n=magic?LagoonWideEntities_MagicPacketCells(g_rom,kRomSize,ram,q,projectile_cells[j],kCells):
+          LagoonWideEntities_ProjectilePacketCells(g_rom,kRomSize,ram,q,projectile_cells[j],kCells);
+      if(n<=0 || projectile_counts[j])continue;
+      if(magic) {
+        if(!LagoonWideMagic_Match(&s_magic_atlas,PpuRenderVram(g_ppu),g_rom,kRomSize,s_frame.generation,room,ram[0x537]))continue;
+        int owned=1;for(int i=0;i<n;++i)if(!LagoonWideMagic_CellOwned(&s_magic_atlas,
+            PPU_objTileAdr1(g_ppu),PPU_objTileAdr2(g_ppu),&projectile_cells[j][i]))owned=0;
+        if(!owned)continue;
+      }else if(!cells_owned(projectile_cells[j],n))continue;
+      projectile_magic[j]=magic;
+      /* Native C026 sorts descending unsigned screenY, stably. The real
+       * BB05 pass appends projectiles first, before the ascending actor pass. */
       unsigned key=ram_word(ram,0xec2+q*6);int ordered=1;
       for(unsigned o=0;o<ram[0x48c];++o) {
-        unsigned oy=ram_word(ram,0xec2+o*6),ot=ram_word(ram,0xec4+o*6),oo=ram_word(ram,0xec0+o*6);
+        unsigned oy=ram_word(ram,0xec2+o*6),ot=ram[0xec4+o*6],oo=ram_word(ram,0xec0+o*6);
         if((o<q&&oy<key)||(o>q&&oy>key) ||
-           (oy==key&&((o<q&&ot==4&&oo>=offset)||(o>q&&(ot!=4||oo<=offset)))))ordered=0;
+           (oy==key&&((o<q&&(ot!=4||oo>=offset))||(o>q&&ot==4&&oo<=offset))))ordered=0;
       }
       if(!ordered)continue;
       for(int i=0;i<n;++i) {
@@ -1474,8 +1629,23 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     }
     if(offset>0x800 || (offset&63)) continue;
     unsigned e=offset/64,a=0x500+offset;queued[e]=1;
-    if((type!=1 && type!=2 && type!=5) || type!=ram[a+0x18]) continue;
-    int n=decode_entity(ram,offset,ram[a+0x1c],0,cells[e]);counts[e]=n;
+    if((type!=1 && type!=2 && type!=3 && type!=5) || type!=ram[a+0x18]) continue;
+    int n;
+    if(type==3) {
+      if(!atlas_ok || !LagoonSceneRenderer_ExactRoom(ram) || !LagoonSceneRenderer_ExactRoom(g_ram) ||
+          memcmp(ram+0x480,g_ram+0x480,4))continue;
+      n=LagoonWideMultipart_PacketCells(g_rom,kRomSize,ram,q,cells[e],kCells);
+      int owned=n>0;
+      for(int i=0;i<n;++i)if(!LagoonWideAtlas_CellOwned(&s_atlas,
+          PPU_objTileAdr1(g_ppu),PPU_objTileAdr2(g_ppu),&cells[e][i])) {
+        if(!LagoonWideDeath_Match(&s_death_atlas,PpuRenderVram(g_ppu),g_rom,kRomSize,s_frame.generation) ||
+            !LagoonWideDeath_CellOwned(&s_death_atlas,PPU_objTileAdr1(g_ppu),PPU_objTileAdr2(g_ppu),&cells[e][i]))owned=0;
+        else common0[e]=1;
+      }
+      if(!owned)continue;
+      multipart[e]=1;
+    }else n=decode_entity(ram,offset,ram[a+0x1c],0,cells[e]);
+    counts[e]=n;
     if(n<0 || (death_record(ram+a,ram[a+0x1c]) && !record_cells_owned(ram,offset,ram[a+0x1c],cells[e],n))) {
       counts[e]=-1;continue;
     }
@@ -1484,6 +1654,10 @@ void LagoonWideEntities_BeginFrame(int enabled) {
       int slot=find_cell(s_frame.oam,&cells[e][i],used);
       if(slot<0) {s_rejected++;report_status("native-cell-mismatch",offset,i);return;}
       used[slot]=1;cell_slot[e][i]=slot;
+    }
+    if(multipart[e]) {
+      if(s_last_serial!=s_frame.serial){s_multipart_packets++;s_multipart_matched+=n;}
+      continue;
     }
     int anchored=0;
     for(int i=0;i<n;++i)if(cell_slot[e][i]>=0 && cells[e][i].x<256 && cells[e][i].x+cells[e][i].size>0 &&
@@ -1576,14 +1750,14 @@ void LagoonWideEntities_BeginFrame(int enabled) {
       unsigned oy=(ram_word(ram,0x504+o*64)-ram_word(ram,0x482))&65535;
       if(oy>ey || (oy==ey && o<e))r++;
     }
-    for(unsigned j=0;j<16;++j)if(projectile_counts[j]>0 && projectile_y[j]>ey)r++;
+    for(unsigned j=0;j<16;++j)if(projectile_counts[j]>0 && projectile_y[j]>=ey)r++;
     rank[e]=r;
   }
   unsigned projectile_rank[16]={0};
   if(any_far)for(unsigned j=0;j<16;++j)if(projectile_counts[j]>0) {
     unsigned key=projectile_y[j],r=0;
     for(unsigned e=1;e<kEntities;++e)if((queued[e]||far[e])&&counts[e]>0 &&
-        ((ram_word(ram,0x504+e*64)-ram_word(ram,0x482))&65535)>=key)r++;
+        ((ram_word(ram,0x504+e*64)-ram_word(ram,0x482))&65535)>key)r++;
     for(unsigned o=0;o<16;++o)if(projectile_counts[o]>0 &&
         (projectile_y[o]>key || (projectile_y[o]==key&&o<j)))r++;
     projectile_rank[j]=r;
@@ -1603,15 +1777,18 @@ void LagoonWideEntities_BeginFrame(int enabled) {
       if(queued[e] && cell_slot[e][i]<0) continue;
       if(!any_far) {
         int added=draw_cell(&cells[e][i],cell_slot[e][i],1,0);s_emitted+=added;
+        if(multipart[e]){s_multipart_emitted+=added;if(added&&common0[e])s_has_death=1;}
         if(added&&death_record(ram+0x500+e*64,ram[0x51c+e*64])) {s_death_emitted+=added;s_has_death=1;}
       }
       else {
         if(queued[e]) {
           int seam=draw_cell(&cells[e][i],cell_slot[e][i],1,1);s_emitted+=seam;
+          if(multipart[e]){s_multipart_emitted+=seam;if(seam&&common0[e])s_has_death=1;}
           if(seam&&death_record(ram+0x500+e*64,ram[0x51c+e*64])) {s_death_emitted+=seam;s_has_death=1;}
         }
-        int added=draw_cell(&cells[e][i],0,rank[e]*kCells+i+1,2);
+        int added=draw_cell(&cells[e][i],0,rank[e]*kCells+i+2,2);
         s_emitted+=added;
+        if(multipart[e]){s_multipart_emitted+=added;if(added&&common0[e])s_has_death=1;}
         if(added&&death_record(ram+0x500+e*64,ram[0x51c+e*64])) {s_death_emitted+=added;s_has_death=1;if(far[e])s_death_far+=added;}
         if(far[e]) {
           s_far_emitted+=added;s_has_far|=added;if(current_path[e])s_current_emitted+=added;
@@ -1629,8 +1806,10 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     int slot=projectile_slots[j][i];if(slot<0)continue;
     const LagoonWideCell *c=&projectile_cells[j][i];
     int added=draw_cell(c,(unsigned)slot,1,any_far?1:0);
-    if(any_far)added+=draw_cell(c,(unsigned)slot,projectile_rank[j]*kCells+i+1,2);
-    s_emitted+=added;s_projectile_emitted+=added;s_has_projectile|=added!=0;
+    if(any_far)added+=draw_cell(c,0,projectile_rank[j]*kCells+i+2,2);
+    s_emitted+=added;
+    if(projectile_magic[j]) {s_magic_emitted+=added;s_has_magic|=added!=0;}
+    else {s_projectile_emitted+=added;s_has_projectile|=added!=0;}
   }
   if(cell_report)fclose(cell_report);
   if(s_last_serial!=s_frame.serial){s_validated++;s_last_serial=s_frame.serial;}

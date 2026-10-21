@@ -70,12 +70,13 @@ static void scalar(void) {
   for(unsigned y=0;y<8;++y)for(unsigned x=0;x<6;++x){assert(!pixels[y*8+x]);++center_zero;}
 }
 static void rejected(void){LagoonWideEntities_BeginFrame(1);assert(!p.extraObjectCount);++refused_cases;}
+#ifndef LAGOON_WIDE_PROJECTILE_POLICY_NO_MAIN
 int main(int argc,char **argv) {
   assert(argc==3);baseline_root=argv[2];FILE *f=fopen(argv[1],"rb");
   assert(f&&fread(own_rom,1,sizeof own_rom,f)==sizeof own_rom);fclose(f);
   projectile_setup(0,100,100);scalar();assert(!s_has_far);projectile_setup(1,100,100);scalar();
   for(unsigned j=0;j<p.extraObjectCount;++j){const PpuExtraObject *o=&p.extraObjects[j];
-    if(o->x<320&&o->x>256)assert(o->order==129);if(o->x>=340&&o->x<352)assert(o->order==65);}
+    if(o->x<320&&o->x>256)assert(o->order==66);if(o->x>=340&&o->x<352)assert(o->order==2);}
   ++order_cases;projectile_setup(1,80,120);scalar();++order_cases;projectile_setup(1,120,80);scalar();++order_cases;
   /* The next CPU frame can advance/recycle all projectile bytes while the
    * unchanged completed native OAM packet still owns this displayed pose. */
@@ -107,3 +108,5 @@ int main(int argc,char **argv) {
   printf("projectile producer: %u synthetic setups, %u full-record/queue/OAM/owner/generation/order/layout/retained refusals, %u independent planar nativeOAM pixels/%u native-center zeros, %u combined y-order cases PASS\n",setups,refused_cases,scalar_pixels,center_zero,order_cases);
   return 0;
 }
+
+#endif

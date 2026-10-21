@@ -1,7 +1,8 @@
 """Strict comparison of isolated qualify_native.py replays; never launches a game.
 
 Different executable/program identities are expected and recorded. Inputs,
-ordered presentations, checkpoint bytes, CPU registers and clocks must match.
+ordered presentations, all twelve checkpoint files, CPU registers and clocks
+must match, including audio, DMA and PPU-write event timing.
 Exit 0 means exact, 1 means a difference, 2 means invalid/missing evidence.
 """
 import argparse
@@ -12,7 +13,8 @@ import re
 from pathlib import Path
 
 
-COMPONENTS = ('fb.bmp', 'wram.bin', 'vram.bin', 'oam.bin', 'cgram.bin', 'sram.bin', 'regs.json')
+COMPONENTS = ('fb.bmp', 'fb.bgrx', 'wram.bin', 'vram.bin', 'oam.bin',
+              'cgram.bin', 'sram.bin', 'regs.json', 'apu.tsv', 'dma.tsv', 'ppuw.tsv')
 FATAL = ('[brk]', '[interp_cap]', '[interp_low_exec]', '[cpu_halt]', 'assertion failed')
 INPUT_KEYS = ('rom_sha256', 'route_sha256', 'frames', 'input_config_sha256',
               'effective_config_sha256', 'enabled_features', 'enabled_package_features',
@@ -176,7 +178,7 @@ def compare_component(left, right):
 
 def compare_runs(baseline, candidate):
     left, right = load_run(baseline), load_run(candidate)
-    result = dict(schema='lagoon strict native replay comparison v1',
+    result = dict(schema='lagoon strict native replay comparison v2',
                   baseline=left['identity'], candidate=right['identity'],
                   invalid_evidence={'baseline': left['errors'], 'candidate': right['errors']})
     inputs = {key: (left['receipt'].get(key), right['receipt'].get(key)) for key in INPUT_KEYS}
@@ -241,7 +243,7 @@ def main():
     try:
         result = compare_runs(args.baseline, args.candidate)
     except (OSError, ValueError, KeyError, TypeError) as error:
-        result = dict(schema='lagoon strict native replay comparison v1', passed=False,
+        result = dict(schema='lagoon strict native replay comparison v2', passed=False,
                       valid_evidence=False, error=str(error))
     args.out.write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
     print(json.dumps({k: result.get(k) for k in ('passed', 'valid_evidence', 'error')}))

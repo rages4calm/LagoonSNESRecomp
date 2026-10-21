@@ -69,6 +69,29 @@ int LagoonWideEntities_ProjectileCells(const uint8_t *rom,size_t size,
 int LagoonWideEntities_ProjectilePacketCells(const uint8_t *rom,size_t size,
     const uint8_t *packet,unsigned queue,LagoonWideCell *cells,size_t capacity);
 
+/* Completed original equipped-spell OBJ pack, separate from the room atlas.
+ * Index3 is a BG spell and never grants OBJ ownership. */
+enum { kLagoonWideMagicBytes=0x7e0 };
+typedef struct LagoonWideMagicAtlas {
+  uint8_t bytes[kLagoonWideMagicBytes];
+  uint64_t generation;
+  unsigned room,form,next,left,completed,length,ready;
+} LagoonWideMagicAtlas;
+void LagoonWideMagic_Reset(LagoonWideMagicAtlas *atlas);
+int LagoonWideMagic_Source(const uint8_t *rom,size_t size,unsigned spell);
+int LagoonWideMagic_Begin(LagoonWideMagicAtlas *atlas,uint64_t generation,
+    unsigned room,const uint8_t *rom,size_t size,unsigned spell,unsigned bank,
+    unsigned address,unsigned destination,unsigned length);
+void LagoonWideMagic_Write(LagoonWideMagicAtlas *atlas,unsigned address,uint8_t value);
+int LagoonWideMagic_Match(const LagoonWideMagicAtlas *atlas,const uint16_t *vram,
+    const uint8_t *rom,size_t size,uint64_t generation,unsigned room,unsigned spell);
+int LagoonWideMagic_CellOwned(const LagoonWideMagicAtlas *atlas,unsigned base1,
+    unsigned base2,const LagoonWideCell *cell);
+/* Same original projectile carrier and source/OAM guards, kinds1..8 only.
+ * Caller additionally requires the separately completed matching magic pack. */
+int LagoonWideEntities_MagicPacketCells(const uint8_t *rom,size_t size,
+    const uint8_t *packet,unsigned queue,LagoonWideCell *cells,size_t capacity);
+
 enum { kLagoonWideAtlasBytes = 0x2a00 };
 typedef struct LagoonWideAtlas {
   uint8_t owned[kLagoonWideAtlasBytes];

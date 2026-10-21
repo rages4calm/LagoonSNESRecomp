@@ -54,9 +54,11 @@ int main(int argc,char**argv){assert(argc==2);FILE*f=fopen(argv[1],"rb");assert(
    assert(word(ram,0xec0+rank*6)==(j<3?0x40+j*64:(j-3)*24));assert(word(ram,0xec4+rank*6)==(j<3?1:4));}
  }
  setup(11,0,0,0,280,80);ram[0xd4f]=0x12;memcpy(current,ram,sizeof ram);LagoonWideCell cells[64];assert(LagoonWideEntities_ProjectileCells(rom,sizeof rom,ram,current,0,cells,64)>0);
+ for(unsigned padding=0;padding<256;++padding){ram[0xec5]=current[0xec5]=padding;assert(LagoonWideEntities_ProjectileCells(rom,sizeof rom,ram,current,0,cells,64)>0);}
+ current[0xec5]^=1;assert(LagoonWideEntities_ProjectileCells(rom,sizeof rom,ram,current,0,cells,64)<0);current[0xec5]^=1;++refusals;
  for(unsigned n=0;n<24;++n){current[0xd40+n]^=1;assert(LagoonWideEntities_ProjectileCells(rom,sizeof rom,ram,current,0,cells,64)<0);current[0xd40+n]^=1;++refusals;}
- const unsigned source[][2]={{0x1bb08,67},{0x1bb4b,383},{0x1bcca,145},{0x1c026,164},{0x1c41b,51},{0x1fe1f,136}};
- for(unsigned j=0;j<6;++j)for(unsigned n=0;n<source[j][1];++n){unsigned at=((source[j][0]>>16)&127)*32768+(source[j][0]&32767)+n;rom[at]^=1;assert(LagoonWideEntities_ProjectileCells(rom,sizeof rom,ram,current,0,cells,64)<0);rom[at]^=1;++refusals;}
+ const unsigned source[][2]={{0x180a0,18},{0x1bb08,67},{0x1bb4b,383},{0x1bcca,145},{0x1c026,164},{0x1c41b,51},{0x1fe1f,136}};
+ for(unsigned j=0;j<7;++j)for(unsigned n=0;n<source[j][1];++n){unsigned at=((source[j][0]>>16)&127)*32768+(source[j][0]&32767)+n;rom[at]^=1;assert(LagoonWideEntities_ProjectileCells(rom,sizeof rom,ram,current,0,cells,64)<0);rom[at]^=1;++refusals;}
  for(unsigned kind=0;kind<256;++kind){if(kind>=11&&kind<=33)continue;ram[0xd40]=current[0xd40]=kind;assert(LagoonWideEntities_ProjectileCells(rom,sizeof rom,ram,current,0,cells,64)<0);++refusals;}
  printf("projectiles: %u original BB4B frames/%u C41B draws/%u exact OAM cells, %u actual original cull cases, %u original stable unsigned-y tie sorts; %u source/full-record/unowned-kind refusals PASS\n",frame_calls,draw_calls,cells_equal,cull_calls,sort_calls,refusals);interp816_free(c);return 0;
 }
