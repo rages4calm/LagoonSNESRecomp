@@ -372,3 +372,19 @@
 
 # Original enemy projectile request; observed inherited-JSR tail entry.
 01977F:M1X0
+
+# Retain previous item-handler analysis after bounding the D3E9 prefix.
+# These original inline table targets retain their existing AOT/LLE gates.
+01D43F:M1X0
+01D45F:M1X0
+01D460:M1X0
+01D468:M1X0
+01D481:M1X0
+01D4AB:M1X0
+01D4DB:M1X0
+01D4E2:M1X0
+01D524:M1X0
+01D593:M1X0
+01D5B6:M1X0
+01D697:M1X0
+01D8C7:M1X0

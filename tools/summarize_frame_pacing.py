@@ -5,7 +5,9 @@ run. --checkpoint FRAME:TAG records a *declared* host-frame checkpoint boundary;
 it does not remove that interval from any statistic. A matching quiet replay is
 needed before attributing a coincident stall to checkpoint I/O. Scheduled-thread
 cycles are raw counters, not nanoseconds. Audio wait columns overlap guest time
-and must not be added to the exclusive host stages.
+and must not be added to the exclusive host stages. Wait budget/late-return
+columns overlap the wait stage; guest periods explain scheduling, never remove
+intervals from the raw statistics.
 """
 from __future__ import annotations
 
@@ -19,6 +21,7 @@ import statistics
 
 STAGES = ("guest", "raster", "acquire", "compose", "present", "trace", "hook", "events", "wait")
 AUDIO = ("audio_highwater_wait_ms", "audio_sleep_ms", "audio_mutex_wait_ms", "audio_queue_peak")
+WAIT = ("wait_requested_ms", "wait_overshoot_ms", "wait_calls")
 
 
 def read_timing(path: Path) -> list[dict]:
@@ -28,10 +31,13 @@ def read_timing(path: Path) -> list[dict]:
         missing = required - set(reader.fieldnames or ())
         if missing:
             raise ValueError("Missing timing columns: " + ", ".join(sorted(missing)))
+        wait_columns = set(reader.fieldnames or ()) & set(WAIT)
+        if wait_columns and wait_columns != set(WAIT):
+            raise ValueError("Incomplete wait deadline diagnostics")
         rows = []
         for line, row in enumerate(reader, 2):
             value = {}
-            for key in required | (set(row) & set(AUDIO)):
+            for key in required | (set(row) & {*AUDIO, *WAIT, "guest_periods"}):
                 try:
                     number = float(row[key])
                 except (ValueError, TypeError):
@@ -42,6 +48,10 @@ def read_timing(path: Path) -> list[dict]:
             if value["frame"] != int(value["frame"]):
                 raise ValueError(f"Nonintegral frame on line {line}")
             value["frame"] = int(value["frame"])
+            if "wait_calls" in value:
+                if value["wait_calls"] != int(value["wait_calls"]):
+                    raise ValueError(f"Nonintegral wait_calls on line {line}")
+                value["wait_calls"] = int(value["wait_calls"])
             for name in STAGES:
                 key = name + "_thread_cycles"
                 if key in row:
@@ -74,6 +84,8 @@ def summarize(rows: list[dict], after_frame: int = 0, threshold_ms: float = 20,
     checkpoints = checkpoints or {}
     for previous, current in zip(selected, selected[1:]):
         point = dict(current)
+        if "guest_periods" in previous:
+            point["previous_guest_periods"] = previous["guest_periods"]
         point["interval_ms"] = (current["present_seconds"] - previous["present_seconds"]) * 1000
         point["profiled_ms"] = sum(current[name + "_ms"] for name in STAGES)
         point["unprofiled_residual_ms"] = point["interval_ms"] - point["profiled_ms"]
@@ -81,8 +93,18 @@ def summarize(rows: list[dict], after_frame: int = 0, threshold_ms: float = 20,
         points.append(point)
     values = sorted(point["interval_ms"] for point in points)
     spikes = [point for point in points if point["interval_ms"] > threshold_ms]
+    wait = None
+    if all(all(key in point for key in WAIT) for point in points):
+        wait = {
+            "requested_ms": sum(point["wait_requested_ms"] for point in points),
+            "overshoot_ms": sum(point["wait_overshoot_ms"] for point in points),
+            "max_interval_overshoot_ms": max(point["wait_overshoot_ms"] for point in points),
+            "calls": sum(point["wait_calls"] for point in points),
+            "scope": "Positive-budget WaitUntil calls only. Initial requested duration and final monotonic lateness after its deadline; multiple calls accumulate per presentation. These overlap wait_ms, not additional work. Prior guest periods are schedule context, never subtracted from raw intervals.",
+        }
     return {
         "scope": "Completed-present wall time; all intervals retained, including declared checkpoints. Coincidence is not causal proof. Audio subcolumns overlap exclusive guest timing; raw thread cycles are not time units.",
+        "wait_deadline_diagnostics": wait,
         "after_frame": after_frame,
         "selected_presentations": len(selected),
         "intervals": len(points),

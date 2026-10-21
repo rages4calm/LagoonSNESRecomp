@@ -69,6 +69,54 @@ class PacingSummaryTests(unittest.TestCase):
             self.assertEqual(point["guest_thread_cycles"], 3100000)
             self.assertEqual(point["processor"], 18)
 
+    def test_wait_budget_and_prior_guest_periods_never_hide_long_interval(self):
+        rows = [self.row(1, .016, guest_periods=1.459094,
+                         wait_requested_ms=14, wait_overshoot_ms=.1, wait_calls=1),
+                self.row(2, .040, guest=.8, wait=23.2, guest_periods=1,
+                         wait_requested_ms=23, wait_overshoot_ms=.2, wait_calls=1)]
+        result = module.summarize(rows)
+        self.assertEqual(result["spikes"], 1)
+        self.assertAlmostEqual(result["max_ms"], 24)
+        self.assertAlmostEqual(result["largest_intervals"][0]["unprofiled_residual_ms"], 0)
+        self.assertEqual(result["largest_intervals"][0]["previous_guest_periods"], 1.459094)
+        self.assertEqual(result["wait_deadline_diagnostics"]["requested_ms"], 23)
+        self.assertEqual(result["wait_deadline_diagnostics"]["overshoot_ms"], .2)
+
+    def test_legacy_trace_has_no_guessed_wait_budget(self):
+        result = module.summarize([self.row(1, .016), self.row(2, .032)])
+        self.assertIsNone(result["wait_deadline_diagnostics"])
+        self.assertNotIn("previous_guest_periods", result["largest_intervals"][0])
+
+    def test_optional_deadline_csv_fields_survive_and_validate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "timing.csv"
+            rows = [self.row(1, .016, guest_periods=1.459094, wait_requested_ms=14,
+                             wait_overshoot_ms=.001, wait_calls=1),
+                    self.row(2, .040, guest_periods=1, wait_requested_ms=23,
+                             wait_overshoot_ms=.2, wait_calls=2)]
+            def write(data):
+                with path.open("w", newline="", encoding="utf-8") as stream:
+                    writer = csv.DictWriter(stream, fieldnames=data[0])
+                    writer.writeheader()
+                    writer.writerows(data)
+            write(rows)
+            parsed = module.read_timing(path)
+            self.assertEqual(parsed[0]["guest_periods"], 1.459094)
+            self.assertEqual(parsed[1]["wait_calls"], 2)
+            for key, value in (("wait_overshoot_ms", -1), ("guest_periods", "nan"),
+                               ("wait_calls", 1.5)):
+                changed = [dict(row) for row in rows]
+                changed[1][key] = value
+                write(changed)
+                with self.assertRaises(ValueError):
+                    module.read_timing(path)
+            incomplete = [dict(row) for row in rows]
+            for row in incomplete:
+                del row["wait_calls"]
+            write(incomplete)
+            with self.assertRaisesRegex(ValueError, "Incomplete wait"):
+                module.read_timing(path)
+
 
 if __name__ == "__main__":
     unittest.main()

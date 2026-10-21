@@ -87,6 +87,10 @@ int LagoonWideMagic_Begin(LagoonWideMagicAtlas *atlas,uint64_t generation,
 void LagoonWideMagic_Write(LagoonWideMagicAtlas *atlas,unsigned address,uint8_t value);
 int LagoonWideMagic_Match(const LagoonWideMagicAtlas *atlas,const uint16_t *vram,
     const uint8_t *rom,size_t size,uint64_t generation,unsigned room,unsigned spell);
+/* Existing one-attempt successful-load caller only. Exact original equipped
+ * pack/source, room/form/generation; never repairs partial DMA or cold reset. */
+int LagoonWideMagic_RebindResident(LagoonWideMagicAtlas *atlas,const uint16_t *vram,
+    const uint8_t *rom,size_t size,uint64_t generation,unsigned room,unsigned spell);
 int LagoonWideMagic_CellOwned(const LagoonWideMagicAtlas *atlas,unsigned base1,
     unsigned base2,const LagoonWideCell *cell);
 /* Same original projectile carrier and source/OAM guards, kinds1..8 only.

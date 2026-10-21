@@ -21,6 +21,8 @@ widescreen, a custom scene renderer and optional quality-of-life improvements.
   Loading a compatible Elf Field or Voloh state also recovers supported actors in the
   added view without requiring a door reload.
   Supported enemy defeat effects also recover after compatible state loads.
+  Equipped spell graphics also recover after compatible loads, including
+  supported homing spells in the added view.
 - **Original artwork, enhanced:** optional EPX treatment preserves the palette
   and keeps the HUD sharp. No replacement artwork is required.
 - **Gameplay options:** faster walking, longer sword reach with a modest
@@ -65,7 +67,7 @@ letterboxing on a 16:9 display. Window scale affects windowed size only.
 
 ## Project status
 
-The source and local development build are now **0.1.5**. The latest packaged
+The source and local development build are now **0.1.6**. The latest packaged
 Windows preview remains **0.1.3**; its release notes describe that package.
 
 This is experimental. Native combat, damage, death/revival, boss services and

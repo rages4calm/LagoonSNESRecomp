@@ -14,7 +14,7 @@ display fades and queued graphics transfers. The HUD-number dispatcher has a
 separate, source-guarded handoff
 using its actual cross-bank JSL return frame. Counts of
 compiled functions are analysis counts, not completion percentages. The current
-manifest retains 539 AOT entries; host-side changes do not imply
+manifest retains 540 AOT entries; host-side changes do not imply
 additional compiled guest functions. Generated
 code alone does not prove that a runtime dispatcher reaches a compiled entry.
 
@@ -55,6 +55,17 @@ this does not qualify every soundtrack descriptor or upload path.
 Source-opcode checks include the actual ancestor dispatcher and unknown pointer
 boundaries. Live controls separately verify native activation, real projectile
 allocation and exact ordered APU events, registers, physical state and clocks.
+
+The item-use request and selection prefix now qualifies M1X0 through the boundary
+before its original inline JSL. The real caller's two-byte return frame remains
+intact. The original inline helper, table selection and item action still execute
+their original opcodes; other widths retain the interpreter. A real L-button
+Shiny Ball use has matched floor/native controls with exact pictures, memory,
+APU events and clocks. Source tests separately cover all selection bytes,
+request/busy branches, real caller stack frames and deadline exits. Do not use
+the generic ExecutePtr lowering for Lagoon's inline helper: its assumed width,
+stack and flag behavior differs from Lagoon's original ABI. Exact prior handler
+roots remain seeded independently of the newly bounded prefix.
 
 The assisted campaign work uses original loaders, doors and event/boss scripts,
 with position/stat assistance to reach affected cases quickly. It is distinct
@@ -238,8 +249,15 @@ through an authored door when testing those families.
 The common0 enemy-death glyph pack has a separate successful-load recovery:
 its original loader/decompressor/queue/NMI sources and all 512 resident bytes
 must match. It uses the same one-attempt load gate and generation invalidation;
-partial transfers and unknown writes cannot acquire ownership. Other magic
-packs and multipart resources retain their existing upload requirements.
+partial transfers and unknown writes cannot acquire ownership.
+Equipped OBJ magic has its own successful-load recovery for the complete original
+pack, with exact source, room, form, generation and resident-byte checks. Its
+cells use only that independently verified pack; an unowned ordinary room atlas
+cannot lend them tiles. Ordinary enemy projectiles still require their room
+atlas, and every magic packet retains native OAM, ordering and cell-ownership
+checks. A loaded homing-spell route verifies actual margin pixels and the original
+center independently. Fullscreen magic and multipart resources retain their
+separate contracts; unknown writes and partial packets still refuse ownership.
 `SNESRECOMP_GL_TIMING` optionally records buffered CPU wall times for existing
 upload, draw and swap calls without extra GL work. Verify the initialized backend:
 an explicit `Renderer=auto` overrides `OutputMethod=OpenGL` and selects SDL, ignoring
@@ -252,6 +270,12 @@ deadline budget, while retaining the SDL2 wait policy. This follows
 system scheduling can still delay it. Focused measurements show a modest
 loaded-room improvement. Longer intervals requested by the original guest's
 frame periods remain intentional; this change does not shorten game time.
+The optional buffered frame trace also records requested wait budgets, late
+returns and wait-call counts. The timing summary preserves the previous guest
+period alongside each interval, distinguishing scheduling context from observed
+host lateness. These columns overlap wait time and must not be added to it or
+subtracted to hide spikes. Recording adds no clock, SDL, GL or per-frame disk calls;
+it is diagnostic instrumentation rather than a new performance guarantee.
 
 Successful user loads on the restored absolute APU timeline now clamp obsolete
 host-output backlog to the existing2136-sample cushion after title execution

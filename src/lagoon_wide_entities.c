@@ -1147,6 +1147,21 @@ int LagoonWideMagic_Match(const LagoonWideMagicAtlas *a,const uint16_t *vram,
   for(unsigned i=0;i<a->length;++i)h=(h^a->bytes[i])*UINT64_C(1099511628211);
   return h==magic_sources[a->form].data_hash;
 }
+int LagoonWideMagic_RebindResident(LagoonWideMagicAtlas *a,const uint16_t *vram,
+    const uint8_t *rom,size_t size,uint64_t generation,unsigned room,unsigned spell) {
+  unsigned form=magic_form(spell);
+  if(!a||!vram||!rom||!generation||room>=75||form>=5||
+      a->ready||a->completed||a->left||a->length)return 0;
+  /* Only the successful full-load caller can replace lost DMA history. Every
+   * byte of the equipped original pack and its complete source must match. */
+  LagoonWideMagicAtlas bound={0};
+  bound.generation=generation;bound.room=room;bound.form=form;
+  bound.length=bound.completed=magic_sources[form].length;
+  bound.next=0xb800+bound.length;bound.ready=1;
+  memcpy(bound.bytes,vram+0x5c00,bound.length);
+  if(!LagoonWideMagic_Match(&bound,vram,rom,size,generation,room,spell))return 0;
+  *a=bound;return 1;
+}
 int LagoonWideMagic_CellOwned(const LagoonWideMagicAtlas *a,unsigned base1,unsigned base2,
     const LagoonWideCell *c) {
   if(!a || !a->ready || !c || (c->size!=8&&c->size!=16))return 0;
@@ -1418,6 +1433,8 @@ void LagoonWideEntities_RebindLoaded(void) {
       PpuRenderVram(g_ppu),RtlStateGeneration());
   LagoonWideDeath_RebindResident(&s_death_atlas,PpuRenderVram(g_ppu),g_rom,
       kRomSize,RtlStateGeneration());
+  LagoonWideMagic_RebindResident(&s_magic_atlas,PpuRenderVram(g_ppu),g_rom,
+      kRomSize,RtlStateGeneration(),ram_word(g_ram,0x48e),g_ram[0x537]);
 }
 /* A native-anchored margin cell can outlive the CPU clearing the outgoing
  * actor records: its original, unchanged OAM slot still owns the displayed
@@ -1730,11 +1747,14 @@ void LagoonWideEntities_BeginFrame(int enabled) {
   for(unsigned q=0;q<ram[0x48c];++q) {
     unsigned offset=ram_word(ram,0xec0+q*6),type=ram[0xec4+q*6];
     if(type==4) {
-      if(!atlas_ok || !LagoonSceneRenderer_ExactRoom(ram) || !LagoonSceneRenderer_ExactRoom(g_ram) ||
+      if(!LagoonSceneRenderer_ExactRoom(ram) || !LagoonSceneRenderer_ExactRoom(g_ram) ||
           memcmp(ram+0x480,g_ram+0x480,4))continue;
       if(offset>=0x180 || offset%24)continue;
       unsigned j=offset/24;
       int magic=ram[0xd40+offset]>=1 && ram[0xd40+offset]<=8;
+      /* Player magic owns a separate complete equipped pack. An unowned room
+       * atlas never lends it tiles; ordinary enemy projectiles still need it. */
+      if(!magic&&!atlas_ok)continue;
       int n=magic?LagoonWideEntities_MagicPacketCells(g_rom,kRomSize,ram,q,projectile_cells[j],kCells):
           LagoonWideEntities_ProjectilePacketCells(g_rom,kRomSize,ram,q,projectile_cells[j],kCells);
       if(n<=0 || projectile_counts[j])continue;
