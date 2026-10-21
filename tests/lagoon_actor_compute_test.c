@@ -8,6 +8,11 @@
 #define assert(v) do{if(!(v)){fprintf(stderr,"ASSERT line%d: %s\n",__LINE__,#v);exit(2);}}while(0)
 static uint8_t rom[0x100000],ram[0x20000],before[0x20000],after[0x20000];
 static void put(unsigned q,unsigned v){ram[q]=v;ram[q+1]=v>>8;}
+static void scene(unsigned room){
+ memcpy(ram+0x50,rom+0x2b2df+room*56,56);put(0x48e,room);
+ put(0x492,(ram[0x53]|ram[0x54]<<8)*8-16);put(0x494,(ram[0x55]|ram[0x56]<<8)*8-14);
+ put(0x88,0);ram[0x8a]=0x7f;put(0x8b,0x4000);ram[0x8d]=0x7f;
+}
 uint8 cpu_read8(CpuState*c,uint8 bank,uint16 addr){assert(!bank&&addr<8192);return c->open_bus=ram[addr];}
 static uint8_t rd(void*ctx,uint32_t a){(void)ctx;unsigned lo=a&65535,bank=a>>16;if((bank&127)<64&&lo<8192)return ram[lo];if((bank&127)<32&&lo>=32768)return rom[(bank&31)*32768+(lo&32767)];assert(0);return 0;}
 static void wr(void*ctx,uint32_t a,uint8_t v){(void)ctx;assert((a>>16)<64&&(a&65535)<8192);ram[a&65535]=v;}
@@ -26,15 +31,19 @@ int main(int argc,char**argv){assert(argc==2);FILE*f=fopen(argv[1],"rb");assert(
   assert(!memcmp(ram,after,sizeof ram));assert(i->a==c.A&&i->x==c.X&&i->y==c.Y&&i->sp==c.S&&i->db==c.DB&&i->dp==c.D&&i->k==c.PB&&interp816_getFlags(i)==c.P);assert(c.cycles==initial.cycles&&c.master_cycles==initial.master_cycles&&c.coprocessor_master_cycles==initial.coprocessor_master_cycles);interp816_free(i);positives++;
  }
  for(unsigned kind=0;kind<2;kind++)for(unsigned bad=0;bad<33;bad++){
-  CpuState c=prepare(kind,1,4);c.host_return_valid=2;unsigned s=c.S,h=2,host=kind?0x01a4e8:0x01a4d9;size_t size=sizeof rom;int world=1;unsigned mutation=0;
+  CpuState c=prepare(kind,1,4);scene(3);c.host_return_valid=2;unsigned s=c.S,h=2,host=kind?0x01a4e8:0x01a4d9;size_t size=sizeof rom;int world=1;unsigned mutation=0;
   switch(bad){case 0:world=0;break;case 1:s++;break;case 2:h=3;break;case 3:host++;break;case 4:c.host_return_valid=3;break;case 5:c.PB=0;break;case 6:c.DB=0;break;case 7:c.D=1;break;case 8:c._flag_D=1;break;case 9:c.P|=8;break;case 10:c.emulation=1;break;case 11:c.m_flag=0;break;case 12:c.x_flag=1;break;case 13:c.X=0;break;case 14:c.X=0x840;break;case 15:c.X++;break;case 16:ram[c.S+1]++;break;case 17:ram[c.S+3]++;break;case 18:ram[0x48e]=2;break;case 19:ram[0x48e]=7;break;case 20:ram[0x406]=1;break;case 21:ram[0x100e]=1;break;case 22:ram[0x23d]=128;break;case 23:ram[0x275]=1;break;case 24:ram[0x520]=0;break;case 25:ram[0x521]=1;break;case 26:ram[0x500+c.X]=0;break;case 27:ram[0x518+c.X]=3;break;case 28:size--;break;case 29:mutation=0xa4d3;break;case 30:mutation=kind?0xa5aa:0xa56a;break;case 31:c.S=0x1fc;break;case 32:ram[0x48f]=1;break;}
   if(mutation)rom[mutation]^=1;CpuState initial=c;memcpy(before,ram,sizeof ram);RecompReturn out=123;
   assert(!LagoonActorCompute_Run(kind,rom,size,ram,&c,s,h,host,&out,world));assert(out==123&&!memcmp(ram,before,sizeof ram)&&!memcmp(&c,&initial,sizeof c));if(mutation)rom[mutation]^=1;refusals++;
  }
- const unsigned rooms[]={3,4,5,6,8,9,10};
- for(unsigned region=0;region<sizeof rooms/sizeof *rooms;region++)
- for(unsigned kind=0;kind<2;kind++)for(unsigned actor=1;actor<33;actor++)for(unsigned seed=0;seed<112;seed++){
-  CpuState c=prepare(kind,actor,seed),expected=c;c.host_return_valid=2;expected.host_return_valid=2;assert(LagoonActorCompute_Apply(kind,ram,&expected));put(0x48e,rooms[region]);memcpy(after,ram,sizeof ram);c=prepare(kind,actor,seed);put(0x48e,rooms[region]);c.host_return_valid=2;RecompReturn out=123;unsigned s=c.S;uint64_t master=c.master_cycles;assert(LagoonActorCompute_Run(kind,rom,sizeof rom,ram,&c,s,2,kind?0x01a4e8:0x01a4d9,&out,1));assert(out==RECOMP_RETURN_NORMAL&&c.S==s+2&&c.master_cycles==master+42&&c.cycles==6&&c.coprocessor_master_cycles==master&&c.open_bus==0xa4);assert(!memcmp(ram,after,sizeof ram)&&c.A==expected.A&&c.P==expected.P&&c.X==expected.X&&c.Y==expected.Y);production++;
+ for(unsigned room=0;room<63;room++)
+ for(unsigned kind=0;kind<2;kind++)for(unsigned actor=1;actor<33;actor++)for(unsigned seed=0;seed<16;seed++){
+  CpuState c=prepare(kind,actor,seed),expected=c;scene(room);c.host_return_valid=2;expected.host_return_valid=2;assert(LagoonActorCompute_Apply(kind,ram,&expected));memcpy(after,ram,sizeof ram);c=prepare(kind,actor,seed);scene(room);c.host_return_valid=2;RecompReturn out=123;unsigned s=c.S;uint64_t master=c.master_cycles;assert(LagoonActorCompute_Run(kind,rom,sizeof rom,ram,&c,s,2,kind?0x01a4e8:0x01a4d9,&out,1));assert(out==RECOMP_RETURN_NORMAL&&c.S==s+2&&c.master_cycles==master+42&&c.cycles==6&&c.coprocessor_master_cycles==master&&c.open_bus==0xa4);assert(!memcmp(ram,after,sizeof ram)&&c.A==expected.A&&c.P==expected.P&&c.X==expected.X&&c.Y==expected.Y);production++;
  }
- printf("PASS%u full128KiB/CPU/flags/deadstack originalleaf cases, %u readonly productionrefusals,%u realJSR/RTS entries across7rooms and112edge-seeds; originalopcodes=%llu originalcycles=%llu\n",positives,refusals,production,opcodes,cycles);return 0;
+ for(unsigned room=0;room<75;room++)for(unsigned bad=0;bad<69;bad++){
+  CpuState c=prepare(0,1,4);scene(room);c.host_return_valid=2;unsigned mutation=0;
+  if(room<63){if(bad<56){mutation=0x2b2df+room*56+bad;rom[mutation]^=1;}else if(bad<67){static const unsigned fields[]={0x50,0x53,0x54,0x55,0x56,0x6c,0x6d,0x6e,0x78,0x79,0x7a};ram[fields[bad-56]]^=1;}else if(bad==67)ram[0x492]^=1;else ram[0x494]^=1;}
+  CpuState initial=c;memcpy(before,ram,sizeof ram);RecompReturn out=123;assert(!LagoonActorCompute_Run(0,rom,sizeof rom,ram,&c,c.S,2,0x01a4d9,&out,1));assert(out==123&&!memcmp(ram,before,sizeof ram)&&!memcmp(&c,&initial,sizeof c));if(mutation)rom[mutation]^=1;refusals++;
+ }
+ printf("PASS%u full128KiB/CPU/flags/deadstack originalleaf cases, %u readonly productionrefusals,%u realJSR/RTS entries across63ordinary descriptors; originalopcodes=%llu originalcycles=%llu\n",positives,refusals,production,opcodes,cycles);return 0;
 }

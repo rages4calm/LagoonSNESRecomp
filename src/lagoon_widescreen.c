@@ -29,6 +29,7 @@ static uint8_t s_row_known[224];
 static unsigned s_extent_width,s_extent_height;
 static LagoonWideSceneGate s_scene_gate;
 static unsigned s_room_key;
+static unsigned s_completed_frame;
 /* Static audited rooms share BG1/2 character space [0,$4000) words. Once
  * witnessed during ordinary field play, text may overlay that same scenery.
  * An inventory replacing either map or graphics cannot borrow this authority. */
@@ -165,6 +166,7 @@ void LagoonWide_Reset(void) {
   memset(s_row_known,0,sizeof(s_row_known));
   memset(&s_scene_gate,0,sizeof(s_scene_gate));
   s_room_key = 0;
+  s_completed_frame=0;
   LagoonTransition_Reset();
   s_state_generation = RtlStateGeneration();
 }
@@ -673,6 +675,7 @@ static void report_scene(unsigned frame) {
  * source field is const; the official compositor owns mutable destination. */
 void LagoonWide_EndFrame(const uint8_t *field,unsigned number) {
   (void)field;
+  s_completed_frame=number;
   refresh_torches();
   s_present_fallback=s_native_fallback || LagoonWideParallaxQueue_Pending(&s_parallax_queue) ||
       !audited_room_ready() || unsafe_modal_ui() ||
@@ -720,6 +723,7 @@ int LagoonWide_DrawFrame(uint8_t *dst,size_t pitch,const uint8_t *field,
    * original source/layout/character guard before replacing it. */
   LagoonTransition_Apply(dst,pitch,(unsigned)width,(unsigned)height,
       RtlStateGeneration(),!s_present_fallback && s_was_active,
-      !!g_ram[0x100e],g_ppu->inidisp);
+      !!g_ram[0x100e],g_ppu->inidisp,
+      LagoonSceneRenderer_ExactRoom(g_ram)?word(0x48e)+1:0,s_completed_frame);
   return 1;
 }

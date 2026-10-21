@@ -23,8 +23,11 @@ and its shared return tail. Its effect dispatch now also qualifies all six
 distinct source handlers, including homing and fork allocation. The complete
 effect closure has 15,104 original-opcode cases; actual casting routes separately
 verify native handoffs for the default effect and homing. Other modes and unknown
-pointers retain the interpreter. The outer projectile loop remains interpreted:
-a private candidate exposed an unsafe unknown-width continuation and was refused.
+pointers retain the interpreter. The outer projectile loop remains interpreted.
+Its candidate now preserves the unknown-width RTI continuation and passes
+complete source-opcode loop tests, but a homing spell route exposed two SPC
+event timestamps that differ between native and interpreter batching. That
+promotion was refused; passing memory and picture checks alone is insufficient.
 The finite animation table has its own separate original-opcode tests.
 
 The assisted campaign work uses original loaders, doors and event/boss scripts,
@@ -35,9 +38,19 @@ Earlier checks are not a reason to rerun the entire campaign for every change.
 Remaining work includes unsupported special/multipart forms, dynamic graphics,
 magic effects and display layouts; additional native variable-script services;
 frame-time spikes; and bugs reported during real play. Source-qualified native
-enemy clamp/projection helpers now also cover room IDs03–06 and08–0A under the
-same ordinary enemy, source, stack and scene guards. This expands the bounded CPU
-path; it does not certify all enemy-related slowdown resolved.
+enemy arithmetic helpers now qualify all63 ordinary room descriptors00–3E,
+with exact descriptor/source/mode/real-stack guards. Native work includes tile
+sampling, movement integration, offscreen projection and visible OAM cell packing.
+Ordinary enemy direction/velocity commands have a separate guarded host handoff
+that stops before the original RTL. Original AI, collision, draw streams and
+hardware multiply remain in their original owners. Pure host calculations
+intentionally remove guest computation cost; their opcode oracles prove results
+and physical-stack semantics, not identical guest instruction timing.
+
+A focused assisted Elf Field route improved from631 to716 logic updates over
+1432 fields: the intended30Hz game logic at60Hz display cadence. The final GPU
+and original-audio run is measured separately from this headless cadence check.
+These are affected-route results, not all-room performance or campaign coverage.
 
 Built-in Giles/Thor escort following
 uses bounded local A* toward a recent Nasir position instead of replaying an
@@ -94,6 +107,12 @@ resident resources. It verifies the original center picture before replacing a
 scene and falls back for unknown room/resource/palette/generation combinations.
 It does not stretch a screenshot to fill the margins or invent content past
 finite world edges. [Room catalog](RENDERER-COVERAGE.csv).
+
+Transition presentation may bridge a qualified room change exactly one completed
+field after a coherent full-width canvas, before the original loading flag is
+set. Repeated presentation of that same field is stable. Unknown rooms, stale
+canvases, geometry changes and state generations refuse the bridge; normal
+same-room UI is not covered by this rule.
 
 `tools/entities.py` reads 0x40-byte actor records starting at WRAM `$0500`.
 These records are observations of the running guest, rather than host-owned AI.

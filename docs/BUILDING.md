@@ -70,3 +70,15 @@ Build commands assume the repository root. For a clean checkout only, initialise
 submodules before applying the patch. In an active development checkout, preserve
 local framework modifications and apply only reviewed changes; never reset the
 framework to resolve a patch mismatch. See [development](DEVELOPMENT.md).
+
+When installing a development build, deploy both package manifests and both EPX
+shader files with the tested executable. An updated EXE with an older catalog
+can make Companion reject valid QoL selections. Before handing off the build:
+
+```powershell
+python -P tools/check_runtime_catalog.py --runtime-root build
+```
+
+For a configured Windows preview, use `--runtime-root path/to/preview/game
+--writable-root path/to/preview/local` to check setup's copies as well. This
+checks public sidecar bytes; it does not modify preferences or qualify gameplay.

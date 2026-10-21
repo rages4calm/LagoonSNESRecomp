@@ -97,6 +97,26 @@ class StrictComparisonTests(unittest.TestCase):
         self.assertNotEqual(result['baseline']['executable_sha256'],
                             result['candidate']['executable_sha256'])
 
+    def test_declared_interpreter_control_preserves_differences(self):
+        self.change_receipt(self.b, exe_sha256='a'*64, diagnostic_overrides={})
+        self.change_receipt(self.a, diagnostic_overrides={'SNESRECOMP_LLE_INTERP_TARGET':'01BB05'})
+        self.assertFalse(compare.compare_runs(self.a,self.b)['passed'])
+        result=compare.compare_runs(self.a,self.b,'01BB05')
+        self.assertTrue(result['passed'])
+        self.assertIn('diagnostic_overrides',result['input_differences'])
+        self.assertTrue(result['execution_control']['approved'])
+        (self.b/'dumps/one.wram.bin').write_bytes(b'changed')
+        self.assertFalse(compare.compare_runs(self.a,self.b,'01BB05')['passed'])
+
+    def test_interpreter_control_refuses_other_inputs_or_identities(self):
+        self.change_receipt(self.a, diagnostic_overrides={'SNESRECOMP_LLE_INTERP_TARGET':'01BB05'})
+        self.change_receipt(self.b, diagnostic_overrides={})
+        self.assertFalse(compare.compare_runs(self.a,self.b,'01BB05')['passed'])
+        self.change_receipt(self.b, exe_sha256='a'*64, diagnostic_overrides={'LAGOON_ACTOR_COMPUTE':'off'})
+        self.assertFalse(compare.compare_runs(self.a,self.b,'01BB05')['passed'])
+        self.change_receipt(self.b, diagnostic_overrides={}, frames=11)
+        self.assertFalse(compare.compare_runs(self.a,self.b,'01BB05')['passed'])
+
     def recovery_report(self, root, **extra):
         self.change_receipt(root, diagnostic_overrides={
             'LAGOON_NATIVE_RECOVERY_REPORT': str(root / 'recovery.json'), **extra})

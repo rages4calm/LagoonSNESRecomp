@@ -9,7 +9,7 @@ widescreen, a custom scene renderer and optional quality-of-life improvements.
 ![Atland with Enhanced original pixels at 1920 by 1080](docs/screenshots/atland-epx-1920x1080.png)
 
 [More screenshots](docs/screenshots/README.md) ·
-[Windows preview](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.1.1-preview.1) ·
+[Windows preview](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.1.2-preview.1) ·
 [Build](docs/BUILDING.md) · [Playing and settings](docs/PLAYING.md) ·
 [Development](docs/DEVELOPMENT.md) · [Credits](CREDITS.md)
 
@@ -70,10 +70,13 @@ descriptors, but that does **not** mean every actor, effect, menu or transition
 supports widescreen. Unsupported content falls back to the original view.
 
 The owner and friends will perform the uninterrupted start-to-finish playtest.
-Special actor/effect coverage and frame-time spikes remain work in progress;
-there is no locked-60-FPS or full-game completion claim. Additional enemy
-coordinate helpers and guarded transition presentation are included, while
-broader pacing and visual coverage remain under test. Tablet hints are available;
+Special actor/effect coverage and occasional frame-time spikes remain work in
+progress. Native enemy calculations now cover ordinary areas, including sprite
+packing and direction/velocity commands. A focused busy Elf Field route holds
+the intended 30 game updates per second with approximately 60 displayed frames
+per second; this is not a full-game performance guarantee. A guarded transition
+bridge also covers the brief gap before an area's loading flag appears.
+Tablet hints are available;
 a full objective journal, broader route guidance and zoom-out remain later work. See [development scope](docs/DEVELOPMENT.md)
 and [how to report a playtest issue](docs/PLAYING.md#reporting-a-bug).
 

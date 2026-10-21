@@ -26,7 +26,8 @@ STRICT_CAPTURE_PATHS = {'SNESRECOMP_APURAM_TRACE_FILE', 'SNESRECOMP_DSPREG_TRACE
                         'SNESRECOMP_DSPOUT'}
 ADVISORY_REPORT_PATHS = {'LAGOON_NATIVE_RECOVERY_REPORT', 'LAGOON_SCENE_RENDERER_REPORT',
                          'LAGOON_FOLLOWER_REPORT', 'LAGOON_FRAME_PROBE',
-                         'LAGOON_TRANSITION_REPORT', 'LAGOON_SWORD_REPORT'}
+                         'LAGOON_TRANSITION_REPORT', 'LAGOON_SWORD_REPORT',
+                         'LAGOON_WIDE_ENTITY_REPORT'}
 
 
 def sha(path):
@@ -178,7 +179,7 @@ def compare_component(left, right):
     return result
 
 
-def compare_runs(baseline, candidate):
+def compare_runs(baseline, candidate, interp_control_target=None):
     left, right = load_run(baseline), load_run(candidate)
     result = dict(schema='lagoon strict native replay comparison v2',
                   baseline=left['identity'], candidate=right['identity'],
@@ -202,6 +203,25 @@ def compare_runs(baseline, candidate):
                                            for r in (left, right))
     result['input_differences'] = {k: dict(baseline=a, candidate=b)
                                    for k, (a, b) in inputs.items() if a != b}
+    unexpected_inputs = dict(result['input_differences'])
+    if interp_control_target is not None:
+        if not re.fullmatch(r'[0-9A-F]{6}', interp_control_target):
+            raise ValueError('Interpreter control target must be six uppercase hex digits')
+        old = dict(left['normalized_overrides'] or {})
+        new = dict(right['normalized_overrides'] or {})
+        actual = old.pop('SNESRECOMP_LLE_INTERP_TARGET', None)
+        identities_equal = all(left['receipt'].get(k) == right['receipt'].get(k)
+            for k in ('exe_sha256', 'program_manifest_sha256'))
+        approved = identities_equal and actual == interp_control_target and old == new
+        result['execution_control'] = dict(target=interp_control_target,
+            baseline_interpreted=True, same_executable_and_manifest=identities_equal,
+            approved=approved)
+        if approved:
+            unexpected_inputs.pop('diagnostic_overrides', None)
+        else:
+            unexpected_inputs['execution_control'] = dict(expected=interp_control_target,
+                                                          actual=actual)
+    result['unapproved_input_differences'] = unexpected_inputs
     a, b = left['presentations'], right['presentations']
     mismatches = [i for i in range(max(len(a), len(b)))
                   if i >= len(a) or i >= len(b) or a[i] != b[i]]
@@ -228,7 +248,7 @@ def compare_runs(baseline, candidate):
         row['exact'] = row['clock_exact'] and all(c['exact'] for c in row['components'].values())
         result['checkpoints'].append(row)
     result['valid_evidence'] = not left['errors'] and not right['errors']
-    result['passed'] = bool(result['valid_evidence'] and not result['input_differences']
+    result['passed'] = bool(result['valid_evidence'] and not unexpected_inputs
         and all(row['exact'] for row in result['diagnostic_outputs'].values())
         and not mismatches and not result['missing_candidate_tags']
         and not result['additional_candidate_tags'] and result['checkpoints']
@@ -241,9 +261,10 @@ def main():
     parser.add_argument('baseline', type=Path)
     parser.add_argument('candidate', type=Path)
     parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--interp-control-target', help='Declare the sole baseline-only interpreter target; requires the same EXE/manifest. All observed differences remain reported.')
     args = parser.parse_args()
     try:
-        result = compare_runs(args.baseline, args.candidate)
+        result = compare_runs(args.baseline, args.candidate, args.interp_control_target)
     except (OSError, ValueError, KeyError, TypeError) as error:
         result = dict(schema='lagoon strict native replay comparison v2', passed=False,
                       valid_evidence=False, error=str(error))
