@@ -113,7 +113,8 @@ void LagoonWideSpell3_Dma(const uint8_t *rom,size_t size,const uint8_t *r,
 void LagoonWideSpell3_Write(unsigned a,uint8_t value) {
   if(!owned(a)) {if(s_spell.left)withdraw_maps();return;}
   if(!s_spell.left || a!=s_spell.next) {
-    if(graphics_address(a))LagoonWideSpell3_Reset();
+    if(graphics_address(a) && (s_spell.generation || s_spell.stage || s_spell.next ||
+        s_spell.left || s_spell.kind || s_spell.completed))LagoonWideSpell3_Reset();
     else if(s_spell.stage>=3 || s_spell.left)withdraw_maps();
     return;
   }

@@ -1238,11 +1238,46 @@ static int loaded_common2(const uint8_t *rom,size_t size,const uint8_t *ram,
     source_hash(rom,size,0x11c2f3,1478,UINT64_C(0xc0213329560cbd75)) &&
     resident_bytes_hash((const uint8_t*)(vram+0x5800),0x6e0)==UINT64_C(0x1cbe9642dd57379b);
 }
+static int loaded_room14(LagoonWideAtlas *a,const uint8_t *rom,size_t size,
+    const uint8_t *ram,const uint16_t *vram,uint64_t generation) {
+  /* The original actor stream finishes at8324 bytes. The physical2A00 upload
+   * has an unknown older-buffer tail: it is not a second source of authority.
+   * Match the complete original stream but own only8320 complete tile bytes. */
+  static const struct {unsigned address,length;uint64_t hash;} spans[]={
+    {0x05b73f,56,UINT64_C(0x9237b76d09df8ec6)},
+    {0x018869,100,UINT64_C(0xdad543165362dc76)},
+    {0x009143,445,UINT64_C(0x734e7c5c9157de09)},
+    {0x0188cd,20,UINT64_C(0x801ae5fb1002d89f)},
+    {0x00908a,81,UINT64_C(0xa4d117801c8e3fec)},
+    {0x00884b,56,UINT64_C(0x2b1eec1eca0b79f0)},
+    {0x0089a7,13,UINT64_C(0x81364db374fb949a)},
+    {0x0087b4,120,UINT64_C(0xeeb909fdbd678929)},
+    {0x0094a1,69,UINT64_C(0x1d3849a43513aa9f)},
+    {0x0094e6,28,UINT64_C(0x8c127e1e18de36d2)},
+    {0x019008,52,UINT64_C(0xa88fac624f0201e7)},
+    {0x0190bb,56,UINT64_C(0xc95e85bc3e0b6b01)},
+    {0x019114,17,UINT64_C(0x32b0eeac8deba992)},
+    {0x13c716,4143,UINT64_C(0xb47a5fc498de5922)},
+    {0x1c92f5,6836,UINT64_C(0xf85f490615c7b5be)}
+  };
+  for(unsigned i=0;i<sizeof spans/sizeof *spans;++i)
+    if(!source_hash(rom,size,spans[i].address,spans[i].length,spans[i].hash))return 0;
+  for(unsigned i=0;i<56;++i) {
+    unsigned value;if(!rom_byte(rom,size,0x05b73f+i,&value)||value!=ram[0x50+i])return 0;
+  }
+  if(resident_bytes_hash((const uint8_t*)(vram+0x4400),8324)!=UINT64_C(0xc169d6bda862bdc1))return 0;
+  LagoonWideAtlas bound={0};memset(bound.owned,1,8320);
+  bound.generation=generation;bound.room=0x14;bound.source=0x1c92f5;
+  bound.completed=8324;bound.transfer_next=0xa884;bound.ready=1;
+  *a=bound;return 1;
+}
 int LagoonWideAtlas_RebindResident(LagoonWideAtlas *a,const uint8_t *rom,
     size_t size,const uint8_t *ram,const uint16_t *vram,uint64_t generation) {
   if(!a||!rom||size!=kRomSize||!ram||!vram||!generation||a->ready||
       a->completed||a->transfer_left||ram[0x100e]||ram[0x48f])return 0;
-  unsigned room=ram[0x48e];if(room!=8&&room!=9)return 0;
+  unsigned room=ram[0x48e];
+  if(room==0x14)return loaded_room14(a,rom,size,ram,vram,generation);
+  if(room!=8&&room!=9)return 0;
   unsigned descriptor=0x05b2df+room*56;
   if(!source_hash(rom,size,descriptor,56,room==8?
       UINT64_C(0x8dbe20321f790213):UINT64_C(0x9d942f20dc4cda16)))return 0;
@@ -1337,7 +1372,10 @@ static int find_cell(const uint8_t *oam,const LagoonWideCell *c,const uint8_t *u
 static void observe_vram_byte(uint32_t adr,uint8_t value) {
   LagoonWideSpell3_Write(adr,value);
   LagoonWide_OnVramWrite(adr);
-  if(s_magic_atlas.generation!=RtlStateGeneration())LagoonWideMagic_Reset(&s_magic_atlas);
+  uint64_t generation=RtlStateGeneration();
+  if(s_magic_atlas.generation!=generation) {
+    LagoonWideMagic_Reset(&s_magic_atlas);s_magic_atlas.generation=generation;
+  }
   LagoonWideMagic_Write(&s_magic_atlas,adr,value);
   if(adr>=0xb800 && adr<0xc000) {
     if(s_has_magic && g_ppu) {
@@ -1345,14 +1383,18 @@ static void observe_vram_byte(uint32_t adr,uint8_t value) {
     }
     if(s_retained_objects.has_magic)s_retained_objects.valid=0;
   }
-  if(s_death_atlas.generation!=RtlStateGeneration())LagoonWideDeath_Reset(&s_death_atlas);
+  if(s_death_atlas.generation!=generation) {
+    LagoonWideDeath_Reset(&s_death_atlas);s_death_atlas.generation=generation;
+  }
   int death_write=adr>=0x8600 && adr<0x8800;
   LagoonWideDeath_Write(&s_death_atlas,adr,value);
   if(death_write && s_retained_objects.has_common)s_retained_objects.valid=0;
   if(death_write && s_has_death && g_ppu) {
     s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;PpuSetExtraObjects(g_ppu,NULL,0);
   }
-  if (s_atlas.generation!=RtlStateGeneration()) LagoonWideAtlas_Reset(&s_atlas);
+  if(s_atlas.generation!=generation) {
+    LagoonWideAtlas_Reset(&s_atlas);s_atlas.generation=generation;
+  }
   int was_owned=adr>=0x8800 && adr<0xb200 && s_atlas.owned[adr-0x8800];
   int expected=s_atlas.transfer_left && adr==s_atlas.transfer_next;
   LagoonWideAtlas_Write(&s_atlas,adr);

@@ -14,7 +14,7 @@ display fades and queued graphics transfers. The HUD-number dispatcher has a
 separate, source-guarded handoff
 using its actual cross-bank JSL return frame. Counts of
 compiled functions are analysis counts, not completion percentages. The current
-manifest retains 540 AOT entries; host-side changes do not imply
+manifest retains 541 AOT entries; host-side changes do not imply
 additional compiled guest functions. Generated
 code alone does not prove that a runtime dispatcher reaches a compiled entry.
 
@@ -58,7 +58,7 @@ allocation and exact ordered APU events, registers, physical state and clocks.
 
 The item-use request and selection prefix now qualifies M1X0 through the boundary
 before its original inline JSL. The real caller's two-byte return frame remains
-intact. The original inline helper, table selection and item action still execute
+intact. The inline JSL, final indirect jump and item action still execute
 their original opcodes; other widths retain the interpreter. A real L-button
 Shiny Ball use has matched floor/native controls with exact pictures, memory,
 APU events and clocks. Source tests separately cover all selection bytes,
@@ -66,6 +66,11 @@ request/busy branches, real caller stack frames and deadline exits. Do not use
 the generic ExecutePtr lowering for Lagoon's inline helper: its assumed width,
 stack and flag behavior differs from Lagoon's original ABI. Exact prior handler
 roots remain seeded independently of the newly bounded prefix.
+The inline helper's original M1X0 table-addressing prefix is separately compiled,
+consuming its actual three-byte JSL frame while retaining the two-byte ancestor.
+It stops before the original indirect jump; that instruction and its destination
+remain interpreted. Original-source tests include partial execution and deadlines,
+and actual item controls preserve the complete return path, memory and APU clocks.
 
 The assisted campaign work uses original loaders, doors and event/boss scripts,
 with position/stat assistance to reach affected cases quickly. It is distinct
@@ -258,6 +263,12 @@ atlas, and every magic packet retains native OAM, ordering and cell-ownership
 checks. A loaded homing-spell route verifies actual margin pixels and the original
 center independently. Fullscreen magic and multipart resources retain their
 separate contracts; unknown writes and partial packets still refuse ownership.
+Room $14 has a separate, exact successful-load actor-pack contract. The original
+stream supplies 8,324 bytes, but its larger DMA transfer contains an unknown tail.
+Recovery checks all source bytes and authorizes only 8,320 complete tile bytes;
+the remaining tail stays unowned. Live checks identify a specific previously
+missing enemy in the added view, with independent planar decoding and an unchanged
+original center. Other rooms do not inherit this authority.
 `SNESRECOMP_GL_TIMING` optionally records buffered CPU wall times for existing
 upload, draw and swap calls without extra GL work. Verify the initialized backend:
 an explicit `Renderer=auto` overrides `OutputMethod=OpenGL` and selects SDL, ignoring
@@ -276,6 +287,17 @@ period alongside each interval, distinguishing scheduling context from observed
 host lateness. These columns overlap wait time and must not be added to it or
 subtracted to hide spikes. Recording adds no clock, SDL, GL or per-frame disk calls;
 it is diagnostic instrumentation rather than a new performance guarantee.
+
+VRAM observers now acknowledge a generation reset once while leaving resource
+ownership empty. Previously, clearing a cache also cleared its generation marker,
+causing repeated large clears on unrelated VRAM bytes. Inactive fullscreen-spell
+state also avoids repeated identical clears. Exported reset behavior, partial-DMA
+handling, source checks and unknown-write invalidation remain intact. Differential
+tests compare reachable cache states and ownership decisions; the only intentional
+metadata difference is acknowledging the empty generation. A focused loader check
+reduced guest-work wall time while preserving every guest period and final APU
+checkpoint. Longer intervals requested by original guest scheduling remain, so
+this is not a claim that every transition now presents at a locked 60 FPS.
 
 Successful user loads on the restored absolute APU timeline now clamp obsolete
 host-output backlog to the existing2136-sample cushion after title execution

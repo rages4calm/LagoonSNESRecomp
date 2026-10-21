@@ -447,7 +447,10 @@ void LagoonWide_OnVramWrite(unsigned byte_address) {
       (byte_address>=kLagoonWideTorchAddress && byte_address<kLagoonWideTorchAddress+LagoonWideTorches_Bytes(s_retained.room,s_retained.bg_source))))
     LagoonWideTorches_Write(&s_retained.torches,byte_address,
         (uint8_t)(g_ppu->vram[byte_address/2]>>((byte_address&1)*8)),g_rom,0x100000);
-  if(s_background.generation!=RtlStateGeneration())LagoonWideBackground_Reset(&s_background);
+  uint64_t generation=RtlStateGeneration();
+  if(s_background.generation!=generation) {
+    LagoonWideBackground_Reset(&s_background);s_background.generation=generation;
+  }
   if(s_background.left || byte_address<kLagoonWideBackgroundBytes)
     LagoonWideBackground_Write(&s_background,byte_address,
         (uint8_t)(g_ppu->vram[byte_address/2]>>((byte_address&1)*8)));
