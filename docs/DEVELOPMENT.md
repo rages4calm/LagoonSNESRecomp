@@ -14,7 +14,7 @@ display fades and queued graphics transfers. The HUD-number dispatcher has a
 separate, source-guarded handoff
 using its actual cross-bank JSL return frame. Counts of
 compiled functions are analysis counts, not completion percentages. The current
-manifest retains 528 AOT entries; host-side changes do not imply
+manifest retains 530 AOT entries; host-side changes do not imply
 additional compiled guest functions. Generated
 code alone does not prove that a runtime dispatcher reaches a compiled entry.
 
@@ -33,6 +33,15 @@ flushes and exit/deadline flushes remain. Other outer-loop widths and unknown
 returned modes retain original-opcode fallback, including the overlapping RTI
 entry. Passing memory and picture checks alone is insufficient.
 The finite animation table has its own separate original-opcode tests.
+
+The original enemy proximity/retirement service has a qualified M1X0 prefix and
+its original RTL return leaf. It preserves the real record clearing, hardware
+multiply and physical stack, then stops before the unqualified JSL at02:824A.
+That command and its variable continuation still execute original opcodes.
+Other entry widths stay interpreted. This reduces host execution work while
+preserving guest instruction timing; it is distinct from the earlier source-
+qualified enemy math shortcuts that intentionally remove guest computation cost.
+The original command can reinitialize a retired actor; its behavior is preserved.
 
 The assisted campaign work uses original loaders, doors and event/boss scripts,
 with position/stat assistance to reach affected cases quickly. It is distinct
@@ -206,7 +215,11 @@ serialize the custom renderer's resource-ownership witnesses. A successful full
 load can requalify the complete resident ordinary-actor atlas for room08/09 only
 when its original descriptor, compressed sources, background-derived tail and
 complete VRAM bytes all match. Actual Elf Field load checks show added far actors
-with an exact original center; an altered room09 resident correctly refuses.
+with an exact original center. A second Voloh contract proves the original
+common2 upload that overlaps the final512 bytes of its room atlas, including
+the complete1760-byte upload and the original loader/predicate/source bytes.
+Unsupported overlays and changed bytes refuse ownership. Actual NPC margin
+pixels have independent planar-decoding and live center-picture checks.
 Other resource families still require their original upload witnesses. Re-enter
 through an authored door when testing those families.
 `SNESRECOMP_GL_TIMING` optionally records buffered CPU wall times for existing
@@ -214,6 +227,24 @@ upload, draw and swap calls without extra GL work. Verify the initialized backen
 an explicit `Renderer=auto` overrides `OutputMethod=OpenGL` and selects SDL, ignoring
 the Enhanced shader. Use `Renderer=opengl` for actual Enhanced-path measurements.
 There is no full-game locked-60-FPS claim.
+
+Successful user loads on the restored absolute APU timeline now clamp obsolete
+host-output backlog to the existing2136-sample cushion after title execution
+reconciliation. SPC/DSP synthesis state, clocks, snapshot format and future
+generated PCM remain unchanged; queued old output and its read cursor differ
+intentionally. Rollback, legacy/boot timelines and failed loads retain their
+existing behavior. Desktop audio resets once per successful load, while rewind
+history still invalidates. This avoids waiting for a full saved8192-sample ring
+to drain before gameplay resumes. Device-queue behavior is separate from guest
+state and must be qualified as such; do not normalize arbitrary audio differences.
+
+Current upstream runtime fixes are reviewed against this workspace's cumulative
+patch. Interrupt-tail ownership from0896251 preserves the original RTS/RTL owner
+inside interrupts. The consumer-progress policy from65b9387 rearms a stalled
+producer only after actual PCM consumption or low queue occupancy, preventing
+callback-only activity from repeatedly charging a250ms wait. The desktop retains
+its existing unlocked sleeps and profiling; it does not need the optional shared
+host-callback API. The dirty SDK checkout and public baseline pin are preserved.
 
 ## Build and contribution
 

@@ -1185,6 +1185,31 @@ int LagoonWideAtlas_CellOwned(const LagoonWideAtlas *a, unsigned base1,
   return 1;
 }
 
+static uint64_t resident_bytes_hash(const uint8_t *bytes,unsigned count) {
+  uint64_t hash=UINT64_C(14695981039346656037);
+  for(unsigned i=0;i<count;++i)hash=(hash^bytes[i])*UINT64_C(1099511628211);
+  return hash;
+}
+static int loaded_common2(const uint8_t *rom,size_t size,const uint8_t *ram,
+    const uint16_t *vram) {
+  /* Original88B5/89AB searches active NPC0; later88C1/89B3 would replace
+   * this range again for NPC1/3. Current presence is only a qualifier: exact
+   * original writer, complete compressed source and all uploaded bytes own it. */
+  int present=0;
+  for(unsigned off=0x40;off<0x840;off+=0x40) {
+    const uint8_t *record=ram+0x500+off;
+    if((record[0]&0xc0)!=0xc0||record[24]!=1)continue;
+    if(record[27]==1||record[27]==3)return 0;
+    present|=record[27]==0;
+  }
+  return present &&
+    source_hash(rom,size,0x018869,100,UINT64_C(0xdad543165362dc76)) &&
+    source_hash(rom,size,0x0189ab,74,UINT64_C(0x95741a8958255850)) &&
+    source_hash(rom,size,0x0094a1,69,UINT64_C(0x1d3849a43513aa9f)) &&
+    source_hash(rom,size,0x0094f4,7,UINT64_C(0xe647436695fba2fd)) &&
+    source_hash(rom,size,0x11c2f3,1478,UINT64_C(0xc0213329560cbd75)) &&
+    resident_bytes_hash((const uint8_t*)(vram+0x5800),0x6e0)==UINT64_C(0x1cbe9642dd57379b);
+}
 int LagoonWideAtlas_RebindResident(LagoonWideAtlas *a,const uint8_t *rom,
     size_t size,const uint8_t *ram,const uint16_t *vram,uint64_t generation) {
   if(!a||!rom||size!=kRomSize||!ram||!vram||!generation||a->ready||
@@ -1208,10 +1233,14 @@ int LagoonWideAtlas_RebindResident(LagoonWideAtlas *a,const uint8_t *rom,
       !source_hash(rom,size,0x12b297,10197,UINT64_C(0x6e89ef854007fce9))||
       !source_hash(rom,size,actor,room==8?3790:4068,
         room==8?UINT64_C(0x211fd048116f5093):UINT64_C(0xab5820fd503b78a1)))return 0;
-  uint64_t hash=UINT64_C(14695981039346656037);
   const uint8_t *bytes=(const uint8_t*)(vram+0x4400);
-  for(unsigned i=0;i<kLagoonWideAtlasBytes;++i)hash=(hash^bytes[i])*UINT64_C(1099511628211);
-  if(hash!=(room==8?UINT64_C(0x53cc1e1e5e4808ce):UINT64_C(0xf4067c2896de3c27)))return 0;
+  uint64_t hash=resident_bytes_hash(bytes,kLagoonWideAtlasBytes);
+  if(hash!=(room==8?UINT64_C(0x53cc1e1e5e4808ce):UINT64_C(0xf4067c2896de3c27))) {
+    /* Common2's original5800 upload overwrites the final512 bytes of the
+     * room09 atlas. Prove the complete composite plus the complete common
+     * upload, including its nonoverlapping5900..5B6F remainder. */
+    if(room!=9||hash!=UINT64_C(0x14079b23bf17e7b6)||!loaded_common2(rom,size,ram,vram))return 0;
+  }
   LagoonWideAtlas bound={0};memset(bound.owned,1,sizeof(bound.owned));
   bound.generation=generation;bound.room=room;bound.source=actor;
   bound.completed=kLagoonWideAtlasBytes;bound.transfer_next=0xb200;bound.ready=1;

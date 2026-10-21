@@ -2232,10 +2232,28 @@ index 60804fca8b5abd63c6cd13b7c9775ac98477e4ab..2f1a0adcafa6cadac159dfef409dcdb0
  
  #endif /* SNESRECOMP_BEAM_FRAME_DRIVER_H */
 diff --git a/runner/src/common_rtl.c b/runner/src/common_rtl.c
-index a56966b..c49c301 100644
+index a56966b7cdac38c97b4d6c3bb828ce0662156fba..65cd0306ea9492aa207ab1eacc00d18ff19f927e 100644
 --- a/runner/src/common_rtl.c
 +++ b/runner/src/common_rtl.c
-@@ -1044,6 +1044,9 @@ size_t RtlSaveSnapshotToMemory(void *data, size_t capacity) {
+@@ -47,6 +47,7 @@
+ #include "host_report.h"
+ #include "cosim.h"
+ static void rtl_reset_audio_delivery(void);
++static void rtl_reset_loaded_audio(void);
+ #include "snes_runahead.h"
+ #if defined(SNESRECOMP_NET)
+ #include "snes_netplay.h"
+@@ -1000,6 +1001,9 @@ bool RtlLoadSnapshot(const char *filename) {
+    * game one hook to rebuild it against the freshly restored WRAM. */
+   if (g_rtl_game_info && g_rtl_game_info->on_state_loaded)
+     g_rtl_game_info->on_state_loaded(hdr[1]);
++  RtlApuLock();
++  rtl_reset_loaded_audio();
++  RtlApuUnlock();
+   ++s_state_generation;
+   return true;
+ }
+@@ -1044,6 +1048,9 @@ size_t RtlSaveSnapshotToMemory(void *data, size_t capacity) {
                 : memory.position;
  }
  
@@ -2245,7 +2263,7 @@ index a56966b..c49c301 100644
  bool RtlLoadSnapshotFromMemory(const void *data, size_t size) {
    if (g_rtl_game_info && g_rtl_game_info->snapshot_allowed &&
        !g_rtl_game_info->snapshot_allowed()) return false;
-@@ -1077,7 +1080,7 @@ bool RtlLoadSnapshotFromMemory(const void *data, size_t size) {
+@@ -1077,10 +1084,13 @@ bool RtlLoadSnapshotFromMemory(const void *data, size_t size) {
    RtlApuUnlock();
    if (memory.error) return false;
    g_snes->beamMasterLast = g_cpu.master_cycles;
@@ -2254,7 +2272,13 @@ index a56966b..c49c301 100644
    PpuResetWidescreenOamHistory(g_snes->ppu);
    if (g_rtl_game_info && g_rtl_game_info->on_state_loaded)
      g_rtl_game_info->on_state_loaded(hdr[1]);
-@@ -1292,6 +1295,22 @@ static bool s_loaded_execution_valid;
++  RtlApuLock();
++  rtl_reset_loaded_audio();
++  RtlApuUnlock();
+   ++s_state_generation;
+   return true;
+ }
+@@ -1292,6 +1302,22 @@ static bool s_loaded_execution_valid;
   * every savestate did before v7. */
  static bool s_loaded_execution_keeps_clock;
  
@@ -2277,7 +2301,7 @@ index a56966b..c49c301 100644
  void RtlSaveExecutionState(SaveLoadInfo *sli) {
    RtlRollbackResidue r;
    rtl_rb_residue_capture(&r);
-@@ -1441,7 +1460,10 @@ bool RtlRollbackLoadFromMemory(const void *data, size_t size) {
+@@ -1441,7 +1467,10 @@ bool RtlRollbackLoadFromMemory(const void *data, size_t size) {
     * was on, and said so once per frame in the log. Netplay rollback had the
     * same shape waiting for it. Keep the counter across the load. */
    { const uint64_t generation = s_state_generation;
@@ -2288,7 +2312,7 @@ index a56966b..c49c301 100644
      s_state_generation = generation; }
  
    /* The game's execution position goes back BEFORE the residue is applied and
-@@ -1482,7 +1504,7 @@ void RtlAudioRewindProducer(uint32_t cursor) {
+@@ -1482,7 +1511,7 @@ void RtlAudioRewindProducer(uint32_t cursor) {
    RtlApuUnlock();
  }
  
@@ -2297,7 +2321,7 @@ index a56966b..c49c301 100644
    char name[128];
    RtlEnsureSaveDir();
    RtlSaveSlotPath(slot, name, sizeof(name));
-@@ -1494,9 +1516,12 @@ void RtlSaveLoad(int cmd, int slot) {
+@@ -1494,9 +1523,12 @@ void RtlSaveLoad(int cmd, int slot) {
    host_report_breadcrumb("savestate %s: %s",
        cmd == kSaveLoad_Save ? "save" : "load", name);
    if (cmd == kSaveLoad_Save)
@@ -2312,7 +2336,7 @@ index a56966b..c49c301 100644
  }
  
  
-@@ -1988,23 +2013,35 @@ void rtl_sync_apu_to_cpu_locked(void) {
+@@ -1988,23 +2020,35 @@ void rtl_sync_apu_to_cpu_locked(void) {
  #endif
  }
  
@@ -2364,6 +2388,26 @@ index a56966b..c49c301 100644
    RtlApuLock();
    g_apu_last_sync_master = g_cpu.master_cycles;
    rtl_sync_apu_to_cpu_locked();
+@@ -2317,6 +2361,19 @@ static void rtl_reset_audio_delivery(void) {
+   s_render_fade_out = RTL_AUDIO_FADE_FRAMES;
+ }
+ 
++/* A user load replaces the timeline. The serialized DSP ring is host delivery
++ * backlog, not synthesis state; replaying a full old ring can block the first
++ * resumed guest fields while the device drains it. Keep the ordinary cushion
++ * and the newest queued samples. Rollback restores its live ring separately
++ * and must retain the old behavior. Called after successful load and the title's
++ * execution reconciliation, locked: the selector must see the restored timeline. */
++static void rtl_reset_loaded_audio(void) {
++  if (RtlIsRollbackLoad() || !rtl_apu_absolute_periodic_enabled() ||
++      !g_snes || !g_snes->apu || !g_snes->apu->dsp) return;
++  dsp_trimSamples(g_snes->apu->dsp, RTL_AUDIO_TARGET_NATIVES);
++  rtl_reset_audio_delivery();
++}
++
+ static void rtl_render_wait(int16 *out, int frames) {
+   for (int i = 0; i < frames; ++i) {
+     int weight = s_render_fade_out > 0 ? --s_render_fade_out : 0;
 diff --git a/runner/src/common_rtl.h b/runner/src/common_rtl.h
 index 40d7f2b..9061d12 100644
 --- a/runner/src/common_rtl.h
@@ -2821,7 +2865,7 @@ index 0000000000000000000000000000000000000000..653edfbc25855d7e2a442a89807a32e6
 + * while the window is fullscreen, but it is what the windowed window uses. */
 +int snesrecomp_get_window_scale(void);
 diff --git a/runner/src/desktop/host_main.c b/runner/src/desktop/host_main.c
-index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399db67eebdf 100644
+index 3bc3905..c1cdcb9 100644
 --- a/runner/src/desktop/host_main.c
 +++ b/runner/src/desktop/host_main.c
 @@ -153,10 +153,13 @@ static void OpenOneJoystick(int i);
@@ -2998,7 +3042,15 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
      now = MonotonicSeconds();
    }
    ProfileEnd(kProfileWait, profile_start);
-@@ -435,6 +524,11 @@ static uint8 g_frame_stage[kSnesDesktopMaxFrameWidth * 4 * 240];
+@@ -415,6 +504,7 @@ static int g_savestate_menu_hotkey;
+ static int g_rewind_hotkey;
+ static int g_open_launcher_hotkey;   /* in_game_launcher only */
+ static uint64_t g_state_generation;
++static uint64_t g_audio_timeline_generation;
+ 
+ /* The last field actually presented, kept so an overlay can freeze the guest
+  * and still have something to draw behind itself. Sized like g_my_pixels. */
+@@ -435,6 +525,11 @@ static uint8 g_frame_stage[kSnesDesktopMaxFrameWidth * 4 * 240];
  #endif
  
  static GamepadInfo g_gamepad[kSnesHostPadSeats];
@@ -3010,7 +3062,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
  
  extern Snes *g_snes;
  
-@@ -443,6 +537,89 @@ void snesrecomp_desktop_set_widescreen(int enabled) {
+@@ -443,6 +538,89 @@ void snesrecomp_desktop_set_widescreen(int enabled) {
    WriteConfigFile(g_active_config_file);
  }
  
@@ -3100,20 +3152,24 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
  /* Presentation frame blending (config.ini [Graphics] FrameBlend, the
   * launcher's Display checkbox): each presented frame averaged with the
   * previous one, so alternate-frame flicker "transparency" reads as steady
-@@ -476,6 +653,12 @@ static void GameReset(void) {
+@@ -476,6 +654,16 @@ static void GameReset(void) {
  #endif
    g_reset_clock = true;
  }
++static void ResetAudioTimeline(void);
 +static bool LoadStateSlot(int slot) {
 +  bool loaded = RtlTrySaveLoad(kSaveLoad_Load, slot);
-+  if (loaded) GameReset();
++  if (loaded) {
++    GameReset();
++    ResetAudioTimeline();
++  }
 +  else snes_osd_push("State could not be loaded; session unchanged", 3500);
 +  return loaded;
 +}
  
  /* The Reset hotkey, and the script's `reset`: one path, so a test of the
   * script command is a test of what the player presses. */
-@@ -608,7 +791,7 @@ static void PreparePpuFrame(void) {
+@@ -608,7 +796,7 @@ static void PreparePpuFrame(void) {
    if (g_ws_active) flags |= kPpuRenderFlags_NewRenderer;
    PpuBeginDrawing(g_ppu, g_my_pixels,
                    (g_game->native_widescreen ? fw : 256) * 4, flags);
@@ -3122,7 +3178,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
  }
  
  // --- Scripted input ---
-@@ -625,6 +808,7 @@ typedef struct {
+@@ -625,6 +813,7 @@ typedef struct {
    uint16 cond_value;
    int cond_timeout;   // frames
    int cond_waited;
@@ -3130,7 +3186,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
    char *dump_tag;     // dump <tag>
  } ScriptEntry;
  
-@@ -768,6 +952,7 @@ static ScriptEntry *NewScriptEntry(int *cap) {
+@@ -768,6 +957,7 @@ static ScriptEntry *NewScriptEntry(int *cap) {
   *   press <buttons> [N]     hold a+b+... for N frames (default 1)
   *                           prefix P2 buttons with p2:, e.g. right+p2:right
   *   loadstate N             load save-state slot N
@@ -3138,7 +3194,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
   *   reset                   the Reset hotkey's console reset
   *   turbo on|off            change the held-Turbo state at this frame boundary
   *   poke <addr> <hex>       write WRAM bytes for one frame
-@@ -814,11 +999,18 @@ static void LoadScript(const char *path) {
+@@ -814,11 +1004,18 @@ static void LoadScript(const char *path) {
        e->mask = kScriptTurbo | (strcmp(arg1, "on") == 0 ? 1u : 0u);
        e->wait_frames = pending_wait;
        pending_wait = 0;
@@ -3159,7 +3215,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
        e->hold_frames = 1;
        e->wait_frames = pending_wait;
        pending_wait = 0;
-@@ -990,8 +1182,8 @@ static uint32 TickScript(void) {
+@@ -990,8 +1187,8 @@ static uint32 TickScript(void) {
      if (g_script_counter > 0) {
        g_script_counter--;
        if (e->mask & kScriptLoadState) {
@@ -3170,7 +3226,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
          return 0;
        }
        if (e->mask & kScriptReset) {
-@@ -1280,8 +1472,31 @@ static void WritePpm(const char *path, const uint8 *pixel_buffer, int pitch,
+@@ -1280,8 +1477,31 @@ static void WritePpm(const char *path, const uint8 *pixel_buffer, int pitch,
      host_report_breadcrumb("screenshot: wrote %s (%dx%d) at frame %u", path, w, h, frame);
  }
  
@@ -3203,7 +3259,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
    PreparePpuFrame();
    const int render_scale = 1;
    uint8 *present_buffer = 0;
-@@ -1482,6 +1697,13 @@ static void DrawPpuFrameWithPerf(void) {
+@@ -1482,6 +1702,13 @@ static void DrawPpuFrameWithPerf(void) {
  
    ProfileEnd(kProfileCompose, profile_start);
    profile_start = ProfileStart();
@@ -3217,7 +3273,15 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
    g_renderer_funcs.EndDraw();
    ProfileEnd(kProfilePresent, profile_start);
    RecordFrameTiming(g_present_frame);
-@@ -1852,7 +2074,9 @@ static void PresentFrozenWithOverlay(void) {
+@@ -1581,7 +1808,6 @@ static bool HandleDeviceEvent(const SDL_Event *event) {
+  * can be navigated. */
+ static bool g_overlay_modal;
+ static void SetAudioPaused(bool paused);
+-static void ResetAudioTimeline(void);
+ 
+ /* Buttons still held when a panel closed, masked from the guest until each
+  * is released. The button that closed the panel must not also act in the
+@@ -1852,7 +2078,9 @@ static void PresentFrozenWithOverlay(void) {
    const uint32_t *panel = NULL;
    int pw = 0, ph = 0;
    int is_menu = snes_savestate_menu_overlay_image(&panel, &pw, &ph) && panel;
@@ -3228,7 +3292,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
      panel = NULL;
  
    /* The draw buffer is the FROZEN FRAME at twice its size, whichever panel
-@@ -1882,7 +2106,7 @@ static void PresentFrozenWithOverlay(void) {
+@@ -1882,7 +2110,7 @@ static void PresentFrozenWithOverlay(void) {
      memset(pixel_buffer, 0, (size_t)draw_h * (size_t)pitch);
  
    if (panel) {
@@ -3237,7 +3301,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
        /* EndDraw applies SNES pixel-aspect correction to this buffer. Keep
         * the menu's stock proportions before that presentation step. */
        snes_ovl_blit_panel(pixel_buffer, pitch, draw_w, draw_h, panel, pw, ph);
-@@ -1902,9 +2126,10 @@ static void PresentFrozenWithOverlay(void) {
+@@ -1902,9 +2130,10 @@ static void PresentFrozenWithOverlay(void) {
     * to check that a panel actually reaches the screen rather than inferring
     * it from the module reporting itself open. */
    {
@@ -3251,7 +3315,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
      if (dump && !*dumped && panel) {
        FILE *f = fopen(dump, "wb");
        if (f) {
-@@ -1919,11 +2144,23 @@ static void PresentFrozenWithOverlay(void) {
+@@ -1919,11 +2148,23 @@ static void PresentFrozenWithOverlay(void) {
          fclose(f);
          *dumped = 1;
          fprintf(stderr, "[overlay_dump] wrote %s (%dx%d, %s)\n", dump, draw_w, draw_h,
@@ -3276,7 +3340,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
    g_renderer_funcs.EndDraw();
  }
  
-@@ -1963,6 +2200,35 @@ static void RunSavestateMenuLoop(bool *running) {
+@@ -1963,6 +2204,35 @@ static void RunSavestateMenuLoop(bool *running) {
                           frames);
  }
  
@@ -3312,7 +3376,25 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
  static void RewindKeyDown(int key, int repeat) {
    (void)repeat;
    switch (key) {
-@@ -2069,13 +2335,32 @@ static void ResetAudioTimeline(void) {
+@@ -2044,8 +2314,7 @@ static SDL_AudioDeviceID g_audio_device;
+ static _Thread_local bool g_audio_producer_active;
+ static _Thread_local unsigned g_apu_lock_depth;
+ static _Thread_local bool g_audio_consumer_stalled;
+-static _Thread_local uint64_t g_audio_stalled_callback;
+-static uint64_t g_audio_callback_count;  /* protected by g_audio_mutex */
++static _Thread_local uint32_t g_audio_stalled_read;
+ static bool g_audio_primed;  /* protected by g_audio_mutex */
+ #define HOST_AUDIO_PREFILL 2136u
+ #define HOST_AUDIO_HIGH_WATER 4096u
+@@ -2061,6 +2330,7 @@ static void ResetAudioTimeline(void) {
+   RtlApuLock();
+   g_audiobuffer_end = g_audiobuffer_cur;
+   g_audio_primed = false;
++  g_audio_timeline_generation = RtlStateGeneration();
+   RtlApuUnlock();
+ #if SNESRECOMP_SDL3
+   /* The stream callback takes the APU mutex: never acquire SDL's stream
+@@ -2069,37 +2339,68 @@ static void ResetAudioTimeline(void) {
  #endif
  }
  
@@ -3338,15 +3420,26 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
  
  void RtlApuUnlock(void) {
    --g_apu_lock_depth;
+-  if (g_apu_lock_depth == 0 && g_audio_producer_active &&
+-      g_audio_consumer_stalled &&
+-      g_audio_callback_count != g_audio_stalled_callback)
 +  const bool measure_audio = g_apu_lock_depth == 0 && ProfileAudioProducer();
 +  if (measure_audio) {
 +    unsigned available = dsp_available(g_snes->apu->dsp);
 +    if (available > g_profile_audio_queue_peak) g_profile_audio_queue_peak = available;
 +  }
-   if (g_apu_lock_depth == 0 && g_audio_producer_active &&
-       g_audio_consumer_stalled &&
-       g_audio_callback_count != g_audio_stalled_callback)
-@@ -2086,11 +2371,18 @@ void RtlApuUnlock(void) {
++  bool producer_active = g_apu_lock_depth == 0 && g_audio_producer_active &&
++                         !RtlSpeculativeFrame();
++  /* Upstream 65b9387: callbacks can run without consuming PCM. Rearm only
++   * on FIFO progress, retaining this host's existing profiled wait path. */
++  if (producer_active && g_audio_consumer_stalled &&
++      (g_snes->apu->dsp->sampleRead != g_audio_stalled_read ||
++       dsp_available(g_snes->apu->dsp) <= HOST_AUDIO_HIGH_WATER))
+     g_audio_consumer_stalled = false;
+-  if (g_apu_lock_depth == 0 && g_audio_producer_active &&
+-      !g_audio_consumer_stalled &&
++  if (producer_active && !g_audio_consumer_stalled &&
+       dsp_available(g_snes->apu->dsp) > HOST_AUDIO_HIGH_WATER) {
      /* Fast hosts can generate a multi-frame loader's PCM in milliseconds.
       * Let the device drain it before the bounded ring overflows. Always
       * release the mutex while waiting, and stop waiting if the device stalls. */
@@ -3366,7 +3459,10 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
        if (MonotonicSeconds() >= limit) {
          /* A disconnected device must not add this timeout to every frame.
           * Rearm only after the consumer has actually made progress. */
-@@ -2100,6 +2392,8 @@ void RtlApuUnlock(void) {
+         g_audio_consumer_stalled = true;
+-        g_audio_stalled_callback = g_audio_callback_count;
++        g_audio_stalled_read = g_snes->apu->dsp->sampleRead;
+         g_audio_producer_active = false;
          break;
        }
      }
@@ -3375,7 +3471,15 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
    }
    SDL_UnlockMutex(g_audio_mutex);
  }
-@@ -2288,6 +2582,42 @@ static void SdlRenderer_EndDraw(void) {
+@@ -2113,7 +2414,6 @@ static void FillAudioBuffer(Uint8 *stream, int len) {
+   if (SDL_AtomicCAS(&first_cb, 0, 1))
+     host_report_breadcrumb("first audio callback (len=%d)", len);
+   if (!snesrecomp_sdl_lock_mutex(g_audio_mutex)) Die("Mutex lock failed!");
+-  ++g_audio_callback_count;
+   while (len != 0) {
+     if (g_audiobuffer_end - g_audiobuffer_cur == 0) {
+       uint32_t available = dsp_available(g_snes->apu->dsp);
+@@ -2288,6 +2588,42 @@ static void SdlRenderer_EndDraw(void) {
    /* SDL3's SDL_RenderTexture takes SDL_FRect, not SDL_Rect. */
    snesrecomp_sdl_render_texture(g_renderer, g_texture, &g_sdl_renderer_rect,
                                  &g_sdl_present_rect);
@@ -3418,7 +3522,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
    SDL_RenderPresent(g_renderer);
  }
  
-@@ -2570,6 +2900,68 @@ static uint32_t g_rom_crc32;
+@@ -2570,6 +2906,68 @@ static uint32_t g_rom_crc32;
  static int g_rom_identity_ok;
  static const char *g_program_path;       /* argv[0]: keybinds.ini sits beside it */
  static const char *g_rom_path = "";      /* the running ROM, once resolved */
@@ -3487,7 +3591,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
  static char g_mod_state_path[1100];      /* <catalog>/state.toml; "" without mods */
  
  /* A restart the in-game launcher asked for, carried out after shutdown. */
-@@ -2630,7 +3022,42 @@ static void ReassignGamepads(void) {
+@@ -2630,7 +3028,42 @@ static void ReassignGamepads(void) {
    OpenAllGamepads();
  }
  
@@ -3530,7 +3634,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
  /* What the launcher opens on: the live settings, and what this host offers.
   * In session, netplay and Generate & rebuild are withheld -- the first would
   * replace a session that is still alive, the second the binary running it. */
-@@ -2649,14 +3076,16 @@ static void LauncherSeed(RecompLauncherCSettings *ls, RecompLauncherCGameInfo *g
+@@ -2649,14 +3082,16 @@ static void LauncherSeed(RecompLauncherCSettings *ls, RecompLauncherCGameInfo *g
    ls->enable_audio  = g_config.enable_audio;
    ls->audio_freq    = g_config.audio_freq;
    ls->volume        = g_config.volume;
@@ -3551,7 +3655,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
    ls->player_src[1] = ConfigHasPlayerSource(1) ? g_config.player_src[1]
                                                 : (g_config.enable_gamepad[1] ? 2 : 0);
    for (int seat = 2; seat < kSnesHostPadSeats && seat < RECOMP_LAUNCHER_MAX_PLAYERS; ++seat)
-@@ -2712,6 +3141,10 @@ static void LauncherSeed(RecompLauncherCSettings *ls, RecompLauncherCGameInfo *g
+@@ -2712,6 +3147,10 @@ static void LauncherSeed(RecompLauncherCSettings *ls, RecompLauncherCGameInfo *g
    gi->known_sha1_hex = game->known_sha1_hex;
    gi->num_known_sha1 = (size_t)(game->known_sha1_hex
                                      ? game->num_known_sha1 : 0);
@@ -3562,7 +3666,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
    gi->widescreen_supported = game->widescreen_supported;
    gi->msu1_supported = game->msu1_supported;
    /* Capability rows: each is drawn only because this host wires it. A
-@@ -2796,7 +3229,10 @@ static void LauncherCommit(const RecompLauncherCSettings *ls, const char *config
+@@ -2796,7 +3235,10 @@ static void LauncherCommit(const RecompLauncherCSettings *ls, const char *config
      /* Seats past the game's count are not on the launcher's page; keep them. */
      if (seat >= 2 && seat >= HostConfiguredSeats()) break;
      g_config.player_src[seat]     = ls->player_src[seat];
@@ -3574,7 +3678,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
    }
    g_config.gamepad_deadzone    = (ls->deadzone[0] * 32767 + 50) / 100;
    g_config.skip_launcher       = ls->skip_launcher != 0;
-@@ -3213,6 +3649,15 @@ int snesrecomp_desktop_main(const SnesDesktopHostGame *game, int argc, char **ar
+@@ -3213,6 +3655,15 @@ int snesrecomp_desktop_main(const SnesDesktopHostGame *game, int argc, char **ar
        g_config.output_method, g_config.new_renderer, g_config.window_scale,
        g_config.fullscreen, g_config.enable_audio, g_config.audio_freq,
        g_config.audio_samples);
@@ -3590,7 +3694,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
    PadGestureConfigure(&g_rewind_gesture, g_config.rewind_gesture, "Select+R3",
                        "rewind", "RewindGesture");
    if (game->in_game_launcher)
-@@ -3221,7 +3666,10 @@ int snesrecomp_desktop_main(const SnesDesktopHostGame *game, int argc, char **ar
+@@ -3221,7 +3672,10 @@ int snesrecomp_desktop_main(const SnesDesktopHostGame *game, int argc, char **ar
    tier2_capture_configure(args.expose_coverage_mod || g_config.expose_coverage_mod,
                            g_config.coverage_capture, args.coverage_capture);
  
@@ -3601,7 +3705,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
    /* Before the launcher, which needs the provider to show the Mods page.
     * The catalog is mods/preloaded beside the executable, staged by the build;
     * an empty one is valid. */
-@@ -3369,10 +3817,13 @@ int snesrecomp_desktop_main(const SnesDesktopHostGame *game, int argc, char **ar
+@@ -3369,10 +3823,13 @@ int snesrecomp_desktop_main(const SnesDesktopHostGame *game, int argc, char **ar
          (char *)(arg_rom ? arg_rom : (beside_exe[0] ? beside_exe : ""))
        };
        int la_argc = (la_argv[1][0] != '\0') ? 2 : 1;
@@ -3619,7 +3723,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
          /* User cancelled the picker or repeatedly chose a non-matching ROM. */
          snesrecomp_host_args_usage(program_path, NULL);
          fprintf(stderr, "\nYou must legally own a copy of %s.\n",
-@@ -3458,6 +3909,12 @@ int snesrecomp_desktop_main(const SnesDesktopHostGame *game, int argc, char **ar
+@@ -3458,6 +3915,12 @@ int snesrecomp_desktop_main(const SnesDesktopHostGame *game, int argc, char **ar
    g_ppu_render_flags = g_config.new_renderer * kPpuRenderFlags_NewRenderer |
      g_config.no_sprite_limits * kPpuRenderFlags_NoSpriteLimits;
  
@@ -3632,7 +3736,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
    if (g_config.fullscreen == 1)
      g_win_flags ^= SNESRECOMP_SDL_WINDOW_FULLSCREEN_DESKTOP;
    else if (g_config.fullscreen == 2)
-@@ -3714,6 +4171,17 @@ error_reading:;
+@@ -3714,6 +4177,17 @@ error_reading:;
  
    PreparePpuFrame();
  
@@ -3650,7 +3754,19 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
    MkDir("saves");
    if (!g_netplay_session) RtlReadSram();
  
-@@ -3763,6 +4231,7 @@ error_reading:;
+@@ -3728,7 +4202,10 @@ error_reading:;
+    * file is one-shot -- a later plain launch must not resume it again. */
+   if (args.resume_state) {
+     bool resumed = RtlLoadSnapshot(args.resume_state);
+-    if (resumed) GameReset();
++    if (resumed) {
++      GameReset();
++      ResetAudioTimeline();
++    }
+     host_report_breadcrumb("resume state %s: %s", resumed ? "loaded" : "FAILED to load (kept)",
+                            args.resume_state);
+     if (resumed) remove(args.resume_state);
+@@ -3763,6 +4240,7 @@ error_reading:;
    if (frame_timing_path) g_frame_timings = calloc(kFrameTimingCapacity, sizeof(*g_frame_timings));
    bool profile_requested = g_frame_timings ||
        (HostGetenv("HOST_PROFILE") && atoi(HostGetenv("HOST_PROFILE")) != 0);
@@ -3658,7 +3774,17 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
    unsigned profile_first = HostGetenv("HOST_PROFILE_START_FRAME")
        ? (unsigned)strtoul(HostGetenv("HOST_PROFILE_START_FRAME"), NULL, 10) : 1;
    if (!profile_first) profile_first = 1;
-@@ -3808,7 +4277,7 @@ error_reading:;
+@@ -3797,7 +4275,8 @@ error_reading:;
+       profile_window_start = MonotonicSeconds();
+     }
+     if (g_state_generation != RtlStateGeneration()) {
+-      ResetAudioTimeline();
++      if (g_audio_timeline_generation != RtlStateGeneration())
++        ResetAudioTimeline();
+       snes_rewind_shutdown();
+       snes_rewind_configure();
+       g_state_generation = RtlStateGeneration();
+@@ -3808,7 +4287,7 @@ error_reading:;
       * whole crash-capture pipeline (minidump + report + crash copy). */
      host_report_crash_test_tick();
  
@@ -3667,7 +3793,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
      while (SDL_PollEvent(&event)) {
        if (HandleDeviceEvent(&event))
          continue;
-@@ -3887,8 +4356,7 @@ error_reading:;
+@@ -3887,8 +4366,7 @@ error_reading:;
      {
        int ls = debug_server_consume_loadstate();
        if (ls >= 0 && !g_netplay_session) {
@@ -3677,7 +3803,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
        }
        int ss = debug_server_consume_savestate();
        if (ss >= 0 && !g_netplay_session)
-@@ -3953,7 +4421,7 @@ error_reading:;
+@@ -3953,7 +4431,7 @@ error_reading:;
          for (;;) {
            uint32 inputs = snes_netplay_published_inputs() | snes_netplay_active_mask();
            g_profile_frame = frameCtr + 1;
@@ -3686,7 +3812,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
            if (game->before_run_frame) game->before_run_frame();
            RtlRunFrame(inputs);
            ProfileEnd(kProfileGuest, profile_start);
-@@ -4181,6 +4649,11 @@ error_reading:;
+@@ -4181,6 +4659,11 @@ error_reading:;
        GameReset();
        continue;   /* guest was frozen: no frame to run or present */
      }
@@ -3698,7 +3824,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
      if (g_paused) continue;
      /* The script ticks HERE, after every path that can leave this iteration
       * without running a frame. Ticked above the overlay checks, an
-@@ -4193,7 +4666,7 @@ error_reading:;
+@@ -4193,7 +4676,7 @@ error_reading:;
        break;
      }
      inputs |= debug_server_get_controller_inputs();
@@ -3707,7 +3833,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
      double guest_start = MonotonicSeconds();
      PushExtraSeats();
      if (game->before_run_frame) game->before_run_frame();
-@@ -4207,6 +4680,14 @@ error_reading:;
+@@ -4207,6 +4690,14 @@ error_reading:;
      bool runahead_captured = false;
      {
        const uint32 word = inputs | GetActiveControllers() | debug_server_get_controller_active_mask();
@@ -3722,7 +3848,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
        if (g_turbo || !snes_runahead_run_frame(word))
          RtlRunFrame(word);
        else
-@@ -4290,12 +4771,19 @@ error_reading:;
+@@ -4290,12 +4781,19 @@ error_reading:;
    if (g_frame_timings) {
      FILE *f = fopen(frame_timing_path, "w");
      if (f) {
@@ -3744,7 +3870,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
        }
        fclose(f);
      } else {
-@@ -4330,9 +4818,10 @@ error_reading:;
+@@ -4330,9 +4828,10 @@ error_reading:;
  
    if (g_config.autosave && !g_netplay_session)
      HandleCommand(kKeys_Save + 0, true);
@@ -3758,7 +3884,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
      WriteConfigFile(g_active_config_file);
  
    if (!g_netplay_session) RtlWriteSram();
-@@ -4406,11 +4895,11 @@ error_reading:;
+@@ -4406,11 +4905,11 @@ error_reading:;
  static void PollKeyboardControls(const uint8_t *keys) {
    /* Replace the whole keyboard word so changing a seat to Gamepad/None also
     * releases keys held under its previous assignment. Hotkeys remain separate. */
@@ -3773,7 +3899,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
          ? keybinds_read_player_runner(keys, seat + 1) : 0;
  }
  
-@@ -4465,8 +4954,7 @@ static void HandleCommand(uint32 j, bool pressed) {
+@@ -4465,8 +4964,7 @@ static void HandleCommand(uint32 j, bool pressed) {
    if (!pressed)
      return;
    if (j <= kKeys_Load_Last) {
@@ -3783,7 +3909,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
    } else if (j <= kKeys_Save_Last) {
      RtlSaveLoad(kSaveLoad_Save, j - kKeys_Save);
    } else {
-@@ -4484,7 +4972,7 @@ static void HandleCommand(uint32 j, bool pressed) {
+@@ -4484,7 +4982,7 @@ static void HandleCommand(uint32 j, bool pressed) {
         * this key only moves between windowed and borderless. */
        g_config.fullscreen =
            (g_win_flags & SNESRECOMP_SDL_WINDOW_FULLSCREEN_DESKTOP) ? 1 : 0;
@@ -3792,7 +3918,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
        break;
      case kKeys_Reset:
        ConsoleReset();
-@@ -4519,6 +5007,15 @@ static void HandleCommand(uint32 j, bool pressed) {
+@@ -4519,6 +5017,15 @@ static void HandleCommand(uint32 j, bool pressed) {
      case kKeys_ToggleWidescreen:
        printf("Widescreen is a per-title presentation setting; see the launcher's Mods page.\n");
        break;
@@ -3808,7 +3934,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
      case kKeys_VolumeUp:
      case kKeys_VolumeDown: HandleVolumeAdjustment(j == kKeys_VolumeUp ? 1 : -1); break;
      default: assert(0);
-@@ -4527,7 +5024,12 @@ static void HandleCommand(uint32 j, bool pressed) {
+@@ -4527,7 +5034,12 @@ static void HandleCommand(uint32 j, bool pressed) {
  }
  
  static void HandleInput(int keyCode, int keyMod, bool pressed) {
@@ -3821,7 +3947,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
    if (j != 0)
      HandleCommand(j, pressed);
  }
-@@ -4553,13 +5055,29 @@ static void RequestScreenshot(void) {
+@@ -4553,13 +5065,29 @@ static void RequestScreenshot(void) {
  
  static uint32 GetActiveControllers(void) {
    uint32 ctrl = g_script_controllers |
@@ -3853,7 +3979,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
  static void OpenOneGamepad(int i) {
    if (!SDL_IsGameController(i)) {
      OpenOneJoystick(i);
-@@ -4586,9 +5104,21 @@ static void OpenOneGamepad(int i) {
+@@ -4586,9 +5114,21 @@ static void OpenOneGamepad(int i) {
  
    int found_idx = -1;
    const int seats = HostConfiguredSeats();
@@ -3877,7 +4003,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
        found_idx = j;
        break;
      }
-@@ -4614,7 +5144,8 @@ static void OpenOneJoystick(int i) {
+@@ -4614,7 +5154,8 @@ static void OpenOneJoystick(int i) {
    if (GetGamepadInfo(id) || SelftestPadExcludes(id)) { SDL_JoystickClose(joystick); return; }
    int slot = -1;
    for (int j = 0; j < HostConfiguredSeats(); ++j) {
@@ -3887,7 +4013,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
        slot = j; break;
      }
    }
-@@ -4686,6 +5217,11 @@ static void HandleGamepadInput(GamepadInfo *gi, int button, bool pressed) {
+@@ -4686,6 +5227,11 @@ static void HandleGamepadInput(GamepadInfo *gi, int button, bool pressed) {
    if (!!(gi->modifiers & (1 << button)) == pressed)
      return;
    gi->modifiers ^= 1 << button;
@@ -3899,7 +4025,7 @@ index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399d
    if (pressed)
      gi->last_cmd[button] = FindCmdForGamepadButton(button + gi->index * kGamepadBtn_Count, gi->modifiers);
    if (gi->last_cmd[button] != 0)
-@@ -4705,11 +5241,19 @@ static void ApplyVolume(void) {
+@@ -4705,11 +5251,19 @@ static void ApplyVolume(void) {
  static void HandleVolumeAdjustment(int volume_adjustment) {
    g_config.volume = IntMin(IntMax(0, g_config.volume + volume_adjustment * 5), 100);
    ApplyVolume();
@@ -5949,7 +6075,7 @@ index 484b3f017b4077521dc6fc7dc54ea99ed23c54aa..462683ccb0e45578ed8adcdf69bc0255
          cpu->d = false;
          cpu->k = 0;
 diff --git a/runner/src/snes/interp_bridge.c b/runner/src/snes/interp_bridge.c
-index c1e48ebb1dbfe00207474015d4e7539f83450d64..0ad7c597ed79e4c045d3b967f8a1fe58d35ad279 100644
+index c1e48ebb1dbfe00207474015d4e7539f83450d64..47a5ce75da644ed973d948c3aceae40f492a3f00 100644
 --- a/runner/src/snes/interp_bridge.c
 +++ b/runner/src/snes/interp_bridge.c
 @@ -21,6 +21,9 @@
@@ -6871,7 +6997,29 @@ index c1e48ebb1dbfe00207474015d4e7539f83450d64..0ad7c597ed79e4c045d3b967f8a1fe58
      if (trace) {
          itrace_dump(entry_pc24, head, (int)(itn < 8 ? itn : 8), ring, itn);
          interp_bridge_dump_recent_edges(64, stderr);
-@@ -3634,12 +4194,15 @@ RecompReturn interp_tier_run_call_frame(CpuState *cpu, uint32_t target_pc24,
+@@ -3430,8 +3990,6 @@ RecompReturn interp_tier_dispatch_tail(CpuState *cpu, uint32_t target_pc24,
+ 
+ RecompReturn interp_tier_dispatch_tail_ex(CpuState *cpu, uint32_t target_pc24,
+     uint32_t site_pc24, uint16_t entry_s, uint8_t hrv, bool from_indirect) {
+-    if (cpu_interrupt_context_active())
+-        return interp_tier_dispatch_interrupt(cpu, target_pc24);
+     /* This tail transfer abandons every compiled guest frame beneath the AOT
+      * root that the active interpreter bounced into.  Starting a new nested
+      * interpreter here leaves those host frames live; if the guest continuation
+@@ -3443,6 +4001,12 @@ RecompReturn interp_tier_dispatch_tail_ex(CpuState *cpu, uint32_t target_pc24,
+      * AOT tail fallbacks retain the balanced nested-interpreter path below. */
+     if (s_interp_bounce_owner_depth > 0)
+         return interp_bridge_lle_yield_unwind(cpu, target_pc24);
++    /* A subroutine called inside NMI/IRQ still returns with RTS/RTL. Let an
++     * owning interpreter resume first; a nested interrupt interpreter would
++     * consume its continuation and RTI before returning to a live AOT caller.
++     * Only a tail with no paired subroutine return frame is an interrupt root. */
++    if (cpu_interrupt_context_active() && hrv == 0)
++        return interp_tier_dispatch_interrupt(cpu, target_pc24);
+     return interp_tier_dispatch_balanced(cpu, target_pc24, site_pc24,
+                                             entry_s, hrv, from_indirect);
+ }
+@@ -3634,12 +4198,15 @@ RecompReturn interp_tier_run_call_frame(CpuState *cpu, uint32_t target_pc24,
      interp_tier_note(target_pc24);
      const uint8_t mx = tier2_entry_mx(cpu);
      tier2_discover(source_pc24, target_pc24, mx, TIER2_KIND_DISPATCH, -1);
@@ -13051,3 +13199,338 @@ index 0000000000000000000000000000000000000000..0b4c60f2a8c0f810da81c0de0a4b878f
 +[`runner/src/mod_runtime.h`](runner/src/mod_runtime.h),
 +[`runner/src/mod_runtime.cpp`](runner/src/mod_runtime.cpp), and
 +[`docs/MOD_PACKAGES.md`](docs/MOD_PACKAGES.md).
+diff --git a/runner/src/snes/dsp.h b/runner/src/snes/dsp.h
+index 5088a31fdb237ecc6b30d7c3131efa5be6d96876..32d21797df792a030d9d3851cfad96fad98005f3 100644
+--- a/runner/src/snes/dsp.h
++++ b/runner/src/snes/dsp.h
+@@ -135,9 +135,9 @@ void dsp_advance(Dsp* dsp, uint32_t natives);
+  * pinned the ring at its 8192 cap and destroyed 43% of all samples (384 k of
+  * them carrying audible music) inside 33 s. */
+ uint32_t dsp_getSamples(Dsp* dsp, int16_t* sampleData, int frames);
+-/* Drop queued host-output samples without rewinding SPC/DSP state. Used only
+- * when leaving fast-forward, where buffered samples describe obsolete guest
+- * time and retaining them would create persistent A/V latency. */
++/* Drop queued host-output samples without rewinding SPC/DSP state. Used after
++ * fast-forward or a successful absolute-timeline user load, where old backlog
++ * can create persistent A/V latency. Rollback preserves its live output ring. */
+ uint32_t dsp_trimSamples(Dsp* dsp, uint32_t samples_to_keep);
+ /* Per-voice Gaussian-interpolated sample (canon hardware math). Exposed for the
+  * dev-only in-process faithful reference (dsp_shadow) to diff against blargg's
+diff --git a/tests/test_interrupt_tail.py b/tests/test_interrupt_tail.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..3e868127ce13af44c5c8251c56cae194f2a8eccd
+--- /dev/null
++++ b/tests/test_interrupt_tail.py
+@@ -0,0 +1,26 @@
++"""Subroutine fallback inside an interrupt must preserve the return owner."""
++from pathlib import Path
++import shutil
++import subprocess
++
++import pytest
++
++ROOT = Path(__file__).resolve().parents[1]
++
++
++@pytest.mark.parametrize('fixture', ['interrupt_tail_test.c', 'bridge_test.c'])
++def test_interrupt_tail_ownership(tmp_path, fixture):
++    cc = shutil.which('gcc') or shutil.which('cc')
++    if cc is None:
++        pytest.skip('C11 compiler unavailable')
++    exe = tmp_path / 'bridge.exe'
++    subprocess.run([
++        cc, '-std=c11', '-D_POSIX_C_SOURCE=200809L', '-O1',
++        '-DSNESRECOMP_TIER2_TEST=1', '-Irunner/src', '-Irunner/src/snes',
++        f'tests/interp816/{fixture}', 'runner/src/snes/interp816.c',
++        'runner/src/snes/interp_bridge.c', 'runner/src/snes/tier2_capture.c',
++        'runner/src/sha256.c', 'runner/src/snes/cx4.c', '-lm', '-o', str(exe),
++    ], cwd=ROOT, check=True, capture_output=True, text=True)
++    run = subprocess.run([str(exe)], cwd=tmp_path, capture_output=True,
++                         text=True, timeout=60)
++    assert run.returncode == 0, run.stdout + run.stderr
+diff --git a/tests/interp816/interrupt_tail_test.c b/tests/interp816/interrupt_tail_test.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..b90d976ff53801a25aab544131a10bffba8841c0
+--- /dev/null
++++ b/tests/interp816/interrupt_tail_test.c
+@@ -0,0 +1,110 @@
++/* Reuse the established flat-RAM bridge fixture, replacing only the fake
++ * interrupt scope and AOT entry. The production interpreter and bridge are
++ * linked unchanged; no commercial ROM or generated game code is required. */
++#define main unused_bridge_fixture_main
++#define cpu_interrupt_context_enter unused_interrupt_enter
++#define cpu_interrupt_context_leave unused_interrupt_leave
++#define cpu_interrupt_context_active unused_interrupt_active
++#define cpu_dispatch_pc_paired unused_dispatch_paired
++#include "bridge_test.c"
++#undef main
++#undef cpu_interrupt_context_enter
++#undef cpu_interrupt_context_leave
++#undef cpu_interrupt_context_active
++#undef cpu_dispatch_pc_paired
++#include "sdd1.h"
++
++static int interrupt_depth;
++static RecompReturn bounce_result;
++void cpu_interrupt_context_enter(void) { interrupt_depth++; }
++void cpu_interrupt_context_leave(void) { interrupt_depth--; }
++int cpu_interrupt_context_active(void) { return interrupt_depth != 0; }
++
++RecompReturn cpu_dispatch_pc_paired(CpuState *cpu, uint32 pc24,
++                                   uint8 frame_size) {
++    CHECK(pc24 == FAKE_AOT, "unexpected AOT target %06X", pc24);
++    g_aot_called++;
++    cpu->host_return_valid = frame_size;
++    /* Model a generated subroutine's unresolved tail into an RTS/RTL suffix. */
++    bounce_result = interp_tier_dispatch_tail(cpu, 0x008200, 0x008100,
++                                              cpu->S, frame_size);
++    return bounce_result;
++}
++
++static void prepare_interrupt(void) {
++    memset(RAM, 0, MEMSZ);
++    init_cpu();
++    g_c.emulation = 0;
++    g_c.S = 0x01FB;
++    cpu_mirrors_to_p(&g_c);
++    /* Native NMI frame: P, PC.lo, PC.hi, PB; RTI resumes at $00:9000. */
++    RAM[0x01FC] = g_c.P;
++    RAM[0x01FD] = 0x00;
++    RAM[0x01FE] = 0x90;
++    RAM[0x01FF] = 0x00;
++    g_aot_called = 0;
++    interrupt_depth = 0;
++    bounce_result = RECOMP_RETURN_NORMAL;
++}
++
++int main(void) {
++    RAM = malloc(MEMSZ);
++    if (!RAM) return 2;
++    for (int frame_size = 2; frame_size <= 3; frame_size++) {
++        const uint8_t suffix[] = {0xE6, 0x10, frame_size == 2 ? 0x60 : 0x6B};
++        const uint8_t continuation[] = {0xE6, 0x11, 0x40};
++
++        /* An AOT NMI caller still owns its host frame: the fallback must stop
++         * at the subroutine return and leave the NMI continuation untouched. */
++        prepare_interrupt();
++        load(0x8200, suffix, sizeof suffix);
++        load(0x8300, continuation, sizeof continuation);
++        if (frame_size == 3) RAM[g_c.S--] = 0x00;
++        RAM[g_c.S--] = 0x82;
++        RAM[g_c.S--] = 0xFF;  /* RTS/RTL -> $8300 */
++        cpu_interrupt_context_enter();
++        RecompReturn result = interp_tier_dispatch_tail(
++            &g_c, 0x008200, 0x008100, g_c.S, (uint8)frame_size);
++        printf("direct AOT NMI subroutine, frame=%d\n", frame_size);
++        CHECK(result == RECOMP_RETURN_NORMAL, "return=%d", result);
++        CHECK(g_c.S == 0x01FB, "subroutine S=%04X expected 01FB", g_c.S);
++        CHECK(RAM[0x10] == 1, "suffix did not run once");
++        CHECK(RAM[0x11] == 0, "subroutine consumed NMI continuation");
++        CHECK(interrupt_depth == 1, "interrupt scope was not preserved");
++        cpu_interrupt_context_leave();
++
++        /* An interpreter-owned NMI bounces into AOT, which tails back to the
++         * suffix. The owning interpreter must receive an unwind and execute
++         * the subroutine return followed by its own continuation and RTI. */
++        prepare_interrupt();
++        load(0x8200, suffix, sizeof suffix);
++        const uint8_t near_handler[] = {0x20, 0x00, 0x81, 0xE6, 0x11, 0x40};
++        const uint8_t far_handler[] = {0x22, 0x00, 0x81, 0x00, 0xE6, 0x11, 0x40};
++        if (frame_size == 2) load(0x8000, near_handler, sizeof near_handler);
++        else load(0x8000, far_handler, sizeof far_handler);
++        result = interp_tier_dispatch_interrupt(&g_c, 0x008000);
++        printf("interpreter-owned NMI bounce, frame=%d\n", frame_size);
++        CHECK(result == RECOMP_RETURN_NORMAL, "return=%d", result);
++        CHECK(bounce_result == RECOMP_RETURN_LLE_UNWIND_BASE,
++              "tail resumed compiled caller instead of unwinding: %d", bounce_result);
++        CHECK(g_aot_called == 1, "AOT calls=%d expected 1", g_aot_called);
++        CHECK(RAM[0x10] == 1 && RAM[0x11] == 1,
++              "suffix/continuation counts=%d/%d expected 1/1", RAM[0x10], RAM[0x11]);
++        CHECK(g_c.S == 0x01FF, "NMI S=%04X expected 01FF", g_c.S);
++        CHECK(interrupt_depth == 0, "interrupt scope leaked");
++    }
++
++    /* An interrupt root with no paired subroutine frame still exits by RTI. */
++    prepare_interrupt();
++    RAM[0x8200] = 0x40;
++    cpu_interrupt_context_enter();
++    RecompReturn result = interp_tier_dispatch_tail(
++        &g_c, 0x008200, 0x008100, g_c.S, 0);
++    CHECK(result == RECOMP_RETURN_NORMAL, "interrupt root return=%d", result);
++    CHECK(g_c.S == 0x01FF, "interrupt root S=%04X expected 01FF", g_c.S);
++    CHECK(interrupt_depth == 1, "interrupt root changed enclosing scope");
++    cpu_interrupt_context_leave();
++    free(RAM);
++    printf("%d checks, %d failures\n", g_check, g_fail);
++    return g_fail ? 1 : 0;
++}
+diff --git a/tests/v2/test_tail_unwind_execution.py b/tests/v2/test_tail_unwind_execution.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..7a6105be198ec893d09075fc9e6f4fa7864925ac
+--- /dev/null
++++ b/tests/v2/test_tail_unwind_execution.py
+@@ -0,0 +1,61 @@
++"""Execute emitted tail wrappers with the production ancestor resolvers.
++
++Host tail frames share a guest return frame: neither raw host depth nor an
++extra decrement in the wrapper represents the SKIP contract correctly.
++"""
++from pathlib import Path
++import re
++import shutil
++import subprocess
++
++import pytest
++from _helpers import make_lorom_bank0
++from v2 import codegen
++from v2.emit_function import emit_function
++
++ROOT = Path(__file__).resolve().parents[2]
++
++
++def _production_function(source, name):
++    match = re.search(rf'^(?:static )?(?:int|void) {name}\([^\n]*\) \{{.*?^\}}',
++                      source, re.MULTILINE | re.DOTALL)
++    assert match, name
++    return match.group()
++
++
++def _harness():
++    saved = dict(codegen._NAME_RESOLVER)
++    try:
++        codegen.set_name_resolver({0x8001: 'TailTarget'})
++        emitted = emit_function(
++            make_lorom_bank0({0x8000: bytes([0xEA, 0x60])}),
++            bank=0, start=0x8000, end=0x8001, entry_m=1, entry_x=1,
++            func_name='TailOwner')
++    finally:
++        codegen.set_name_resolver(saved)
++    statement = next(line for line in emitted.splitlines()
++                     if 'tail-call past end:' in line)
++    infra = (ROOT / 'runner/src/common_cpu_infra.c').read_text(encoding='utf-8')
++    context = infra[infra.index('uint16_t g_cpu_entry_s['):
++                    infra.index('/* ── Unresolved-site')]
++    resolvers = '\n'.join(_production_function(infra, name) for name in (
++        'cpu_resolve_unwind_depth', 'recomp_dump_frame_array', 'cpu_resolve_ancestor_skip',
++        'cpu_resolve_post_return_skip'))
++    fixture = Path(__file__).with_name('tail_unwind_fixture.c').read_text()
++    return (fixture.replace('/* PRODUCTION_CONTEXT */', context)
++            .replace('/* PRODUCTION_RESOLVERS */', resolvers)
++            .replace('/* GENERATED_TAIL */', statement))
++
++
++def test_tail_chains_preserve_guest_unwind_depth(tmp_path):
++    cc = shutil.which('gcc') or shutil.which('cc')
++    if cc is None:
++        pytest.skip('C11 compiler unavailable')
++    source = tmp_path / 'tail_unwind.c'
++    source.write_text(_harness(), encoding='utf-8')
++    exe = tmp_path / 'tail_unwind.exe'
++    subprocess.run([cc, '-std=c11', '-O1', '-Wall', '-Wextra',
++                    f'-I{ROOT / "runner/src"}', str(source), '-o', str(exe)],
++                   check=True)
++    result = subprocess.run([str(exe)], capture_output=True, text=True, timeout=10)
++    assert result.returncode == 0, result.stdout + result.stderr
+diff --git a/tests/v2/tail_unwind_fixture.c b/tests/v2/tail_unwind_fixture.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..757ef2c71eddd90c73781859eab51aaacdd3210b
+--- /dev/null
++++ b/tests/v2/tail_unwind_fixture.c
+@@ -0,0 +1,97 @@
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include "cpu_state.h"
++#include "common_cpu_infra.h"
++
++#define RECOMP_STACK_DEPTH 64
++int g_recomp_stack_top;
++const char *g_recomp_stack[RECOMP_STACK_DEPTH];
++int snes_frame_counter;
++/* PRODUCTION_CONTEXT */
++/* PRODUCTION_RESOLVERS */
++
++static int remaining_tails, return_kind;
++static const int sentinel = RECOMP_RETURN_LLE_UNWIND_BASE - 7;
++
++void RecompStackPop(void) { --g_recomp_stack_top; }
++
++static void enter_frame(uint16_t entry_s, uint8_t hrv) {
++    int slot = g_recomp_stack_top++;
++    g_recomp_stack[slot] = "synthetic";
++    g_cpu_entry_s[slot] = entry_s;
++    g_cpu_entry_s_valid[slot] = 1;
++    g_cpu_entry_return_frame[slot] = hrv;
++    g_cpu_entry_tailcall[slot] = 0;
++}
++
++static RecompReturn tail_owner(CpuState *cpu) {
++    uint16_t _entry_s = g_cpu_entry_s[g_recomp_stack_top - 1];
++    uint8_t _hrv = 2;
++    /* GENERATED_TAIL */
++}
++
++RecompReturn TailTarget_M1X1(CpuState *cpu) {
++    uint16_t entry_s = cpu->S;
++    uint8_t hrv = cpu->host_return_valid;
++    enter_frame(entry_s, hrv);
++    if (!cpu_take_tailcall_return_context(&entry_s, &hrv)) abort();
++    g_cpu_entry_s[g_recomp_stack_top - 1] = entry_s;
++    if (--remaining_tails > 0) return tail_owner(cpu);
++    RecompReturn result = RECOMP_RETURN_NORMAL;
++    switch (return_kind) {
++    case 0: cpu->S = 0x0197; break; /* RTS of inherited frame. */
++    case 1: /* PLA; RTS skips caller: resolve before RTS. */
++        cpu->S = 0x0199;
++        result = (RecompReturn)cpu_resolve_ancestor_skip(0x0197);
++        break;
++    case 2: /* Interpreter already consumed the same RTS. */
++        cpu->S = 0x0199;
++        result = (RecompReturn)cpu_resolve_post_return_skip(cpu->S);
++        break;
++    case 3: result = (RecompReturn)sentinel; break;
++    }
++    RecompStackPop();
++    return result;
++}
++
++int main(void) {
++    int failures = 0;
++    for (int tails = 1; tails <= 3; ++tails) {
++        for (return_kind = 0; return_kind <= 3; ++return_kind) {
++            CpuState cpu = {0}; cpu.S = 0x0195;
++            g_recomp_stack_top = 0;
++            enter_frame(0x0199, 3); /* Root: JSL. */
++            enter_frame(0x0197, 2); /* Caller: JSR. */
++            enter_frame(0x0195, 2); /* Tail owner: JSR. */
++            remaining_tails = tails;
++            RecompReturn result = tail_owner(&cpu);
++            int expected = return_kind == 0 ? 0 : return_kind == 3 ? sentinel : 1;
++            if ((int)result != expected || g_recomp_stack_top != 2) {
++                fprintf(stderr, "tails=%d kind=%d result=%d expected=%d depth=%d\n",
++                        tails, return_kind, result, expected, g_recomp_stack_top);
++                ++failures;
++            }
++            if (return_kind == 3) continue;
++            /* An ordinary JSR caller consumes one SKIP; a tail must not. */
++            if (result) result = (RecompReturn)((int)result - 1);
++            else cpu.S += 2;
++            RecompStackPop();
++            if (result != RECOMP_RETURN_NORMAL) ++failures;
++            else cpu.S += 3; /* Root continuation executes RTL exactly once. */
++            RecompStackPop();
++            if (cpu.S != 0x019C || g_recomp_stack_top != 0) ++failures;
++        }
++    }
++    /* A swallowed context must not turn an HLE attribution frame into an
++     * eligible guest ancestor, and a consumed context must not leak. */
++    g_recomp_stack_top = 0;
++    enter_frame(0x0199, 3);
++    cpu_tailcall_inherit_return_context(0x0199, 3);
++    if (!cpu_take_tailcall_return_context(NULL, NULL)) ++failures;
++    if (g_cpu_entry_s_valid[0] || g_cpu_entry_tailcall[0]) ++failures;
++    uint16_t entry_s = 0; uint8_t hrv = 0;
++    if (cpu_take_tailcall_return_context(&entry_s, &hrv)) ++failures;
++    printf("12 tail-chain scenarios, %d failures\n", failures);
++    return failures ? 1 : 0;
++}

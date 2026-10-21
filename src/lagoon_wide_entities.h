@@ -108,7 +108,8 @@ void LagoonWideAtlas_Write(LagoonWideAtlas *atlas, unsigned byte_address);
 int LagoonWideAtlas_CellOwned(const LagoonWideAtlas *atlas, unsigned base1,
     unsigned base2, const LagoonWideCell *cell);
 /* Successful full-state-load recovery only. Complete descriptor/source and
- * resident-byte identity is required; no incomplete DMA tracker is repaired.
+ * resident-byte identity is required, including any proven original common
+ * upload overlap; no incomplete DMA tracker is repaired.
  * Caller owns the one-attempt successful-load/generation/scene gate. */
 int LagoonWideAtlas_RebindResident(LagoonWideAtlas *atlas,const uint8_t *rom,
     size_t rom_size,const uint8_t *ram,const uint16_t *vram,uint64_t generation);

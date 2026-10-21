@@ -18,7 +18,7 @@ widescreen, a custom scene renderer and optional quality-of-life improvements.
 - **Wider views:** 16:9, 16:10, 21:9, 32:9 and window-driven aspects, with
   additional scenery, supported NPC/enemy sprites, selected multipart boss poses
   and supported projectile and fullscreen magic effects beyond the original view.
-  Loading a compatible Elf Field state also recovers supported actors in the
+  Loading a compatible Elf Field or Voloh state also recovers supported actors in the
   added view without requiring a door reload.
 - **Original artwork, enhanced:** optional EPX treatment preserves the palette
   and keeps the HUD sharp. No replacement artwork is required.
@@ -63,6 +63,9 @@ blending off for a sharp picture. 21:9 and 32:9 show more horizontal scenery, wi
 letterboxing on a 16:9 display. Window scale affects windowed size only.
 
 ## Project status
+
+The source and local development build are now **0.1.4**. The latest packaged
+Windows preview remains **0.1.3**; its release notes describe that package.
 
 This is experimental. Native combat, damage, death/revival, boss services and
 endgame routes, display fades and guarded HUD dispatch have focused checks;

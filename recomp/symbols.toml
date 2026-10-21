@@ -225,10 +225,10 @@ note = "Checks input and initiates airborne state/velocity"
 name = "Lagoon_Entity_UpdateProximity"
 addr = "81de"
 bank = 2
-emit = false
+emit = true
 entry_m = 1
 entry_x = 0
-note = "Interpreted: unproven call/continuation at 02:824A; not counted as native"
+note = "Qualified prefix only; real JSL at02:824A remains interpreted, with its physical stack intact"
 
 # Batch 3 combat/progression candidates; qualify before source publication.
 
