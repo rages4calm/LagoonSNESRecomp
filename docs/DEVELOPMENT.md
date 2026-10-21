@@ -14,7 +14,7 @@ display fades and queued graphics transfers. The HUD-number dispatcher has a
 separate, source-guarded handoff
 using its actual cross-bank JSL return frame. Counts of
 compiled functions are analysis counts, not completion percentages. The current
-manifest retains 530 AOT entries; host-side changes do not imply
+manifest retains 539 AOT entries; host-side changes do not imply
 additional compiled guest functions. Generated
 code alone does not prove that a runtime dispatcher reaches a compiled entry.
 
@@ -42,6 +42,19 @@ Other entry widths stay interpreted. This reduces host execution work while
 preserving guest instruction timing; it is distinct from the earlier source-
 qualified enemy math shortcuts that intentionally remove guest computation cost.
 The original command can reinitialize a retired actor; its behavior is preserved.
+
+The ordinary enemy projectile-request dispatcher has a separate M1X0 native
+closure for ten authored enemy kinds, including facing shots and projectile fans.
+It keeps the inherited two-byte JSR return owner, original sound commands and
+first-free projectile allocator. The original indirect pointer-tail site admits
+only its qualified target; other pointers retain the original interpreter tail.
+The adjacent alternate dispatcher, unknown modes
+and variable script services retain the interpreter. Instruction timing for the
+shared sound parent and its two port-writer children is qualified separately;
+this does not qualify every soundtrack descriptor or upload path.
+Source-opcode checks include the actual ancestor dispatcher and unknown pointer
+boundaries. Live controls separately verify native activation, real projectile
+allocation and exact ordered APU events, registers, physical state and clocks.
 
 The assisted campaign work uses original loaders, doors and event/boss scripts,
 with position/stat assistance to reach affected cases quickly. It is distinct
@@ -222,11 +235,23 @@ Unsupported overlays and changed bytes refuse ownership. Actual NPC margin
 pixels have independent planar-decoding and live center-picture checks.
 Other resource families still require their original upload witnesses. Re-enter
 through an authored door when testing those families.
+The common0 enemy-death glyph pack has a separate successful-load recovery:
+its original loader/decompressor/queue/NMI sources and all 512 resident bytes
+must match. It uses the same one-attempt load gate and generation invalidation;
+partial transfers and unknown writes cannot acquire ownership. Other magic
+packs and multipart resources retain their existing upload requirements.
 `SNESRECOMP_GL_TIMING` optionally records buffered CPU wall times for existing
 upload, draw and swap calls without extra GL work. Verify the initialized backend:
 an explicit `Renderer=auto` overrides `OutputMethod=OpenGL` and selects SDL, ignoring
 the Enhanced shader. Use `Renderer=opengl` for actual Enhanced-path measurements.
 There is no full-game locked-60-FPS claim.
+
+SDL3 host pacing uses its precise nanosecond wait for the complete remaining
+deadline budget, while retaining the SDL2 wait policy. This follows
+[SDL's timing guidance](https://wiki.libsdl.org/SDL3/SDL_DelayPrecise); operating
+system scheduling can still delay it. Focused measurements show a modest
+loaded-room improvement. Longer intervals requested by the original guest's
+frame periods remain intentional; this change does not shorten game time.
 
 Successful user loads on the restored absolute APU timeline now clamp obsolete
 host-output backlog to the existing2136-sample cushion after title execution

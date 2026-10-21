@@ -115,7 +115,8 @@ int LagoonWideAtlas_RebindResident(LagoonWideAtlas *atlas,const uint8_t *rom,
     size_t rom_size,const uint8_t *ram,const uint16_t *vram,uint64_t generation);
 
 /* Original common0 death glyphs, separate from the room OBJ atlas and live
- * Nasir staging pack. Only a completed original512-byte upload grants use. */
+ * Nasir staging pack. A complete original upload or successful full-load
+ * recovery with exact source and complete512-byte identity grants use. */
 enum { kLagoonWideDeathBytes=0x200 };
 typedef struct LagoonWideDeathAtlas {
   uint8_t bytes[kLagoonWideDeathBytes];
@@ -128,6 +129,10 @@ int LagoonWideDeath_Begin(LagoonWideDeathAtlas *atlas,uint64_t generation,
     const uint8_t *rom,size_t size,unsigned bank,unsigned address,unsigned destination,unsigned length);
 void LagoonWideDeath_Write(LagoonWideDeathAtlas *atlas,unsigned address,uint8_t value);
 int LagoonWideDeath_Match(const LagoonWideDeathAtlas *atlas,const uint16_t *vram,
+    const uint8_t *rom,size_t size,uint64_t generation);
+/* Caller owns the existing one-attempt successful-load/scene/generation gate.
+ * Never repairs a partial transfer or grants authority on a cold reset. */
+int LagoonWideDeath_RebindResident(LagoonWideDeathAtlas *atlas,const uint16_t *vram,
     const uint8_t *rom,size_t size,uint64_t generation);
 int LagoonWideDeath_CellOwned(const LagoonWideDeathAtlas *atlas,unsigned base1,unsigned base2,
     const LagoonWideCell *cell);

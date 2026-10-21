@@ -905,6 +905,19 @@ int LagoonWideDeath_Match(const LagoonWideDeathAtlas *a,const uint16_t *vram,
   for(unsigned i=0;i<kLagoonWideDeathBytes;++i)h=(h^a->bytes[i])*UINT64_C(1099511628211);
   return h==UINT64_C(0x84462e34625605fe);
 }
+int LagoonWideDeath_RebindResident(LagoonWideDeathAtlas *a,const uint16_t *vram,
+    const uint8_t *rom,size_t size,uint64_t generation) {
+  if(!a||!vram||!rom||!generation||a->ready||a->completed||a->left)return 0;
+  /* A successful full load replaces the DMA history, not the original common0
+   * upload's complete resident bytes. Its exact loader/decompressor/queue/NMI
+   * sources and all512 bytes are checked by the same original-resource match. */
+  LagoonWideDeathAtlas bound={0};
+  memcpy(bound.bytes,vram+0x4300,sizeof bound.bytes);
+  bound.generation=generation;bound.next=0x8800;
+  bound.completed=kLagoonWideDeathBytes;bound.ready=1;
+  if(!LagoonWideDeath_Match(&bound,vram,rom,size,generation))return 0;
+  *a=bound;return 1;
+}
 int LagoonWideDeath_CellOwned(const LagoonWideDeathAtlas *a,unsigned base1,unsigned base2,
     const LagoonWideCell *c) {
   if(!a || !a->ready || !c || (c->size!=8&&c->size!=16))return 0;
@@ -1403,6 +1416,8 @@ void LagoonWideEntities_RebindLoaded(void) {
   if(!g_ppu||g_ppu->obsel!=2||PPU_objPriority(g_ppu))return;
   LagoonWideAtlas_RebindResident(&s_atlas,g_rom,kRomSize,g_ram,
       PpuRenderVram(g_ppu),RtlStateGeneration());
+  LagoonWideDeath_RebindResident(&s_death_atlas,PpuRenderVram(g_ppu),g_rom,
+      kRomSize,RtlStateGeneration());
 }
 /* A native-anchored margin cell can outlive the CPU clearing the outgoing
  * actor records: its original, unchanged OAM slot still owns the displayed

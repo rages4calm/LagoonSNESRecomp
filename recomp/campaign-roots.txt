@@ -369,3 +369,6 @@
 01BF83:M1X0
 01BF9C:M1X0
 01BFF5:M1X0
+
+# Original enemy projectile request; observed inherited-JSR tail entry.
+01977F:M1X0
