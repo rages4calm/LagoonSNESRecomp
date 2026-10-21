@@ -31,6 +31,9 @@
 #include "lagoon_qol.h"               /* opt-in quality-of-life plugins */
 #include "lagoon_widescreen.h"
 #include "lagoon_frame_probe.h"
+#include "lagoon_map.h"
+#include "lagoon_follower.h"
+#include "common_rtl.h"
 #include <string.h>
 
 #ifndef __ANDROID__
@@ -45,6 +48,31 @@
 #ifndef SNES_GAME_VERSION
 #define SNES_GAME_VERSION "dev"
 #endif
+
+static void LagoonHost_OnRom(const uint8_t *rom,size_t size) {
+    LagoonMap_Init(rom,size);
+    LagoonQol_OnRomLoaded(rom,size);
+    LagoonFollower_Reset(rom,size);
+}
+static void LagoonHost_AfterFrame(const SnesDesktopHostFrameStats *stats) {
+    LagoonFrameProbe_Record(stats);
+    LagoonMap_Observe(g_ram,RtlStateGeneration());
+    LagoonMap_AfterFrame(stats->frame);
+}
+static int LagoonHost_MapKey(int key,int modifiers,int pressed) {
+    (void)modifiers;
+    int opened=LagoonMap_IsOpen();
+    static int m_held;
+    if(key==SDLK_M){if(pressed&&!m_held)LagoonMap_Command(LAGOON_MAP_TOGGLE);m_held=pressed;return 1;}
+    if(!opened||!pressed)return 0;
+    switch(key){
+    case SDLK_ESCAPE:case SDLK_B:LagoonMap_Command(LAGOON_MAP_CLOSE);break;
+    case SDLK_LEFT:LagoonMap_Command(LAGOON_MAP_PREVIOUS);break;
+    case SDLK_RIGHT:LagoonMap_Command(LAGOON_MAP_NEXT);break;
+    case SDLK_Y:LagoonMap_Command(LAGOON_MAP_HOME);break;
+    default:break;
+    }return 1;
+}
 
 static const SnesDesktopHostGame kGameHost = {
     .display_name        = "Lagoon",
@@ -63,7 +91,7 @@ static const SnesDesktopHostGame kGameHost = {
     /* Runs on the loaded image before the machine exists, which is where the
      * quality-of-life features patch ROM data. Nothing happens unless the
      * player has enabled a feature: the faithful game is the default. */
-    .on_rom_loaded       = LagoonQol_OnRomLoaded,
+    .on_rom_loaded       = LagoonHost_OnRom,
     .widescreen_supported = 1,
     .display_aspect_supported = 1,
     .native_widescreen    = 1,
@@ -73,7 +101,12 @@ static const SnesDesktopHostGame kGameHost = {
     .end_sim_frame       = LagoonWide_EndFrame,
     .draw_frame          = LagoonWide_DrawFrame,
     .on_reset            = LagoonWide_Reset,
-    .after_run_frame     = LagoonFrameProbe_Record,
+    .after_run_frame     = LagoonHost_AfterFrame,
+    .on_shutdown         = LagoonMap_Save,
+    .title_overlay_key   = LagoonHost_MapKey,
+    .title_overlay_poll_open = LagoonMap_PollOpen,
+    .title_overlay_tick = LagoonMap_Tick,
+    .title_overlay_image = LagoonMap_Image,
 };
 
 #ifndef __ANDROID__

@@ -27,6 +27,7 @@
 
 #include "mod_runtime.h"
 #include "cpu_state.h"
+#include "lagoon_follower.h"
 #include "common_rtl.h" /* g_ram: WRAM, $7E:xxxx -> g_ram[addr] */
 
 #include <stdint.h>
@@ -609,7 +610,7 @@ static uint8_t qol_filter_write(uint32_t addr, uint8_t value) {
     if (value == 3) return 5;
     if (value == 0xFD) return 0xFB;
   }
-  if (g_follower_speed && addr >= 0x546 && addr < 0xD40 &&
+  if (g_follower_speed && !LagoonFollower_OwnsVelocity(addr) && addr >= 0x546 && addr < 0xD40 &&
       ((addr - 0x500) % 0x40 == 6 || (addr - 0x500) % 0x40 == 8)) {
     uint32_t base = 0x500 + ((addr - 0x500) / 0x40) * 0x40;
     uint8_t mode = g_ram[base + 0x1B];
@@ -663,6 +664,7 @@ static uint8_t qol_filter_write(uint32_t addr, uint8_t value) {
  * must additionally identify the exact pre-instruction cursor. */
 static uint8_t qol_filter_read(uint32_t addr, uint8_t value, const CpuWramReadContext *c) {
   if(addr==0x23C)return LagoonFastMenus_FilterRead(addr,value,c,g_ram);
+  value=LagoonFollower_FilterRead(addr,value,c,g_ram);
   if (!g_recovery_time || addr != 0x501 || !c) return value;
   qol_check_timeline();
   uint32_t elapsed = (uint32_t)snes_frame_counter - g_recovery_start_frame;

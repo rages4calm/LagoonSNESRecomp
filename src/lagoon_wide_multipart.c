@@ -46,7 +46,7 @@ int LagoonWideMultipart_PropDrawOffset(const uint8_t *rom,size_t size,
       word(p,q+2)!=word(r,14)||
       word(r,12)!=((word(r,2)-word(p,0x480))&65535)||
       word(r,14)!=((word(r,4)-word(p,0x482))&65535)||
-      !p[0x3ae]||phase<2||phase>42)return 0;
+      !p[0x3ae]||phase<1||phase>42)return 0;
   if(!source(rom,size,0x0180f1,12,UINT64_C(0xbe646d510b3b48ea))||
       !source(rom,size,0x01c026,164,UINT64_C(0x1af59bf53030a61c))||
       !source(rom,size,0x01d8da,31,UINT64_C(0xe5fb5c1ea62cc247))||
@@ -57,6 +57,16 @@ int LagoonWideMultipart_PropDrawOffset(const uint8_t *rom,size_t size,
       !source(rom,size,0x05c10a,3,UINT64_C(0xaa256a1a94cb4dfd)))return 0;
   unsigned table=at(0x01de11);
   if(word(p,0x90)!=word(rom,table+(phase-1)*2)||word(p,0x92)!=word(p,0x90))return 0;
+  if(phase==1){
+    /* The FF activation can start from the resting zero offset. Its first
+     * post-draw DDAD update is already -4 at the DMA snapshot. Zero is only
+     * a finite native-anchored candidate: the caller must match every cell;
+     * interrupted/nonzero prior shakes therefore still refuse as a group. */
+    if(p[0x3ae]!=255||
+        !source(rom,size,0x029072,46,UINT64_C(0xd5533e0030732ac3))||
+        !source(rom,size,0x029f70,88,UINT64_C(0x464f6e34b6a60891)))return 0;
+    *draw_offset=0;return 1;
+  }
   *draw_offset=(int16_t)word(rom,table+(phase-2)*2);return 1;
 }
 static int append(const uint8_t *rom,size_t size,unsigned selector,unsigned frame,

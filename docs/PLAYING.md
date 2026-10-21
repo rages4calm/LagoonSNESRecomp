@@ -35,7 +35,7 @@ Companion's Quality of life page. Opening balance affects new games.
 | Option | Effect |
 | --- | --- |
 | Sword reach | Four forward extents become 38 pixels; perpendicular edges gain 3 pixels of cleave. |
-| Follower speed | Qualified escort movement increases from 1 to 3 pixels per frame. |
+| Follower speed | Fallback escort movement increases from 1 to 3 pixels per frame; the built-in route follower already uses Nasir's actual pace. |
 | Walking speed | Nasir's ordinary 3-pixel movement becomes 5; enemies and hurt knockback remain stock. |
 | Hit recovery | Eight additional frames reject ordinary consecutive hits. |
 | Opening balance | Start at 18 HP and 11 defense; level 2 uses 21 HP and 13 defense. Level 3 onward follows stock growth. |
@@ -48,6 +48,30 @@ Faster Items/Magic/Equipment transitions and Giles's first aid are built into th
 port. Speak to Giles, choose Yes and follow the escort quest; no Healing Pot is
 required or consumed. The ROM remains clean. These are shared native/interpreter
 hooks rather than applying the supplied BPS at launch. [Credits](../CREDITS.md).
+
+## Escorts and the map
+
+Escorts follow Nasir's recorded movement at his actual walking pace, keeping six
+moving steps of separation. Stops preserve that gap; corners use the same route.
+During ordinary following, you can walk through your escort when reversing
+direction. Walls, enemies, ordinary NPCs, doors and quest scripts retain their
+original rules. Scripted movement and
+contexts that cannot be qualified retain the original behavior. This is built in
+and does not require enabling a mod. During an active escort, run-ahead yields to
+ordinary simulation so speculative frames cannot discard the movement trail.
+
+Press **M** or **Select+L** to open the explored map. Gameplay pauses while it is
+open. Left/Right or the shoulder buttons browse visited areas; **Y** returns to
+Nasir's area. **M**, **Escape** or controller **B** closes it.
+
+The map reveals nearby observed terrain, Nasir's trail, exits and discovered
+chests. Hollow chest markers mean opened. Exit links name destinations you have
+visited; unexplored destinations stay hidden. An exit marker does not mean its
+story gate is unlocked. Area IDs distinguish rooms with the same location name.
+The map is a record of exploration, not a guarantee that every ground tile is
+walkable. Exploration saves separately in `saves/lagoon-exploration.map`; loading
+an earlier state retains places already explored. No map artwork is downloaded.
+An objective journal, route guidance and zoom-out are still future work.
 
 ## Saves and states
 

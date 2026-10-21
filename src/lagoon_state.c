@@ -2,6 +2,7 @@
  * Keep the actual execution cursor and shared runtime residue with every state.
  * A complete preflight validates this extension before generic guest mutation. */
 #include "lagoon_state.h"
+#include "lagoon_follower.h"
 #include "lagoon_soundtrack.h"
 #include "beam_frame_driver.h"
 #include "common_rtl.h"
@@ -117,6 +118,7 @@ void LagoonState_LoadExtra(SaveLoadInfo *sli,uint32_t version) {
   if(!pending_execution)RtlStateStreamFail(sli);
 }
 void LagoonState_OnLoaded(uint32_t version) {
+  LagoonFollower_Discard();
   if(pending_execution){
     RtlApplyExecutionState();
     snes_beam_frame_driver_restore(&pending_cursor.beam);

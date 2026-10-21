@@ -175,6 +175,23 @@ class StrictComparisonTests(unittest.TestCase):
         self.assertIn('diagnostic_overrides',
                       compare.compare_runs(self.a, self.b)['input_differences'])
 
+    def test_follower_report_paths_preserve_guest_and_host_inputs(self):
+        for root in (self.a, self.b):
+            self.change_receipt(root, diagnostic_overrides={
+                'LAGOON_FOLLOWER_REPORT': str(root / 'follower.json')})
+        self.assertTrue(compare.compare_runs(self.a, self.b)['passed'])
+        (self.b / 'dumps/one.wram.bin').write_bytes(b'changed follower state')
+        self.assertFalse(compare.compare_runs(self.a, self.b)['passed'])
+        (self.b / 'dumps/one.wram.bin').write_bytes((self.a / 'dumps/one.wram.bin').read_bytes())
+        self.change_receipt(self.b, diagnostic_overrides={
+            'LAGOON_FOLLOWER_REPORT': str(self.b / '..' / 'outside.json')})
+        self.assertFalse(compare.compare_runs(self.a, self.b)['valid_evidence'])
+        self.change_receipt(self.b, diagnostic_overrides={
+            'LAGOON_FOLLOWER_REPORT': str(self.b / 'follower.json'),
+            'LAGOON_MAP_SELFTEST_FRAME': '465'})
+        self.assertIn('diagnostic_overrides',
+                      compare.compare_runs(self.a, self.b)['input_differences'])
+
     def test_sram_change_fails_comparison(self):
         (self.b / 'dumps/one.sram.bin').write_bytes(b'\x01\x01')
         result = compare.compare_runs(self.a, self.b)

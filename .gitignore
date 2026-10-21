@@ -10,6 +10,8 @@
 *.state
 *.mss
 *.cdl
+lagoon-exploration.map
+lagoon-exploration.map.tmp
 *.bps
 *.vgm
 *.vgz

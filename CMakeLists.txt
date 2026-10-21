@@ -39,6 +39,8 @@ include(${SNESRECOMP_ROOT}/runner/runner.cmake)
 add_executable(LagoonSNESRecomp
     ${SNESRECOMP_RUNNER_SOURCES}
     src/main.c
+    src/lagoon_follower.c
+    src/lagoon_map.c
     src/lagoon_frame_probe.c
     src/lagoon_actor_compute.c
     src/host_contract.c

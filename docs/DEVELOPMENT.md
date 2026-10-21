@@ -23,12 +23,30 @@ Earlier checks are not a reason to rerun the entire campaign for every change.
 
 Remaining work includes unsupported special/multipart forms, dynamic graphics,
 magic effects and display layouts; additional native variable-script services;
-frame-time spikes; and bugs reported during real play. Planned QoL work after
-native/rendering stabilization includes permanent escort trail following at
-Nasir's pace, an explored map with position, doors, floor connections and
-discovered treasure, a small objective journal and optional guidance to known
-destinations. These are not implemented. A possible 15–20% zoom-out remains a
-separate later consideration.
+frame-time spikes; and bugs reported during real play. Built-in escort following
+now consumes six moving samples of Nasir's observed route at the actual pace.
+Source/mode/real-stack/generation-qualified pre-opcode hooks retain original facing,
+velocity computation, tile collision and integration. Only intent and bounded
+velocity change; positions, quest flags and doors are not synthesized. A separate
+source-qualified80C7/A110/80CA read view makes only a unique ordinary quest escort
+nonblocking to Nasir, including before trail bootstrap. It changes no stored actor
+flags or return frames; original scanner skip branches execute. Exact interpreter
+PC, actual80C9 frame, mode, scene, tick and generation are mandatory. Unknown
+native scanners decline; promoting that scanner requires preserving this policy
+with new source evidence and tests. Scripted
+or unqualified roles retain the original path. Disposable history resets on
+loads/rollback; run-ahead declines speculation during escort quest flags.
+
+The built-in explored map reads original area names, dimensions, door links and
+treasure records at runtime. It reveals only nearby observed cells, uses source
+collision bit0x80 solely for conservative solid shading, and shows chests only after
+their cells are discovered. Other collision tags are not walkability authority.
+Opened markers follow original persistent flags. Eight original door records lie
+outside their room's declared extent and are omitted from markers. The shared
+host's optional title panel freezes guest/script execution, audio production and
+run-ahead while presenting the last world field. Exploration persists separately
+from guest saves, with validation and atomic replacement. An objective journal,
+guidance to known destinations and a possible 15-20% zoom-out remain later work.
 [Mike's RPG Center maps](https://mikesrpgcenter.com/lagoon/index.html#maps) and the
 [walkthrough](https://mikesrpgcenter.com/lagoon/walkthrough.html) are route references,
 not proof of runtime state or permission to redistribute their maps.
@@ -63,7 +81,8 @@ groups may use up to 128 cells; ordinary actor groups retain their 64-cell bound
 Focused room 40, 41 and 42 tests confirm live packet recognition but do not show
 added margin pixels in those finite arenas. Extended boss pixels have separate
 synthetic checks. The room 40 queued prop uses a source-proven draw-time shake
-offset before the original post-draw update, with the complete native OAM match
+offset before the original post-draw update, including the source-proven first
+activation field, with the complete native OAM match
 still required. Unsupported forms, unowned optional layers and
 Nasir's dynamic graphics retain fallback. Current and retained packets are
 withdrawn in the same field when an upload replaces resources they own.

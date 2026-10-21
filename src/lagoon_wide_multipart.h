@@ -14,7 +14,8 @@ int LagoonWideMultipart_PacketCells(const uint8_t *rom,size_t rom_size,
     const uint8_t *packet,unsigned queue,LagoonWideCell *cells,size_t capacity);
 
 /* Room40's queued authored prop only: C026 draws before D8DA advances the
- * finite shake table. Recover its source draw-time offset from an unambiguous
- * post-update phase. This grants no current/far pose or OAM/resource authority. */
+ * finite shake table. Recover its draw-time offset at phases2..42; the exact
+ * FF first phase offers only the resting-zero native-anchor candidate, which
+ * must still match every original OAM cell. No current/far/resource authority. */
 int LagoonWideMultipart_PropDrawOffset(const uint8_t *rom,size_t rom_size,
     const uint8_t *packet,unsigned queue,int *draw_offset);

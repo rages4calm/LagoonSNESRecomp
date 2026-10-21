@@ -38,13 +38,16 @@
 #include "lagoon_menu_dma.h"
 #include "lagoon_soundtrack.h"
 #include "lagoon_state.h"
+#include "lagoon_follower.h"
 #include "lagoon_widescreen.h"
 #include "lagoon_campaign_debug.h"
 
 #include "beam_frame_driver.h"
+#include "common_rtl.h"
 
 void GameRunOneFrame(void)
 {
+    LagoonFollower_BeforeFrame();
     LagoonNativeRecovery_BeforeFrame();
     LagoonMenuClose_BeforeFrame();
     LagoonMenuDma_BeforeFrame();
@@ -63,8 +66,22 @@ void GameSessionReset(void)
      * session. recomp-ai-rules/NETPLAY.md §3 — sticky state that "has always
      * been fine" is the usual desync culprit, because single-player never
      * re-enters the boot path twice in one process. */
+    LagoonFollower_Discard();
     snes_beam_frame_driver_reset();
     LagoonSoundtrack_Reset();
+}
+
+/* In-memory rollback must invalidate disposable escort authority. While an
+ * escort quest is active, decline speculative frames so a six-step trail is
+ * not repeatedly discarded by run-ahead. File save schema remains unchanged. */
+static size_t GameExecBound(void) { return (g_ram[0x4e1]&3)?0:1; }
+static size_t GameExecSave(void *out,size_t capacity) {
+    if(!out||!capacity)return 0;
+    *(uint8_t *)out=0;return 1;
+}
+static int GameExecLoad(const void *in,size_t size) {
+    if(!in||size!=1||*(const uint8_t *)in)return 0;
+    LagoonFollower_Discard();return 1;
 }
 
 const RtlGameInfo kGameInfo = {
@@ -80,4 +97,7 @@ const RtlGameInfo kGameInfo = {
     .on_state_loaded = &LagoonState_OnLoaded,
     .snapshot_preflight = &LagoonState_Preflight,
     .snapshot_guard_identity = &LagoonState_Identity,
+    .exec_state_bound = GameExecBound,
+    .exec_state_save = GameExecSave,
+    .exec_state_load = GameExecLoad,
 };
