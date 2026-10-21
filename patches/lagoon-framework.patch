@@ -4047,7 +4047,7 @@ index 27437759e35a6cd8a275eefdd3db9d39055cefa5..4c49fe801adccb26e1b395e79cb30cf0
  }
  
 diff --git a/runner/src/desktop/opengl.c b/runner/src/desktop/opengl.c
-index e9063a7414ac6dd16469731c13bf930b31d17876..07a78e70a6b6c77dc58a9022cea7b78f4576c758 100644
+index e9063a7414ac6dd16469731c13bf930b31d17876..d74d3d9c5bf7060cc8c39b0aa587630658811e41 100644
 --- a/runner/src/desktop/opengl.c
 +++ b/runner/src/desktop/opengl.c
 @@ -50,6 +50,7 @@ static unsigned int g_program, g_flash_program, g_VAO;
@@ -4072,7 +4072,75 @@ index e9063a7414ac6dd16469731c13bf930b31d17876..07a78e70a6b6c77dc58a9022cea7b78f
    g_want_screenshot = true;
  }
  
-@@ -300,8 +308,9 @@ static void SaveScreenshotBmp(int width, int height) {
+@@ -282,6 +290,67 @@ static double MonotonicSeconds(void) {
+   return (double)SDL_GetPerformanceCounter() / SDL_GetPerformanceFrequency();
+ }
+ 
++/* Opt-in CPU wall timing of existing GL calls, not GPU timer queries. Buffered
++ * until exit so diagnostics cannot add per-present disk stalls. */
++enum { kGlTimingCapacity = 36000 };
++typedef struct GlTiming {
++  unsigned sequence;
++  int width, height, drawable_width, drawable_height, shader, resized;
++  double upload, draw, swap, other;
++} GlTiming;
++static GlTiming *g_gl_timings;
++static unsigned g_gl_timing_count;
++static unsigned long long g_gl_timing_dropped;
++static bool g_gl_timing_configured;
++static char g_gl_timing_path[1024];
++
++static void GlTimingFinish(void) {
++  if (!g_gl_timings) return;
++  /* Exclusive creation also protects a file created after timing was armed. */
++  FILE *f = fopen(g_gl_timing_path, "wx");
++  if (!f) {
++    fprintf(stderr, "GL timing: cannot create fresh output '%s'\n", g_gl_timing_path);
++  } else {
++    bool failed = fprintf(f, "sequence,width,height,drawable_width,drawable_height,shader,resized_texture,upload_ms,draw_ms,swap_ms,other_ms\n") < 0;
++    for (unsigned i = 0; i < g_gl_timing_count && !failed; ++i) {
++      const GlTiming *t = g_gl_timings + i;
++      failed = fprintf(f, "%u,%d,%d,%d,%d,%d,%d,%.6f,%.6f,%.6f,%.6f\n",
++          t->sequence, t->width, t->height, t->drawable_width,
++          t->drawable_height, t->shader, t->resized, t->upload * 1000,
++          t->draw * 1000, t->swap * 1000, t->other * 1000) < 0;
++    }
++    if (fclose(f)) failed = true;
++    if (failed) fprintf(stderr, "GL timing: output write failed\n");
++  }
++  if (g_gl_timing_dropped)
++    fprintf(stderr, "GL timing: capacity reached, %llu later presents omitted\n", g_gl_timing_dropped);
++  free(g_gl_timings);
++  g_gl_timings = NULL;
++}
++
++static void GlTimingInit(void) {
++  if (g_gl_timing_configured) return;
++  g_gl_timing_configured = true;
++  const char *path = getenv("SNESRECOMP_GL_TIMING");
++  if (!path || !*path || !strcmp(path, "0") || !strcmp(path, "off") || !strcmp(path, "false")) return;
++  if (!strcmp(path, "-1") || strlen(path) >= sizeof(g_gl_timing_path)) {
++    fprintf(stderr, "GL timing: expected a fresh CSV path\n");
++    return;
++  }
++  g_gl_timings = calloc(kGlTimingCapacity, sizeof(*g_gl_timings));
++  if (!g_gl_timings) {
++    fprintf(stderr, "GL timing: buffer allocation failed\n");
++    return;
++  }
++  if (atexit(GlTimingFinish)) {
++    free(g_gl_timings);
++    g_gl_timings = NULL;
++    fprintf(stderr, "GL timing: could not register output\n");
++    return;
++  }
++  memcpy(g_gl_timing_path, path, strlen(path) + 1);
++}
++
+ static void SaveScreenshotBmp(int width, int height) {
+   size_t pixel_size = (size_t)width * (size_t)height * 4;
+   uint8 *pixels = (uint8 *)malloc(pixel_size);
+@@ -300,8 +369,9 @@ static void SaveScreenshotBmp(int width, int height) {
    else
      memset(&tm_snapshot, 0, sizeof(tm_snapshot));
  
@@ -4084,7 +4152,7 @@ index e9063a7414ac6dd16469731c13bf930b31d17876..07a78e70a6b6c77dc58a9022cea7b78f
             "screenshots/screenshot_%04d%02d%02d_%02d%02d%02d.bmp",
             tm_snapshot.tm_year + 1900, tm_snapshot.tm_mon + 1,
             tm_snapshot.tm_mday, tm_snapshot.tm_hour, tm_snapshot.tm_min,
-@@ -337,7 +346,10 @@ static void SaveScreenshotBmp(int width, int height) {
+@@ -337,7 +407,10 @@ static void SaveScreenshotBmp(int width, int height) {
      fwrite(pixels, 1, pixel_size, f);
      fclose(f);
      printf("Screenshot saved: %s\n", path);
@@ -4096,6 +4164,64 @@ index e9063a7414ac6dd16469731c13bf930b31d17876..07a78e70a6b6c77dc58a9022cea7b78f
    } else {
      fprintf(stderr, "Screenshot: couldn't open '%s' for writing\n", path);
    }
+@@ -376,6 +449,10 @@ static void OpenGLRenderer_BeginDraw(int width, int height, uint8 **pixels, int
+ }
+ 
+ static void OpenGLRenderer_EndDraw(void) {
++  GlTimingInit();
++  bool timed = g_gl_timings && g_gl_timing_count < kGlTimingCapacity;
++  if (g_gl_timings && !timed) ++g_gl_timing_dropped;
++  double timing_start = timed ? MonotonicSeconds() : 0;
+   int drawable_width, drawable_height;
+ 
+   snesrecomp_sdl_get_drawable_size(g_window, &drawable_width, &drawable_height);
+@@ -390,6 +467,8 @@ static void OpenGLRenderer_EndDraw(void) {
+   if (g_compute_viewport)
+     g_compute_viewport(g_draw_width, g_draw_height, drawable_width, drawable_height, &viewport);
+ 
++  double upload_start = timed ? MonotonicSeconds() : 0;
++  int resized = g_draw_width != g_texture.width || g_draw_height != g_texture.height;
+   glBindTexture(GL_TEXTURE_2D, g_texture.gl_texture);
+   if (g_draw_width == g_texture.width && g_draw_height == g_texture.height) {
+     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, g_draw_width, g_draw_height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, g_screen_buffer);
+@@ -398,6 +477,7 @@ static void OpenGLRenderer_EndDraw(void) {
+     g_texture.height = g_draw_height;
+     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_draw_width, g_draw_height, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, g_screen_buffer);
+   }
++  double upload_end = timed ? MonotonicSeconds() : 0;
+ 
+   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+   glClear(GL_COLOR_BUFFER_BIT);
+@@ -414,6 +494,7 @@ static void OpenGLRenderer_EndDraw(void) {
+     GlslShader_Render(g_glsl_shader, &g_texture, viewport.x, viewport.y,
+                       viewport.width, viewport.height);
+   }
++  double draw_end = timed ? MonotonicSeconds() : 0;
+ 
+   if (g_want_screenshot) {
+     g_want_screenshot = false;
+@@ -426,7 +507,21 @@ static void OpenGLRenderer_EndDraw(void) {
+       g_screenshot_flash_start_time = -1.0;
+   }
+ 
++  double swap_start = timed ? MonotonicSeconds() : 0;
+   SDL_GL_SwapWindow(g_window);
++  if (timed) {
++    double end = MonotonicSeconds();
++    g_gl_timings[g_gl_timing_count] = (GlTiming){
++      .sequence = g_gl_timing_count + 1,
++      .width = g_draw_width, .height = g_draw_height,
++      .drawable_width = drawable_width, .drawable_height = drawable_height,
++      .shader = g_glsl_shader != NULL, .resized = resized,
++      .upload = upload_end - upload_start, .draw = draw_end - upload_end,
++      .swap = end - swap_start,
++      .other = upload_start - timing_start + swap_start - draw_end,
++    };
++    ++g_gl_timing_count;
++  }
+ }
+ 
+ static const struct RendererFuncs kOpenGLRendererFuncs = {
 diff --git a/runner/src/desktop/opengl.h b/runner/src/desktop/opengl.h
 index e7ed4729f8998d5f726e17976ebfd25faf2d8806..40b41c05cd58ec07d7dc5ecd7da95a3bb583411b 100644
 --- a/runner/src/desktop/opengl.h
@@ -5823,7 +5949,7 @@ index 484b3f017b4077521dc6fc7dc54ea99ed23c54aa..462683ccb0e45578ed8adcdf69bc0255
          cpu->d = false;
          cpu->k = 0;
 diff --git a/runner/src/snes/interp_bridge.c b/runner/src/snes/interp_bridge.c
-index c1e48eb..cec5bf3 100644
+index c1e48ebb1dbfe00207474015d4e7539f83450d64..0ad7c597ed79e4c045d3b967f8a1fe58d35ad279 100644
 --- a/runner/src/snes/interp_bridge.c
 +++ b/runner/src/snes/interp_bridge.c
 @@ -21,6 +21,9 @@
@@ -6566,7 +6692,25 @@ index c1e48eb..cec5bf3 100644
          }
  
          /* Env-gated per-instruction cycle watch (SNESRECOMP_CYC_WATCH="lo-hi"
-@@ -2597,12 +3077,18 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2536,12 +3016,11 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+              progress_dynamic_epoch != s_interp_dynamic_progress_epoch)) {
+             progress_write_epoch=g_interp_bridge_write_epoch;
+             progress_dynamic_epoch=s_interp_dynamic_progress_epoch;
+-            /* Flush accumulated SPC time on every progress checkpoint so the
+-             * SPC700 keeps pace during boot handshakes (Star Ocean: SPC700
+-             * upload → poll $2140 for response).  Without this the SPC only
+-             * advances at port accesses and threshold crossings, which may
+-             * leave it frozen during long code sequences. */
+-            bridge_apu_flush(cpu);
++            /* Boot/legacy timelines need progress flushes for SPC handshakes.
++             * The absolute timeline already flushes at the shared completed-
++             * opcode threshold and every port access. Extra WRAM-progress
++             * flushes here would make its batching depend on execution tier. */
++            if (!rtl_apu_absolute_periodic_enabled()) bridge_apu_flush(cpu);
+             steps=0;
+         }
+ 
+@@ -2597,12 +3076,18 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
                               TIER2_KIND_GOTO_GAP, 2);
          }
  
@@ -6586,7 +6730,7 @@ index c1e48eb..cec5bf3 100644
              /* Cooperative-scheduler (yield_pc) mode bounces too (fiber-free
               * rich-LLE, docs/LLE_SCHEDULER.md): a bounced body that reaches a
               * yield primitive no longer corrupts the paired-call stack — its
-@@ -2614,7 +3100,13 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2614,7 +3099,13 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
                  (!yield_pc || lle_yield_bounce_enabled()) &&
                  !lle_bounce_target_excluded(target);
              const int has_body  = cpu_dispatch_has_entry(cpu, target);
@@ -6601,7 +6745,7 @@ index c1e48eb..cec5bf3 100644
                  /* Paired-call ABI: the interp already pushed the return frame, so
                   * run the target with hrv=frame_size and let its RTS/RTL
                   * HOST-RETURN to us (frame popped, S restored to pre-call). We
-@@ -2624,7 +3116,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2624,7 +3115,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
                   * itself a registered function entry (e.g. $90:EB55 sub_90EB55
                   * right after HandleChargingBeamGfxAudio's JSR), the Samus-draw
                   * +2 leak. frame: JSL(0x22)=3, JSR/JSR(abs,X)=2. */
@@ -6610,7 +6754,7 @@ index c1e48eb..cec5bf3 100644
                  uint16_t _sp_pre = in.sp;
                  /* Compiled body paces its own APU (RtlApuRead/Write); un-suppress
                   * the per-touch catch-up for its duration, then restore the
-@@ -2649,7 +3141,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2649,7 +3140,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
                   * time is dropped — only deferred to the next real flush. (No-op
                   * under SNES_COSIM_APU_SHARED: pending never accumulates there, so
                   * the co-sim gates are unaffected.) */
@@ -6619,7 +6763,7 @@ index c1e48eb..cec5bf3 100644
                      bridge_apu_flush(cpu);
                  int _apu_drv = g_interp_apu_driving;
                  g_interp_apu_driving = 0;
-@@ -2666,6 +3158,8 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2666,6 +3157,8 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
                  interp_edge_note(pc_before, target, INTERP_EDGE_AOT_CALL, op,
                                   (uint16_t)_sp_pre);
                  g_interp_wlog_pc24 = 0;
@@ -6628,7 +6772,7 @@ index c1e48eb..cec5bf3 100644
                  RecompReturn _air = cpu_dispatch_pc_paired(cpu, target, _fs);
                  s_interp_bounce_owner_depth = _saved_bounce_owner;
                  s_interp_bounce_recomp_base = _saved_bounce_base;
-@@ -2676,7 +3170,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2676,7 +3169,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
                              "sp_pre=$%04X aot_ret=%d sp_post=$%04X\n",
                              op, (unsigned)pc_before, (unsigned)target,
                              (unsigned)_sp_pre, (int)_air, (unsigned)in.sp);
@@ -6637,7 +6781,7 @@ index c1e48eb..cec5bf3 100644
                      (pc_before + (uint32_t)call_len +
                       (uint32_t)cpu_dispatch_inline_arg_bytes(target)) & 0xFFFFFF;
                  edge_expect = ret;
-@@ -2815,7 +3309,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2815,7 +3308,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
                   * of bounce POLICY (a bounce-off harvest soak must still see
                   * gaps) but only for genuine gaps — never for targets that
                   * have a body and merely weren't bounced. */
@@ -6646,7 +6790,7 @@ index c1e48eb..cec5bf3 100644
                      tier2_record(pc_before, target, tier2_entry_mx(cpu),
                                   TIER2_KIND_CALL_GAP, 2);
                  if (_ibrw)
-@@ -2826,6 +3320,72 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2826,6 +3319,72 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
              continue;
          }
  
@@ -6719,7 +6863,7 @@ index c1e48eb..cec5bf3 100644
          /* Host-invoked interrupt handlers (stop_on_rti) must NOT use the
           * RTS/RTL-past-s_enter watermark. Games commonly switch to a private
           * NMI/IRQ stack (TCS to a higher S) and JSR helpers there; the first
-@@ -2885,6 +3445,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
+@@ -2885,6 +3444,7 @@ static int _interp_run_core(CpuState *cpu, uint32_t entry_pc24,
  
          }
      }
@@ -6727,7 +6871,7 @@ index c1e48eb..cec5bf3 100644
      if (trace) {
          itrace_dump(entry_pc24, head, (int)(itn < 8 ? itn : 8), ring, itn);
          interp_bridge_dump_recent_edges(64, stderr);
-@@ -3634,12 +4195,15 @@ RecompReturn interp_tier_run_call_frame(CpuState *cpu, uint32_t target_pc24,
+@@ -3634,12 +4194,15 @@ RecompReturn interp_tier_run_call_frame(CpuState *cpu, uint32_t target_pc24,
      interp_tier_note(target_pc24);
      const uint8_t mx = tier2_entry_mx(cpu);
      tier2_discover(source_pc24, target_pc24, mx, TIER2_KIND_DISPATCH, -1);

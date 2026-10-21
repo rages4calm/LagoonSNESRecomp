@@ -9,7 +9,7 @@ widescreen, a custom scene renderer and optional quality-of-life improvements.
 ![Atland with Enhanced original pixels at 1920 by 1080](docs/screenshots/atland-epx-1920x1080.png)
 
 [More screenshots](docs/screenshots/README.md) ·
-[Windows preview](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.1.2-preview.1) ·
+[Windows preview](https://github.com/rages4calm/LagoonSNESRecomp/releases) ·
 [Build](docs/BUILDING.md) · [Playing and settings](docs/PLAYING.md) ·
 [Development](docs/DEVELOPMENT.md) · [Credits](CREDITS.md)
 
@@ -18,6 +18,8 @@ widescreen, a custom scene renderer and optional quality-of-life improvements.
 - **Wider views:** 16:9, 16:10, 21:9, 32:9 and window-driven aspects, with
   additional scenery, supported NPC/enemy sprites, selected multipart boss poses
   and supported projectile and fullscreen magic effects beyond the original view.
+  Loading a compatible Elf Field state also recovers supported actors in the
+  added view without requiring a door reload.
 - **Original artwork, enhanced:** optional EPX treatment preserves the palette
   and keeps the HUD sharp. No replacement artwork is required.
 - **Gameplay options:** faster walking, longer sword reach with a modest

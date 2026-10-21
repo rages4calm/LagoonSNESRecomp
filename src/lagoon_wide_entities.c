@@ -1185,6 +1185,39 @@ int LagoonWideAtlas_CellOwned(const LagoonWideAtlas *a, unsigned base1,
   return 1;
 }
 
+int LagoonWideAtlas_RebindResident(LagoonWideAtlas *a,const uint8_t *rom,
+    size_t size,const uint8_t *ram,const uint16_t *vram,uint64_t generation) {
+  if(!a||!rom||size!=kRomSize||!ram||!vram||!generation||a->ready||
+      a->completed||a->transfer_left||ram[0x100e]||ram[0x48f])return 0;
+  unsigned room=ram[0x48e];if(room!=8&&room!=9)return 0;
+  unsigned descriptor=0x05b2df+room*56;
+  if(!source_hash(rom,size,descriptor,56,room==8?
+      UINT64_C(0x8dbe20321f790213):UINT64_C(0x9d942f20dc4cda16)))return 0;
+  for(unsigned i=0;i<56;++i){unsigned value;
+    if(!rom_byte(rom,size,descriptor+i,&value)||value!=ram[0x50+i])return 0;
+  }
+  /* Original8869 decompresses BG first, then actor art into the same buffer.
+   * The short actor output leaves a BG-derived tail in the2A00-byte upload.
+   * This family has a11748-byte BG output covering that complete tail.
+   * Families without a proven complete tail deliberately remain DMA-only. */
+  unsigned actor=room==8?0x1891e4:0x199f6c;
+  if(!source_hash(rom,size,0x018869,42,UINT64_C(0x7441d4beaaaa7f86))||
+      !source_hash(rom,size,0x009143,445,UINT64_C(0x734e7c5c9157de09))||
+      !source_hash(rom,size,0x0188cd,20,UINT64_C(0x801ae5fb1002d89f))||
+      !source_hash(rom,size,0x00908a,81,UINT64_C(0xa4d117801c8e3fec))||
+      !source_hash(rom,size,0x12b297,10197,UINT64_C(0x6e89ef854007fce9))||
+      !source_hash(rom,size,actor,room==8?3790:4068,
+        room==8?UINT64_C(0x211fd048116f5093):UINT64_C(0xab5820fd503b78a1)))return 0;
+  uint64_t hash=UINT64_C(14695981039346656037);
+  const uint8_t *bytes=(const uint8_t*)(vram+0x4400);
+  for(unsigned i=0;i<kLagoonWideAtlasBytes;++i)hash=(hash^bytes[i])*UINT64_C(1099511628211);
+  if(hash!=(room==8?UINT64_C(0x53cc1e1e5e4808ce):UINT64_C(0xf4067c2896de3c27)))return 0;
+  LagoonWideAtlas bound={0};memset(bound.owned,1,sizeof(bound.owned));
+  bound.generation=generation;bound.room=room;bound.source=actor;
+  bound.completed=kLagoonWideAtlasBytes;bound.transfer_next=0xb200;bound.ready=1;
+  *a=bound;return 1;
+}
+
 #ifndef LAGOON_WIDE_ENTITIES_DECODER_ONLY
 static unsigned ram_word(const uint8_t *ram, unsigned a) { return ram[a] | (ram[a + 1] << 8); }
 static unsigned ram_pointer(const uint8_t *ram, unsigned a) { return ram_word(ram,a) | (ram[a+2]<<16); }
@@ -1334,6 +1367,13 @@ void LagoonWideEntities_Reset(void) {
   memset(s_pose,0,sizeof(s_pose));memset(s_native_pose,0,sizeof(s_native_pose)); memset(s_kind_witness,0,sizeof(s_kind_witness));
   LagoonWideAtlas_Reset(&s_atlas);LagoonWideDeath_Reset(&s_death_atlas);LagoonWideMagic_Reset(&s_magic_atlas);s_has_death=0;s_has_magic=0;
   if (g_ppu) PpuSetExtraObjects(g_ppu,NULL,0);
+}
+void LagoonWideEntities_RebindLoaded(void) {
+  /* Successful-load authority comes from the caller's one-shot scene gate.
+   * Never infer it from an arbitrary reset, absent DMA or a familiar room. */
+  if(!g_ppu||g_ppu->obsel!=2||PPU_objPriority(g_ppu))return;
+  LagoonWideAtlas_RebindResident(&s_atlas,g_rom,kRomSize,g_ram,
+      PpuRenderVram(g_ppu),RtlStateGeneration());
 }
 /* A native-anchored margin cell can outlive the CPU clearing the outgoing
  * actor records: its original, unchanged OAM slot still owns the displayed

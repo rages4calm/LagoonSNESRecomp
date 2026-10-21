@@ -3,10 +3,10 @@
 The first build executes actual original child opcodes, never guessed results.
 The second includes the complete generated native child closure. RAM executable
 fixtures exercise unknown loaded-pointer returns in all four architectural modes.
-Production BB05 remains interpreted after a live SPC beam-timing mismatch.
---candidate-gen must identify a separately generated research candidate with
-only BB05:M1X0's production floor removed. A passing source oracle cannot
-qualify production promotion; matched live MMIO/APU checks are also required.
+BB05:M1X0 also has separate matched live floor/native MMIO/APU controls.
+--candidate-gen selects the generated closure under test; other entry widths
+must remain floored. A passing source oracle alone cannot qualify production
+promotion; matched live MMIO/APU checks are also required.
 No ROM, generated C, executable or private fixture data is distributed.
 """
 import argparse,hashlib,json,re,subprocess
@@ -59,6 +59,6 @@ for native in (False,True):
  print(result.stdout,end='');print(result.stderr,end='')
  results.append(dict(mode='complete-native-closure'if native else'original-source-children',exit=result.returncode,stdout=result.stdout,stderr=result.stderr))
  if result.returncode:break
-record=dict(schema='Lagoon BB05 complete iteration candidate source oracle v2',research_only=True,production_promotion_qualified=False,production_floor_reason='Live spell13 SPC beam batch timing differs; original outer loop retained.',passed=len(results)==2 and all(not x['exit']for x in results),rom_sha256=identity,manifest_sha256=sha(a.gen/'program_manifest.json'),tool_sha256=sha(Path(__file__)),harness_sha256=sha(harness),closure={name:dict(pc=f'{functions[name][0]:06X}',body_sha256=hashlib.sha256(functions[name][1].encode()).hexdigest())for name in sorted(selected)},refused_variants=refused,results=results,scope='33 active kinds and empty pool, all16 source slots; sparse/full/mixed pools, retire/collision-free terrain, original fork allocation and same-pass later slots, hiddenA/carry/NV/decimal bounded controls, physicalstacks180/1FD0, six deadlines and unknown returned modes. Full128KiB RAM+IO/registers/physicalstack/CPU-master-copro clocks against original opcodes; constant8-master unitbus with shared multiplier model. Unknown loaded pointers stop at exact source destination. Deliberate source-table-to-WRAM handler fixtures execute actual width-changing opcodes, not real campaign data. Enemy-only title sampler HLE guard disabled in standalone room0 source oracle; separate math qualification required. Natural live-MMIO/pacing/parent integration are separate affected-route gates.')
+record=dict(schema='Lagoon BB05 complete iteration candidate source oracle v2',research_only=True,production_promotion_qualified=False,qualification_limit='Source oracle only; live floor/native MMIO/APU and integration controls are separate evidence.',passed=len(results)==2 and all(not x['exit']for x in results),rom_sha256=identity,manifest_sha256=sha(a.gen/'program_manifest.json'),tool_sha256=sha(Path(__file__)),harness_sha256=sha(harness),closure={name:dict(pc=f'{functions[name][0]:06X}',body_sha256=hashlib.sha256(functions[name][1].encode()).hexdigest())for name in sorted(selected)},refused_variants=refused,results=results,scope='33 active kinds and empty pool, all16 source slots; sparse/full/mixed pools, retire/collision-free terrain, original fork allocation and same-pass later slots, hiddenA/carry/NV/decimal bounded controls, physicalstacks180/1FD0, six deadlines and unknown returned modes. Full128KiB RAM+IO/registers/physicalstack/CPU-master-copro clocks against original opcodes; constant8-master unitbus with shared multiplier model. Unknown loaded pointers stop at exact source destination. Deliberate source-table-to-WRAM handler fixtures execute actual width-changing opcodes, not real campaign data. Enemy-only title sampler HLE guard disabled in standalone room0 source oracle; separate math qualification required. Natural live-MMIO/pacing/parent integration are separate affected-route gates.')
 (a.out/'result.json').write_text(json.dumps(record,indent=2)+'\n',encoding='utf-8')
 assert record['passed'],'Research candidate source oracle failed'

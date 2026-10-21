@@ -18,6 +18,8 @@ int LagoonWideEntities_Pixels(const uint16_t *vram, const uint16_t *cgram,
     uint16_t *pixels, int clip_native);
 void LagoonWideEntities_Reset(void);
 void LagoonWideEntities_BeginFrame(int enabled);
+/* Called once from the successful full-load scene requalification branch. */
+void LagoonWideEntities_RebindLoaded(void);
 /* Host-only outgoing-scene object packet; never restores guest records. */
 void LagoonWideEntities_RetainScene(void);
 void LagoonWideEntities_BeginRetained(int enabled);
@@ -105,6 +107,11 @@ int LagoonWideAtlas_Begin(LagoonWideAtlas *atlas, uint64_t generation,
 void LagoonWideAtlas_Write(LagoonWideAtlas *atlas, unsigned byte_address);
 int LagoonWideAtlas_CellOwned(const LagoonWideAtlas *atlas, unsigned base1,
     unsigned base2, const LagoonWideCell *cell);
+/* Successful full-state-load recovery only. Complete descriptor/source and
+ * resident-byte identity is required; no incomplete DMA tracker is repaired.
+ * Caller owns the one-attempt successful-load/generation/scene gate. */
+int LagoonWideAtlas_RebindResident(LagoonWideAtlas *atlas,const uint8_t *rom,
+    size_t rom_size,const uint8_t *ram,const uint16_t *vram,uint64_t generation);
 
 /* Original common0 death glyphs, separate from the room OBJ atlas and live
  * Nasir staging pack. Only a completed original512-byte upload grants use. */

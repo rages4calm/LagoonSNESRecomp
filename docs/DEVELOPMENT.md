@@ -14,7 +14,7 @@ display fades and queued graphics transfers. The HUD-number dispatcher has a
 separate, source-guarded handoff
 using its actual cross-bank JSL return frame. Counts of
 compiled functions are analysis counts, not completion percentages. The current
-manifest retains 527 AOT entries; the following host-side changes do not imply
+manifest retains 528 AOT entries; host-side changes do not imply
 additional compiled guest functions. Generated
 code alone does not prove that a runtime dispatcher reaches a compiled entry.
 
@@ -23,11 +23,15 @@ and its shared return tail. Its effect dispatch now also qualifies all six
 distinct source handlers, including homing and fork allocation. The complete
 effect closure has 15,104 original-opcode cases; actual casting routes separately
 verify native handoffs for the default effect and homing. Other modes and unknown
-pointers retain the interpreter. The outer projectile loop remains interpreted.
-Its candidate now preserves the unknown-width RTI continuation and passes
-complete source-opcode loop tests, but a homing spell route exposed two SPC
-event timestamps that differ between native and interpreter batching. That
-promotion was refused; passing memory and picture checks alone is insufficient.
+pointers retain the interpreter. The outer projectile loop now qualifies M1X0
+after complete source-opcode tests and matched live floor/native controls for
+default and homing casts, including ordered APU events and all checkpoint files.
+An earlier candidate failed the audio gate. The absolute-periodic APU timeline
+now avoids an extra interpreter-only WRAM-progress flush, sharing the completed-
+opcode threshold across tiers. Boot and legacy progress flushes, port-access
+flushes and exit/deadline flushes remain. Other outer-loop widths and unknown
+returned modes retain original-opcode fallback, including the overlapping RTI
+entry. Passing memory and picture checks alone is insufficient.
 The finite animation table has its own separate original-opcode tests.
 
 The assisted campaign work uses original loaders, doors and event/boss scripts,
@@ -178,6 +182,13 @@ Use matched inputs and controls for affected gameplay, ordered presentations and
 complete checkpoints. A matching screenshot alone does not establish correctness.
 Timing, audio, scheduler or dead-stack differences must remain explicit.
 
+The APU batching change also changes legacy trace observation points versus older
+builds: some device events carry the CPU beam position at flush time, and CPU
+requests observe the current output backlog. Those old/new raw traces are not
+byte-exact. Separate real SPC/DSP tests compare complete state, scheduled ports
+and non-silent PCM across chunk sizes; final same-build native/interpreter game
+controls additionally require the unmodified strict trace comparison to pass.
+
 See [native timing contracts](../tools/NATIVE-TIMING.md),
 [analysis policy](../recomp/README.md) and
 [bounded campaign warps](../tools/CAMPAIGN-WARPS.md). The cheat hook requires an
@@ -191,8 +202,17 @@ real device to drain it. That wall time is not a native CPU execution cost; keep
 the audio wait counters alongside the guest timing rather than discarding PCM.
 Dummy-audio/hidden-window results do not certify real-device audio or scanout.
 Fresh room-loader tests and loaded-state tests differ: loaded states do not
-serialize the custom renderer's resource-ownership witnesses. Re-enter through
-an authored door before claiming a source-positive far-actor pacing sample.
+serialize the custom renderer's resource-ownership witnesses. A successful full
+load can requalify the complete resident ordinary-actor atlas for room08/09 only
+when its original descriptor, compressed sources, background-derived tail and
+complete VRAM bytes all match. Actual Elf Field load checks show added far actors
+with an exact original center; an altered room09 resident correctly refuses.
+Other resource families still require their original upload witnesses. Re-enter
+through an authored door when testing those families.
+`SNESRECOMP_GL_TIMING` optionally records buffered CPU wall times for existing
+upload, draw and swap calls without extra GL work. Verify the initialized backend:
+an explicit `Renderer=auto` overrides `OutputMethod=OpenGL` and selects SDL, ignoring
+the Enhanced shader. Use `Renderer=opengl` for actual Enhanced-path measurements.
 There is no full-game locked-60-FPS claim.
 
 ## Build and contribution

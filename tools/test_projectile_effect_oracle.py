@@ -34,7 +34,7 @@ manifest = json.loads((a.gen / 'program_manifest.json').read_text())
 for pc in roots + [allocator]:
     assert manifest['nodes'][f'{pc:06X}:M1X0']['disposition'] == 'aot_eligible'
 refused = {}
-fixed_refusals = ['01BB05:M1X0', '01BB4C:M1X1', '01BD5B:M0X0',
+fixed_refusals = ['01BB05:M0X0', '01BB05:M0X1', '01BB05:M1X1', '01BB4C:M1X1', '01BD5B:M0X0',
                   '018385:M1X1', '01BCCA:M1X1', '01BE52:M0X0',
                   '01BE52:M0X1', '01BE52:M1X1']
 for key in fixed_refusals:

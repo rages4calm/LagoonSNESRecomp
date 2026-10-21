@@ -529,6 +529,7 @@ void LagoonWide_BeginFrame(unsigned number) {
       capture_world_characters(NULL)) {
     s_scene_gate.generation=RtlStateGeneration();s_scene_gate.key=word(0x48e)+1;
     s_scene_gate.fields=3;s_seen_load_generation=load;
+    LagoonWideEntities_RebindLoaded();
   }
   int modal_ui=unsafe_modal_ui();
   PpuSetWidescreenLineEnhancer(g_ppu,NULL,NULL);
