@@ -20,14 +20,14 @@ try {
  if($LoaderDumpPrefix){
   $producer=Join-Path $OutDir 'multipart-producer.exe'
   $flags=@('-std=c11','-O2','-DSDL_MAIN_HANDLED=1','-DSNESRECOMP_SDL3=1','-DSNESRECOMP_REVERSE_DEBUG=0','-Isrc','-Isnesrecomp/runner/src','-Isnesrecomp/runner/src/snes','-Isnesrecomp/runner/src/desktop',('-I'+$env:RETCOMM_TOOLCHAIN_DIR+'/deps/include'),'-ffunction-sections','-fdata-sections','-Wl,--gc-sections')
-  & $env:CC @flags tools/test_wide_multipart_producer.c src/lagoon_wide_multipart.c src/lagoon_scene_renderer.c snesrecomp/runner/src/snes/ppu.c snesrecomp/runner/src/snes/ppu_legacy.c snesrecomp/runner/src/snes/interp816.c -o $producer
+  & $env:CC @flags tools/test_wide_multipart_producer.c src/lagoon_wide_multipart.c src/lagoon_wide_spell3.c src/lagoon_scene_renderer.c snesrecomp/runner/src/snes/ppu.c snesrecomp/runner/src/snes/ppu_legacy.c snesrecomp/runner/src/snes/interp816.c -o $producer
   if($LASTEXITCODE){throw 'Multipart producer compilation failed'}
   $producerOutput=@(& $producer $Rom $LoaderDumpPrefix)
   if($LASTEXITCODE){throw 'Multipart producer failed'}
   $producerOutput | ForEach-Object {Write-Host $_}
  }
  $hashes=@{}
- foreach($file in @('src/lagoon_wide_multipart.c','src/lagoon_wide_multipart.h','src/lagoon_wide_entities.c','src/lagoon_wide_entities.h','tools/test_wide_multipart_source.c','tools/test_wide_multipart_producer.c','tools/test_wide_multipart.ps1','tools/test_wide_remaining_actors.c','tools/test_wide_projectile_producer.c','tools/test_wide_additional_producer.c','snesrecomp/runner/src/snes/interp816.c')){
+ foreach($file in @('src/lagoon_wide_multipart.c','src/lagoon_wide_multipart.h','src/lagoon_wide_spell3.c','src/lagoon_wide_spell3.h','src/lagoon_wide_entities.c','src/lagoon_wide_entities.h','tools/test_wide_multipart_source.c','tools/test_wide_multipart_producer.c','tools/test_wide_multipart.ps1','tools/test_wide_remaining_actors.c','tools/test_wide_projectile_producer.c','tools/test_wide_additional_producer.c','snesrecomp/runner/src/snes/interp816.c')){
   $hashes[$file]=(Get-FileHash -LiteralPath $file).Hash.ToLowerInvariant()
  }
  @{scope='Full original C284 multipart display source/OAM oracle for authored simple boss kinds2..15 only. Actual loader graphics and synthetic policy records remain distinct from live campaign proof. Entire carrier refuses on any unowned resource/unknown part; real native OAM and scene/generation guards remain.';source_output=$sourceOutput;producer_output=$producerOutput;source_hashes=$hashes;loader_dump_prefix=$LoaderDumpPrefix} | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $OutDir 'multipart-tests.json') -Encoding utf8

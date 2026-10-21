@@ -76,7 +76,9 @@ int main(int argc,char **argv) {
   assert(f&&fread(own_rom,1,sizeof own_rom,f)==sizeof own_rom);fclose(f);
   projectile_setup(0,100,100);scalar();assert(!s_has_far);projectile_setup(1,100,100);scalar();
   for(unsigned j=0;j<p.extraObjectCount;++j){const PpuExtraObject *o=&p.extraObjects[j];
-    if(o->x<320&&o->x>256)assert(o->order==66);if(o->x>=340&&o->x<352)assert(o->order==2);}
+    /* EqualY source projectile offsets0/24 occupy ranks0/1 before the ordinary
+     * group. The second starts at independent ordinal1*128+2. */
+    if(o->x<320&&o->x>256)assert(o->order==130);if(o->x>=340&&o->x<352)assert(o->order==2);}
   ++order_cases;projectile_setup(1,80,120);scalar();++order_cases;projectile_setup(1,120,80);scalar();++order_cases;
   /* The next CPU frame can advance/recycle all projectile bytes while the
    * unchanged completed native OAM packet still owns this displayed pose. */

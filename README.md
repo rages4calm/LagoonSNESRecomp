@@ -15,8 +15,8 @@ widescreen, a custom scene renderer and optional quality-of-life improvements.
 ## What you can expect
 
 - **Wider views:** 16:9, 16:10, 21:9, 32:9 and window-driven aspects, with
-  additional scenery, supported NPC/enemy sprites and selected enemy/player-magic
-  projectiles beyond the original view.
+  additional scenery, supported NPC/enemy sprites, selected multipart boss poses
+  and supported projectile and fullscreen magic effects beyond the original view.
 - **Original artwork, enhanced:** optional EPX treatment preserves the palette
   and keeps the HUD sharp. No replacement artwork is required.
 - **Gameplay options:** faster walking/followers, longer sword reach with a modest

@@ -81,7 +81,7 @@ int main(int argc,char **argv){
  setup(0x43,3,0,1,48,128);
  /* Missing/unknown layer and main-frame source refuse the complete group,
   * leaving every output byte untouched. Suppressed layers need no frame. */
- for(unsigned i=0;i<3;++i){unsigned a=0x575+i,old=ram[a];ram[a]=0xff;memcpy(cells,sentinel,sizeof cells);assert(LagoonWideMultipart_PacketCells(rom,sizeof rom,ram,0,cells,256)<0);assert(!memcmp(cells,sentinel,sizeof cells));ram[a]=old;++refusals;}
+ for(unsigned i=0;i<3;++i){unsigned a=0x575+i,old=ram[a];ram[a]=0;memcpy(cells,sentinel,sizeof cells);assert(LagoonWideMultipart_PacketCells(rom,sizeof rom,ram,0,cells,256)<0);assert(!memcmp(cells,sentinel,sizeof cells));ram[a]=old;++refusals;}
  const unsigned spans[][2]={{0x1c284,407},{0x1fd9f,128},{0x1c486,41},{0x1c026,164},
    {0x05ace6,9},{0x05c1b2,3}};
  for(unsigned j=0;j<sizeof spans/sizeof *spans;++j)for(unsigned i=0;i<spans[j][1];++i){unsigned o=(spans[j][0]>>16)*32768+(spans[j][0]&32767)+i;rom[o]^=1;

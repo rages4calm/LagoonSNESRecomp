@@ -3,6 +3,7 @@
  * No ROM data, graphics, or generated guest code belongs in this source. */
 #include "lagoon_widescreen.h"
 #include "lagoon_wide_entities.h"
+#include "lagoon_wide_spell3.h"
 #include "lagoon_menu_presentation.h"
 #include "lagoon_state.h"
 #include "lagoon_scene_renderer.h"
@@ -696,6 +697,12 @@ int LagoonWide_DrawFrame(uint8_t *dst,size_t pitch,const uint8_t *field,
   (void)alpha;
   if(!g_config.widescreen)return 0;
   RtlWidescreenPresent(dst,pitch,field,width,height);
+  /* The original fullscreen spell owns a separate, finite background layout.
+   * Extend only its verified blank canvas, preserving the centered artwork.
+   * Never let the world renderer or fallback blanking replace that canvas. */
+  if(width>=256 && height>0 && LagoonWideSpell3_DrawMargins(dst,pitch,
+      (unsigned)width,(unsigned)height,g_ppu,g_rom,0x100000u,g_ram,
+      RtlStateGeneration()))return 1;
   if(s_present_fallback) {
     if(!LagoonMenuPresentation_Draw(dst,pitch,field,(size_t)width*4,
         (unsigned)width,(unsigned)height,g_ppu,g_ram,g_config.widescreen))

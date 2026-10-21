@@ -4,6 +4,9 @@
 #include "lagoon_wide_entities.h"
 #include "lagoon_wide_multipart.h"
 #ifndef LAGOON_WIDE_ENTITIES_DECODER_ONLY
+#include "lagoon_wide_spell3.h"
+#endif
+#ifndef LAGOON_WIDE_ENTITIES_DECODER_ONLY
 #include "common_rtl.h"
 #include "config.h"
 #include "lagoon_widescreen.h"
@@ -15,7 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { kEntities = 33, kCells = 64, kObjects = 512, kRomSize = 0x100000 };
+enum { kEntities = 33, kCells = 64, kMultipartCells = 128, kObjects = 512, kRomSize = 0x100000 };
 #ifndef LAGOON_WIDE_ENTITIES_DECODER_ONLY
 typedef struct WideEntitySnapshot {
   uint8_t ram[0x8801], oam[544];
@@ -940,8 +943,8 @@ int LagoonWideEntities_CurrentFrame(const uint8_t *rom,size_t size,const uint8_t
   *frame=r[28];return 1;
 }
 
-int LagoonWideEntities_RecordCells(const uint8_t *rom,size_t size,const uint8_t *ram,
-    unsigned entity,unsigned frame,int projected,LagoonWideCell *cells,size_t capacity) {
+static int record_cells(const uint8_t *rom,size_t size,const uint8_t *ram,
+    unsigned entity,unsigned frame,int projected,LagoonWideCell *cells,size_t capacity,int prop_offset) {
   if(!ram||!rom||!cells||entity>0x800||(entity&63))return -1;
   unsigned a=0x500+entity,type=ram[a+24],kind=ram[a+27],room=record_word(ram,0x48e);
   if(!LagoonWideEntities_AllowedKind(room,type,kind)||!follower_record(rom,size,ram,ram+a))return -1;
@@ -958,7 +961,7 @@ int LagoonWideEntities_RecordCells(const uint8_t *rom,size_t size,const uint8_t 
     selector=0;x-=16;y-=2*(ram[a+0x15]/3)+30;
   }else if(type==5) {
     if(frame!=0x3e)return -1;
-    selector=0;x-=16;y-=2*(ram[a+0x15]/3)+46;y+=(int16_t)record_word(ram,0x90);
+    selector=0;x-=16;y-=2*(ram[a+0x15]/3)+46;y+=prop_offset;
   }else if(type==1||type==2) {
     unsigned offsets=type==1?0x1fb7f:0x1f7e9;
     if(!rom_word(rom,size,offsets+kind*4,&ox)||!rom_word(rom,size,offsets+kind*4+2,&oy))return -1;
@@ -971,6 +974,11 @@ int LagoonWideEntities_RecordCells(const uint8_t *rom,size_t size,const uint8_t 
   if(type==2&&(death||(ram[a+1]&0x80)||(ram[a+0x1f]&2)))
     for(int i=0;i<count;++i)cells[i].tile=(cells[i].tile&~0xe00)|0xe00;
   return count;
+}
+int LagoonWideEntities_RecordCells(const uint8_t *rom,size_t size,const uint8_t *ram,
+    unsigned entity,unsigned frame,int projected,LagoonWideCell *cells,size_t capacity) {
+  return record_cells(rom,size,ram,entity,frame,projected,cells,capacity,
+      ram?(int16_t)record_word(ram,0x90):0);
 }
 
 /* Original enemy projectile records are16 separate24-byte cells, not actor
@@ -1182,7 +1190,7 @@ static unsigned ram_word(const uint8_t *ram, unsigned a) { return ram[a] | (ram[
 static unsigned ram_pointer(const uint8_t *ram, unsigned a) { return ram_word(ram,a) | (ram[a+2]<<16); }
 static int signed_word(unsigned v) { return (int16_t)v; }
 
-static int decode_entity(const uint8_t *ram,unsigned entity,unsigned frame,int projected,LagoonWideCell *cells) {
+static int decode_entity_offset(const uint8_t *ram,unsigned entity,unsigned frame,int projected,LagoonWideCell *cells,int prop_offset) {
   unsigned room=ram_word(ram,0x48e);
   if((room==1||room==2||room>=9)&&!LagoonSceneRenderer_ExactRoom(ram))return -1;
   unsigned a=0x500+entity;
@@ -1190,7 +1198,22 @@ static int decode_entity(const uint8_t *ram,unsigned entity,unsigned frame,int p
       (g_ppu->bgmode!=9 || g_ppu->bgXsc[0]!=0x71 || g_ppu->bgXsc[1]!=(ram[0x50]?0x7a:0x79) ||
        g_ppu->bgXsc[2]!=0x3c || g_ppu->bgTileAdr!=0x600 || g_ppu->inidisp!=15 || g_ppu->mosaic ||
        g_ppu->setini || g_ppu->cgadsub || g_ppu->windowsel || (g_ppu->cgwsel&1)))return -1;
-  return LagoonWideEntities_RecordCells(g_rom,kRomSize,ram,entity,frame,projected,cells,kCells);
+  return record_cells(g_rom,kRomSize,ram,entity,frame,projected,cells,kCells,prop_offset);
+}
+static int decode_entity(const uint8_t *ram,unsigned entity,unsigned frame,int projected,LagoonWideCell *cells) {
+  return decode_entity_offset(ram,entity,frame,projected,cells,(int16_t)record_word(ram,0x90));
+}
+static int decode_queued_entity(const uint8_t *ram,unsigned entity,unsigned frame,LagoonWideCell *cells,unsigned queue) {
+  int prop_offset=(int16_t)record_word(ram,0x90);
+  int recovered=LagoonWideMultipart_PropDrawOffset(g_rom,kRomSize,ram,queue,&prop_offset);
+  int n=decode_entity_offset(ram,entity,frame,0,cells,prop_offset);
+  if(recovered) {
+    if(memcmp(ram+0x480,g_ram+0x480,4)||!s_atlas.ready||s_atlas.generation!=s_frame.generation||
+        s_atlas.room!=ram[0x48e]||s_atlas.source!=ram_pointer(ram,0x5d))return -1;
+    for(int i=0;i<n;++i)if(!LagoonWideAtlas_CellOwned(&s_atlas,
+        PPU_objTileAdr1(g_ppu),PPU_objTileAdr2(g_ppu),&cells[i]))return -1;
+  }
+  return n;
 }
 
 static int find_cell(const uint8_t *oam,const LagoonWideCell *c,const uint8_t *used) {
@@ -1202,7 +1225,7 @@ static int find_cell(const uint8_t *oam,const LagoonWideCell *c,const uint8_t *u
   return -1;
 }
 static void observe_vram_byte(uint32_t adr,uint8_t value) {
-  (void)value;
+  LagoonWideSpell3_Write(adr,value);
   LagoonWide_OnVramWrite(adr);
   if(s_magic_atlas.generation!=RtlStateGeneration())LagoonWideMagic_Reset(&s_magic_atlas);
   LagoonWideMagic_Write(&s_magic_atlas,adr,value);
@@ -1234,6 +1257,13 @@ static void observe_vram_byte(uint32_t adr,uint8_t value) {
 }
 static void observe_dma(const Dma *dma,unsigned channel,const DmaChannel *t) {
   if (!g_config.widescreen || !g_rom || !g_ppu) return;
+  if (!t->fromB && (t->bAdr==0x18 || t->bAdr==0x19)) {
+    unsigned active=0;for(unsigned i=0;i<8;++i)active+=dma->channel[i].dmaActive!=0;
+    int original=active==1 && t->mode==1 && t->bAdr==0x18 && !t->fixed && !t->decrement &&
+      g_ppu->vramIncrement==1 && g_ppu->vramIncrementOnHigh && !g_ppu->vramRemapMode;
+    LagoonWideSpell3_Dma(g_rom,kRomSize,g_ram,RtlStateGeneration(),channel,t->aBank,t->aAdr,
+      g_ppu->vramPointer,t->size,original);
+  }
   if(channel==1 && !t->fromB && t->mode==4 && t->bAdr==0x16 &&
       !t->fixed && !t->decrement && t->aBank==0x7e && t->aAdr==0x2600 &&
       g_ppu->vramIncrement==1 && g_ppu->vramIncrementOnHigh && !g_ppu->vramRemapMode)
@@ -1278,6 +1308,7 @@ void LagoonWideEntities_Init(void) {
   dma_set_start_observer(observe_dma); ppu_set_vram_write_log_hook(observe_vram_byte);
 }
 void LagoonWideEntities_Reset(void) {
+  LagoonWideSpell3_Reset();
   s_retained_objects.valid=0;
   s_frame.valid=0; s_last_serial=0; s_object_count=0; s_has_far=0; s_has_projectile=0;s_has_magic=0;s_retained_submitted=0; s_pose_room_key=0; s_pose_generation=0;
   memset(s_pose,0,sizeof(s_pose));memset(s_native_pose,0,sizeof(s_native_pose)); memset(s_kind_witness,0,sizeof(s_kind_witness));
@@ -1586,8 +1617,8 @@ void LagoonWideEntities_BeginFrame(int enabled) {
   int atlas_ok=s_atlas.ready && s_atlas.generation==s_frame.generation &&
       s_atlas.room==ram[0x48e] && s_atlas.source==ram_pointer(ram,0x5d);
   uint8_t used[128]={0},queued[kEntities]={0},far[kEntities]={0},far_frames[kEntities]={0},current_path[kEntities]={0};
-  int cell_slot[kEntities][kCells],counts[kEntities]={0},multipart[kEntities]={0},common0[kEntities]={0};
-  LagoonWideCell cells[kEntities][kCells],projectile_cells[16][kCells];
+  int cell_slot[kEntities][kMultipartCells],counts[kEntities]={0},multipart[kEntities]={0},common0[kEntities]={0};
+  LagoonWideCell cells[kEntities][kMultipartCells],projectile_cells[16][kCells];
   int projectile_counts[16]={0},projectile_slots[16][kCells],projectile_magic[16]={0};
   unsigned projectile_y[16]={0};
   memset(projectile_slots,-1,sizeof(projectile_slots));
@@ -1634,7 +1665,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     if(type==3) {
       if(!atlas_ok || !LagoonSceneRenderer_ExactRoom(ram) || !LagoonSceneRenderer_ExactRoom(g_ram) ||
           memcmp(ram+0x480,g_ram+0x480,4))continue;
-      n=LagoonWideMultipart_PacketCells(g_rom,kRomSize,ram,q,cells[e],kCells);
+      n=LagoonWideMultipart_PacketCells(g_rom,kRomSize,ram,q,cells[e],kMultipartCells);
       int owned=n>0;
       for(int i=0;i<n;++i)if(!LagoonWideAtlas_CellOwned(&s_atlas,
           PPU_objTileAdr1(g_ppu),PPU_objTileAdr2(g_ppu),&cells[e][i])) {
@@ -1644,7 +1675,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
       }
       if(!owned)continue;
       multipart[e]=1;
-    }else n=decode_entity(ram,offset,ram[a+0x1c],0,cells[e]);
+    }else n=decode_queued_entity(ram,offset,ram[a+0x1c],cells[e],q);
     counts[e]=n;
     if(n<0 || (death_record(ram+a,ram[a+0x1c]) && !record_cells_owned(ram,offset,ram[a+0x1c],cells[e],n))) {
       counts[e]=-1;continue;
@@ -1786,7 +1817,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
           if(multipart[e]){s_multipart_emitted+=seam;if(seam&&common0[e])s_has_death=1;}
           if(seam&&death_record(ram+0x500+e*64,ram[0x51c+e*64])) {s_death_emitted+=seam;s_has_death=1;}
         }
-        int added=draw_cell(&cells[e][i],0,rank[e]*kCells+i+2,2);
+        int added=draw_cell(&cells[e][i],0,rank[e]*kMultipartCells+i+2,2);
         s_emitted+=added;
         if(multipart[e]){s_multipart_emitted+=added;if(added&&common0[e])s_has_death=1;}
         if(added&&death_record(ram+0x500+e*64,ram[0x51c+e*64])) {s_death_emitted+=added;s_has_death=1;if(far[e])s_death_far+=added;}
@@ -1806,7 +1837,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     int slot=projectile_slots[j][i];if(slot<0)continue;
     const LagoonWideCell *c=&projectile_cells[j][i];
     int added=draw_cell(c,(unsigned)slot,1,any_far?1:0);
-    if(any_far)added+=draw_cell(c,0,projectile_rank[j]*kCells+i+2,2);
+    if(any_far)added+=draw_cell(c,0,projectile_rank[j]*kMultipartCells+i+2,2);
     s_emitted+=added;
     if(projectile_magic[j]) {s_magic_emitted+=added;s_has_magic|=added!=0;}
     else {s_projectile_emitted+=added;s_has_projectile|=added!=0;}

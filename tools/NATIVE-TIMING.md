@@ -70,9 +70,27 @@ The fixed-page transfer leaf `$00:8F8C:M1X0` has a qualified native body. Its
 live-device fixture requests the original two queued pages through `$023B`,
 using guest-loaded buffers and the real NMI/JSR/DMA/RTS path. That assisted
 fixture is distinct from reaching the credits naturally. The frequent M1X0
-services `$00:871C`, `$00:8EC1` and `$00:8EE7` remain interpreted because their
-experimental promotions changed audio event beam positions on a boss route.
-Their passing constant-bus tests do not override that live difference.
+services `$00:871C`, `$00:8EC1` and `$00:8EE7` also have qualified M1X0 bodies.
+Their earlier experimental promotions exposed a periodic APU catchup phase that
+counted interpreted work alone. Constant-bus passes were insufficient: promotion
+waited for complete same-host boss and door checkpoints, including all audio logs.
+
+Mapped primary-CPU execution now checks periodic APU catchup after actual completed
+instruction/beam boundaries. Native and interpreted work use the same absolute
+elapsed-master-clock predicate. The cached threshold keeps its original default
+of 1024 and environment semantics; unsupported mappings and existing disabled,
+shared-cosimulation and legacy paths keep their previous eligibility. Mandatory
+port and exit synchronization is preserved. A paired native return commits only
+after a normal result consumes its actual two- or three-byte guest frame, with
+no pending unwind. It does not invent return cycles or alter the saved stack.
+
+The actual-function guard/refresh tests and a separate real SPC/DSP reference
+test check periodic partitioning, scheduled port targets, latch/read events,
+serialized device state and nonzero PCM. The reference is an authored SPC
+program, not a complete Lagoon soundtrack certification. The trace's sample
+column is a process-lifetime output counter; snapshot restore does not rewind
+it. Older-host trace differences remain explicit. This distinction does not
+permit suppressing differences in the complete matched native/floor comparison.
 
 A generated root is not proof of live execution. The bank-table `$00:80E6`
 dispatcher executes its original indirect jump. A separate opt-in hook can lend
@@ -88,6 +106,12 @@ Run affected menus, fights, doors and transitions using existing assisted routes
 Compare complete checkpoints and clocks as well as ordered presentation streams.
 Separate diagnostic paths from guest differences; keep audio/event/scheduler
 limits explicit. Do not repeat every past campaign audit for a focused change.
+
+`tools/test_apu_cadence_guard.py` and `tools/test_apu_cadence_device.py` accept
+`--out` for disposable test output and `--compiler` for a C11 compiler. They
+extract the actual SDK functions under test and bind source hashes. The first
+uses mocked device plumbing for guard and timing invariants; the second links
+the actual APU, SPC, DSP and trace engines. Neither replaces affected live routes.
 
 See [analysis inputs](../recomp/README.md),
 [campaign test guard](CAMPAIGN-WARPS.md) and [current scope](../docs/DEVELOPMENT.md).

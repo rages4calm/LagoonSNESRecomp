@@ -19,14 +19,15 @@ static void oracle_write(void *ctx,uint32_t address,uint8_t value){
  if((b&127)<64&&a>=0x4202&&a<=0x4206){g_ram[a]=value;oracle_product=g_ram[0x4202]*g_ram[0x4203];return;}
  assert((b&127)<64&&a<8192);g_ram[a]=value;
 }
-static void oracle_draw(unsigned offset){
+static void oracle_entry(unsigned offset,unsigned entry){
  Interp816 *c=interp816_init(NULL,oracle_read,oracle_write);assert(c);
- c->pc=0xc284;c->k=c->db=1;c->dp=0;c->sp=0x1d0;c->x=offset;c->y=c->a=0;
+ c->pc=entry;c->k=c->db=1;c->dp=0;c->sp=0x1d0;c->x=offset;c->y=c->a=0;
  c->mf=1;c->xf=0;c->e=c->d=c->c=c->n=c->v=c->z=0;c->i=1;
  g_ram[0x1d1]=0xef;g_ram[0x1d2]=0x7f;unsigned steps=0;
  while(c->k!=1||c->pc!=0x7ff0){assert(++steps<100000);interp816_runOpcode(c);}
  assert(c->sp==0x1d2);interp816_free(c);
 }
+static void oracle_draw(unsigned offset){oracle_entry(offset,0xc284);}
 static void common_owner(void){
  assert(LagoonWideDeath_Begin(&s_death_atlas,generation,g_rom,sizeof own_rom,127,0x7f80,0x4300,512));
  for(unsigned i=0;i<512;++i)LagoonWideDeath_Write(&s_death_atlas,0x8600+i,((uint8_t*)p.vram)[0x8600+i]);
@@ -47,6 +48,7 @@ static void multipart_setup(unsigned kind,unsigned layers,int x){
  oracle_draw(0x40);finish();assert(s_multipart_packets&&s_multipart_matched);++setups;
  assert(p.extraObjectCount>0);scalar();
 }
+#ifndef LAGOON_WIDE_MULTIPART_PRODUCER_NO_MAIN
 int main(int argc,char **argv){
  assert(argc==3);baseline_root=argv[2];FILE *f=fopen(argv[1],"rb");
  assert(f&&fread(own_rom,1,sizeof own_rom,f)==sizeof own_rom);fclose(f);
@@ -80,3 +82,4 @@ int main(int argc,char **argv){
  printf("multipart producer: %u synthetic original-C284 OAM setups, %u ownership/unknown-layer/current-packet/generation/OAM/camera/retained refusals, %u independent native-OAM planar pixels/%u center zeros PASS; room43 graphics originate in separate actual loader fixture.\n",setups,refused_cases,scalar_pixels,center_zero);
  return 0;
 }
+#endif
