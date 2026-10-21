@@ -1,5 +1,6 @@
 /* Compute the original per-enemy RAM leaves on the host. This is deliberately
- * scoped to normal cave gameplay (rooms03..06), not an emulator overclock.
+ * scoped to normal cave/Elf Field gameplay (rooms03..06 and08..0A),
+ * not an emulator overclock.
  * No AI, collision, tick, DMA, NMI or audio work is skipped or fabricated. */
 #include "lagoon_actor_compute.h"
 #include <stdlib.h>
@@ -41,8 +42,10 @@ int LagoonActorCompute_Apply(unsigned kind,uint8_t*r,CpuState*c){
 }
 bool LagoonActorCompute_Run(unsigned kind,const uint8_t*rom,size_t size,uint8_t*r,CpuState*c,uint16_t entry_s,uint8_t hrv,uint32_t host,RecompReturn*out,int normal_world){
  if(kind>1||!rom||size!=0x100000||!r||!out||!valid(c)||!normal_world||c->S!=entry_s||hrv!=2||c->host_return_valid!=2||c->X<0x40)return false;
+ unsigned room=word(r,0x48e);
+ if(!((room>=3&&room<=6)||(room>=8&&room<=10)))return false;
  unsigned s=c->S,ret=kind?0xa4e7:0xa4d8;
- if(host!=(0x010000|((ret+1)&65535))||word(r,s+1)!=ret||word(r,s+3)!=0x80c6||word(r,0x48e)<3||word(r,0x48e)>6||r[0x406]||r[0x100e]||r[0x23d]!=15||r[0x275]!=0x81||!r[0x520]||r[0x521]||(r[0x500+c->X]&0xc0)!=0xc0||r[0x518+c->X]!=2)return false;
+ if(host!=(0x010000|((ret+1)&65535))||word(r,s+1)!=ret||word(r,s+3)!=0x80c6||r[0x406]||r[0x100e]||r[0x23d]!=15||r[0x275]!=0x81||!r[0x520]||r[0x521]||(r[0x500+c->X]&0xc0)!=0xc0||r[0x518+c->X]!=2)return false;
  if(hash(rom+0xa4d3,0x18)!=UINT64_C(0x09abeb222846112b)||hash(rom+(kind?0xa5aa:0xa56a),kind?0x7a:0x40)!=(kind?UINT64_C(0x55f5e93f5e4ec5f7):UINT64_C(0x8d84ee94fd1f84c5)))return false;
  if(!LagoonActorCompute_Apply(kind,r,c))return false;
  /* Preserve the selected precise leaf's actual RTS: six CPU cycles, opcode
@@ -55,7 +58,7 @@ bool LagoonActorCompute_Run(unsigned kind,const uint8_t*rom,size_t size,uint8_t*
 #include "common_rtl.h"
 #include "snes/ppu.h"
 static uint64_t calls[2];static int mode=-1,report;
-static void summary(void){if(report)fprintf(stderr,"[actor-compute] clamp=%llu project=%llu scope=rooms03-06-enemy2 enabled=%d\n",(unsigned long long)calls[0],(unsigned long long)calls[1],mode);}
+static void summary(void){if(report)fprintf(stderr,"[actor-compute] clamp=%llu project=%llu scope=rooms03-06-and08-0A-enemy2 enabled=%d\n",(unsigned long long)calls[0],(unsigned long long)calls[1],mode);}
 static bool run(unsigned kind,CpuState*c,uint16_t s,uint8_t h,uint32_t pc,RecompReturn*out){
  if(mode<0){const char*v=getenv("LAGOON_ACTOR_COMPUTE");mode=!v||!strcmp(v,"auto")||!strcmp(v,"on");const char*t=getenv("LAGOON_ACTOR_COMPUTE_REPORT");report=t&&!strcmp(t,"1");atexit(summary);}
  if(!mode||c!=&g_cpu||!g_ppu)return false;

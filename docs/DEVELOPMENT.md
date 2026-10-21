@@ -13,7 +13,9 @@ services, sprite staging, resource/tile queues, numeric UI helpers and original
 display fades and queued graphics transfers. The HUD-number dispatcher has a
 separate, source-guarded handoff
 using its actual cross-bank JSL return frame. Counts of
-compiled functions are analysis counts, not completion percentages. Generated
+compiled functions are analysis counts, not completion percentages. The current
+manifest retains 527 AOT entries; the following host-side changes do not imply
+additional compiled guest functions. Generated
 code alone does not prove that a runtime dispatcher reaches a compiled entry.
 
 The original 34-slot projectile animation table has qualified M1X0 leaf handlers
@@ -32,8 +34,19 @@ Earlier checks are not a reason to rerun the entire campaign for every change.
 
 Remaining work includes unsupported special/multipart forms, dynamic graphics,
 magic effects and display layouts; additional native variable-script services;
-frame-time spikes; and bugs reported during real play. Built-in escort following
-now consumes six moving samples of Nasir's observed route at the actual pace.
+frame-time spikes; and bugs reported during real play. Source-qualified native
+enemy clamp/projection helpers now also cover room IDs03–06 and08–0A under the
+same ordinary enemy, source, stack and scene guards. This expands the bounded CPU
+path; it does not certify all enemy-related slowdown resolved.
+
+Built-in Giles/Thor escort following
+uses bounded local A* toward a recent Nasir position instead of replaying an
+old route. Four-pixel cardinal edges check every pixel against the original NPC
+leading-edge probes and current eight-pixel collision attributes. The navigator
+accepts source tags0/3/5 and rejects solid80, tags1/2/4 and unknown tags. A search
+examines at most4096 nodes in a512px local window; cached routes are checked again
+before movement and replanned after blockage, target changes or load. Follower
+speed is capped by Nasir's observed walking pace. No accumulated catch-up speed.
 Source/mode/real-stack/generation-qualified pre-opcode hooks retain original facing,
 velocity computation, tile collision and integration. Only intent and bounded
 velocity change; positions, quest flags and doors are not synthesized. A separate
@@ -43,7 +56,9 @@ flags or return frames; original scanner skip branches execute. Exact interprete
 PC, actual80C9 frame, mode, scene, tick and generation are mandatory. Unknown
 native scanners decline; promoting that scanner requires preserving this policy
 with new source evidence and tests. Scripted
-or unqualified roles retain the original path. Disposable history resets on
+or unqualified roles retain the original path. Earlier internal fixtures named
+"Ella" actually instantiate source NPC kind0, Thor; they are not evidence of
+natural Ella campaign coverage. Disposable history resets on
 loads/rollback; run-ahead declines speculation during escort quest flags.
 
 The built-in explored map reads original area names, dimensions, door links and
@@ -54,8 +69,20 @@ Opened markers follow original persistent flags. Eight original door records lie
 outside their room's declared extent and are omitted from markers. The shared
 host's optional title panel freezes guest/script execution, audio production and
 run-ahead while presenting the last world field. Exploration persists separately
-from guest saves, with validation and atomic replacement. An objective journal,
-guidance to known destinations and a possible 15-20% zoom-out remain later work.
+from guest saves, with validation and atomic replacement. Tablet-specific hints
+read the original Thor/elder branches, item bits and chest data. They show the
+next instruction and applicable marker without writing items, flags or fog.
+Broader quest guidance, a full objective journal and a possible15–20% zoom-out
+remain later work.
+
+The title-owned quick-settings panel shares the frozen-overlay host and edits
+master volume or replacement-music trim only. L2 opens the map; R2 or Ctrl+comma
+opens settings. Native controller callbacks keep these extra triggers separate
+from the twelve SNES inputs. Companion also exposes keyboard, controller and
+system-hotkey editors with optimistic revisions and rollback across native files.
+Reward selectors scale only the source-qualified enemy/boss gold and EXP words;
+shop prices, quest rewards and existing saved totals are not rewritten. Original,
+legacy1.5x EXP and2x–8x settings are mutually exclusive within each reward type.
 [Mike's RPG Center maps](https://mikesrpgcenter.com/lagoon/index.html#maps) and the
 [walkthrough](https://mikesrpgcenter.com/lagoon/walkthrough.html) are route references,
 not proof of runtime state or permission to redistribute their maps.
@@ -106,6 +133,22 @@ Title/intro/portrait UI can retain original geometry. Qualified dialogue and
 Start views retain their surrounding world; audited Items/Magic/Equipment
 presentation and transitions use original assets. Scene transitions need valid
 resource provenance, not just the previous room's pixels retained indefinitely.
+A guarded presentation cache retains a coherent expanded field during supported
+partial-loader uploads, applying the current fade brightness. It resets on state
+generation changes and refuses geometry mismatches. Other transition paths still
+need affected-route checks; this is not a claim that every line, rip or temporary
+original-width view in the game has been eliminated.
+
+The sword-reach feature has a separate presentation extension. Source-qualified
+sword tiles determine the authored blade angle and a12-pixel tip extension. It
+preserves the original blade and observes source depth/priority witnesses, without
+redrawing Nasir or changing collision. The visual extension is enabled only after
+the guarded38px hit rectangles actually applied.
+
+Replacement X68000 music uses per-cue attenuation toward a measured loudness
+reference, with an independent0–100% music trim. The original PCM samples, pitch,
+loop headers and SNES sound effects stay intact. Existing clipping in supplied
+samples cannot be reconstructed through playback attenuation.
 
 ## Qualification
 
@@ -139,7 +182,9 @@ There is no full-game locked-60-FPS claim.
 Apply/check the cumulative patch on clean checkouts; preserve intentional local
 framework changes in active workspaces. Never reset the SDK or accidentally
 commit a dirty submodule pointer. ROMs, generated C, decomp exports, states,
-extracted assets, audio and raw validation stay private.
+extracted assets and raw validation stay private. The owner-approved converted
+X68000 album and its MP3 listening exports are the explicit audio distribution
+exception; other private audio remains local.
 
 Keep changes focused and report what actually ran. Source tests, synthetic
 fixtures, assisted routes, installed-artifact checks and natural playthroughs

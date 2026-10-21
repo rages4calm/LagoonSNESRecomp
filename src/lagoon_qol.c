@@ -37,6 +37,9 @@
 
 #define QOL_PACKAGE_ID "lagoon.quality"
 
+static int g_sword_reach_applied;
+int LagoonQol_SwordReachEnabled(void) { return g_sword_reach_applied; }
+
 /* Walking speed.
  *
  * The engine does not carry a walk speed. $02:80EA computes an index from a
@@ -293,9 +296,93 @@ static void qol_check_timeline(void) {
 }
 
 
+/* Enemy/boss record+9 gold and+11 EXP are copied by018D25 to0528/052A.
+ * Original01B7D9/B7E9 still awards them. Scale only their source data: shops,
+ * purchases, inventory, quest rewards and existing save totals are untouched. */
+static int qol_reward_ratio(const char *kind,unsigned *numerator,unsigned *denominator) {
+  char id[24];unsigned selected=0,n=1,d=1;
+  if(!strcmp(kind,"exp")&&snes_mod_runtime_feature_enabled_c(QOL_PACKAGE_ID,"exp_boost")) {selected++;n=3;d=2;}
+  for(unsigned value=2;value<=8;value++) {
+    snprintf(id,sizeof id,"%s_%ux",kind,value);
+    if(snes_mod_runtime_feature_enabled_c(QOL_PACKAGE_ID,id)) {selected++;n=value;d=1;}
+  }
+  if(selected>1) {fprintf(stderr,"lagoon.qol: %s reward multiplier refused, conflicting selections\n",kind);return 0;}
+  *numerator=n;*denominator=d;return selected==1;
+}
+static int qol_patch_rewards(uint8_t *rom,size_t size,int gold,unsigned numerator,unsigned denominator) {
+  static const struct {uint32_t xp;uint16_t experience,gold;} table[]={
+    {0x29204,2,3},
+    {0x29213,1,2},
+    {0x29222,3,4},
+    {0x29231,4,3},
+    {0x29240,5,3},
+    {0x2924F,6,5},
+    {0x2925E,5,5},
+    {0x2926D,4,5},
+    {0x2927C,6,3},
+    {0x2928B,6,5},
+    {0x2929A,7,5},
+    {0x292A9,10,10},
+    {0x292B8,9,5},
+    {0x292C7,32,10},
+    {0x292D6,20,10},
+    {0x292E5,30,6},
+    {0x292F4,22,5},
+    {0x29303,30,7},
+    {0x29312,35,1},
+    {0x29321,40,7},
+    {0x29330,52,8},
+    {0x2933F,60,8},
+    {0x2934E,80,9},
+    {0x2935D,80,10},
+    {0x2936C,90,5},
+    {0x2937B,200,7},
+    {0x2938A,120,2},
+    {0x29399,160,7},
+    {0x293A8,250,8},
+    {0x293B7,300,7},
+    {0x293C6,350,5},
+    {0x293D5,130,7},
+    {0x293E4,140,5},
+    {0x293F3,150,7},
+    {0x29402,350,8},
+    {0x29411,400,10},
+    {0x29420,0,0},
+    {0x2942F,0,0},
+    {0x2943E,0,0},
+    {0x2946D,64,100},
+    {0x2947C,250,500},
+    {0x2948B,500,2800},
+    {0x2949A,800,300},
+    {0x294A9,0,0},
+    {0x294B8,0,0},
+    {0x294C7,1500,1000},
+    {0x294D6,3000,1000},
+    {0x294E5,0,0},
+    {0x294F4,0,0},
+    {0x29503,0,0},
+    {0x29512,0,0},
+    {0x29521,0,0},
+    {0x29530,0,0},
+    {0x2953F,2000,1000},
+    {0x2954E,0,0},
+  };
+  if(!rom||size<0x30000||!denominator||numerator>8||denominator>2)return 0;
+  for(unsigned i=0;i<sizeof table/sizeof *table;i++) {
+    unsigned o=table[i].xp-(gold?2:0),stock=gold?table[i].gold:table[i].experience;
+    if((unsigned)(rom[o]|rom[o+1]<<8)!=stock||stock*numerator/denominator>65535)return 0;
+  }
+  for(unsigned i=0;i<sizeof table/sizeof *table;i++) {
+    unsigned o=table[i].xp-(gold?2:0),stock=gold?table[i].gold:table[i].experience;
+    unsigned value=stock*numerator/denominator;rom[o]=(uint8_t)value;rom[o+1]=(uint8_t)(value>>8);
+  }
+  return 1;
+}
+
 void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
   LagoonFastMenus_Reset(rom,size);
   g_walk_speed_applied = 0;
+  g_sword_reach_applied = 0;
   g_start_hp_applied = 0;
   g_start_def_applied = 0;
   g_camera_center = 0;
@@ -444,6 +531,7 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
     if (memcmp(rom + 0xB6F0, stock, sizeof(stock)) == 0) {
       uint8_t *r = (uint8_t *)(uintptr_t)rom;
       memcpy(r+0xB6F0,cleave,sizeof(cleave));
+      g_sword_reach_applied = 1;
       fprintf(stderr, "lagoon.qol: sword_reach applied, 38px reach and 3px lateral cleave per side\n");
     } else fprintf(stderr, "lagoon.qol: sword_reach refused, stock rectangle differs\n");
   }
@@ -473,80 +561,13 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
     } else fprintf(stderr, "lagoon.qol: magic_power refused, stock tables differ\n");
   }
 
-  if (snes_mod_runtime_feature_enabled_c(QOL_PACKAGE_ID, "exp_boost") && size >= 0x30000) {
-    /* 018D25 copies record words +1..+11 into entity stats; the final word
-     * becomes 052A EXP, consumed by the death reward routine at 01B7E9. */
-    static const struct { uint32_t offset; uint16_t stock; } rewards[] = {
-      {0x29204, 2},
-      {0x29213, 1},
-      {0x29222, 3},
-      {0x29231, 4},
-      {0x29240, 5},
-      {0x2924F, 6},
-      {0x2925E, 5},
-      {0x2926D, 4},
-      {0x2927C, 6},
-      {0x2928B, 6},
-      {0x2929A, 7},
-      {0x292A9, 10},
-      {0x292B8, 9},
-      {0x292C7, 32},
-      {0x292D6, 20},
-      {0x292E5, 30},
-      {0x292F4, 22},
-      {0x29303, 30},
-      {0x29312, 35},
-      {0x29321, 40},
-      {0x29330, 52},
-      {0x2933F, 60},
-      {0x2934E, 80},
-      {0x2935D, 80},
-      {0x2936C, 90},
-      {0x2937B, 200},
-      {0x2938A, 120},
-      {0x29399, 160},
-      {0x293A8, 250},
-      {0x293B7, 300},
-      {0x293C6, 350},
-      {0x293D5, 130},
-      {0x293E4, 140},
-      {0x293F3, 150},
-      {0x29402, 350},
-      {0x29411, 400},
-      {0x29420, 0},
-      {0x2942F, 0},
-      {0x2943E, 0},
-      {0x2946D, 64},
-      {0x2947C, 250},
-      {0x2948B, 500},
-      {0x2949A, 800},
-      {0x294A9, 0},
-      {0x294B8, 0},
-      {0x294C7, 1500},
-      {0x294D6, 3000},
-      {0x294E5, 0},
-      {0x294F4, 0},
-      {0x29503, 0},
-      {0x29512, 0},
-      {0x29521, 0},
-      {0x29530, 0},
-      {0x2953F, 2000},
-      {0x2954E, 0},
-    };
-    int matches=1;
-    for (unsigned j=0;j<sizeof(rewards)/sizeof(rewards[0]);j++) {
-      size_t o=rewards[j].offset;
-      if ((uint16_t)(rom[o]|rom[o+1]<<8) != rewards[j].stock) matches=0;
+  for(unsigned gold=0;gold<2;gold++) {
+    unsigned n,d;const char *kind=gold?"gold":"exp";
+    if(qol_reward_ratio(kind,&n,&d)) {
+      if(qol_patch_rewards((uint8_t *)(uintptr_t)rom,size,(int)gold,n,d))
+        fprintf(stderr,"lagoon.qol: %s rewards applied, %u/%u of original enemy/boss rewards\n",kind,n,d);
+      else fprintf(stderr,"lagoon.qol: %s rewards refused, stock reward words differ\n",kind);
     }
-    if (matches) {
-      uint8_t *r=(uint8_t *)(uintptr_t)rom;
-      for (unsigned j=0;j<sizeof(rewards)/sizeof(rewards[0]);j++) {
-        size_t o=rewards[j].offset;
-        unsigned v=rewards[j].stock + rewards[j].stock/2;
-        r[o]=(uint8_t)v; r[o+1]=(uint8_t)(v>>8);
-      }
-      fprintf(stderr, "lagoon.qol: exp_boost applied, enemy/boss EXP +50%% rounded down\n");
-    } else fprintf(stderr, "lagoon.qol: exp_boost refused, stock reward words differ\n");
   }
 
 }
@@ -616,8 +637,11 @@ static uint8_t qol_filter_write(uint32_t addr, uint8_t value) {
     uint8_t mode = g_ram[base + 0x1B];
     if (g_ram[0x4E1] && (g_ram[base] & 0xC0) == 0xC0 &&
         g_ram[base + 0x18] == 1 && (mode == 0 || mode == 1 || mode == 3) &&
-        g_ram[base + 0x1A] == 0) {
-      /* Original tier zero has only -1,0,+1; high bytes stay FF/00. */
+        g_ram[base + 0x1A] == 0 && !(g_ram[base + 0x1F] & 4)) {
+      /* Authored target walking (+1F bit04), including Thor's Wish lead,
+       * keeps its original 1px steps. At 3px it can miss the narrow approach
+       * and oscillate outside the original <16px arrival test. Ordinary
+       * following remains accelerated. High bytes stay FF/00. */
       if (value == 1) return 3;
       if (value == 0xFF) return 0xFD;
     }
@@ -825,6 +849,20 @@ SNES_MOD_CONSTRUCTOR(lagoon_qol_register) {
   snes_mod_register_activation_plugin("lagoon.qol.camera_center",
                                       qol_camera_activated);
   snes_mod_register_activation_plugin("lagoon.qol.exp_boost", qol_data_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.exp_2x", qol_data_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.exp_3x", qol_data_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.exp_4x", qol_data_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.exp_5x", qol_data_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.exp_6x", qol_data_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.exp_7x", qol_data_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.exp_8x", qol_data_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.gold_2x", qol_data_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.gold_3x", qol_data_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.gold_4x", qol_data_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.gold_5x", qol_data_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.gold_6x", qol_data_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.gold_7x", qol_data_activated);
+  snes_mod_register_activation_plugin("lagoon.qol.gold_8x", qol_data_activated);
   snes_mod_register_activation_plugin("lagoon.qol.sword_reach", qol_data_activated);
   snes_mod_register_activation_plugin("lagoon.qol.magic_power", qol_data_activated);
   snes_mod_register_activation_plugin("lagoon.qol.follower_speed", qol_follower_activated);

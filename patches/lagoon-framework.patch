@@ -2821,7 +2821,7 @@ index 0000000000000000000000000000000000000000..653edfbc25855d7e2a442a89807a32e6
 + * while the window is fullscreen, but it is what the windowed window uses. */
 +int snesrecomp_get_window_scale(void);
 diff --git a/runner/src/desktop/host_main.c b/runner/src/desktop/host_main.c
-index 3bc3905..53d336d 100644
+index 3bc390535a40b5829dde5687429bbee843024499..160261473330e6e19524a3b7850e399db67eebdf 100644
 --- a/runner/src/desktop/host_main.c
 +++ b/runner/src/desktop/host_main.c
 @@ -153,10 +153,13 @@ static void OpenOneJoystick(int i);
@@ -3887,7 +3887,19 @@ index 3bc3905..53d336d 100644
        slot = j; break;
      }
    }
-@@ -4705,7 +5236,7 @@ static void ApplyVolume(void) {
+@@ -4686,6 +5217,11 @@ static void HandleGamepadInput(GamepadInfo *gi, int button, bool pressed) {
+   if (!!(gi->modifiers & (1 << button)) == pressed)
+     return;
+   gi->modifiers ^= 1 << button;
++  if (gi->index == 0 && g_game && g_game->title_gamepad_button &&
++      g_game->title_gamepad_button(button, pressed)) {
++    gi->last_cmd[button] = 0;
++    return;
++  }
+   if (pressed)
+     gi->last_cmd[button] = FindCmdForGamepadButton(button + gi->index * kGamepadBtn_Count, gi->modifiers);
+   if (gi->last_cmd[button] != 0)
+@@ -4705,11 +5241,19 @@ static void ApplyVolume(void) {
  static void HandleVolumeAdjustment(int volume_adjustment) {
    g_config.volume = IntMin(IntMax(0, g_config.volume + volume_adjustment * 5), 100);
    ApplyVolume();
@@ -3896,8 +3908,20 @@ index 3bc3905..53d336d 100644
    /* The bar at the right edge of the frame, for a moment. */
    snes_osd_note_volume(g_config.volume);
  }
+ 
++int snesrecomp_desktop_get_volume(void) { return g_config.volume; }
++void snesrecomp_desktop_set_volume(int percent) {
++  g_config.volume = IntMin(IntMax(0, percent), 100);
++  ApplyVolume();
++  g_config_dirty = true;
++  snes_osd_note_volume(g_config.volume);
++}
++
+ // Approximates atan2(y, x) normalized to the [0,4) range
+ // with a maximum error of 0.1620 degrees
+ // normalized_atan(x) ~ (b x + x^2) / (1 + 2 b x + x^2)
 diff --git a/runner/src/desktop/host_main.h b/runner/src/desktop/host_main.h
-index 03b6f06..42826b3 100644
+index 03b6f069040dfa4c6e977e3148132bda41dafc30..8d0e254b5e31df74761803958977760d02de1374 100644
 --- a/runner/src/desktop/host_main.h
 +++ b/runner/src/desktop/host_main.h
 @@ -38,6 +38,7 @@
@@ -3908,7 +3932,7 @@ index 03b6f06..42826b3 100644
  
  /* Compositor surfaces may be wider than the guest PPU's own line buffer. */
  enum { kSnesDesktopMaxFrameWidth = 1024 };
-@@ -197,6 +198,30 @@ typedef struct SnesDesktopHostGame {
+@@ -197,6 +198,33 @@ typedef struct SnesDesktopHostGame {
    /* After the gameplay loop ends, before SDL resources are destroyed or a
     * relaunch begins. Stop title-owned workers here. No further frames run. */
    void (*on_shutdown)(void);
@@ -3932,6 +3956,9 @@ index 03b6f06..42826b3 100644
 +   * scripted frame; key consumes host keys (including the opening key).
 +   * tick runs only while frozen; image returns zero after the panel closes.
 +   * NULL callbacks preserve the existing host. No guest reset on close. */
++  /* Raw, edge-triggered seat0 controller extension. Return1 to consume buttons
++   * with no SNES counterpart (e.g. map/settings triggers). NULL preserves ports. */
++  int (*title_gamepad_button)(int button, int pressed);
 +  int (*title_overlay_key)(int key, int modifiers, int pressed);
 +  int (*title_overlay_poll_open)(uint32_t human_inputs);
 +  void (*title_overlay_tick)(uint32_t human_inputs, uint32_t ticks);
@@ -3939,6 +3966,15 @@ index 03b6f06..42826b3 100644
  } SnesDesktopHostGame;
  
  /* The whole program. Returns the process exit code. */
+@@ -207,6 +235,8 @@ int snesrecomp_desktop_main(const SnesDesktopHostGame *game, int argc, char **ar
+ int snesrecomp_desktop_frame_width(void);
+ int snesrecomp_desktop_frame_height(void);
+ void snesrecomp_desktop_set_widescreen(int enabled);
++int snesrecomp_desktop_get_volume(void);
++void snesrecomp_desktop_set_volume(int percent);
+ 
+ /* Ask the host to reset its pacing clock at the next opportunity (a title
+  * that just changed its presentation settings). */
 diff --git a/runner/src/desktop/mmx_config.c b/runner/src/desktop/mmx_config.c
 index 27437759e35a6cd8a275eefdd3db9d39055cefa5..4c49fe801adccb26e1b395e79cb30cf0586a6d20 100644
 --- a/runner/src/desktop/mmx_config.c

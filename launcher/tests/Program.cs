@@ -167,6 +167,54 @@ internal static class SettingsChecks
         ExpectConflict(controller); controller.Reload();
         controller.SetOption("audio.soundtrack", OptionValue.From("snes")); controller.Apply();
         Assert(File.ReadAllText(state).Contains(System.Text.Json.JsonSerializer.Serialize(musicFolder)), "Disabling soundtrack lost its retained resource path.");
+        // New selectors replace the legacy Boolean and select exactly one
+        // reward feature. Unknown settings and old non-reward features survive.
+        Assert(!adapter.Definition.Options.Any(x=>x.Id=="qol.exp_boost"), "Legacy reward Boolean remains visible.");
+        Assert(adapter.Definition.Options.Single(x=>x.Id=="qol.exp-multiplier").Choices!.Count==9, "EXP multiplier choices missing.");
+        Assert(adapter.Definition.Options.Single(x=>x.Id=="qol.gold-multiplier").Choices!.Count==8, "Gold multiplier choices missing.");
+        controller.SetOption("qol.exp-multiplier",OptionValue.From("8"));
+        try {controller.Apply();throw new Exception("Old package accepted multiplier8.");}catch(InvalidDataException){}
+        controller.Reload();
+        File.AppendAllText(manifest,"[[feature]]\nid = \"exp_boost\"\n"+string.Concat(Enumerable.Range(2,7).Select(n=>$"[[feature]]\nid = \"exp_{n}x\"\n[[feature]]\nid = \"gold_{n}x\"\n")));
+        controller.Reload();
+        controller.SetOption("qol.exp-multiplier",OptionValue.From("1.5"));controller.Apply();
+        Assert(controller.Snapshot.Values["qol.exp-multiplier"].GetString()=="1.5", "Legacy1.5x migration failed.");
+        for(int multiplier=2;multiplier<=8;multiplier++){
+            controller.SetOption("qol.exp-multiplier",OptionValue.From(multiplier.ToString()));
+            controller.SetOption("qol.gold-multiplier",OptionValue.From(multiplier.ToString()));controller.Apply();
+            controller.Reload();
+            Assert(controller.Snapshot.Values["qol.exp-multiplier"].GetString()==multiplier.ToString()&&controller.Snapshot.Values["qol.gold-multiplier"].GetString()==multiplier.ToString(), "Reward selector roundtrip failed.");
+            var modsText=File.ReadAllText(state);
+            foreach(var prior in Enumerable.Range(2,7).Where(n=>n!=multiplier)){
+                Assert(!modsText.Contains($"id = \"exp_{prior}x\"\nenabled = true")&&!modsText.Contains($"id = \"gold_{prior}x\"\nenabled = true"),"Multipliers accumulated.");
+            }
+            Assert(!modsText.Contains("id = \"exp_boost\"\nenabled = true"),"Legacy EXP compounded with selected multiplier.");
+        }
+        controller.SetOption("qol.exp-multiplier",OptionValue.From("1"));controller.SetOption("qol.gold-multiplier",OptionValue.From("1"));controller.Apply();
+        Assert(File.ReadAllText(state).Contains("setting = \"unknown value\""),"Reward selection lost unknown mod state.");
+        // Binding editors target the original native files and participate in
+        // the same rollback/revision transaction, rather than duplicating JSON.
+        var keys=Path.Combine(root,"keybinds.ini");
+        File.WriteAllText(keys,"# preserve bindings\r\n[player1]\r\na=X\r\nb=Z\r\ncustom=keep\r\n[player2]\r\na=Q\r\n",new UTF8Encoding(true));
+        controller.Reload();
+        controller.SetOption("keyboard.a",OptionValue.From("K"));controller.SetOption("hotkey.pause",OptionValue.From("Ctrl+p"));
+        controller.SetOption("hotkey.volumeup",OptionValue.From("F6"));controller.SetOption("pad.a",OptionValue.From("X"));
+        controller.SetOption("audio.music-volume",OptionValue.From(65));controller.Apply();
+        Assert(File.ReadAllText(keys).Contains("a = K")&&File.ReadAllText(keys).Contains("custom=keep\r\n")&&File.ReadAllText(keys).Contains("[player2]\r\na=Q"),"Keyboard editor lost unrelated bindings.");
+        Assert(File.ReadAllBytes(keys).AsSpan().StartsWith(new byte[]{0xef,0xbb,0xbf}),"Keyboard BOM lost.");
+        Assert(File.ReadAllText(config).Contains("Pause = Ctrl+p")&&File.ReadAllText(config).Contains("VolumeUp = F6")&&File.ReadAllText(config).Contains("SoundtrackVolume = 65"),"Hotkeys/music native INI mapping failed.");
+        Assert(controller.Snapshot.Values["pad.a"].GetString()=="X"&&File.ReadAllText(config).Contains("GuidP1=synthetic-existing-guid"),"Controller assignment changed device selection.");
+        controller.SetOption("keyboard.a",OptionValue.From("J"));File.AppendAllText(keys,"# external binding edit\r\n");ExpectConflict(controller);controller.Reload();
+        var beforeKeys=File.ReadAllBytes(keys);var beforeBindingIni=File.ReadAllBytes(config);
+        controller.SetOption("keyboard.a",OptionValue.From("J"));controller.SetOption("hotkey.pause",OptionValue.From("Ctrl+j"));
+        using(var lockPaths=new FileStream(Path.Combine(adapter.ProfileDirectory(profile),"settings.json.lock"),FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None)){
+            try{controller.Apply();throw new Exception("Binding rollback paths failure accepted.");}catch(IOException){}
+        }
+        Assert(beforeKeys.SequenceEqual(File.ReadAllBytes(keys))&&beforeBindingIni.SequenceEqual(File.ReadAllBytes(config)),"Binding transaction rollback failed.");
+        controller.Reload();controller.SetOption("keyboard.a",OptionValue.From("K\n[Injected]"));
+        try{controller.Apply();throw new Exception("Binding newline injection accepted.");}catch(InvalidDataException){}
+        controller.Reload();
+        Console.WriteLine("PASS:2x..8x reward selectors, legacy1.5x/no compounding, keyboard/controller/hotkey native mappings, binding conflict/rollback and X68000 volume.");
         var newConfig = Path.Combine(root, "other.ini"); File.WriteAllText(newConfig, "[Sound]\nVolume=71\n");
         controller.SetOption("config.path", OptionValue.From(newConfig)); controller.SetOption("audio.volume", OptionValue.From(12)); controller.Apply();
         Assert(controller.Snapshot.Values["audio.volume"].GetInt32() == 71 && File.ReadAllText(newConfig) == "[Sound]\nVolume=71\n", "New source overwritten with previous settings.");

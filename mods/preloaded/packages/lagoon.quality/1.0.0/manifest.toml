@@ -146,3 +146,157 @@ default_enabled = false
 [[plugin]]
 feature = "fast_menus"
 id = "lagoon.qol.fast_menus"
+
+[[feature]]
+id = "exp_2x"
+name = "EXP rewards: 2x"
+description = "Enemy and boss EXP rewards are 2 times original. Choose only one EXP multiplier. Zero-reward phase records stay zero; shop prices and existing save totals are unchanged."
+group = "Stats"
+default_enabled = false
+
+[[plugin]]
+feature = "exp_2x"
+id = "lagoon.qol.exp_2x"
+
+[[feature]]
+id = "exp_3x"
+name = "EXP rewards: 3x"
+description = "Enemy and boss EXP rewards are 3 times original. Choose only one EXP multiplier. Zero-reward phase records stay zero; shop prices and existing save totals are unchanged."
+group = "Stats"
+default_enabled = false
+
+[[plugin]]
+feature = "exp_3x"
+id = "lagoon.qol.exp_3x"
+
+[[feature]]
+id = "exp_4x"
+name = "EXP rewards: 4x"
+description = "Enemy and boss EXP rewards are 4 times original. Choose only one EXP multiplier. Zero-reward phase records stay zero; shop prices and existing save totals are unchanged."
+group = "Stats"
+default_enabled = false
+
+[[plugin]]
+feature = "exp_4x"
+id = "lagoon.qol.exp_4x"
+
+[[feature]]
+id = "exp_5x"
+name = "EXP rewards: 5x"
+description = "Enemy and boss EXP rewards are 5 times original. Choose only one EXP multiplier. Zero-reward phase records stay zero; shop prices and existing save totals are unchanged."
+group = "Stats"
+default_enabled = false
+
+[[plugin]]
+feature = "exp_5x"
+id = "lagoon.qol.exp_5x"
+
+[[feature]]
+id = "exp_6x"
+name = "EXP rewards: 6x"
+description = "Enemy and boss EXP rewards are 6 times original. Choose only one EXP multiplier. Zero-reward phase records stay zero; shop prices and existing save totals are unchanged."
+group = "Stats"
+default_enabled = false
+
+[[plugin]]
+feature = "exp_6x"
+id = "lagoon.qol.exp_6x"
+
+[[feature]]
+id = "exp_7x"
+name = "EXP rewards: 7x"
+description = "Enemy and boss EXP rewards are 7 times original. Choose only one EXP multiplier. Zero-reward phase records stay zero; shop prices and existing save totals are unchanged."
+group = "Stats"
+default_enabled = false
+
+[[plugin]]
+feature = "exp_7x"
+id = "lagoon.qol.exp_7x"
+
+[[feature]]
+id = "exp_8x"
+name = "EXP rewards: 8x"
+description = "Enemy and boss EXP rewards are 8 times original. Choose only one EXP multiplier. Zero-reward phase records stay zero; shop prices and existing save totals are unchanged."
+group = "Stats"
+default_enabled = false
+
+[[plugin]]
+feature = "exp_8x"
+id = "lagoon.qol.exp_8x"
+
+[[feature]]
+id = "gold_2x"
+name = "gold rewards: 2x"
+description = "Enemy and boss gold rewards are 2 times original. Choose only one gold multiplier. Zero-reward phase records stay zero; shop prices and existing save totals are unchanged."
+group = "Stats"
+default_enabled = false
+
+[[plugin]]
+feature = "gold_2x"
+id = "lagoon.qol.gold_2x"
+
+[[feature]]
+id = "gold_3x"
+name = "gold rewards: 3x"
+description = "Enemy and boss gold rewards are 3 times original. Choose only one gold multiplier. Zero-reward phase records stay zero; shop prices and existing save totals are unchanged."
+group = "Stats"
+default_enabled = false
+
+[[plugin]]
+feature = "gold_3x"
+id = "lagoon.qol.gold_3x"
+
+[[feature]]
+id = "gold_4x"
+name = "gold rewards: 4x"
+description = "Enemy and boss gold rewards are 4 times original. Choose only one gold multiplier. Zero-reward phase records stay zero; shop prices and existing save totals are unchanged."
+group = "Stats"
+default_enabled = false
+
+[[plugin]]
+feature = "gold_4x"
+id = "lagoon.qol.gold_4x"
+
+[[feature]]
+id = "gold_5x"
+name = "gold rewards: 5x"
+description = "Enemy and boss gold rewards are 5 times original. Choose only one gold multiplier. Zero-reward phase records stay zero; shop prices and existing save totals are unchanged."
+group = "Stats"
+default_enabled = false
+
+[[plugin]]
+feature = "gold_5x"
+id = "lagoon.qol.gold_5x"
+
+[[feature]]
+id = "gold_6x"
+name = "gold rewards: 6x"
+description = "Enemy and boss gold rewards are 6 times original. Choose only one gold multiplier. Zero-reward phase records stay zero; shop prices and existing save totals are unchanged."
+group = "Stats"
+default_enabled = false
+
+[[plugin]]
+feature = "gold_6x"
+id = "lagoon.qol.gold_6x"
+
+[[feature]]
+id = "gold_7x"
+name = "gold rewards: 7x"
+description = "Enemy and boss gold rewards are 7 times original. Choose only one gold multiplier. Zero-reward phase records stay zero; shop prices and existing save totals are unchanged."
+group = "Stats"
+default_enabled = false
+
+[[plugin]]
+feature = "gold_7x"
+id = "lagoon.qol.gold_7x"
+
+[[feature]]
+id = "gold_8x"
+name = "gold rewards: 8x"
+description = "Enemy and boss gold rewards are 8 times original. Choose only one gold multiplier. Zero-reward phase records stay zero; shop prices and existing save totals are unchanged."
+group = "Stats"
+default_enabled = false
+
+[[plugin]]
+feature = "gold_8x"
+id = "lagoon.qol.gold_8x"

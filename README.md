@@ -9,7 +9,7 @@ widescreen, a custom scene renderer and optional quality-of-life improvements.
 ![Atland with Enhanced original pixels at 1920 by 1080](docs/screenshots/atland-epx-1920x1080.png)
 
 [More screenshots](docs/screenshots/README.md) ·
-[Windows preview](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.1.0-preview.1) ·
+[Windows preview](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.1.1-preview.1) ·
 [Build](docs/BUILDING.md) · [Playing and settings](docs/PLAYING.md) ·
 [Development](docs/DEVELOPMENT.md) · [Credits](CREDITS.md)
 
@@ -22,17 +22,24 @@ widescreen, a custom scene renderer and optional quality-of-life improvements.
   and keeps the HUD sharp. No replacement artwork is required.
 - **Gameplay options:** faster walking, longer sword reach with a modest
   cleave, extra hit recovery, gentler opening balance, more EXP, longer jumps,
-  stronger magic and a centered camera.
+  stronger magic and a centered camera. EXP and gold rewards have independent
+  Original–8x selectors; the previous 1.5x EXP setting remains available. The
+  longer-reach option also extends supported sword artwork to match its reach.
 - **Built-in escort improvements:** Giles can receive first aid without spending
-  a Healing Pot. Qualified escorts follow Nasir's actual route at his pace,
-  keeping a short gap and the original wall collision. You can walk through
+  a Healing Pot. Giles and Thor route around walls and stairs at Nasir's
+  walking pace, keeping a short gap and the original wall collision. You can walk through
   your active escort when reversing direction. Menus also open faster.
-- **Explored map:** press **M** or **Select+L** to pause and see your position,
-  discovered exits, links to visited areas and discovered treasure.
+- **Explored map:** press **M** or controller **L2** to pause and see your
+  position, discovered exits, links to visited areas and discovered treasure.
+  The early tablet quest includes next-step hints and relevant objective markers.
+- **Quick settings:** controller **R2** or **Ctrl+comma** opens an in-game
+  master-volume and X68000 music-volume panel. The game pauses while it is open.
 - **Companion Launcher:** display, audio, input and QoL settings in one place.
   Choose **Original SNES** or the bundled **X68000** music on Audio; no manual
   conversion or folder selection. Unmapped cues retain SNES music and sound
-  effects remain original. [Music details and MP3s](docs/SOUNDTRACK.md).
+  effects remain original. X68000 cues now have balanced playback levels, with
+  a separate music trim. Keyboard, controller and system-hotkey editors write
+  the native settings directly. [Music details and MP3s](docs/SOUNDTRACK.md).
 
 ## Run it
 
@@ -64,8 +71,10 @@ supports widescreen. Unsupported content falls back to the original view.
 
 The owner and friends will perform the uninterrupted start-to-finish playtest.
 Special actor/effect coverage and frame-time spikes remain work in progress;
-there is no locked-60-FPS or full-game completion claim. An objective journal,
-route guidance and further zoom-out are later considerations. See [development scope](docs/DEVELOPMENT.md)
+there is no locked-60-FPS or full-game completion claim. Additional enemy
+coordinate helpers and guarded transition presentation are included, while
+broader pacing and visual coverage remain under test. Tablet hints are available;
+a full objective journal, broader route guidance and zoom-out remain later work. See [development scope](docs/DEVELOPMENT.md)
 and [how to report a playtest issue](docs/PLAYING.md#reporting-a-bug).
 
 ## Credits and licensing

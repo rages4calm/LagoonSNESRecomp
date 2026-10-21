@@ -33,8 +33,15 @@
 #include "lagoon_frame_probe.h"
 #include "lagoon_map.h"
 #include "lagoon_follower.h"
+#include "lagoon_quest_guidance.h"
+#include "lagoon_settings.h"
+#include "lagoon_sword_visual.h"
+#include "snes/ppu.h"
+#include "config.h"
 #include "common_rtl.h"
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #ifndef __ANDROID__
 #define SDL_MAIN_HANDLED 1
@@ -49,10 +56,46 @@
 #define SNES_GAME_VERSION "dev"
 #endif
 
+static const char *lagoon_config_path="config.ini";
+static void LagoonHost_AfterConfig(void) {
+    LagoonWide_AfterConfig();
+    LagoonSettings_Configure(lagoon_config_path);
+}
+static int LagoonHost_Gamepad(int button,int pressed) {
+    if(button==kGamepadBtn_L2){
+        if(pressed&&!LagoonSettings_IsOpen())LagoonMap_Command(LAGOON_MAP_TOGGLE);
+        return 1;
+    }
+    if(button==kGamepadBtn_R2){
+        if(pressed){
+            if(LagoonSettings_IsOpen())LagoonSettings_Close();
+            else {LagoonMap_Command(LAGOON_MAP_CLOSE);LagoonSettings_Open();}
+        }return 1;
+    }return 0;
+}
+static int LagoonHost_PollOverlay(uint32_t human) {
+    return LagoonSettings_IsOpen()?LagoonSettings_PollOpen(human):LagoonMap_PollOpen(human);
+}
+static void LagoonHost_TickOverlay(uint32_t human,uint32_t ticks) {
+    if(LagoonSettings_IsOpen())LagoonSettings_Tick(human,ticks);else LagoonMap_Tick(human,ticks);
+}
+static int LagoonHost_OverlayImage(const uint32_t **pixels,int *width,int *height) {
+    return LagoonSettings_IsOpen()?LagoonSettings_Image(pixels,width,height):LagoonMap_Image(pixels,width,height);
+}
 static void LagoonHost_OnRom(const uint8_t *rom,size_t size) {
     LagoonMap_Init(rom,size);
+    LagoonQuestGuidance_Init(rom,size);
     LagoonQol_OnRomLoaded(rom,size);
     LagoonFollower_Reset(rom,size);
+}
+static unsigned long long sword_appends;
+static const char *sword_report_path;
+static void LagoonHost_SwordReport(void){if(sword_report_path){FILE*f=fopen(sword_report_path,"w");if(f){fprintf(f,"{\"source_qualified_sword_frames\":%llu}\n",sword_appends);fclose(f);}}}
+static void LagoonHost_BeginFrame(unsigned frame) {
+    static int initialized;if(!initialized){initialized=1;sword_report_path=getenv("LAGOON_SWORD_REPORT");if(sword_report_path&&*sword_report_path)atexit(LagoonHost_SwordReport);}
+    LagoonWide_BeginFrame(frame);
+    if(g_ppu)sword_appends+=LagoonSwordVisual_Prepare(g_ppu,g_rom,0x100000,g_ram,
+        LagoonQol_SwordReachEnabled() && (!g_config.widescreen || g_ppu->wsLayerWidenMask==3));
 }
 static void LagoonHost_AfterFrame(const SnesDesktopHostFrameStats *stats) {
     LagoonFrameProbe_Record(stats);
@@ -60,7 +103,19 @@ static void LagoonHost_AfterFrame(const SnesDesktopHostFrameStats *stats) {
     LagoonMap_AfterFrame(stats->frame);
 }
 static int LagoonHost_MapKey(int key,int modifiers,int pressed) {
-    (void)modifiers;
+    if(key==SDLK_COMMA&&(modifiers&KMOD_CTRL)){
+        if(pressed){if(LagoonSettings_IsOpen())LagoonSettings_Close();else {LagoonMap_Command(LAGOON_MAP_CLOSE);LagoonSettings_Open();}}return 1;
+    }
+    if(LagoonSettings_IsOpen()){
+        if(pressed)switch(key){
+        case SDLK_ESCAPE:case SDLK_B:LagoonSettings_Close();break;
+        case SDLK_UP:LagoonSettings_Command(LAGOON_SETTINGS_UP);break;
+        case SDLK_DOWN:LagoonSettings_Command(LAGOON_SETTINGS_DOWN);break;
+        case SDLK_LEFT:LagoonSettings_Command(LAGOON_SETTINGS_LEFT);break;
+        case SDLK_RIGHT:LagoonSettings_Command(LAGOON_SETTINGS_RIGHT);break;
+        default:break;
+        }return 1;
+    }
     int opened=LagoonMap_IsOpen();
     static int m_held;
     if(key==SDLK_M){if(pressed&&!m_held)LagoonMap_Command(LAGOON_MAP_TOGGLE);m_held=pressed;return 1;}
@@ -95,18 +150,19 @@ static const SnesDesktopHostGame kGameHost = {
     .widescreen_supported = 1,
     .display_aspect_supported = 1,
     .native_widescreen    = 1,
-    .after_config        = LagoonWide_AfterConfig,
+    .after_config        = LagoonHost_AfterConfig,
     .prepare_frame       = LagoonWide_PrepareFrame,
-    .begin_sim_frame     = LagoonWide_BeginFrame,
+    .begin_sim_frame     = LagoonHost_BeginFrame,
     .end_sim_frame       = LagoonWide_EndFrame,
     .draw_frame          = LagoonWide_DrawFrame,
     .on_reset            = LagoonWide_Reset,
     .after_run_frame     = LagoonHost_AfterFrame,
     .on_shutdown         = LagoonMap_Save,
+    .title_gamepad_button = LagoonHost_Gamepad,
     .title_overlay_key   = LagoonHost_MapKey,
-    .title_overlay_poll_open = LagoonMap_PollOpen,
-    .title_overlay_tick = LagoonMap_Tick,
-    .title_overlay_image = LagoonMap_Image,
+    .title_overlay_poll_open = LagoonHost_PollOverlay,
+    .title_overlay_tick = LagoonHost_TickOverlay,
+    .title_overlay_image = LagoonHost_OverlayImage,
 };
 
 #ifndef __ANDROID__
@@ -115,6 +171,6 @@ static const SnesDesktopHostGame kGameHost = {
 int main(int argc, char **argv)
 {
     for (int i = 1; i + 1 < argc; ++i)
-        if (!strcmp(argv[i], "--config")) LagoonWide_SetConfigPath(argv[i + 1]);
+        if (!strcmp(argv[i], "--config")) {LagoonWide_SetConfigPath(argv[i + 1]);lagoon_config_path=argv[i+1];}
     return snesrecomp_desktop_main(&kGameHost, argc, argv);
 }

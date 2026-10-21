@@ -87,7 +87,19 @@ int main(int argc, char **argv) {
   assert(msu1_read(0x2000) & 0x10);
   int16_t out[32] = {0};
   msu1_mix(out, 16);
-  assert(out[0] == 1000 && out[1] == -1000); /* Actual replacement PCM reaches mixer. */
+  assert(LagoonSoundtrack_GetVolume()==100);
+  assert(out[0] == 1000*145/255 && out[1] == -1000*145/255); /* Balanced title PCM. */
+  /* A generated ramp proves live trim/mute never restarts or pauses the cursor. */
+  LagoonSoundtrack_SetVolume(50);assert(LagoonSoundtrack_GetVolume()==50);
+  memset(out,0,sizeof(out));msu1_mix(out,16);
+  assert(out[0]==1016*73/255&&out[1]==-1016*73/255);
+  LagoonSoundtrack_SetVolume(0);assert(LagoonSoundtrack_GetVolume()==0);
+  memset(out,0,sizeof(out));msu1_mix(out,16);
+  for(unsigned i=0;i<32;i++)assert(out[i]==0);
+  LagoonSoundtrack_SetVolume(1000);assert(LagoonSoundtrack_GetVolume()==100);
+  memset(out,0,sizeof(out));msu1_mix(out,16);
+  assert(out[0]==1048*145/255&&out[1]==-1048*145/255);
+  assert(msu1_read(0x2000)&0x10);
   context(rom, 0x10, 1, 1, 0x0cf8e9, 0xfe2f);
   assert(filter(0x2141, 2) == 1 && writes == 2 && last_reg == 0x2141 && last_value == 0);
   context(rom, 0x61, 1, 1, 0x0cf9c5, 0xfe3d);
@@ -112,8 +124,13 @@ int main(int argc, char **argv) {
   assert(LagoonSoundtrack_Preflight(snapshot, sizeof(snapshot)));
   load_chunk(&saved); assert(!saved.error);
   g_cpu.master_cycles = 100;
+  LagoonSoundtrack_SetVolume(25);
   LagoonSoundtrack_OnStateLoaded(10);
-  assert(msu1_read(0x2000) & 0x10); /* Muted new state restarts the validated cue. */
+  assert(msu1_read(0x2000) & 0x10); /* State restores cue, not host preference. */
+  assert(LagoonSoundtrack_GetVolume()==25);
+  memset(out,0,sizeof(out));msu1_mix(out,16);
+  assert(out[0]==1000*36/255&&out[1]==-1000*36/255);
+  LagoonSoundtrack_SetVolume(100);
   frame_cb(); assert(msu1_read(0x2000) & 0x10); /* Reconcile does not undo load. */
   /* A failed preflight must erase an earlier staged cue. */
   load_chunk(&saved);
@@ -163,13 +180,18 @@ int main(int argc, char **argv) {
     {0x31,2,5},{0x32,2,5},{0x35,2,6},{0x37,2,6},{0x38,2,6},
     {0x39,2,6},{0x3a,2,7},{0x3b,2,7},{0x3d,2,8},
   };
+  const unsigned gains[]={160,153,160,197,207,129,127,141,120,145,126,115,116,130};
   for(unsigned i=0;i<sizeof(expanded)/sizeof(expanded[0]);i++) {
     context(rom,expanded[i][0],expanded[i][1],expanded[i][2],0x0cf8e0,0xfe00);
     unsigned prior=writes;
     assert(filter(0x2140,1)==1&&writes==prior+1&&last_value==0);
     assert(msu1_read(0x2000)&0x10);
     int16_t pcm[32]={0};msu1_mix(pcm,16);
-    assert(pcm[0]==1000&&pcm[1]==-1000);
+    assert(pcm[0]==(int)(1000*gains[i]/255)&&pcm[1]==-(int)(1000*gains[i]/255));
+    /* The music trim cannot scale the pre-existing S-DSP/SFX mix. */
+    LagoonSoundtrack_SetVolume(0);for(unsigned n=0;n<32;n++)pcm[n]=1234;
+    msu1_mix(pcm,16);for(unsigned n=0;n<32;n++)assert(pcm[n]==1234);
+    assert(msu1_read(0x2000)&0x10);LagoonSoundtrack_SetVolume(100);
     /* A mismatched source row cannot authorize replacing guest audio. */
     rom[0x679fc+expanded[i][0]*6+3]^=0x80;
     assert(filter(0x2140,1)==0&&!(msu1_read(0x2000)&0x10));

@@ -113,6 +113,46 @@ static unsigned mapped_track(unsigned event) {
   return track && g_ram[0x434] == bank0 && g_ram[0x436] == bank1 ? track : 0;
 }
 
+/* The supplied lossless album was rendered at different perceived levels:
+ * Voloh measures -12.2 LUFS, versus Gold Cave -15.5. All previously played at
+ * 255, so that transition rose3.3dB. Full-track BS.1770/EBU R128 measurements
+ * choose attenuation only toward -18LUFS, rounded down to the MSU byte. This
+ * preserves waveform, pitch, exact loop points and SFX, and leaves headroom.
+ * Existing clipped samples in the supplied PCM cannot be reconstructed here.
+ * Re-measure this table if replacing the album; never amplify an unknown track. */
+static const uint8_t balanced_gain[41] = {
+  [1] = 145,
+  [2] = 145,
+  [3] = 160,
+  [4] = 191,
+  [7] = 130,
+  [8] = 129,
+  [9] = 127,
+  [10] = 160,
+  [12] = 120,
+  [13] = 197,
+  [15] = 141,
+  [17] = 207,
+  [18] = 126,
+  [19] = 115,
+  [21] = 145,
+  [22] = 116,
+  [28] = 153,
+};
+static unsigned soundtrack_volume = 100;
+static uint8_t playback_volume(unsigned track) {
+  return track < sizeof(balanced_gain) ?
+    (uint8_t)((balanced_gain[track] * soundtrack_volume + 50u) / 100u) : 0;
+}
+void LagoonSoundtrack_SetVolume(unsigned percent) {
+  soundtrack_volume = percent > 100 ? 100 : percent;
+  /* Register writes own the recursive APU lock. No cursor/selection writes:
+   * muting continues playback and unmuting resumes the same musical position. */
+  if (replacement && playing_event && msu1_enabled())
+    msu1_write(0x2006, playback_volume(mapped_track((unsigned)playing_event)));
+}
+unsigned LagoonSoundtrack_GetVolume(void) { return soundtrack_volume; }
+
 static int valid_pcm(unsigned track) {
   /* Require an explicit importer prefix. No "auto" or directory guessing:
    * the validation must inspect exactly the file MSU will subsequently open. */
@@ -150,7 +190,7 @@ static int start_pcm(unsigned event) {
   msu1_write(0x2004, (uint8_t)track);
   msu1_write(0x2005, 0);
   if (msu1_read(0x2000) & 0x08) return 0;
-  msu1_write(0x2006, 255);
+  msu1_write(0x2006, playback_volume(track));
   msu1_write(0x2007, (uint8_t)(track_loops(track) ? 3 : 1));
   if (!(msu1_read(0x2000) & 0x10)) return 0;
   playing_event = (int)event;

@@ -93,8 +93,15 @@ The game EXE is game/LagoonSNESRecomp.exe. Companion supplies its ROM, settings
 and save paths. Keep local/ for your settings, mod preferences, saves and map.
 Extract a new preview into a separate folder and keep your previous saves.
 
-M opens the exploration map. Esc/B closes it; left/right select discovered maps.
+M or controller L2 opens the exploration map. Esc/B closes it; left/right select
+visited areas. Early tablet objectives include next-step hints and map markers.
+R2 or Ctrl+comma opens quick settings: master volume and X68000 music volume.
+The game pauses while either panel is open. No return to the launcher is needed
+to adjust those volumes. Companion also edits keyboard/controller/system hotkeys.
 Alt+Enter toggles fullscreen. F1 loads slot1; Shift+F1 saves slot1.
+Quality of life has independent EXP and gold reward selectors: Original or 2x through 8x;
+EXP also retains the previous 1.5x option. Multipliers do not stack and do not alter
+shop prices, quest rewards or your existing saved totals.
 Some widescreen/special actor paths retain the original view. Audio's Soundtrack
 dropdown switches between Original SNES and the bundled X68000 music. Choose
 one, Apply and restart the game. No folder selection or conversion is needed.

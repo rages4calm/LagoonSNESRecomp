@@ -7,7 +7,14 @@ uint8 g_ram[0x20000];
 static CpuWramWriteFilterHook filter;
 static CpuWramReadFilterHook read_filter;
 int snes_frame_counter;
+/* Follower collision policy is qualified by tools/test_follower.c; these
+ * unit fixtures isolate the QoL filters with no active follower authority. */
+int LagoonFollower_OwnsVelocity(unsigned a) { (void)a;return 0; }
+uint8_t LagoonFollower_FilterRead(uint32_t a,uint8_t v,const struct CpuWramReadContext *c,const uint8_t *r) {
+  (void)a;(void)c;(void)r;return v;
+}
 static int enabled_all;
+static unsigned exp_multiplier,gold_multiplier;
 static int callbacks;
 static uint64_t state_generation;
 static int camera_aot_conflict;
@@ -26,7 +33,10 @@ const char *cpu_dispatch_entry_reason(uint32_t pc, uint8_t mx) {
 }
 uint64_t RtlStateGeneration(void) { return state_generation; }
 int snes_mod_runtime_feature_enabled_c(const char *package, const char *feature) {
-  (void)package; return enabled_all==2 ? !strcmp(feature,"fast_menus") : enabled_all;
+  (void)package;
+  if(!strncmp(feature,"exp_",4)&&strcmp(feature,"exp_boost"))return exp_multiplier==9||exp_multiplier==(unsigned)atoi(feature+4);
+  if(!strncmp(feature,"gold_",5))return gold_multiplier==9||gold_multiplier==(unsigned)atoi(feature+5);
+  return enabled_all==2 ? !strcmp(feature,"fast_menus") : enabled_all;
 }
 int snes_mod_register_activation_plugin(const char *id, SNESModActivationCallback cb) {
   (void)id; (void)cb; return 1;
@@ -67,12 +77,50 @@ static void giles_script(const uint8_t *rom,int potion,int yes,int follows,int d
   }
   assert(0);
 }
+static void reward_checks(const uint8_t *stock,uint8_t *rom) {
+  /* Exercise the same source table through original/legacy/all requested
+   * ratios, then check every untouched ROM byte and every atomic guard. */
+  static const unsigned xp[]={
+    0x29204,0x29213,0x29222,0x29231,0x29240,0x2924f,0x2925e,0x2926d,0x2927c,0x2928b,0x2929a,0x292a9,0x292b8,0x292c7,0x292d6,0x292e5,0x292f4,0x29303,0x29312,0x29321,0x29330,0x2933f,0x2934e,0x2935d,0x2936c,0x2937b,0x2938a,0x29399,0x293a8,0x293b7,0x293c6,0x293d5,0x293e4,0x293f3,0x29402,0x29411,0x29420,0x2942f,0x2943e,0x2946d,0x2947c,0x2948b,0x2949a,0x294a9,0x294b8,0x294c7,0x294d6,0x294e5,0x294f4,0x29503,0x29512,0x29521,0x29530,0x2953f,0x2954e
+  };
+  uint8_t *allowed=calloc(1,0x100000);assert(allowed);
+  for(unsigned gold=0;gold<2;gold++)for(unsigned factor=2;factor<=8;factor++) {
+    memcpy(rom,stock,0x100000);memset(allowed,0,0x100000);
+    assert(qol_patch_rewards(rom,0x100000,(int)gold,factor,1));
+    for(unsigned i=0;i<sizeof xp/sizeof *xp;i++) {
+      unsigned o=xp[i]-(gold?2:0),value=(stock[o]|stock[o+1]<<8)*factor;
+      allowed[o]=allowed[o+1]=1;assert((unsigned)(rom[o]|rom[o+1]<<8)==value);
+    }
+    for(unsigned i=0;i<0x100000;i++)if(!allowed[i])assert(rom[i]==stock[i]);
+  }
+  for(unsigned gold=0;gold<2;gold++)for(unsigned i=0;i<sizeof xp/sizeof *xp;i++) {
+    memcpy(rom,stock,0x100000);unsigned o=xp[i]-(gold?2:0);rom[o]^=1;
+    uint8_t *before=malloc(0x100000);assert(before);memcpy(before,rom,0x100000);
+    assert(!qol_patch_rewards(rom,0x100000,(int)gold,8,1));assert(!memcmp(before,rom,0x100000));free(before);
+  }
+  enabled_all=0;unsigned n,d;assert(!qol_reward_ratio("exp",&n,&d));
+  for(unsigned factor=2;factor<=8;factor++) {
+    exp_multiplier=gold_multiplier=factor;
+    assert(qol_reward_ratio("exp",&n,&d)&&n==factor&&d==1);
+    assert(qol_reward_ratio("gold",&n,&d)&&n==factor&&d==1);
+  }
+  exp_multiplier=gold_multiplier=9;assert(!qol_reward_ratio("exp",&n,&d));assert(!qol_reward_ratio("gold",&n,&d));
+  exp_multiplier=gold_multiplier=0;enabled_all=1;assert(qol_reward_ratio("exp",&n,&d)&&n==3&&d==2);
+  enabled_all=0;exp_multiplier=8;gold_multiplier=7;memcpy(rom,stock,0x100000);
+  LagoonQol_OnRomLoaded(rom,0x100000);
+  assert((rom[0x29204]|rom[0x29205]<<8)==16);assert((rom[0x29202]|rom[0x29203]<<8)==21);
+  assert((rom[0x2946D]|rom[0x2946E]<<8)==512);assert((rom[0x2946B]|rom[0x2946C]<<8)==700);
+  exp_multiplier=gold_multiplier=0;enabled_all=0;free(allowed);
+  puts("Reward checks passed:2x..8x gold/EXP, untouched ROM identity, all atomic source guards, legacy/conflicting selectors");
+}
 int main(int argc, char **argv) {
   assert(argc==2);
   FILE *f=fopen(argv[1],"rb"); assert(f);
   uint8_t *rom=malloc(0x100000), *stock=malloc(0x100000);
   assert(fread(rom,1,0x100000,f)==0x100000); fclose(f);
   memcpy(stock,rom,0x100000);
+  reward_checks(stock,rom);
+  memcpy(rom,stock,0x100000);
   /* Core first aid is deliberately automatic. All optional geometry/stats
    * remain stock with features off; no unrelated ROM bytes change. */
   uint8_t *core=malloc(0x100000);assert(core);memcpy(core,stock,0x100000);
@@ -103,12 +151,13 @@ int main(int argc, char **argv) {
   memcpy(rom,stock,0x100000);memcpy(core,stock,0x100000);
   assert(qol_giles_first_aid(core,0x100000));
   enabled_all=0; LagoonQol_OnRomLoaded(rom,0x100000);
-  assert(!memcmp(core,rom,0x100000)); assert(read_filter);free(core);
+  assert(!memcmp(core,rom,0x100000)); assert(read_filter);assert(!LagoonQol_SwordReachEnabled());free(core);
   memcpy(rom,stock,0x100000);
   for (unsigned i=0;i<0x20000;i++) assert(filter(i,(uint8_t)i)==(uint8_t)i);
   enabled_all=1; LagoonQol_OnRomLoaded(rom,0x100000);
   assert(rom[0xE141]==18 && rom[0xE142]==21 && rom[0xE143]==23);
   assert(rom[0xE0FA]==11 && rom[0xE0FC]==13 && rom[0xE0FE]==16);
+  assert(LagoonQol_SwordReachEnabled());
   assert(rom[0xB6F2]==38 && rom[0xB6FE]==38 && rom[0xB700]==0xDA && rom[0xB70C]==0xDA);
   const int16_t expected_rects[4][4]={{0,38,-11,15},{-27,11,0,38},{-38,0,-15,11},{-11,27,-38,0}};
   for(unsigned d=0;d<4;d++)for(unsigned edge=0;edge<4;edge++) {
@@ -147,6 +196,20 @@ int main(int argc, char **argv) {
   word(0x546,1); word(0x548,0xFFFF);
   assert(getword(0x546)==3 && getword(0x548)==0xFFFD);
   g_ram[0x558]=2; word(0x546,1); assert(getword(0x546)==1);
+  /* Original target walking keeps one-pixel steps at every eligible NPC
+   * slot/kind and on both velocity axes. Ordinary following is unchanged. */
+  const unsigned ally_kinds[]={0,1,3};
+  unsigned lead_cases=0;
+  for(unsigned actor=0x540;actor<0xd40;actor+=64)
+    for(unsigned k=0;k<3;k++)for(unsigned axis=6;axis<=8;axis+=2){
+      g_ram[actor]=0xc8;g_ram[actor+0x18]=1;g_ram[actor+0x1b]=(uint8_t)ally_kinds[k];g_ram[actor+0x1a]=0;
+      for(unsigned lead=0;lead<2;lead++){
+        g_ram[actor+0x1f]=(uint8_t)(8|(lead?4:0));
+        word(actor+axis,1);assert(getword(actor+axis)==(lead?1:3));
+        word(actor+axis,0xffff);assert(getword(actor+axis)==(lead?0xffff:0xfffd));lead_cases++;
+      }
+    }
+  printf("Thor/scripted lead speed checks passed:%u slot/kind/axis/phase fixtures preserve authored1px and ordinary3px\n",lead_cases);
   /* Both activation orders register exactly one timer callback. */
   callbacks=0; g_mechanics_registered=0; qol_jump_activated(); qol_recovery_activated(); assert(callbacks==1);
   /* Stock counter and entity flags expire unchanged. Only exact ordinary-hit
@@ -268,6 +331,8 @@ int main(int argc, char **argv) {
   /* One failed guard refuses the whole associated ROM feature. */
   memcpy(rom,stock,0x100000); rom[0xFFBB]^=1;
   LagoonQol_OnRomLoaded(rom,0x100000); assert((rom[0x131DC]|rom[0x131DD]<<8)==500);
+  memcpy(rom,stock,0x100000);rom[0xB6F0]^=1;
+  LagoonQol_OnRomLoaded(rom,0x100000);assert(!LagoonQol_SwordReachEnabled());
   enabled_all=0; LagoonQol_OnRomLoaded(stock,0x100000); assert(read_filter);
   enabled_all=2; LagoonQol_OnRomLoaded(stock,0x100000);
   assert(read_filter && !g_camera_center && !g_recovery_time);

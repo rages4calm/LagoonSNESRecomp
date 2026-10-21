@@ -11,9 +11,9 @@ for room,pointer in enumerate(struct.unpack_from('<75H',rom,0x2903c)):
   rows.append((room,x,y,flag));offset+=6
 assert len(rows)==33 and len({r[3] for r in rows})==33
 catalogue=a.out/'treasure-catalogue.txt';catalogue.write_text(''.join(' '.join(map(str,r))+'\n' for r in rows),encoding='utf-8')
-stub=a.out/'stub';stub.mkdir(exist_ok=True);(stub/'common_rtl.h').write_text('const char *RtlSaveRoot(void);\n')
+stub=a.out/'stub';stub.mkdir(exist_ok=True);(stub/'common_rtl.h').write_text('const char *RtlSaveRoot(void);\nextern unsigned char g_ram[0x20000];\n')
 saves=a.out/'saves';saves.mkdir(exist_ok=True);runner=repo/'snesrecomp/runner/src';binary=a.out/'map-treasure-test.exe'
-subprocess.run([a.compiler,'-std=c11','-O2','-Wall','-Wextra','-I'+str(stub),'-I'+str(runner),str(repo/'tests/lagoon_map_treasure_test.c'),str(runner/'snes_overlay_draw.c'),'-o',str(binary)],check=True)
+subprocess.run([a.compiler,'-std=c11','-O2','-Wall','-Wextra','-Werror','-I'+str(stub),'-I'+str(runner),str(repo/'tests/lagoon_map_treasure_test.c'),str(runner/'snes_overlay_draw.c'),str(repo/'src/lagoon_quest_guidance.c'),'-o',str(binary)],check=True)
 q=subprocess.run([str(binary.resolve()),str(a.rom.resolve()),str(catalogue.resolve()),str(saves.resolve())],text=True,capture_output=True);print(q.stdout,q.stderr)
 sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
-(a.out/'result.json').write_text(json.dumps(dict(passed=q.returncode==0,stdout=q.stdout,stderr=q.stderr,source_hashes={n:sha(repo/n) for n in ['src/lagoon_map.c','src/lagoon_map.h','tests/lagoon_map_treasure_test.c','tools/test_map_treasure.py']},catalogue_sha256=sha(catalogue),scope='Original ROM metadata and synthetic observed discovery/open flags only; no live chest or campaign claim.'),indent=2)+'\n');q.check_returncode()
+(a.out/'result.json').write_text(json.dumps(dict(passed=q.returncode==0,stdout=q.stdout,stderr=q.stderr,source_hashes={n:sha(repo/n) for n in ['src/lagoon_map.c','src/lagoon_map.h','src/lagoon_quest_guidance.c','tests/lagoon_map_treasure_test.c','tools/test_map_treasure.py']},catalogue_sha256=sha(catalogue),scope='Original ROM metadata and synthetic observed discovery/open flags only; no live chest or campaign claim.'),indent=2)+'\n');q.check_returncode()

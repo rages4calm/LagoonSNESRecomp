@@ -1,4 +1,4 @@
-/* Permanent escorts consume Nasir's observed route. The integration applies
+/* Permanent escorts navigate toward Nasir's recent position. The integration applies
  * only intent and velocity before the original tile-collision/movement path;
  * no endpoint in this module authorizes a position, door or quest-state write. */
 #include "lagoon_follower.h"
@@ -16,6 +16,22 @@ static struct {
   uint16_t last_distance,blocked_x,blocked_y;
 } s;
 static void discard_call(void);
+static const uint8_t *nav_rom;
+static size_t nav_rom_size;
+static uint8_t nav_source;
+/* A bounded local search, using the NPC's own leading-edge collision probes.
+ * The route is disposable; no history backlog or destination ever writes XY. */
+enum { NAV_SIDE=129, NAV_NODES=NAV_SIDE*NAV_SIDE, NAV_GRID=4, NAV_LIMIT=4096 };
+static struct {
+  uint16_t x[1024],y[1024],count,cursor,gx,gy,last_x,last_y;
+  unsigned actor,kind,age,blocked,retry;
+} nav;
+static struct {
+  uint16_t cost[NAV_NODES],parent[NAV_NODES],heap[NAV_NODES+1],pos[NAV_NODES];
+  uint8_t closed[NAV_NODES];
+  unsigned used;
+  int bx,by,tx,ty;
+} search;
 static unsigned word(const uint8_t*r,unsigned a){return r[a]|r[a+1]<<8;}
 static unsigned absdiff(unsigned a,unsigned b){return a>b?a-b:b-a;}
 static uint64_t hash(const uint8_t*r,size_t size,unsigned pc,unsigned n){
@@ -23,9 +39,12 @@ static uint64_t hash(const uint8_t*r,size_t size,unsigned pc,unsigned n){
   if(!r||p>size||n>size-p)return 0;
   while(n--)h=(h^r[p++])*UINT64_C(1099511628211);return h;
 }
-void LagoonFollower_Discard(void){uint8_t v=s.valid_rom,b=s.body_source;memset(&s,0,sizeof s);s.valid_rom=v;s.body_source=b;discard_call();}
+void LagoonFollower_Discard(void){uint8_t v=s.valid_rom,b=s.body_source;memset(&s,0,sizeof s);s.valid_rom=v;s.body_source=b;memset(&nav,0,sizeof nav);discard_call();}
 void LagoonFollower_Reset(const uint8_t*r,size_t size){
-  memset(&s,0,sizeof s);discard_call();
+  memset(&s,0,sizeof s);memset(&nav,0,sizeof nav);discard_call();
+  nav_rom=r;nav_rom_size=size;
+  nav_source=hash(r,size,0x018385,83)==UINT64_C(0xaa6815d0b23960aa)&&
+    hash(r,size,0x019bce,1100)==UINT64_C(0xc463c68b4606f575);
   s.valid_rom=hash(r,size,0x018c4d,7)==UINT64_C(0x4df33da483454035)&&
     hash(r,size,0x018d41,101)==UINT64_C(0x601c693bd3494753)&&
     hash(r,size,0x018da6,32)==UINT64_C(0x38eb4c07305e8bdd)&&
@@ -39,6 +58,9 @@ void LagoonFollower_Reset(const uint8_t*r,size_t size){
     hash(r,size,0x01a4d3,151)==UINT64_C(0x1f29c789be3f1c10)&&
     hash(r,size,0x029526,530)==UINT64_C(0xd1ceb882a459c18c)&&
     hash(r,size,0x02c834,94)==UINT64_C(0xb1a94c5708ff8697)&&
+    /* Thor's authored Wish lead owns +1F bit04 and the target at +39/+3B. */
+    hash(r,size,0x02c92f,77)==UINT64_C(0xd4f135da5070060f)&&
+    hash(r,size,0x029689,110)==UINT64_C(0x35e34f5bb88e9122)&&
     hash(r,size,0x01c84a,279)==UINT64_C(0x11e0631944b7804d);
   /* Camera QoL may replace ONLY the following80CA JSR. The real80C7 body
    * collision call and the source-closed scanner/responses remain original. */
@@ -117,64 +139,137 @@ static void vector(LagoonFollowerStep*out,unsigned x,unsigned y,unsigned tx,unsi
   if(out->moving)out->direction=dx>0?0:dy>0?1:dx<0?2:3;
   out->target_x=(uint16_t)(x+dx);out->target_y=(uint16_t)(y+dy);
 }
+/* Read exactly the current source collision map, never the coarse explored map.
+ * Type1 probes at 019E0A/9E8E/9F12/9F96 read CURRENT leading edge before adding
+ * velocity. Each candidate edge checks every pixel, including backing out of
+ * an overlap. Tags1/2/4 and solid80 block NPCs; 0/3/5 permit ordinary walking. */
+static int nav_read(const uint8_t*r,unsigned a,unsigned*v){
+  unsigned b=(a>>16)&127,p=a&65535;
+  if(b==126||b==127){*v=r[(b-126)*65536+p];return 1;}
+  if(b<32&&p>=32768){size_t o=b*32768+(p&32767);if(o<nav_rom_size){*v=nav_rom[o];return 1;}}
+  return 0;
+}
+static int nav_tile(const uint8_t*r,int x,int y,unsigned*v){
+  unsigned w=word(r,0x53)*8,h=word(r,0x55)*8;
+  if(x<0||y<0||(unsigned)x>=w||(unsigned)y>=h||w>2048||h>2048)return 0;
+  unsigned map=word(r,0x8b)|r[0x8d]<<16,defs=word(r,0x78)|r[0x7a]<<16,meta;
+  unsigned index=((unsigned)y&0xfff0)*8+((unsigned)x>>4);
+  if(index>=16384||!nav_read(r,map+index,&meta))return 0;
+  return nav_read(r,defs+meta*4+((x&8)>>3)+((y&8)>>2),v);
+}
+static int nav_step(const uint8_t*r,unsigned x,unsigned y,unsigned d,unsigned pixels){
+  static const int8_t probe[4][3][2]={{{11,0},{11,-8},{11,8}},{{0,9},{-10,9},{10,9}},
+    {{-11,0},{-11,-8},{-11,8}},{{0,-9},{-10,-9},{10,-9}}};
+  static const int8_t vx[]={1,0,-1,0},vy[]={0,1,0,-1};
+  if(d>3||pixels>8)return 0;
+  for(unsigned n=0;n<pixels;n++){
+    for(unsigned q=0;q<3;q++){
+      unsigned a;if(!nav_tile(r,(int)x+probe[d][q][0],(int)y+probe[d][q][1],&a)||
+        (a&128)||!((a&15)==0||(a&15)==3||(a&15)==5))return 0;
+    }
+    x+=vx[d];y+=vy[d];
+  }
+  return 1;
+}
+static unsigned heuristic(unsigned n){
+  int x=search.bx+(int)(n%NAV_SIDE)*NAV_GRID,y=search.by+(int)(n/NAV_SIDE)*NAV_GRID;
+  return (unsigned)((x>search.tx?x-search.tx:search.tx-x)+(y>search.ty?y-search.ty:search.ty-y))/NAV_GRID;
+}
+static int earlier(unsigned a,unsigned b){
+  unsigned ha=heuristic(a),hb=heuristic(b),fa=search.cost[a]+ha,fb=search.cost[b]+hb;
+  return fa<fb||(fa==fb&&ha<hb);
+}
+static void heap_up(unsigned p){
+  unsigned n=search.heap[p];
+  while(p>1&&earlier(n,search.heap[p/2])){search.heap[p]=search.heap[p/2];search.pos[search.heap[p]]=p;p/=2;}
+  search.heap[p]=n;search.pos[n]=p;
+}
+static unsigned heap_pop(void){
+  unsigned result=search.heap[1],n=search.heap[search.used--],p=1;
+  while(p*2<=search.used){unsigned c=p*2;if(c<search.used&&earlier(search.heap[c+1],search.heap[c]))c++;
+    if(!earlier(search.heap[c],n))break;
+    search.heap[p]=search.heap[c];search.pos[search.heap[p]]=p;p=c;
+  }
+  if(search.used){search.heap[p]=n;search.pos[n]=p;}search.pos[result]=0;return result;
+}
+static int nav_route(const uint8_t*r,unsigned x,unsigned y,unsigned tx,unsigned ty){
+  memset(&search,0,sizeof search);memset(search.cost,255,sizeof search.cost);
+  search.bx=(int)x-256;search.by=(int)y-256;search.tx=tx;search.ty=ty;
+  unsigned start=64*NAV_SIDE+64,finish=start,best=heuristic(start);
+  search.cost[start]=0;search.parent[start]=65535;search.heap[++search.used]=start;search.pos[start]=1;
+  static const int8_t dx[]={1,0,-1,0},dy[]={0,1,0,-1};
+  unsigned examined=0;
+  while(search.used&&examined++<NAV_LIMIT){
+    unsigned n=heap_pop();search.closed[n]=1;
+    unsigned h=heuristic(n);if(h<best){best=h;finish=n;}
+    int cx=n%NAV_SIDE,cy=n/NAV_SIDE,px=search.bx+cx*NAV_GRID,py=search.by+cy*NAV_GRID;
+    if(px<0||py<0)continue;
+    if(absdiff((unsigned)px,tx)+absdiff((unsigned)py,ty)<=5){finish=n;break;}
+    for(unsigned d=0;d<4;d++){
+      int nx=cx+dx[d],ny=cy+dy[d];if(nx<0||ny<0||nx>=NAV_SIDE||ny>=NAV_SIDE)continue;
+      unsigned m=ny*NAV_SIDE+nx,g=search.cost[n]+1;
+      if(search.closed[m]||g>=search.cost[m]||!nav_step(r,px,py,d,NAV_GRID))continue;
+      search.cost[m]=g;search.parent[m]=n;
+      if(!search.pos[m])search.heap[++search.used]=m;
+      heap_up(search.pos[m]?search.pos[m]:search.used);
+    }
+  }
+  nav.count=nav.cursor=0;nav.gx=tx;nav.gy=ty;nav.age=0;nav.blocked=0;nav.retry=0;
+  if(finish==start)return 0;
+  unsigned n=finish;
+  while(n!=start&&nav.count<1024){
+    nav.x[nav.count]=(uint16_t)(search.bx+(int)(n%NAV_SIDE)*NAV_GRID);
+    nav.y[nav.count++]=(uint16_t)(search.by+(int)(n/NAV_SIDE)*NAV_GRID);n=search.parent[n];
+  }
+  if(n!=start){nav.count=0;return 0;}
+  for(unsigned i=0;i<nav.count/2;i++){
+    unsigned j=nav.count-1-i;uint16_t v=nav.x[i];nav.x[i]=nav.x[j];nav.x[j]=v;
+    v=nav.y[i];nav.y[i]=nav.y[j];nav.y[j]=v;
+  }
+  return 1;
+}
 int LagoonFollower_Plan(const uint8_t*r,unsigned q,uint64_t generation,LagoonFollowerStep*out){
   int role=LagoonFollower_Role(r,q);
-  if(!role){
-    /* The ordinary main loop visits every actor. An unrelated enemy/NPC may
-     * not retire the escort's cursor or a partially blocked join. */
-    if(s.following&&q==s.actor){s.following=s.pending=0;s.joining=s.join_refused=0;}
-    return 0;
-  }
-  if(!out||!same_scene(r,generation))return 0;
+  if(!role){if(s.following&&q==s.actor){s.following=0;nav.count=0;}return 0;}
+  if(!out||!same_scene(r,generation)||!nav_source)return 0;
   unsigned a=0x500+q,x=word(r,a+2),y=word(r,a+4);
-  if(s.following&&(s.actor!=q||s.kind!=(unsigned)role)){s.following=s.pending=0;}
   memset(out,0,sizeof *out);out->target_x=x;out->target_y=y;out->direction=r[a+10]&3;
-  if(s.count<=LAGOON_FOLLOWER_DELAY)return 0;
-  if(!s.following){
-    if(s.join_refused&&s.blocked_x==x&&s.blocked_y==y)return 0;
-    s.join_refused=0;
-    /* Prefer an exact observed point. A new source-created follower can be
-     * beside the route; join only a nearby old point using real collision. */
-    unsigned best=0,distance=65535,eligible=s.count-LAGOON_FOLLOWER_DELAY;
-    for(unsigned n=0;n<eligible;n++){
-      Sample*p=at(n);unsigned d=absdiff(x,p->x)+absdiff(y,p->y);
-      if(d<distance){distance=d;best=n;}
-    }
-    if(distance>32)return 0;
-    Sample*p=at(best);s.cursor=p->serial;s.actor=q;s.kind=role;s.following=1;s.pending=0;
-    s.joining=distance!=0;s.axis=0;s.tried=0;s.last_distance=0;
+  /* A valid ordinary escort is held, rather than released to the stock chase,
+   * while gathering a new trail. Loads never retain an old waypoint backlog. */
+  if(nav.actor!=q||nav.kind!=(unsigned)role){memset(&nav,0,sizeof nav);nav.actor=q;nav.kind=role;}
+  s.actor=q;s.kind=role;s.following=1;
+  if(!s.count)return 1;
+  unsigned bootstrap=s.count<=LAGOON_FOLLOWER_DELAY;
+  Sample*goal=at(bootstrap?s.count-1:s.count-1-LAGOON_FOLLOWER_DELAY);
+  unsigned tx=goal->x,ty=goal->y;
+  if(absdiff(x,tx)+absdiff(y,ty)<=(bootstrap?18u:5u)){nav.count=0;return 1;}
+  if(nav.count&&x==nav.last_x&&y==nav.last_y)nav.blocked++;else nav.blocked=0;
+  while(nav.cursor<nav.count){
+    unsigned nx=nav.x[nav.cursor],ny=nav.y[nav.cursor];
+    int crossed=(x==nx&&y==ny)||
+      (nav.last_y==y&&ny==y&&nx>=(x<nav.last_x?x:nav.last_x)&&nx<=(x>nav.last_x?x:nav.last_x))||
+      (nav.last_x==x&&nx==x&&ny>=(y<nav.last_y?y:nav.last_y)&&ny<=(y>nav.last_y?y:nav.last_y));
+    if(!crossed)break;nav.cursor++;
   }
-  if(s.pending){
-    /* Collision may leave us short of the requested point. Keep the same
-     * waypoint; no missed step can be consumed on a guessed endpoint. */
-    if(x==s.expected_x&&y==s.expected_y){s.cursor++;s.pending=0;s.joining=0;s.tried=0;}
+  unsigned changed=absdiff(nav.gx,tx)+absdiff(nav.gy,ty);
+  if(!nav.count||nav.cursor>=nav.count||changed>=16||nav.blocked>=2||++nav.age>=16){
+    if(nav.retry&&changed<16){nav.retry--;return 1;}
+    if(!nav_route(r,x,y,tx,ty)){nav.retry=8;return 1;}
   }
-  Sample*goal=0;unsigned eligible=s.count-LAGOON_FOLLOWER_DELAY;
-  for(unsigned n=0;n<eligible;n++)if(at(n)->serial==s.cursor){goal=at(n);break;}
-  if(!goal){
-    if(s.cursor>at(eligible-1)->serial)return 1; /* caught up to delayed trail */
-    s.following=s.pending=0;return 0;
+  if(nav.cursor>=nav.count)return 1;
+  unsigned pace=s.pace?s.pace:3;
+  unsigned next=nav.cursor;
+  while(next+1<nav.count&&
+    ((nav.x[next]==x&&nav.x[next+1]==x&&
+      ((nav.y[next]>y&&nav.y[next+1]>nav.y[next])||(nav.y[next]<y&&nav.y[next+1]<nav.y[next])))||
+     (nav.y[next]==y&&nav.y[next+1]==y&&
+      ((nav.x[next]>x&&nav.x[next+1]>nav.x[next])||(nav.x[next]<x&&nav.x[next+1]<nav.x[next]))))&&
+    absdiff(x,nav.x[next])+absdiff(y,nav.y[next])<pace)next++;
+  vector(out,x,y,nav.x[next],nav.y[next],pace,0);
+  if(out->moving&&!nav_step(r,x,y,out->direction,absdiff(x,out->target_x)+absdiff(y,out->target_y))){
+    nav.count=0;out->moving=0;out->dx=out->dy=0;out->target_x=x;out->target_y=y;
   }
-  unsigned distance=absdiff(x,goal->x)+absdiff(y,goal->y);
-  if(distance>32){s.following=s.pending=0;return 0;}
-  if(s.joining&&s.pending&&distance>=s.last_distance){
-    /* A real original collision pass failed to approach the short join point.
-     * Try its other cardinal axis once; there is no search or guessed jump.
-     * If both are blocked, hand authority back to the original escort AI. */
-    s.tried|=(uint8_t)(1u<<s.axis);
-    unsigned other=s.axis^1u;
-    if((s.tried&(1u<<other))||(other?y==goal->y:x==goal->x)){
-      s.following=s.pending=0;s.join_refused=1;s.blocked_x=x;s.blocked_y=y;return 0;
-    }
-    s.axis=(uint8_t)other;
-  }
-  out->connector=s.joining;
-  vector(out,x,y,goal->x,goal->y,out->connector?(s.pace?s.pace:3):5,s.joining&&s.axis);
-  if(s.joining&&out->moving)s.axis=out->dy!=0;
-  s.last_distance=(uint16_t)distance;out->height=goal->z;
-  /* A zero-distance stationary sample still consumes one source main tick. */
-  if(!out->moving){s.cursor++;s.pending=0;}
-  else {s.expected_x=goal->x;s.expected_y=goal->y;s.pending=1;}
+  nav.last_x=x;nav.last_y=y;out->connector=1;out->height=goal->z;
   return 1;
 }
 

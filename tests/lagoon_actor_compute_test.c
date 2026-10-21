@@ -18,7 +18,7 @@ static CpuState prepare(unsigned kind,unsigned actor,unsigned seed){
  put(0x502+c.X,edge[seed%28]);put(0x504+c.X,edge[(seed*7+3)%28]);put(0x480,edge[(seed*13+9)%28]);put(0x482,edge[(seed*11+5)%28]);put(0x492,edge[(seed*19+7)%28]);put(0x494,edge[(seed*17+11)%28]);put(0xa4,seed*10909);
  put(c.S+1,kind?0xa4e7:0xa4d8);put(c.S+3,0x80c6);put(0x48e,3);ram[0x406]=ram[0x100e]=0;ram[0x23d]=15;ram[0x275]=0x81;ram[0x520]=10;ram[0x521]=0;ram[0x500+c.X]=0xc0;ram[0x518+c.X]=2;return c;
 }
-int main(int argc,char**argv){assert(argc==2);FILE*f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof rom,f)==sizeof rom);fclose(f);unsigned positives=0,refusals=0;unsigned long long opcodes=0,cycles=0;
+int main(int argc,char**argv){assert(argc==2);FILE*f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof rom,f)==sizeof rom);fclose(f);unsigned positives=0,refusals=0,production=0;unsigned long long opcodes=0,cycles=0;
  for(unsigned kind=0;kind<2;kind++)for(unsigned actor=0;actor<33;actor++)for(unsigned seed=0;seed<112;seed++){
   CpuState c=prepare(kind,actor,seed),initial=c;memcpy(before,ram,sizeof ram);assert(LagoonActorCompute_Apply(kind,ram,&c));memcpy(after,ram,sizeof ram);memcpy(ram,before,sizeof ram);
   Interp816*i=interp816_init(NULL,rd,wr);assert(i);i->a=initial.A;i->x=initial.X;i->y=initial.Y;i->sp=initial.S;i->dp=0;i->db=i->k=1;i->pc=kind?0xa5aa:0xa56a;i->mf=1;i->xf=0;i->e=0;i->n=initial._flag_N;i->z=initial._flag_Z;i->v=initial._flag_V;i->c=initial._flag_C;i->i=initial._flag_I;i->d=0;
@@ -31,8 +31,10 @@ int main(int argc,char**argv){assert(argc==2);FILE*f=fopen(argv[1],"rb");assert(
   if(mutation)rom[mutation]^=1;CpuState initial=c;memcpy(before,ram,sizeof ram);RecompReturn out=123;
   assert(!LagoonActorCompute_Run(kind,rom,size,ram,&c,s,h,host,&out,world));assert(out==123&&!memcmp(ram,before,sizeof ram)&&!memcmp(&c,&initial,sizeof c));if(mutation)rom[mutation]^=1;refusals++;
  }
- for(unsigned kind=0;kind<2;kind++)for(unsigned actor=1;actor<33;actor++){
-  CpuState c=prepare(kind,actor,actor),expected=c;c.host_return_valid=2;expected.host_return_valid=2;assert(LagoonActorCompute_Apply(kind,ram,&expected));memcpy(after,ram,sizeof ram);c=prepare(kind,actor,actor);c.host_return_valid=2;RecompReturn out=123;unsigned s=c.S;uint64_t master=c.master_cycles;assert(LagoonActorCompute_Run(kind,rom,sizeof rom,ram,&c,s,2,kind?0x01a4e8:0x01a4d9,&out,1));assert(out==RECOMP_RETURN_NORMAL&&c.S==s+2&&c.master_cycles==master+42&&c.cycles==6&&c.coprocessor_master_cycles==master&&c.open_bus==0xa4);assert(!memcmp(ram,after,sizeof ram)&&c.A==expected.A&&c.P==expected.P&&c.X==expected.X&&c.Y==expected.Y);
+ const unsigned rooms[]={3,4,5,6,8,9,10};
+ for(unsigned region=0;region<sizeof rooms/sizeof *rooms;region++)
+ for(unsigned kind=0;kind<2;kind++)for(unsigned actor=1;actor<33;actor++)for(unsigned seed=0;seed<112;seed++){
+  CpuState c=prepare(kind,actor,seed),expected=c;c.host_return_valid=2;expected.host_return_valid=2;assert(LagoonActorCompute_Apply(kind,ram,&expected));put(0x48e,rooms[region]);memcpy(after,ram,sizeof ram);c=prepare(kind,actor,seed);put(0x48e,rooms[region]);c.host_return_valid=2;RecompReturn out=123;unsigned s=c.S;uint64_t master=c.master_cycles;assert(LagoonActorCompute_Run(kind,rom,sizeof rom,ram,&c,s,2,kind?0x01a4e8:0x01a4d9,&out,1));assert(out==RECOMP_RETURN_NORMAL&&c.S==s+2&&c.master_cycles==master+42&&c.cycles==6&&c.coprocessor_master_cycles==master&&c.open_bus==0xa4);assert(!memcmp(ram,after,sizeof ram)&&c.A==expected.A&&c.P==expected.P&&c.X==expected.X&&c.Y==expected.Y);production++;
  }
- printf("PASS%u full128KiB/CPU/flags/deadstack originalleaf cases, %u readonly productionrefusals,64 realJSR/RTS entries; originalopcodes=%llu originalcycles=%llu\n",positives,refusals,opcodes,cycles);return 0;
+ printf("PASS%u full128KiB/CPU/flags/deadstack originalleaf cases, %u readonly productionrefusals,%u realJSR/RTS entries across7rooms and112edge-seeds; originalopcodes=%llu originalcycles=%llu\n",positives,refusals,production,opcodes,cycles);return 0;
 }

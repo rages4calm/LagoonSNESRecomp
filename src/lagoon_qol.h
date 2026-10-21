@@ -15,5 +15,8 @@
 void LagoonQol_ResetTransient(void);
 
 void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size);
+/* Visual extension is enabled only after the source-guarded hit rectangles
+ * actually applied, never merely because an optional flag was requested. */
+int LagoonQol_SwordReachEnabled(void);
 
 #endif /* LAGOON_QOL_H */

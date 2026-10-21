@@ -7,10 +7,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { W=800,H=224,OBJECTS=512 };
+enum { W=800,H=224,OBJECTS=512,OBJECT_SIDE=48 };
 typedef struct SceneObject {
   int32_t x,y;
-  uint16_t width,height,pixels[256];
+  uint16_t width,height,pixels[OBJECT_SIDE*OBJECT_SIDE];
   uint8_t priority,slot;
   uint32_t order;
 } SceneObject;
@@ -342,7 +342,7 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
     s->count=(unsigned)p->extraObjectCount;
     for(unsigned i=0;i<s->count;++i) {
       const PpuExtraObject *b=&p->extraObjects[i];SceneObject *a=&s->objects[i];
-      if(!b->pixels||!b->width||!b->height||b->width>16||b->height>16||b->stride<b->width||b->priority>3||b->oamSlot>127||!b->order){s->valid=0;break;}
+      if(!b->pixels||!b->width||!b->height||b->width>OBJECT_SIDE||b->height>OBJECT_SIDE||b->stride<b->width||b->priority>3||b->oamSlot>127||!b->order){s->valid=0;break;}
       a->x=b->x;a->y=b->y;a->width=b->width;a->height=b->height;
       a->priority=b->priority;a->slot=b->oamSlot;a->order=b->order;
       for(unsigned yy=0;yy<b->height;++yy)memcpy(a->pixels+yy*b->width,b->pixels+yy*b->stride,b->width*2);

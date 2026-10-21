@@ -49,14 +49,20 @@ Choose one, Apply and restart. The release's complete X68000 pack is selected
 automatically from `soundtrack/x68000`; there is no folder field or conversion.
 Developer builds also find the existing workspace's `Soundtracks/X68000` import.
 Missing/unmapped cues retain SNES audio and sound effects keep the original
-driver. The selection persists in the matching `lagoon.soundtrack` native mod
+driver. Master and X68000 music-only volume are separate controls; R2 or Ctrl+comma
+opens the frozen in-game volume panel without returning to the launcher.
+The selection persists in the matching `lagoon.soundtrack` native mod
 feature/resource. See [soundtrack details](../docs/SOUNDTRACK.md).
 
 The Quality of life page changes the matching native package's feature selections
 in `local/mods/preloaded/state.toml` for previews, or beside the executable for
-development builds. All nine gameplay options default off:
-walking speed, opening balance, camera centering, sword reach with modest lateral cleave, follower speed,
-recovery time, EXP rewards, jump peak hold and magic strength. Menu responsiveness
+development builds. Gameplay toggles default off: walking speed, opening balance,
+camera centering, sword reach with modest lateral cleave, follower speed, recovery
+time, jump peak hold and magic strength. Separate EXP and gold dropdowns offer
+original rewards or 2x through 8x. EXP also keeps the previous 1.5x setting, read
+from existing `exp_boost` preferences. The dropdown clears the preceding reward
+selection; multipliers never stack. These change enemy/boss reward data only,
+leaving shop prices, quest rewards and existing saved totals untouched. Menu responsiveness
 is built into the port. Giles first aid is also built in: accepting his rescue request
 does not require or consume a Healing Pot. The old fast-menu flag remains a harmless compatibility
 alias for existing catalogs. Gameplay features require the
@@ -64,7 +70,12 @@ matching `lagoon.quality/1.0.0/manifest.toml` package. These are native feature
 switches; the original ROM remains clean. Opening balance affects new games.
 
 Revert reloads authoritative settings. Revisions cover launcher preferences, INI,
-mod state and package manifest; external edits require Revert before Apply. Changed
+mod state, package manifests and executable-relative `keybinds.ini`; external edits
+require Revert before Apply. Keyboard and Hotkeys pages edit the native key names
+and system shortcuts. Controller has one button selector per SNES input; L2 is
+reserved for the map and R2 for quick in-game settings. Existing GUIDs, player-two
+bindings and unknown fields remain intact. Keyboard/config/mod edits share the
+same atomic-write rollback transaction. Changed
 files use atomic replacement, with rollback if a later commit fails. This does not
 provide filesystem-wide atomicity during power loss. Unreadable settings and invalid
 known values are rejected rather than replaced with defaults. Unknown launcher JSON,

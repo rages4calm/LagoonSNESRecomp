@@ -5,6 +5,7 @@ set(CMAKE_C_STANDARD 11)
 
 # Release pin for lobby matching. Release builds stamp the VERSION file so two
 # peers can prove they are the same build; everything else stamps "dev".
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION")
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" _GAME_VER_RAW)
 string(STRIP "${_GAME_VER_RAW}" GAME_RELEASE_VERSION)
 set(SNESRECOMP_BUILD_VERSION "" CACHE STRING
@@ -63,6 +64,10 @@ add_executable(LagoonSNESRecomp
     src/lagoon_wide_multipart.c
     src/lagoon_wide_spell3.c
     src/lagoon_scene_renderer.c
+    src/lagoon_transition_present.c
+    src/lagoon_quest_guidance.c
+    src/lagoon_settings.c
+    src/lagoon_sword_visual.c
     src/lagoon_campaign_debug.c
 )
 

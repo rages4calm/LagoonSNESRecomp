@@ -29,17 +29,19 @@ Additional sprites are presentation only: they do not extend enemy AI or collisi
 
 ## Quality of life
 
-The nine gameplay options default off and can be selected individually in
-Companion's Quality of life page. Opening balance affects new games.
+Gameplay toggles default off in Companion's Quality of life page. EXP and gold
+have separate selectors defaulting to original rewards. Opening balance affects
+new games; reward choices affect future enemy and boss rewards, not saved totals.
 
 | Option | Effect |
 | --- | --- |
-| Sword reach | Four forward extents become 38 pixels; perpendicular edges gain 3 pixels of cleave. |
-| Follower speed | Fallback escort movement increases from 1 to 3 pixels per frame; the built-in route follower already uses Nasir's actual pace. |
+| Sword reach | Four forward extents become 38 pixels; perpendicular edges gain 3 pixels of cleave. Qualified sword poses gain a matching 12-pixel visual blade extension. |
+| Follower speed | Fallback escort movement increases from 1 to 3 pixels per frame; the built-in obstacle-aware follower already uses Nasir's walking pace. Authored destination walks retain their precise original steps. |
 | Walking speed | Nasir's ordinary 3-pixel movement becomes 5; enemies and hurt knockback remain stock. |
 | Hit recovery | Eight additional frames reject ordinary consecutive hits. |
 | Opening balance | Start at 18 HP and 11 defense; level 2 uses 21 HP and 13 defense. Level 3 onward follows stock growth. |
-| EXP rewards | Enemy/boss EXP increases 50%, rounded down. |
+| EXP rewards | Original, legacy 1.5x, or 2x–8x enemy/boss EXP. Multipliers replace one another and never stack. |
+| Gold rewards | Original or 2x–8x enemy/boss gold. Shop prices, purchases, quest rewards and existing saved gold stay unchanged. |
 | Jump hold | Hold the original jump peak for eight frames while horizontal movement continues. |
 | Magic power | Nonzero player magic powers increase 50%, rounded down. |
 | Centered camera | Follow Nasir using the game's original scenery streaming. |
@@ -51,18 +53,23 @@ hooks rather than applying the supplied BPS at launch. [Credits](../CREDITS.md).
 
 ## Escorts and the map
 
-Escorts follow Nasir's recorded movement at his actual walking pace, keeping six
-moving steps of separation. Stops preserve that gap; corners use the same route.
+Giles and Thor find a walkable route toward Nasir's recent position, keeping a
+short gap. They account for their own collision footprint around walls, corners
+and stairs. Movement stays capped at Nasir's walking pace, including when they
+fall behind; old movement is never replayed as a fast-forward catch-up. Loading
+a save clears the disposable route and lets them find their way back to Nasir.
 During ordinary following, you can walk through your escort when reversing
 direction. Walls, enemies, ordinary NPCs, doors and quest scripts retain their
 original rules. Scripted movement and
 contexts that cannot be qualified retain the original behavior. This is built in
 and does not require enabling a mod. During an active escort, run-ahead yields to
-ordinary simulation so speculative frames cannot discard the movement trail.
+ordinary simulation so speculative frames cannot discard navigation state.
+Thor's scripted walk to the second tablet keeps its original step size, fixing
+the back-and-forth stall caused by applying the follower speed boost to that route.
 
-Press **M** or **Select+L** to open the explored map. Gameplay pauses while it is
+Press **M** or controller **L2** to open the explored map. Gameplay pauses while it is
 open. Left/Right or the shoulder buttons browse visited areas; **Y** returns to
-Nasir's area. **M**, **Escape** or controller **B** closes it.
+Nasir's area. **M**, **L2**, **Escape** or controller **B** closes it.
 
 The map reveals nearby observed terrain, Nasir's trail, exits and discovered
 chests. Hollow chest markers mean opened. Exit links name destinations you have
@@ -71,7 +78,12 @@ story gate is unlocked. Area IDs distinguish rooms with the same location name.
 The map is a record of exploration, not a guarantee that every ground tile is
 walkable. Exploration saves separately in `saves/lagoon-exploration.map`; loading
 an earlier state retains places already explored. No map artwork is downloaded.
-An objective journal, route guidance and zoom-out are still future work.
+During the early tablet quest, the map also shows the next step for the Tablets
+of Faith, Wish and Hope, then the return to Voloh's elder. Purple markers identify
+applicable objective locations. Thor provides the first two tablets through his
+original dialogue; the third requires Nasir to reach the chest near Philips
+Castle. Hints do not grant items, reveal terrain or change quest flags. A full
+objective journal, guidance for other quests and zoom-out remain future work.
 
 ## Saves and states
 
@@ -79,7 +91,8 @@ Normal in-game saves remain available. **F1 loads slot 1; Shift+F1 saves it.**
 F2–F10 select the other slots, with Shift to save; F11 opens the state browser.
 In a source checkout, settings live in `build/config.ini`, bindings in
 `build/keybinds.ini`, and saves in `build/saves`. The downloadable preview uses
-`local/config.ini`, `local/keybinds.ini` and `local/saves` in its extracted folder.
+`local/config.ini` and `local/saves` in its extracted folder; keyboard controls
+remain beside its executable in `game/keybinds.ini`.
 The launcher does not migrate existing saves.
 
 Development state formats can change. Incompatible or corrupt states are refused
@@ -87,13 +100,43 @@ before changing the running guest. Use normal game saves for campaign progress.
 Transient extra recovery/jump timers reset on a state load, so a state saved during
 one of those effects does not reproduce its remaining optional hold exactly.
 
+## Controls and quick settings
+
+Companion has separate **Keyboard**, **Controller** and **Hotkeys** pages.
+Keyboard controls use native SDL key names; system shortcuts also accept modifier
+combinations such as `Ctrl+p`. The Controller page assigns buttons to the twelve
+SNES inputs. L2 and R2 are reserved for the map and quick settings. Apply and
+restart after changing bindings. Existing controller selection and player-two
+bindings are retained.
+
+| Default shortcut | Action |
+| --- | --- |
+| M / controller L2 | Open or close the explored map. |
+| Ctrl+comma / controller R2 | Open or close quick settings. |
+| Arrow keys / D-pad | Navigate a map or settings panel. |
+| Left/Right in quick settings | Adjust the selected volume by 5%. |
+| Escape / controller B | Close a panel. |
+| Keypad + / Keypad - | Raise or lower master volume during gameplay. |
+| Alt+Enter | Toggle fullscreen. |
+| F | Toggle the performance display. |
+| F11 | Open the save-state browser. |
+
+Quick settings pause guest execution, so changing a volume does not advance the
+battle or escort. Master volume affects all audio. X68000 music volume trims only
+the optional replacement soundtrack; its sound effects retain the master level.
+These settings persist without returning to Companion. Changing the soundtrack
+itself still requires Companion and a restart.
+
 ## Audio
 
 On Companion's **Audio** page, choose **Original SNES** or **X68000**, Apply and
 restart the game. The preview includes the converted X68000 pack; no folder
 selection or conversion is needed. Missing/unmapped cues retain SNES music and
 sound effects remain on the original driver. Save-state loads restart the
-replacement track. Run-ahead uses SNES audio. See [soundtrack details and MP3
+replacement track. Run-ahead uses SNES audio. The supported X68000 cues use
+attenuation based on measured perceived loudness to reduce jumps between areas,
+including Voloh; PCM data and loop points are unchanged. Master and X68000 music
+levels can be changed in the in-game quick settings panel. See [soundtrack details and MP3
 listening downloads](SOUNDTRACK.md).
 
 ## Reporting a bug

@@ -3,6 +3,7 @@
  * authority to unlock a door or declare an unexplored destination visited. */
 #include "lagoon_map.h"
 #include "lagoon_scene_renderer.h"
+#include "lagoon_quest_guidance.h"
 #include "common_rtl.h"
 #include "snes_overlay_draw.h"
 #include <stdio.h>
@@ -12,7 +13,7 @@
 #include <windows.h>
 #endif
 #define MW 640
-#define MH 448
+#define MH 520
 #define DOORS 64
 #define CHESTS 128
 #define BG 0xff101a28u
@@ -158,9 +159,7 @@ void LagoonMap_Command(unsigned cmd){
 }
 int LagoonMap_IsOpen(void){return open!=0;}
 int LagoonMap_PollOpen(uint32_t human){
- uint32_t chord=SNES_PAD_SELECT|SNES_PAD_L;
- if((human&chord)==chord&&(prior_human&chord)!=chord&&current<75)pending=1;
- prior_human=human;
+ prior_human=human; /* Map opener is the host L2 trigger or M key. */
  if(pending&&current<75){pending=0;open=1;selected=current;prior_nav=human;selftest_pumps=0;fprintf(stderr,"[lagoon_map] open room%02X position%u,%u\n",current,px,py);}
  return open;
 }
@@ -209,6 +208,11 @@ int LagoonMap_Image(const uint32_t **image,int *width,int *height){
   treasure_seen++;int x=ox+(int)(c->x*scale/16),y=oy+(int)(c->y*scale/16);
   rect(x-3,y-2,7,5,c->opened?DIM:GOLD);rect(x-2,y-1,5,3,c->opened?BG:GOLD);rect(x,y,1,1,BG);
  }
+ LagoonQuestGuidance objective;int has_objective=LagoonQuestGuidance_Get(g_ram,&objective);
+ if(has_objective&&objective.marker&&objective.room==selected){
+  int x=ox+(int)(objective.x*scale/16),y=oy+(int)(objective.y*scale/16);
+  snes_ovl_fill_disc(panel,MW,MH,x,y,5,0xffda8becu);rect(x-1,y-3,3,7,BG);
+ }
  if(selected==current){int x=ox+(int)(px*scale/16),y=oy+(int)(py*scale/16);
   snes_ovl_fill_disc(panel,MW,MH,x,y,5,0xff101a28u);snes_ovl_fill_disc(panel,MW,MH,x,y,3,0xffffffffu);}
  text(464,98,"LEGEND",TEAL);rect(464,123,7,7,0xffffffff);text(480,122,"NASIR",FG);
@@ -230,7 +234,15 @@ int LagoonMap_Image(const uint32_t **image,int *width,int *height){
  }
  if(!listed)text(464,300,"NONE DISCOVERED",DIM);
  text(464,365,"EXITS MAY BE",DIM);text(464,379,"STORY LOCKED",DIM);
- text(24,405,"LEFT/RIGHT: AREAS   Y: NASIR   M / B / ESC: CLOSE",FG);
- text(24,425,"M OR SELECT+L: MAP    -    EXPLORATION SAVES AUTOMATICALLY",DIM);
+ if(has_objective){
+  text(24,405,objective.title,0xffda8becu);
+  const char *p=objective.detail;char line[73];unsigned row=0;
+  while(*p&&row<3){unsigned n=0;while(p[n]&&n<72)n++;
+   if(p[n]){unsigned b=n;while(b&&p[b]!=' ')b--;if(b)n=b;}
+   memcpy(line,p,n);line[n]=0;text(24,423+row*14,line,FG);p+=n;while(*p==' ')p++;row++;
+  }
+ }else text(24,405,"NO ACTIVE TABLET OBJECTIVE",DIM);
+ text(24,480,"LEFT/RIGHT: AREAS   Y: NASIR   M / L2 / B / ESC: CLOSE",FG);
+ text(24,500,"L2: MAP   R2 / CTRL+COMMA: SETTINGS   -   AUTO-SAVED EXPLORATION",DIM);
  *image=panel;*width=MW;*height=MH;return 1;
 }

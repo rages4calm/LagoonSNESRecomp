@@ -19,11 +19,11 @@ assert rom[0xd052:0xd056]==bytes([0x22]*4)
 a.out.mkdir(parents=True,exist_ok=True);tones=a.out/'tones';tones.mkdir(exist_ok=True)
 # Track2 is intentionally missing and4 malformed, preserving fallback cases.
 for track in {1,*[x['archive_track']for x in mappings]}-{2,4}:
- (tones/f'lagoon-x68000-{track}.pcm').write_bytes(b'MSU1'+struct.pack('<I',0)+struct.pack('<hh',1000,-1000)*8192)
+ (tones/f'lagoon-x68000-{track}.pcm').write_bytes(b'MSU1'+struct.pack('<I',0)+b''.join(struct.pack('<hh',1000+(i if track==1 else 0),-1000-(i if track==1 else 0))for i in range(8192)))
 (tones/'lagoon-x68000-4.pcm').write_bytes(b'bad')
 exe=a.out/'soundtrack-runtime.exe';command=[a.compiler,'-std=c11','-O2','-I'+str(runner),'-I'+str(repo/'src'),str(test),str(source),str(runner/'snes/msu1.c'),'-o',str(exe)]
 subprocess.run(command,check=True)
 r=subprocess.run([str(exe.resolve()),str((tones/'lagoon-x68000').resolve())],capture_output=True,text=True)
 print(r.stdout,end='');print(r.stderr,end='')
-result={'passed':r.returncode==0,'rom_sha256':expected,'source_sha256':sha(source),'test_sha256':sha(test),'tool_sha256':sha(Path(__file__)),'mappings':mappings,'stdout':r.stdout,'stderr':r.stderr,'scope':'All17 actual ROM6byte cue rows plus real MSU1 mixer/state/SFX/IPL/unknown/missing/invalid/source-mismatch tests with generated tones. Real listening/driver scheduling is separate live evidence. No original music is included in these fixtures.'}
+result={'passed':r.returncode==0,'rom_sha256':expected,'source_sha256':sha(source),'test_sha256':sha(test),'tool_sha256':sha(Path(__file__)),'mappings':mappings,'stdout':r.stdout,'stderr':r.stderr,'scope':'All17 actual ROM6byte cue rows plus balanced attenuation/live trim/mute cursor/state preference and real MSU1 mixer/SFX/IPL/unknown/missing/invalid/source-mismatch tests with generated tones. Real listening/driver scheduling is separate live evidence. No original music is included in these fixtures.'}
 (a.out/'result.json').write_text(json.dumps(result,indent=2)+'\n',encoding='utf8');r.check_returncode()

@@ -7,6 +7,7 @@
 #include "lagoon_menu_presentation.h"
 #include "lagoon_state.h"
 #include "lagoon_scene_renderer.h"
+#include "lagoon_transition_present.h"
 #include "common_rtl.h"
 #include "config.h"
 #include "widescreen.h"
@@ -164,6 +165,7 @@ void LagoonWide_Reset(void) {
   memset(s_row_known,0,sizeof(s_row_known));
   memset(&s_scene_gate,0,sizeof(s_scene_gate));
   s_room_key = 0;
+  LagoonTransition_Reset();
   s_state_generation = RtlStateGeneration();
 }
 
@@ -712,5 +714,12 @@ int LagoonWide_DrawFrame(uint8_t *dst,size_t pitch,const uint8_t *field,
     LagoonWideEntities_MaskRoomRow(dst+y*pitch,(unsigned)width,
         s_row_world_x[y],s_row_world_y[y],s_extent_width,s_extent_height);
   LagoonSceneRenderer_TryPresent(dst,pitch,dst,pitch,(unsigned)width,(unsigned)height,RtlStateGeneration());
+  /* Loader uploads can invalidate the exact world packet halfway through a
+   * field. Keep one coherent full-width outgoing canvas during that interval,
+   * using the real fade brightness. Incoming world output still needs every
+   * original source/layout/character guard before replacing it. */
+  LagoonTransition_Apply(dst,pitch,(unsigned)width,(unsigned)height,
+      RtlStateGeneration(),!s_present_fallback && s_was_active,
+      !!g_ram[0x100e],g_ppu->inidisp);
   return 1;
 }

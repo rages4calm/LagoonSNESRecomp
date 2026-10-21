@@ -5,7 +5,7 @@ using Companion.Launcher.Core;
 
 // Existing engine settings are authoritative. The launcher JSON retains paths
 // and unknown launcher preferences only; it is not a second engine settings file.
-internal static class NativeSettings
+internal static partial class NativeSettings
 {
     // Preview packages keep writable state beside their local config. Existing
     // development builds retain their released executable-relative state paths.
@@ -28,14 +28,19 @@ internal static class NativeSettings
                 new ChoiceItem("16:9", "16:9"), new ChoiceItem("16:10", "16:10"), new ChoiceItem("21:9", "21:9 ultrawide"),
                 new ChoiceItem("32:9", "32:9 super ultrawide"), new ChoiceItem("window", "Follow window") })),
         Boolean("audio.enabled", "Audio", "Enable audio", "Sound", "EnableAudio", true),
-        Integer("audio.volume", "Audio", "Volume (%)", "Sound", "Volume", 100, 0, 100),
+        Integer("audio.volume", "Audio", "Master volume (%)", "Sound", "Volume", 100, 0, 100),
+        Integer("audio.music-volume", "Audio", "X68000 music volume (%)", "Lagoon", "SoundtrackVolume", 100, 0, 100,
+            "Music-only level for the optional X68000 soundtrack. Sound effects retain the master volume. In-game: R2 or Ctrl+comma opens volume settings."),
+        new("input.source", "Controller", "SourceP1", new("input.source", "Input", "Player one input", OptionKind.Choice,
+            OptionValue.From("3"), "Keyboard, controller, or both. The selected controller GUID is retained.", Choices: new[]{
+                new ChoiceItem("3","Keyboard and controller"),new ChoiceItem("1","Keyboard"),new ChoiceItem("2","Controller"),new ChoiceItem("0","Disabled")})),
         Boolean("input.gamepad", "Input", "Enable player one gamepad", "GamepadMap", "EnableGamepad1", true,
             "Uses the engine's existing button mapping and selected controller. Keyboard bindings stay unchanged."),
         Integer("input.deadzone", "Input", "Analog deadzone", "GamepadMap", "GamepadDeadzone", 3277, 0, 32767,
             "SDL axis units, 0–32767. Existing controller GUIDs and bindings are preserved.")
     };
     // Add features only after their native implementation has been qualified.
-    internal static readonly string[] Features = { "walk_speed", "start_hp", "camera_center", "sword_reach", "follower_speed", "recovery_time", "exp_boost", "jump_hold", "magic_power" };
+    internal static readonly string[] Features = { "walk_speed", "start_hp", "camera_center", "sword_reach", "follower_speed", "recovery_time", "jump_hold", "magic_power" };
     private static string FeatureLabel(string id) => id switch {
         "walk_speed" => "Walking speed: 5 pixels/frame", "start_hp" => "More forgiving opening",
         "camera_center" => "Immediate camera following", "sword_reach" => "Sword: 38-pixel reach + modest cleave",
@@ -62,11 +67,11 @@ internal static class NativeSettings
     private static byte[] GraphicsRevision(IReadOnlyDictionary<string, JsonElement> values) => Encoding.UTF8.GetBytes(
         Hash(ReadBytes(EpxPreset(values))) + Hash(ReadBytes(Path.ChangeExtension(EpxPreset(values), ".glsl"))));
     internal static IEnumerable<OptionDefinition> Options => Fields.Take(2).Select(x => x.Option).Append(EnhancedPixels)
-        .Concat(Fields.Skip(2).Select(x => x.Option)).Concat(SoundtrackOptions).Concat(Features.Select(id =>
+        .Concat(Fields.Skip(2).Select(x => x.Option)).Concat(SoundtrackOptions).Concat(RewardOptions).Concat(InputOptions).Concat(Features.Select(id =>
         new OptionDefinition("qol." + id, "Quality of life", FeatureLabel(id), OptionKind.Boolean, OptionValue.From(false),
             id == "start_hp" ? "New-game starting stats and level-two growth. Does not rewrite an existing save." :
  "Optional native gameplay change. Restart the game after Apply.")));
-    internal static bool IsNative(string id) => id == EnhancedPixels.Id || Fields.Any(x => x.Id == id) || SoundtrackOptions.Any(x => x.Id == id) || Features.Any(feature => id == "qol." + feature);
+    internal static bool IsNative(string id) => id == EnhancedPixels.Id || Fields.Any(x => x.Id == id) || SoundtrackOptions.Any(x => x.Id == id) || RewardOptions.Any(x => x.Id == id) || InputOptions.Any(x => x.Id == id) || Features.Any(feature => id == "qol." + feature);
     private static string Config(IReadOnlyDictionary<string, JsonElement> values) => values["config.path"].GetString()!;
     internal static string BundledSoundtrackFolder(IReadOnlyDictionary<string, JsonElement> values)
     {
@@ -84,7 +89,7 @@ internal static class NativeSettings
     private static string SoundtrackManifest(IReadOnlyDictionary<string, JsonElement> values) =>
         Path.Combine(Path.GetDirectoryName(State(values))!, "packages", "lagoon.soundtrack", "1.0.0", "manifest.toml");
     private static byte[] ManifestRevision(IReadOnlyDictionary<string, JsonElement> values) => Encoding.UTF8.GetBytes(
-        Hash(ReadBytes(Manifest(values))) + Hash(ReadBytes(SoundtrackManifest(values))) + Hash(GraphicsRevision(values)));
+        Hash(ReadBytes(Manifest(values))) + Hash(ReadBytes(SoundtrackManifest(values))) + Hash(ReadBytes(KeybindsPath(values))) + Hash(GraphicsRevision(values)));
     private static string Hash(byte[]? bytes) => bytes == null ? "missing" : Convert.ToHexString(SHA256.HashData(bytes));
     private static string Revision(string launcher, string config, byte[]? ini, string state, byte[]? mods, byte[]? manifest) =>
         Hash(Encoding.UTF8.GetBytes(string.Join("\n", launcher, config, Hash(ini), state, Hash(mods), Hash(manifest))));
@@ -100,6 +105,7 @@ internal static class NativeSettings
             paths.Values[field.Id] = value == null ? field.Option.DefaultValue.Clone() : Parse(field.Option, value);
         }
         foreach (var id in Features) paths.Values["qol." + id] = OptionValue.From(mods.Feature(id) ?? false);
+        ReadRewards(paths, mods); ReadInput(paths, ini, Document.Read(KeybindsPath(paths.Values)));
         paths.Values["audio.soundtrack"] = OptionValue.From(mods.Feature("x68000", "lagoon.soundtrack") == true ? "x68000" : "snes");
         paths.Values[EnhancedPixels.Id] = OptionValue.From(IsEpx(ini, paths.Values));
         return new(paths.Values, Revision(paths.Revision, config, ini.Original, state, mods.Original, manifest));
@@ -125,6 +131,8 @@ internal static class NativeSettings
             if (ini.IniValue(field.Section, field.Key) is { } value && OptionValidation.ValidateValue(field.Option, Parse(field.Option, value)) is { } error)
                 throw new InvalidDataException(error);
         foreach (var id in Features) _ = state.Feature(id);
+        ValidateInput(values);
+        _ = ReadReward(state, "exp"); _ = ReadReward(state, "gold");
         _ = state.Feature("x68000", "lagoon.soundtrack"); _ = state.SoundtrackFolder();
         if (values.TryGetValue(EnhancedPixels.Id, out var enhanced) && enhanced.GetBoolean())
         {
@@ -142,7 +150,8 @@ internal static class NativeSettings
             if (!new[] { 1, 2, 4 }.Any(id => ValidPcm(Path.Combine(folder, $"lagoon-x68000-{id}.pcm"))))
                 throw new InvalidDataException("The bundled X68000 soundtrack has no valid supported tracks. Extract the complete release package.");
         }
-        var enabledFeatures = Features.Where(id => values.TryGetValue("qol." + id, out var item) && item.GetBoolean()).ToArray();
+        var enabledFeatures = Features.Where(id => values.TryGetValue("qol." + id, out var item) && item.GetBoolean())
+            .Concat(SelectedRewardFeatures(values)).ToArray();
         if (enabledFeatures.Length > 0)
         {
             var package = Document.Read(Manifest(values));
@@ -158,6 +167,7 @@ internal static class NativeSettings
     {
         ValidateSources(values);
         var ini = Document.Read(Config(values)); var mods = Document.Read(State(values));
+        var keys = Document.Read(KeybindsPath(values));
         if (values[EnhancedPixels.Id].GetBoolean() != current.Values[EnhancedPixels.Id].GetBoolean())
         {
             if (values[EnhancedPixels.Id].GetBoolean())
@@ -199,13 +209,14 @@ internal static class NativeSettings
         foreach (var id in Features)
             if (values["qol." + id].GetRawText() != current.Values["qol." + id].GetRawText())
                 mods.SetFeature(id, values["qol." + id].GetBoolean());
+        ApplyRewards(current, values, mods); ApplyInput(current, values, ini, keys);
         if (values["audio.soundtrack"].GetRawText() != current.Values["audio.soundtrack"].GetRawText())
             mods.SetFeature("x68000", values["audio.soundtrack"].GetString() == "x68000", "lagoon.soundtrack");
         if (values["audio.soundtrack"].GetString() == "x68000" && mods.SoundtrackFolder() != BundledSoundtrackFolder(values))
             mods.SetSoundtrackFolder(BundledSoundtrackFolder(values));
         // Per-file atomic replacement, with rollback if a later commit fails.
         // This is not a filesystem-wide transaction against power loss.
-        var writes = new[] { ini, mods }.Where(x => x.Changed).ToArray();
+        var writes = new[] { ini, mods, keys }.Where(x => x.Changed).ToArray();
         validateRevision();
         foreach (var file in writes) file.AssertUnchanged();
         var committed = new List<Document>();

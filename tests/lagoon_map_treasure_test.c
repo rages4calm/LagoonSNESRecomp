@@ -7,8 +7,9 @@
 static const char *test_root;
 const char *RtlSaveRoot(void){return test_root;}
 int LagoonSceneRenderer_ExactRoom(const unsigned char*r){return r[0x1fffe]==0xa5;}
+unsigned char g_ram[0x20000];
+#define ram g_ram
 #include "../src/lagoon_map.c"
-static uint8_t ram[0x20000];
 static void word(unsigned a,unsigned v){ram[a]=v;ram[a+1]=v>>8;}
 static void observe(unsigned room,unsigned x,unsigned y,unsigned generation){
  word(0x48e,room);word(0x53,rooms[room].w/8);word(0x55,rooms[room].h/8);
@@ -18,7 +19,7 @@ static void observe(unsigned room,unsigned x,unsigned y,unsigned generation){
 }
 int main(int argc,char**argv){
  assert(argc==4);test_root=argv[3];FILE*f=fopen(argv[1],"rb");assert(f);uint8_t*rom=malloc(0x100000);assert(fread(rom,1,0x100000,f)==0x100000);fclose(f);
- LagoonMap_Init(rom,0x100000);assert(available&&chest_count==33);
+ LagoonMap_Init(rom,0x100000);LagoonQuestGuidance_Init(rom,0x100000);assert(available&&chest_count==33);
  assert(!strcmp(area(0),"ATLAND")&&!strcmp(area(1),"WORSHIP SITE")&&!strcmp(area(7),"GOLD CAVE"));
  assert(!strcmp(area(40),"PHANTOM HILL")&&!strcmp(area(74),"LAGOON CASTLE"));
  assert(!rooms[63].name[0]&&!strcmp(area(63),"EXPLORED AREA")&&!strcmp(area(75),"EXPLORED AREA"));
