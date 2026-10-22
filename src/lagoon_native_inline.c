@@ -22,11 +22,26 @@ static const InlineFamily families[] = {
   {0xB939,16,UINT64_C(0x30553B57596F8E6E),{0xB5C2},UINT64_C(0xBDE4304FD717A8CC),0},
   {0xD409,25,UINT64_C(0x33C94789007A6341),{0x81AA},UINT64_C(0xBB5C824FD4F297B9),0},
   {0xCCDB,40,UINT64_C(0x388D2B99932B1042),{0xCCD8},UINT64_C(0xBB983F4FD52420FE),
-   UINT64_C(0xF2FFEE0F78)}
+   UINT64_C(0xFFFFFFFFFF)}
 };
 
-/* Exact CCDB targets proved against original handlers; remaining selectors stay original. */
+/* Exact authored CCDB targets. Availability/source/frame guards remain mandatory;
+ * unsupported caller contexts and entry widths execute the original helper. */
 static const uint16_t script_targets[40]={
+  [0]=0xCD2F,
+  [1]=0xCD37,
+  [2]=0xCD3F,
+  [7]=0xCDB4,
+  [12]=0xCE31,
+  [13]=0xCE5E,
+  [14]=0xCFBA,
+  [15]=0xD096,
+  [16]=0xD0B3,
+  [20]=0xD1A1,
+  [32]=0xD344,
+  [34]=0xD38D,
+  [35]=0xD3B1,
+
   [3]=0xCD65,
   [4]=0xCD79,
   [5]=0xCD8D,

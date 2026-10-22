@@ -14,9 +14,10 @@ display fades and queued graphics transfers. The HUD-number dispatcher has a
 separate, source-guarded handoff
 using its actual cross-bank JSL return frame. Counts of
 compiled functions are analysis counts, not completion percentages. Installed
-development 0.1.9 has 580 AOT-eligible entries, 77 analyzed interpreter entries
-and 438 roots. Three complex music upload paths intentionally retain original
-opcodes. Generated code alone does not prove that a runtime dispatcher reaches
+development 0.1.10 has 654 AOT-eligible entries, 74 analyzed interpreter entries
+and 508 roots. These are exact entry variants, not a native completion percentage.
+Boot audio and unqualified script/loader contexts retain original opcodes.
+Generated code alone does not prove that a runtime dispatcher reaches
 a compiled entry.
 
 The original 34-slot projectile animation table has qualified M1X0 leaf handlers
@@ -61,7 +62,7 @@ The item-use request and selection prefix preserves its actual caller's
 two-byte return frame. The inline helper consumes only its real three-byte JSL
 frame; six exact table/parent/physical-stack contexts can then dispatch directly
 to available qualified native handlers. The families are item use, magic,
-death, two boss-script tables and 27 source-qualified NPC script commands. Other table
+death, two boss-script tables and 40 source-qualified NPC script commands. Other table
 words, source mismatches, modes and return owners fall back before mutation.
 Unexpected native return-stack violations terminate with a contract diagnostic
 instead of fabricating a return. The generic ExecutePtr lowering remains
@@ -78,7 +79,8 @@ match the same-build interpreter controls. Only two script-input bytes change;
 PC, physical frames and handler outcomes remain original. The earlier malformed
 NPC 80 attempts remain negative evidence. Assisted activation is distinct from
 natural quest progression, and does not establish live coverage of all 27 commands.
-The other 13 commands in this table retain original dispatch.
+That 0.1.9 result covered 27 commands; the 0.1.10 qualification below extends the
+family while retaining the original dispatch for unknown contexts.
 
 The verified development0.1.8 batch retains exact clock/physical state checks.
 Source checks cover15,720 bank-dispatch cases,
@@ -95,8 +97,8 @@ FE5E. They publish the port access at the same opcode-start CPU/master point as
 the original interpreter, then charge the original instruction total. The real
 RTL frame, mode, source, caller and generation remain guarded; unknown contexts
 use original opcodes. This changes no shared clock policy or guest duration.
-The three complex upload/handshake paths FE9B/FEEC/FF69 remain interpreted until
-their device-event timing is qualified. The three writers pass 38,412 original-
+In that batch, the three complex upload/handshake paths FE9B/FEEC/FF69 remained
+interpreted until their device-event timing was qualified. The three writers pass 38,412 original-
 opcode cases, including ordered port observations, deadlines and physical returns.
 A fresh control excludes exactly the five remaining native music entries. The
 81-picture NPC music route and 716-picture spell route match full checkpoint
@@ -107,13 +109,42 @@ and retains its failed strict result. The separate device comparison passes;
 its exact timestamps are not inferred from those observation fields. The final
 0.1.9 rebuild matches the qualified candidate on both routes.
 
+Development 0.1.10 qualifies the remaining 13 NPC command contexts, completing
+the 40-command family in its exact source/mode/physical-frame contract. The
+source oracle binds 198 generated closure bodies and checks 28,864 cases;
+49 typed dialogue entries have another 21,952 original-opcode cases. Real input,
+NMI and child-call waits remain intact. Newly exposed continuations without a
+separate source proof are explicitly interpreted. Assisted dialogue and music
+inputs are diagnostic fixtures, not evidence of natural quest completion.
+
+Native music now includes guarded bank, sample and transfer services, plus a
+source-tested port toggle. A fresh assisted song-bank change matches all 62,434
+queued requests and applications, CPU state/clocks, DSP registers and PCM.
+Fresh boot, dialogue and spell controls also pass the device gate. The initial
+unmapped upload remains original: its interpreter owns private boot/progress
+accounting. Native services require the mapped absolute audio timeline and
+preserve its original pre/post port synchronization and atomic word accesses.
+The toggle has source tests but no known authored activation witness. Earlier
+failed cold controls remain recorded; the separate device result never rewrites
+the legacy raw observer comparison.
+
+Moving actors can now use a verified completed original draw packet rather than
+an already-advanced CPU pose. The packet binds the original stable sorted queue,
+OAM count, full OAM bytes, auxiliary pose data and resource/generation ownership.
+Unknown writes invalidate it. A moving Voloh NPC has independently checked
+sprite and foreground-occlusion pixels in the added view. Endgame Thor, Bird
+and orb contracts also bind their original creators and draw packets. The real
+arena clamps these actors inside the original view; separate synthetic seam
+tests are not presented as natural far-margin coverage.
+
 Compatible Voloh loads now recognize the exact original common2-then-common3
 resource history. Common3 expands 1,476 bytes but uploads 1,728, including bytes left
 by common2. Both streams, original predicates/writers, all 10,752 ordinary atlas
 bytes and the complete common upload must match. Its 1,216 bytes outside the
 ordinary atlas remain unowned. The new scope has original C1C6/C026 NPC cells and
-independent planar-pixel checks, plus an assisted stationary NPC 47 case. Moving
-or unqualified forms still decline. This is a specific resource combination,
+independent planar-pixel checks, plus an assisted stationary NPC 47 case. The
+completed-packet witness above also covers verified moving poses; unprimed or
+unqualified forms still decline. This is a specific resource combination,
 not generic follower or natural escort coverage.
 
 Widescreen presentation now gives completed source-qualified menus priority

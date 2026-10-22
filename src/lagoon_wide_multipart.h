@@ -7,8 +7,10 @@
  * exact room/camera/palette/generation and owned room/common0 resources. A
  * refused optional layer refuses the entire carrier. Output is transactional.
  * Source-proven authored handlers; composite kinds0/1 require primary slot540.
- * The original FF no-draw sentinel skips only that component. Unknown script
- * spawns11..13 and all unowned components still refuse the whole carrier.
+ * Room47 scripted Thor11/Bird12 require primary slot540; original orbs13
+ * require slots580..740 and exact initializer/creator/template provenance.
+ * The original FF no-draw sentinel skips only that component. Other scripted
+ * resources and all unowned components still refuse the whole carrier.
  */
 int LagoonWideMultipart_PacketCells(const uint8_t *rom,size_t rom_size,
     const uint8_t *packet,unsigned queue,LagoonWideCell *cells,size_t capacity);

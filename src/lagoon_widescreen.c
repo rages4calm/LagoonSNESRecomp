@@ -13,6 +13,7 @@
 #include "widescreen.h"
 #include "snes/ppu.h"
 #include "snes/ws_shadow.h"
+#include "snes/interp_bridge.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -528,6 +529,12 @@ void LagoonWide_OnParallaxQueueDma(unsigned length) {
 }
 
 void LagoonWide_BeginFrame(unsigned number) {
+  static int draw_hooks_ready;
+  if (!draw_hooks_ready && g_rom) {
+    int entry = interp_bridge_add_pre_opcode_hook(0x0180F1, LagoonWideEntities_ObserveDraw);
+    int complete = interp_bridge_add_pre_opcode_hook(0x0180F4, LagoonWideEntities_ObserveDraw);
+    draw_hooks_ready = entry && complete;
+  }
   (void)number;
   /* External/debugger loads can advance the timeline without the desktop
    * menu's on_reset hook. Never let pre-load shadow cells cross that jump,

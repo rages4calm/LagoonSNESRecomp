@@ -22,9 +22,15 @@ static RecompReturn native_script(CpuState*,uint32);
 #endif
 const uint8_t *g_rom;
 CpuState g_cpu; /* Standalone context intentionally has no current hostCPU/frame lease. */
-void LagoonNativeEndgameConsumeMusic(unsigned w){CHECK(w<3);}
-void LagoonNativeEndgameRefuseMusic(unsigned w){CHECK(w<3);}
+void LagoonNativeEndgameConsumeMusic(unsigned w){CHECK(w<7);}
+void LagoonNativeEndgameRefuseMusic(unsigned w){CHECK(w<7);}
 uint64_t RtlStateGeneration(void){return 1;}
+/* Standalone source oracle has no live mapped APU or hostCPU authority. */
+bool rtl_apu_absolute_periodic_enabled(void){return false;}
+uint64_t g_apu_last_sync_master;
+void RtlApuLock(void){CHECK(0);}
+void RtlApuUnlock(void){CHECK(0);}
+void rtl_sync_apu_to_cpu_locked(void){CHECK(0);}
 void LagoonNativeEndgameConsumeInline(unsigned family){CHECK(family<6);}
 static uint64 deadline,bus_extra;
 static unsigned inherit;static uint16 inherited_s;static uint8 inherited_h;
@@ -60,6 +66,7 @@ RecompReturn cpu_unresolved_abandon_balanced(CpuState*c,uint32 p,uint16 e,uint8 
 /* Standalone original-source mode has no QoL runtime or normal-world actor
  * ownership. These guarded host optimizations refuse and use original bodies. */
 bool LagoonNativeActorCommands_Run(CpuState*c,uint16_t s,uint8_t h,uint32_t pc,RecompReturn*out){(void)c;(void)s;(void)h;(void)pc;(void)out;return false;}
+bool LagoonMenuDma_TryNative(CpuState*c,uint16_t s,uint8_t h,uint32_t pc,RecompReturn*out){(void)c;(void)s;(void)h;(void)pc;(void)out;return false;}
 bool LagoonActorCompute_Cell(CpuState*c,uint16_t s,uint8_t h,uint32_t pc,RecompReturn*out){(void)c;(void)s;(void)h;(void)pc;(void)out;return false;}
 RecompReturn interp_tier_dispatch_balanced(CpuState*c,uint32 p,uint32 site,uint16 s,uint8 h,bool jump){(void)c;(void)p;(void)site;(void)s;(void)h;(void)jump;CHECK(0);return RECOMP_RETURN_NORMAL;}
 #ifdef NATIVE_SCRIPT_CLOSURE
@@ -134,6 +141,9 @@ static void compare(unsigned family,unsigned selector,unsigned high,unsigned fla
  ram[0x1030]=0x40;ram[0x1031]=0;ram[0x48e]=(unsigned[]){0,14,9,74}[variant];ram[0x48f]=0;ram[0x497]=0x80;ram[0x238]=0;ram[0x239]=0;
  for(unsigned k=0;k<16;k++)ram[0x1800+k]=(uint8)(variant?variant:0);
  ram[0x1801]=0;ram[0x1802]=0x18;ram[0x1803]=0x7e;ram[0x1808]=variant%3;
+ /* Command15 consumes a real seven-byte authored room descriptor. Arbitrary
+  * random bytes would be invalid room/resource inputs, not a native oracle. */
+ if(selector==15)memcpy(ram+0x1801,rom+0xd173,7);
  if(selector==22){ram[0x1801]=5;ram[0x1802]=7;ram[0x540]=0xc0;ram[0x558]=5;ram[0x55b]=7;}
  if(selector==33){ram[0x1801]=7;ram[0x540]=0xc0;ram[0x558]=5;ram[0x55b]=7;}
  if(selector==21&&variant==3)for(unsigned k=0;k<32;k++)ram[0x540+k*64]=0xc0;
@@ -241,13 +251,13 @@ int main(int argc,char**argv){CHECK(argc==2);FILE*f=fopen(argv[1],"rb");CHECK(f&
 #endif
  CHECK(children&&interrupted&&refused);
 #ifdef NATIVE_SCRIPT_CLOSURE
- printf("PASS native script closure %u actualhelper+generatedhandler cases: %u completeRTS/%u realdeadline/%u readonlyrefusals;27 available CCDBhandlers, originalCCD5JSR+CCDBJSL, fullRAM/IO/deadstack/registers/CPU-master-copro clocks, actualproductionregion-speed bus\n",cases,children,interrupted,refused);
+ printf("PASS native script closure %u actualhelper+generatedhandler cases: %u completeRTS/%u realdeadline/%u readonlyrefusals;40 available CCDBhandlers, originalCCD5JSR+CCDBJSL, fullRAM/IO/deadstack/registers/CPU-master-copro clocks, actualproductionregion-speed bus\n",cases,children,interrupted,refused);
  printf("Completions per40selectors");for(unsigned n=0;n<40;n++)printf(" %u",completed_selector[n]);puts("");
 #elif defined(NATIVE_MAGIC_CLOSURE)
  printf("PASS native magic inline closure %u original-helper-plus-generated-handler cases: %u completeRTS/%u deadline-or-originalwait/%u refusals; all16 table selectors, fouractualparentJSRs, MP/pool/targetsearch/hiddenA/flags, actualsourceLLEchildren, fullRAM/IO/stack/registers/CPU-master-copro clocks; constant8-master bus\n",cases,children,interrupted,refused);
  printf("Actual MPdebitcases%u sourcebornprojectiles%u originalNMIpollstops%u completions_by_selector",mp_changes,projectiles_born,poll_stops);for(unsigned n=0;n<16;n++)printf(" %u",completed_selector[n]);puts("");CHECK(mp_changes&&projectiles_born&&poll_stops);
 #else
- printf("PASS inline dispatch %u actual-source cases: %u completedDC/%u deadline/%u read-only refusals; six authoredtables, all129 selectors+unknown,9physicalparentJSRs, CCDB27available, consumed3/inherited2, allRAM/IO/deadstack/registers/flags/CPU-master-copro clocks; constant8-master bus; selected-handler/live paired API gates separate\n",cases,children,interrupted,refused);
+ printf("PASS inline dispatch %u actual-source cases: %u completedDC/%u deadline/%u read-only refusals; six authoredtables, all129 selectors+unknown,9physicalparentJSRs, CCDB40available, consumed3/inherited2, allRAM/IO/deadstack/registers/flags/CPU-master-copro clocks; constant8-master bus; selected-handler/live paired API gates separate\n",cases,children,interrupted,refused);
 #endif
  return 0;
 }

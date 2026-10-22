@@ -6,7 +6,7 @@ typedef struct LagoonNativeEndgameStats {
   unsigned long long hud_calls,hud_armed,hud_proposals,hud_takes,hud_refusals;
   unsigned long long native_inline[6];
   unsigned long long script_fixture_applied;
-  unsigned long long native_music[3],native_music_refusals[3];
+  unsigned long long native_music[7],native_music_refusals[7];
 } LagoonNativeEndgameStats;
 void LagoonNativeEndgameBeforeFrame(void);
 unsigned LagoonNativeEndgameDescriptors(InterpAotContinuation *out,unsigned cap);

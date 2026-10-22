@@ -47,16 +47,18 @@ class StrictComparisonTests(unittest.TestCase):
         self.save(root, dict(receipt, **values))
 
     def test_script_fixture_input_is_exact_and_cannot_be_ignored(self):
-        fixture=dict(source_pc='01CC9A',selector='30',script_alias='05C6AF')
-        for root in (self.a,self.b):
-            self.change_receipt(root,script_fixture_input=fixture,
-                diagnostic_overrides={'LAGOON_SCRIPT_FIXTURE':'30'})
-        self.assertTrue(compare.compare_runs(self.a,self.b)['passed'])
-        self.change_receipt(self.b,script_fixture_input=dict(fixture,script_alias='05CAB1'))
-        self.assertFalse(compare.compare_runs(self.a,self.b)['passed'])
-        self.change_receipt(self.b,script_fixture_input=fixture,
-            diagnostic_overrides={'LAGOON_SCRIPT_FIXTURE':'39'})
-        self.assertFalse(compare.compare_runs(self.a,self.b)['passed'])
+        for selector,alias in (('30','05C6AF'),('text','05C45B')):
+            with self.subTest(selector=selector):
+                fixture=dict(source_pc='01CC9A',selector=selector,script_alias=alias)
+                for root in (self.a,self.b):
+                    self.change_receipt(root,script_fixture_input=fixture,
+                        diagnostic_overrides={'LAGOON_SCRIPT_FIXTURE':selector})
+                self.assertTrue(compare.compare_runs(self.a,self.b)['passed'])
+                self.change_receipt(self.b,script_fixture_input=dict(fixture,script_alias='05CAB1'))
+                self.assertFalse(compare.compare_runs(self.a,self.b)['passed'])
+                self.change_receipt(self.b,script_fixture_input=fixture,
+                    diagnostic_overrides={'LAGOON_SCRIPT_FIXTURE':'39'})
+                self.assertFalse(compare.compare_runs(self.a,self.b)['passed'])
 
     def test_requested_feature_refusal_invalidates_historical_receipt(self):
         (self.b/'stderr.log').write_text('lagoon.qol: camera_center refused, affected camera code has an AOT entry')

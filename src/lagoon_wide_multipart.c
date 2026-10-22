@@ -12,7 +12,22 @@ static int source(const uint8_t *rom,size_t size,unsigned a,unsigned n,uint64_t 
   for(unsigned i=0;i<n;++i)h=(h^rom[o+i])*UINT64_C(1099511628211);
   return h==expected;
 }
-static int allowed(const uint8_t *rom,size_t size,unsigned room,unsigned kind){
+static int allowed(const uint8_t *rom,size_t size,unsigned room,unsigned kind,unsigned offset){
+  /* Zerah's original death creates Thor and eight orbs via018DC6; Thor's
+   * original death replaces only the primary slot with Bird. These three
+   * templates are not ordinary room records. Pin both actual creator paths,
+   * all original template bytes and the room's descriptor pointer. A matching
+   * frame number in another room or actor slot grants no authority. */
+  if(room==0x47 && kind>=11 && kind<=13) {
+    if((kind!=13&&offset!=0x40) ||
+        (kind==13&&(offset<0x80||offset>0x240)))return 0;
+    return source(rom,size,0x018dc6,32,UINT64_C(0xf6945cacacc96da2))&&
+      source(rom,size,0x018de6,192,UINT64_C(0x2b75cbbe1665c455))&&
+      source(rom,size,0x01b48d,205,UINT64_C(0x68b89a9794237f8f))&&
+      source(rom,size,0x01b55a,25,UINT64_C(0x48f4e6de70874dc9))&&
+      source(rom,size,0x019382,114,UINT64_C(0xc63949f74d9443d1))&&
+      source(rom,size,0x05c292,3,UINT64_C(0xf69be01b520a0ada));
+  }
   static const struct {unsigned room,kind,record;uint64_t record_hash;
       unsigned pointer;uint64_t pointer_hash;} authored[]={
     {0x40,0,0x05acb3,UINT64_C(0x82c7acff4fb1bd7d),0x05c10a,UINT64_C(0xaa256a1a94cb4dfd)},
@@ -107,7 +122,7 @@ int LagoonWideMultipart_PacketCells(const uint8_t *rom,size_t size,
   if(offset<0x40||offset>0x800||(offset&63)||packet[q+4]!=3)return -1;
   const uint8_t *r=packet+0x500+offset;
   unsigned kind=r[27];
-  if(r[24]!=3||(r[0]&0xc0)!=0xc0||!allowed(rom,size,room,kind)||
+  if(r[24]!=3||(r[0]&0xc0)!=0xc0||!allowed(rom,size,room,kind,offset)||
       (kind<2&&offset!=0x40)||
       word(packet,q+2)!=word(r,14)||
       word(r,12)!=((word(r,2)-word(packet,0x480))&65535)||

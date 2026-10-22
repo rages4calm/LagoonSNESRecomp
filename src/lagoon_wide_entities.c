@@ -8,6 +8,7 @@
 #endif
 #ifndef LAGOON_WIDE_ENTITIES_DECODER_ONLY
 #include "common_rtl.h"
+#include "cpu_state.h"
 #include "config.h"
 #include "lagoon_widescreen.h"
 #include "lagoon_scene_renderer.h"
@@ -18,15 +19,27 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { kEntities = 33, kCells = 64, kMultipartCells = 128, kObjects = 512, kRomSize = 0x100000 };
+enum { kEntities = 33, kCells = 64, kMultipartCells = 128, kObjects = 512, kRomSize = 0x100000,
+  /* Same bounded context as the original DMA snapshot: enemy26's authored
+   * special animation also reads the per-entity byte at 8000+offset. */
+  kProducerRamBytes = 0x8801 };
 #ifndef LAGOON_WIDE_ENTITIES_DECODER_ONLY
 typedef struct WideEntitySnapshot {
   uint8_t ram[0x8801], oam[544];
   uint64_t generation;
   unsigned serial;
   int valid;
+  uint8_t producer_ram[kProducerRamBytes];
+  int producer_valid;
 } WideEntitySnapshot;
 static WideEntitySnapshot s_frame;
+static struct {
+  uint8_t ram[kProducerRamBytes],oam[544],parent[3];
+  uint64_t generation,master;
+  uint16_t stack;
+  CpuState *cpu;
+  int begun,ready;
+} s_draw_producer;
 static unsigned s_serial, s_last_serial;
 static LagoonWideAtlas s_atlas;
 static LagoonWideDeathAtlas s_death_atlas;
@@ -54,6 +67,7 @@ static unsigned s_pose_room_key, s_last_far_entity, s_last_far_frame;
 static uint64_t s_pose_generation;
 static int s_last_far_x;
 static uint64_t s_far_emitted, s_frame_witness, s_frame_bad, s_far_gated, s_current_emitted;
+static uint64_t s_producer_commits,s_producer_binds,s_producer_cells;
 static int s_has_far,s_has_projectile;
 
 static PpuExtraObject s_objects[kObjects];
@@ -83,7 +97,7 @@ static void report_status(const char *status, unsigned entity, unsigned cell) {
   }
   FILE *f = fopen(path, "w");
   if (!f) return;
-  fprintf(f, "status=%s serial=%u captures=%llu validated=%llu rejected=%llu emitted=%llu live_objects=%zu left=%u right=%u entity=%u cell=%u atlas_ready=%u atlas_bytes=%u frame_witness=%llu frame_bad=%llu far_cells=%llu far_gated=%llu last_far=%03X far_x=%d far_frame=%u current_cells=%llu death_owned=%u death_bytes=%u death_cells=%llu death_far=%llu projectile_cells=%llu magic_owned=%u magic_bytes=%u magic_cells=%llu multipart_packets=%llu multipart_matched=%llu multipart_cells=%llu\n",
+  fprintf(f, "status=%s serial=%u captures=%llu validated=%llu rejected=%llu emitted=%llu live_objects=%zu left=%u right=%u entity=%u cell=%u atlas_ready=%u atlas_bytes=%u frame_witness=%llu frame_bad=%llu far_cells=%llu far_gated=%llu last_far=%03X far_x=%d far_frame=%u current_cells=%llu death_owned=%u death_bytes=%u death_cells=%llu death_far=%llu projectile_cells=%llu magic_owned=%u magic_bytes=%u magic_cells=%llu multipart_packets=%llu multipart_matched=%llu multipart_cells=%llu producer_commits=%llu producer_binds=%llu producer_cells=%llu\n",
       status, s_frame.serial, (unsigned long long)s_captures, (unsigned long long)s_validated,
       (unsigned long long)s_rejected, (unsigned long long)s_emitted, s_object_count, left, right, entity, cell, s_atlas.ready, s_atlas.completed,
       (unsigned long long)s_frame_witness, (unsigned long long)s_frame_bad,
@@ -91,7 +105,8 @@ static void report_status(const char *status, unsigned entity, unsigned cell) {
       s_last_far_entity, s_last_far_x, s_last_far_frame, (unsigned long long)s_current_emitted,s_death_atlas.ready,s_death_atlas.completed,
       (unsigned long long)s_death_emitted,(unsigned long long)s_death_far,(unsigned long long)s_projectile_emitted,
       s_magic_atlas.ready,s_magic_atlas.completed,(unsigned long long)s_magic_emitted,
-      (unsigned long long)s_multipart_packets,(unsigned long long)s_multipart_matched,(unsigned long long)s_multipart_emitted);
+      (unsigned long long)s_multipart_packets,(unsigned long long)s_multipart_matched,(unsigned long long)s_multipart_emitted,
+      (unsigned long long)s_producer_commits,(unsigned long long)s_producer_binds,(unsigned long long)s_producer_cells);
   fclose(f);
 }
 #endif
@@ -1341,6 +1356,57 @@ int LagoonWideAtlas_RebindResident(LagoonWideAtlas *a,const uint8_t *rom,
 static unsigned ram_word(const uint8_t *ram, unsigned a) { return ram[a] | (ram[a + 1] << 8); }
 static unsigned ram_pointer(const uint8_t *ram, unsigned a) { return ram_word(ram,a) | (ram[a+2]<<16); }
 static int signed_word(unsigned v) { return (int16_t)v; }
+static int producer_context(const uint8_t *a,const uint8_t *b) {
+  return !a[0x100e]&&!b[0x100e]&&
+    !memcmp(a+0x50,b+0x50,56)&&!memcmp(a+0x480,b+0x480,4)&&
+    !memcmp(a+0x48e,b+0x48e,2)&&!memcmp(a+0x90,b+0x90,4)&&
+    a[0x4e1]==b[0x4e1]&&LagoonSceneRenderer_ExactRoom(a)&&LagoonSceneRenderer_ExactRoom(b);
+}
+static int producer_sorted_queue(const uint8_t *before,const uint8_t *after) {
+  unsigned n=ram_word(before,0x48c);if(n>64||n!=ram_word(after,0x48c))return 0;
+  uint8_t queue[0x180];memcpy(queue,before+0xec0,sizeof queue);
+  /* OriginalC026 stable descending unsigned-Y swaps complete6-byte entries. */
+  for(unsigned i=0;i<n;++i)for(unsigned j=0;j+1<n;++j)
+    if(ram_word(queue,j*6+2)<ram_word(queue,(j+1)*6+2)){
+      uint8_t entry[6];memcpy(entry,queue+j*6,6);memcpy(queue+j*6,queue+(j+1)*6,6);memcpy(queue+(j+1)*6,entry,6);
+    }
+  return !memcmp(queue,after+0xec0,sizeof queue);
+}
+void LagoonWideEntities_ObserveDraw(CpuState *c,uint32_t pc24) {
+  unsigned pc=pc24&0x7fffff;
+  if(pc!=0x0180f1&&pc!=0x0180f4)return;
+  if(pc==0x0180f1){s_draw_producer.begun=0;s_draw_producer.ready=0;}
+  if(!c||c->ram!=g_ram||!g_rom||!g_config.widescreen||
+      c->PB!=1||c->DB!=1||c->D||c->emulation||!c->m_flag||c->x_flag||
+      c->_flag_D||(c->P&8)||c->S<0x100||c->S>0x1fc||
+      !source_hash(g_rom,kRomSize,0x0180f1,6,UINT64_C(0x5c26e58cc5321ff1))||
+      !source_hash(g_rom,kRomSize,0x01c026,164,UINT64_C(0x1af59bf53030a61c))||
+      !producer_context(g_ram,g_ram)) {
+    s_draw_producer.begun=0;s_draw_producer.ready=0;return;
+  }
+  if(pc==0x0180f1){
+    memcpy(s_draw_producer.ram,g_ram,sizeof s_draw_producer.ram);
+    memcpy(s_draw_producer.parent,g_ram+c->S+1,3);
+    s_draw_producer.stack=c->S;s_draw_producer.generation=RtlStateGeneration();
+    s_draw_producer.cpu=c;
+    s_draw_producer.master=c->master_cycles;s_draw_producer.begun=1;return;
+  }
+  int exact=s_draw_producer.begun&&s_draw_producer.cpu==c&&s_draw_producer.generation==RtlStateGeneration()&&
+    c->S==s_draw_producer.stack&&c->master_cycles>=s_draw_producer.master&&
+    g_ram[c->S-1]==0xf3&&g_ram[c->S]==0x80&&
+    !memcmp(s_draw_producer.parent,g_ram+c->S+1,3)&&
+    s_draw_producer.ram[0x408]==g_ram[0x408]&&
+    producer_context(s_draw_producer.ram,g_ram)&&
+    !memcmp(s_draw_producer.ram+0x500,g_ram+0x500,0x840)&&
+    !memcmp(s_draw_producer.ram+0x8000,g_ram+0x8000,0x801)&&
+    producer_sorted_queue(s_draw_producer.ram,g_ram);
+  s_draw_producer.begun=0;s_draw_producer.ready=exact;
+  if(exact){
+    s_draw_producer.ram[0x236]=g_ram[0x236];
+    memcpy(s_draw_producer.ram+0xec0,g_ram+0xec0,0x180);
+    memcpy(s_draw_producer.oam,g_ram+0x2000,544);s_producer_commits++;
+  }
+}
 
 static int decode_entity_offset(const uint8_t *ram,unsigned entity,unsigned frame,int projected,LagoonWideCell *cells,int prop_offset) {
   unsigned room=ram_word(ram,0x48e);
@@ -1397,6 +1463,9 @@ static int find_cell(const uint8_t *oam,const LagoonWideCell *c,const uint8_t *u
   return -1;
 }
 static void observe_vram_byte(uint32_t adr,uint8_t value) {
+  if(adr>=0x8800&&adr<0xb200){
+    s_draw_producer.ready=s_draw_producer.begun=s_frame.producer_valid=0;
+  }
   LagoonWideSpell3_Write(adr,value);
   LagoonWide_OnVramWrite(adr);
   uint64_t generation=RtlStateGeneration();
@@ -1482,6 +1551,9 @@ static void observe_dma(const Dma *dma,unsigned channel,const DmaChannel *t) {
   memcpy(s_frame.ram,g_ram,sizeof(s_frame.ram));
   memcpy(s_frame.oam,g_ram+0x2000,sizeof(s_frame.oam));
   s_frame.generation=RtlStateGeneration(); s_frame.serial=++s_serial; s_frame.valid=1; s_captures++;
+  s_frame.producer_valid=s_draw_producer.ready&&s_draw_producer.generation==s_frame.generation&&
+    producer_context(s_draw_producer.ram,g_ram)&&!memcmp(s_draw_producer.oam,s_frame.oam,544);
+  if(s_frame.producer_valid){memcpy(s_frame.producer_ram,s_draw_producer.ram,kProducerRamBytes);s_producer_binds++;}
 }
 void LagoonWideEntities_Init(void) {
   dma_set_start_observer(observe_dma); ppu_set_vram_write_log_hook(observe_vram_byte);
@@ -1490,6 +1562,7 @@ void LagoonWideEntities_Reset(void) {
   LagoonWideSpell3_Reset();
   s_retained_objects.valid=0;
   s_frame.valid=0; s_last_serial=0; s_object_count=0; s_has_far=0; s_has_projectile=0;s_has_magic=0;s_retained_submitted=0; s_pose_room_key=0; s_pose_generation=0;
+  s_frame.producer_valid=0;memset(&s_draw_producer,0,sizeof s_draw_producer);
   memset(s_pose,0,sizeof(s_pose));memset(s_native_pose,0,sizeof(s_native_pose)); memset(s_kind_witness,0,sizeof(s_kind_witness));
   LagoonWideAtlas_Reset(&s_atlas);LagoonWideDeath_Reset(&s_death_atlas);LagoonWideMagic_Reset(&s_magic_atlas);s_has_death=0;s_has_magic=0;
   if (g_ppu) PpuSetExtraObjects(g_ppu,NULL,0);
@@ -1778,6 +1851,23 @@ static int current_pose_frame(const uint8_t *ram,unsigned e,uint8_t *frame) {
     !g_ppu->setini && !g_ppu->cgadsub && !g_ppu->windowsel && !(g_ppu->cgwsel&1) &&
     LagoonWideEntities_CurrentFrame(g_rom,kRomSize,ram,g_ram,e*64,frame);
 }
+static int producer_pose_frame(const uint8_t *ram,unsigned e,uint8_t *frame) {
+  if(!s_frame.producer_valid||!producer_context(s_frame.producer_ram,ram)||
+      !producer_context(s_frame.producer_ram,g_ram))return 0;
+  const uint8_t *p=s_frame.producer_ram;unsigned a=0x500+e*64;
+  const uint8_t *r=p+a,*now=g_ram+a;
+  /* Original ordinary NPC animation at the completed draw producer only.
+   * Neither a current/future pose nor an actor AI step is reconstructed.
+   * The old CurrentFrame full-record equality path remains unchanged. */
+  if(r[24]!=1||(r[0]&0xc8)!=0xc0||(now[0]&0xc0)!=0xc0||now[24]!=1||now[27]!=r[27]||
+      !pose_centered(p,a)||!follower_record(g_rom,kRomSize,p,r)||
+      !follower_record(g_rom,kRomSize,g_ram,now)||
+      !source_hash(g_rom,kRomSize,0x01c1c6,78,UINT64_C(0x923d6369f8f0853c)))return 0;
+  LagoonWideAnimation animation={r[16],r[17]};uint8_t expected;
+  if(!LagoonWideEntities_FrameForContext(g_rom,kRomSize,p,r,&animation,0,&expected)||
+      expected!=r[28]||!LagoonWideEntities_CurrentSource(g_rom,kRomSize,r[27]<2?0:p[0x48e]+1,expected))return 0;
+  *frame=expected;return 1;
+}
 
 void LagoonWideEntities_BeginFrame(int enabled) {
   s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;PpuSetExtraObjects(g_ppu,NULL,0);
@@ -1788,7 +1878,12 @@ void LagoonWideEntities_BeginFrame(int enabled) {
   if(memcmp(s_frame.oam,g_ppu->oam,512)||memcmp(s_frame.oam+512,g_ppu->highOam,32)) {
     report_status("oam-fingerprint-mismatch",0,0);return;
   }
-  const uint8_t *ram=s_frame.ram;
+  int producer_packet=s_frame.producer_valid&&
+    producer_context(s_frame.producer_ram,s_frame.ram)&&producer_context(s_frame.producer_ram,g_ram)&&
+    s_atlas.ready&&s_atlas.generation==s_frame.generation&&
+    s_atlas.room==ram_word(s_frame.producer_ram,0x48e)&&
+    s_atlas.source==ram_pointer(s_frame.producer_ram,0x5d);
+  const uint8_t *ram=producer_packet?s_frame.producer_ram:s_frame.ram;
   if(ram_word(ram,0x48e)!=ram_word(g_ram,0x48e) || ram_word(ram,0x48c)>64) return;
   unsigned room=ram_word(ram,0x48e);int additional=room==1 || room==2 || room>=9;
   /* The OAM snapshot and current scene must independently name this exact
@@ -1809,6 +1904,8 @@ void LagoonWideEntities_BeginFrame(int enabled) {
   uint8_t used[128]={0},queued[kEntities]={0},far[kEntities]={0},far_frames[kEntities]={0},current_path[kEntities]={0};
   int cell_slot[kEntities][kMultipartCells],counts[kEntities]={0},multipart[kEntities]={0},common0[kEntities]={0};
   LagoonWideCell cells[kEntities][kMultipartCells],projectile_cells[16][kCells];
+  uint16_t actor_y[kEntities];
+  for(unsigned e=0;e<kEntities;++e)actor_y[e]=(uint16_t)(ram_word(ram,0x504+e*64)-ram_word(ram,0x482));
   int projectile_counts[16]={0},projectile_slots[16][kCells],projectile_magic[16]={0};
   unsigned projectile_y[16]={0};
   memset(projectile_slots,-1,sizeof(projectile_slots));
@@ -1920,17 +2017,20 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     if(queued[e] || !atlas_ok || !LagoonWideEntities_AllowedKind(room,type,kind))continue;
     int ordinary=(type==1||type==2) && kind<(type==1?128:64) && s_pose[e].valid && s_kind_witness[type-1][kind];
     int held=native_pose_matches(ram,e);
-    int x=signed_word(ram_word(ram,a+2)-ram_word(ram,0x480));
-    int y=signed_word(ram_word(ram,a+4)-ram_word(ram,0x482));
+    uint8_t producer_frame;int produced=producer_packet&&type==1&&producer_pose_frame(ram,e,&producer_frame);
+    const uint8_t *pose_ram=produced?s_frame.producer_ram:ram;
+    int x=signed_word(ram_word(pose_ram,a+2)-ram_word(pose_ram,0x480));
+    int y=signed_word(ram_word(pose_ram,a+4)-ram_word(pose_ram,0x482));
     if((x>=-96 && x<352) || y < -32 || y>=288) continue;
     uint8_t frame;int used_current=0;
-    if(!ordinary || !LagoonWideEntities_FrameForContext(g_rom,kRomSize,ram,ram+a,&s_pose[e].animation,0,&frame)) {
+    if(produced){frame=producer_frame;used_current=2;}
+    else if(!ordinary || !LagoonWideEntities_FrameForContext(g_rom,kRomSize,ram,ram+a,&s_pose[e].animation,0,&frame)) {
       uint8_t current_frame;int current=!held&&current_pose_frame(ram,e,&current_frame);
       if(!held&&!current)continue;
       used_current=current;frame=current?current_frame:ram[a+0x1c]; /* Exact current guest pose; no attack/AI extrapolation. */
     }
-    int n=decode_entity(ram,e*64,frame,1,cells[e]);
-    if(n<=0 || !record_cells_owned(ram,e*64,frame,cells[e],n)) {
+    int n=decode_entity(pose_ram,e*64,frame,!produced,cells[e]);
+    if(n<=0 || !record_cells_owned(pose_ram,e*64,frame,cells[e],n)) {
       if(s_far_gated<8 && getenv("LAGOON_WIDE_ENTITY_REPORT"))
         fprintf(stderr,"wide-far: unowned entity=%03X kind=%u frame=%u cells=%d x=%d\n",e*64,kind,frame,n,x);
       s_far_gated++;continue;
@@ -1944,6 +2044,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     }
     if(!deep || !intersects) continue;
     counts[e]=n;far[e]=1;far_frames[e]=frame;current_path[e]=used_current;any_far=1;s_last_far_entity=e*64;s_last_far_x=x;s_last_far_frame=frame;
+    if(produced)actor_y[e]=ram_word(pose_ram,a+14);
   }
   /* An unsupported native group in the same deep margins needs its own
    * composition/order contract. Reject new far rendering, retain old path. */
@@ -1968,10 +2069,10 @@ void LagoonWideEntities_BeginFrame(int enabled) {
   }
   unsigned rank[kEntities]={0};
   if(any_far) for(unsigned e=1;e<kEntities;++e) if((queued[e]||far[e]) && counts[e]>0) {
-    unsigned ey=ram_word(ram,0x504+e*64)-ram_word(ram,0x482);ey&=65535;
+    unsigned ey=actor_y[e];
     unsigned r=0;
     for(unsigned o=1;o<kEntities;++o) if((queued[o]||far[o]) && counts[o]>0) {
-      unsigned oy=(ram_word(ram,0x504+o*64)-ram_word(ram,0x482))&65535;
+      unsigned oy=actor_y[o];
       if(oy>ey || (oy==ey && o<e))r++;
     }
     for(unsigned j=0;j<16;++j)if(projectile_counts[j]>0 && projectile_y[j]>=ey)r++;
@@ -1981,7 +2082,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
   if(any_far)for(unsigned j=0;j<16;++j)if(projectile_counts[j]>0) {
     unsigned key=projectile_y[j],r=0;
     for(unsigned e=1;e<kEntities;++e)if((queued[e]||far[e])&&counts[e]>0 &&
-        ((ram_word(ram,0x504+e*64)-ram_word(ram,0x482))&65535)>key)r++;
+        actor_y[e]>key)r++;
     for(unsigned o=0;o<16;++o)if(projectile_counts[o]>0 &&
         (projectile_y[o]>key || (projectile_y[o]==key&&o<j)))r++;
     projectile_rank[j]=r;
@@ -2015,7 +2116,9 @@ void LagoonWideEntities_BeginFrame(int enabled) {
         if(multipart[e]){s_multipart_emitted+=added;if(added&&common0[e])s_has_death=1;}
         if(added&&death_record(ram+0x500+e*64,ram[0x51c+e*64])) {s_death_emitted+=added;s_has_death=1;if(far[e])s_death_far+=added;}
         if(far[e]) {
-          s_far_emitted+=added;s_has_far|=added;if(current_path[e])s_current_emitted+=added;
+          s_far_emitted+=added;s_has_far|=added;
+          if(current_path[e]==1)s_current_emitted+=added;
+          if(current_path[e]==2)s_producer_cells+=added;
           if(added && cell_report) {
             unsigned a=0x500+e*64;uint8_t frame=far_frames[e];
             fprintf(cell_report,"%d\t%u\t%u\t%03X\t%u\t%u\t%u\t%d\t%d\t%04X\t%u\t%u\t%u\n",

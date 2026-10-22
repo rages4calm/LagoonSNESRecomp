@@ -25,6 +25,8 @@ widescreen, a custom scene renderer and optional quality-of-life improvements.
   supported homing spells in the added view.
   A verified cave actor pack also restores supported enemies after loading,
   while unknown graphics remain excluded.
+  Moving NPCs now use the completed original draw pose, with additional
+  source-checked Thor, Bird and orb rendering.
 - **Original artwork, enhanced:** optional EPX treatment preserves the palette
   and keeps the HUD sharp. No replacement artwork is required.
 - **Gameplay options:** faster walking, longer sword reach with a modest
@@ -69,7 +71,7 @@ letterboxing on a 16:9 display. Window scale affects windowed size only.
 
 ## Project status
 
-The source and installed local development build are now **0.1.9**. The latest
+The source and installed local development build are now **0.1.10**. The latest
 packaged Windows preview remains **0.1.3**; its release notes describe that package.
 
 This is experimental. Native combat, damage, death/revival, boss services and
@@ -90,11 +92,13 @@ Incoming mosaic fades now retain the current room's original center and fill
 qualified widescreen margins; completed menus take priority over cached scenery.
 Native table dispatch now covers qualified item, spell, death and boss-script
 contexts, with the full ordinary actor sorting loop also compiled. Unknown
-script contexts continue through the interpreter. The NPC script family now
-has 27 guarded commands; two have also been verified through assisted NPC
-interactions with their original returns. A read-only map-resource scan also reduces
-loading work without changing game speed. Remaining frame-time spikes are still
-being checked.
+script contexts continue through the interpreter. All 40 commands in the NPC
+script family now have qualified native entry contexts, with additional dialogue
+continuations and separate assisted state/audio checks. Native music uploads
+preserve actual device timing; initial unmapped boot uploads remain interpreted.
+A read-only map-resource scan also reduces loading work without changing game
+speed. Focused fullscreen measurements distinguish original loading waits from
+host rendering cost; they do not establish locked 60 FPS throughout the game.
 Tablet hints are available;
 a full objective journal, broader route guidance and zoom-out remain later work. See [development scope](docs/DEVELOPMENT.md)
 and [how to report a playtest issue](docs/PLAYING.md#reporting-a-bug).

@@ -251,8 +251,8 @@ static void script_fixture_hook(CpuState *c,uint32_t pc) {
   if(LagoonScriptFixture_Apply(g_rom,0x100000,c,&g_cpu,RtlStateGeneration(),
       fixture_frame,fixture_selector,&fixture_used))++stats.script_fixture_applied;
 }
-void LagoonNativeEndgameConsumeMusic(unsigned w){if(w<3)++stats.native_music[w];}
-void LagoonNativeEndgameRefuseMusic(unsigned w){if(w<3)++stats.native_music_refusals[w];}
+void LagoonNativeEndgameConsumeMusic(unsigned w){if(w<7)++stats.native_music[w];}
+void LagoonNativeEndgameRefuseMusic(unsigned w){if(w<7)++stats.native_music_refusals[w];}
 void LagoonNativeEndgameBeforeFrame(void) {
   LagoonNativeMusic_BeforeFrame();
   if(!fixture_initialized){fixture_initialized=1;fixture_selector=LagoonScriptFixture_Parse(getenv("LAGOON_SCRIPT_FIXTURE"));}

@@ -52,6 +52,19 @@ class DeviceDomainTests(unittest.TestCase):
     def compare(self, **options):
         return device.compare_runs(self.a, self.b, self.proof, **options)
 
+    def test_full_upload_capacity_is_complete_and_still_bounded(self):
+        path = self.a / 'queue.csv'
+        header = ','.join(device.QUEUE_COLUMNS) + '\n'
+        pair = 'Q,1,61,100,200,190\nA,1,61,0,200,200\n'
+        body = pair * (device.MAX_QUEUE_EVENTS // 2)
+        path.write_text(header + body + f'END,{device.MAX_QUEUE_EVENTS},0\n')
+        rows = device.load_queue(path)
+        self.assertEqual(len(rows['Q']) + len(rows['A']), device.MAX_QUEUE_EVENTS)
+        path.write_text(header + body + 'Q,1,61,100,200,190\n' +
+                        f'END,{device.MAX_QUEUE_EVENTS + 1},0\n')
+        with self.assertRaises(ValueError):
+            device.load_queue(path)
+
     def test_batch_observation_difference_retains_raw_failure(self):
         path = self.b / 'dumps/one.apu.tsv'
         text = path.read_text().replace('cpu_wr\t1\t3D\t5', 'cpu_wr\t1\t3D\t6')

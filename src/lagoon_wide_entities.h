@@ -13,6 +13,10 @@ int LagoonWideEntities_Decode(const uint8_t *rom, size_t rom_size,
     unsigned selector, unsigned frame, int x, int y,
     LagoonWideCell *cells, size_t capacity);
 void LagoonWideEntities_Init(void);
+struct CpuState;
+/* Read-only original0180F1 JSR C026 / physical0180F4 return observer.
+ * Bypassed/interrupted callers provide no completed producer authority. */
+void LagoonWideEntities_ObserveDraw(struct CpuState *cpu,uint32_t pc24);
 int LagoonWideEntities_Pixels(const uint16_t *vram, const uint16_t *cgram,
     unsigned base1, unsigned base2, const LagoonWideCell *cell,
     uint16_t *pixels, int clip_native);

@@ -17,6 +17,7 @@ strict = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(strict)
 
 QUEUE_ENV = 'SNESRECOMP_APU_QUEUE_TRACE'
+MAX_QUEUE_EVENTS = 131072
 AUDIO_ENVS = ('SNESRECOMP_APURAM_TRACE_FILE', 'SNESRECOMP_DSPREG_TRACE_FILE',
               'SNESRECOMP_DSPOUT')
 QUEUE_COLUMNS = ['event', 'port', 'value', 'guest_cycle', 'target_cycle', 'port_clock']
@@ -48,7 +49,7 @@ def load_queue(path):
                     raise ValueError('incomplete or overflowed APU queue completion footer')
                 complete = True
                 continue
-            if len(cells) != len(QUEUE_COLUMNS) or count >= 65536:
+            if len(cells) != len(QUEUE_COLUMNS) or count >= MAX_QUEUE_EVENTS:
                 raise ValueError(f'incomplete APU queue row {index}')
             row = dict(zip(QUEUE_COLUMNS, cells))
             kind = row['event']
