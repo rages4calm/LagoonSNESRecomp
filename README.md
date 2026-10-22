@@ -1,15 +1,15 @@
 # Lagoon Recomp
 
-A work-in-progress Windows port of **Lagoon (USA)** built with
+A Windows port of **Lagoon (USA)** built with
 [SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp).
-Native gameplay runs alongside an interpreter safety net, with experimental
+Native gameplay runs alongside an interpreter safety net, with
 widescreen, a custom scene renderer and optional quality-of-life improvements.
 **Bring your own clean USA ROM.** No ROM or extracted Lagoon graphics are bundled.
 
 ![Atland with Enhanced original pixels at 1920 by 1080](docs/screenshots/atland-epx-1920x1080.png)
 
 [More screenshots](docs/screenshots/README.md) ·
-[Windows preview](https://github.com/rages4calm/LagoonSNESRecomp/releases) ·
+[Windows release](https://github.com/rages4calm/LagoonSNESRecomp/releases/latest) ·
 [Build](docs/BUILDING.md) · [Playing and settings](docs/PLAYING.md) ·
 [Development](docs/DEVELOPMENT.md) · [Credits](CREDITS.md)
 
@@ -63,14 +63,14 @@ widescreen, a custom scene renderer and optional quality-of-life improvements.
 
 ## Run it
 
-Download the **Windows x64 preview ZIP** from
+Download the **Windows x64 ZIP** from
 [Releases](https://github.com/rages4calm/LagoonSNESRecomp/releases).
 Extract the whole ZIP and open **Setup Lagoon.cmd** or **lagoon.Companion.exe**.
 Select your clean USA ROM on Game and Apply, then open Game setup and Run setup.
 Press Play when setup finishes. The playable game executable and self-contained
 Companion are included, each with a custom icon; no compiler, SDK or download is
 needed for setup. Your ROM is verified and is never bundled or copied by setup.
-Preview settings and saves live in the extracted folder's `local` directory.
+Release settings and saves live in the extracted folder's `local` directory.
 
 For a source checkout, [build the game and launcher](docs/BUILDING.md), then open
 **Start Lagoon.cmd**. Development settings and saves remain in `build`.
@@ -82,8 +82,8 @@ letterboxing on a 16:9 display. Window scale affects windowed size only.
 
 ## Project status
 
-The current source and Windows preview are **0.2.4** /
-**v0.2.4-preview.1**, addressing reports from the owner's completed campaign:
+The current Windows release is **0.2.4** / **v0.2.4**, addressing reports from
+the owner's completed campaign:
 faster area loading, Thor's bridge crossing, a more forgiving castle landing,
 the Moon Sword equipment cursor, first-phase Evil Spirit/Zerah health bars,
 widescreen enemy simulation and the ending achievement. Local achievements
@@ -91,7 +91,7 @@ now use compact top-right notices. The hidden cameo retains Lagoon-style typing
 dialogue, a portrait and uninterrupted music. Use the release
 notes for the exact contents and qualification of each downloadable package.
 
-This is experimental. Native combat, damage, death/revival, boss services and
+Native combat, damage, death/revival, boss services and
 endgame routes, display fades and guarded HUD dispatch have focused checks;
 the interpreter remains enabled for paths
 that have not been qualified. Scenery contracts cover all 75 authored room

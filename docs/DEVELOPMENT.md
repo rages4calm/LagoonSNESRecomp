@@ -8,7 +8,7 @@ with an empty function, guessed event result or synthetic return.
 ## Current scope
 
 Source 0.2.4 includes CompanionAchievements and a small host-side hidden encounter,
-targeting `v0.2.4-preview.1`. The interpreter safety net remains part of this
+released as `v0.2.4`. The interpreter safety net remains part of this
 release. The native entry counts below describe the preceding qualified native
 batch, rather than a new claim of complete native coverage.
 
