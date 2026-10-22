@@ -82,7 +82,9 @@ letterboxing on a 16:9 display. Window scale affects windowed size only.
 
 ## Project status
 
-The current Windows release is **0.2.4** / **v0.2.4**, addressing reports from
+The current Windows release is **0.2.5** / **v0.2.5**. It fixes map text losing
+pixel rows during overlay presentation, keeping small lettering readable at
+standard and ultrawide aspects. It also includes the 0.2.4 fixes from
 the owner's completed campaign:
 faster area loading, Thor's bridge crossing, a more forgiving castle landing,
 the Moon Sword equipment cursor, first-phase Evil Spirit/Zerah health bars,
