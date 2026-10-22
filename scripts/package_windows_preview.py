@@ -76,6 +76,7 @@ def main():
     ap.add_argument('--companion-root',type=Path,required=True)
     ap.add_argument('--toolchain',type=Path,required=True,help='Qualification toolchain for static dependency license notices only')
     ap.add_argument('--soundtrack-root',type=Path,required=True,help='Immutable complete 40-track X68000 MSU1 PCM pack; staged by hardlink')
+    ap.add_argument('--hardlink-launcher',action='store_true',help='Reuse immutable qualified launcher files by hardlink on the same volume; never edit staged binaries')
     ap.add_argument('--nuget-packages',type=Path,default=Path(os.environ.get('NUGET_PACKAGES',Path.home()/'.nuget/packages')))
     a=ap.parse_args();stage=a.stage.resolve()
     if stage.exists(): raise SystemExit('Stage must not exist. Existing work is preserved.')
@@ -117,7 +118,8 @@ def main():
     stage.mkdir(parents=True);hashes={}
     for source,relative in sorted(selected.items(),key=lambda x:x[1]):
         target=stage/relative;target.parent.mkdir(parents=True,exist_ok=True)
-        if source in audio: os.link(source,target) # Immutable inputs; never alter staged music.
+        if source in audio or (a.hardlink_launcher and Path(source).parent.resolve()==a.launcher.resolve()):
+            os.link(source,target) # Immutable approved audio/launcher inputs; never alter staged files.
         else: shutil.copy2(source,target)
         hashes[relative]=digest(target)
     # Retain every imported track/hash/loop field, while distinguishing current

@@ -7,10 +7,31 @@ with an empty function, guessed event result or synthetic return.
 
 ## Current scope
 
-Source 0.2.1 includes CompanionAchievements and a small host-side hidden encounter,
-targeting `v0.2.1-preview.1`. The interpreter safety net remains part of this
+Source 0.2.2 includes CompanionAchievements and a small host-side hidden encounter,
+targeting `v0.2.2-preview.1`. The interpreter safety net remains part of this
 release. The native entry counts below describe the preceding qualified native
 batch, rather than a new claim of complete native coverage.
+
+The 0.2.2 renderer avoids recalculating all 128 sprite placement policies on
+every later raster line when their exact inputs are unchanged. Changed inputs
+still execute the original full calculation. Background planes can also reuse
+their source-decoded colors and depth when their complete inputs match; actor
+and HUD composition stay fresh, and the full reference-picture gate remains.
+Width, generation, maps, definitions, VRAM, palette, scrolling and mosaic changes
+invalidate reuse. This grants no new graphics ownership. Focused background
+benchmarks save about 56-62% of that renderer phase with a stationary camera and
+changing actors, while scrolling stays effectively unchanged. The policy
+observer saves about 0.040 ms per field. These are CPU headroom measurements,
+not a promise that every wall-time spike or owner-reported flicker is resolved.
+
+A separate source/mode/physical-frame/generation-qualified native service runs
+the finite inactive actor-slot iterator in selected original scripted rendering
+waits. Every active actor call, hardware owner and final rendering sequence
+remains original. Per-opcode bus work, flags, open bus and CPU/master deadlines
+are preserved. It is deliberately refused on incompatible timeline contexts;
+ordinary walking uses the already-qualified main actor loop. Its live disabled
+versus enabled cold/menu control matches 2,466 ordered pictures, complete
+checkpoints and audio captures. Generated entry counts below are unchanged.
 
 The 0.2.1 encounter fixes were checked from an empty save directory through a
 new game using SDL's virtual gamepad and the normal controller mapping. Checks
@@ -45,8 +66,8 @@ services, sprite staging, resource/tile queues, numeric UI helpers and original
 display fades and queued graphics transfers. The HUD-number dispatcher has a
 separate, source-guarded handoff
 using its actual cross-bank JSL return frame. Counts of
-compiled functions are analysis counts, not completion percentages. Installed
-development 0.1.10 has 654 AOT-eligible entries, 74 analyzed interpreter entries
+compiled functions are analysis counts, not completion percentages. The qualified
+native foundation has 654 AOT-eligible entries, 74 analyzed interpreter entries
 and 508 roots. These are exact entry variants, not a native completion percentage.
 Boot audio and unqualified script/loader contexts retain original opcodes.
 Generated code alone does not prove that a runtime dispatcher reaches
@@ -367,8 +388,9 @@ or replacing the owner's progress. UI panels pause the guest and consume opener
 and close-button input before gameplay resumes. The unlock sound has a separate
 host stream and follows master volume; it never touches the SPC driver.
 
-The tiny credited cameo is host-only presentation and interaction, independent
-of original actors, collision, items and quest flags. Its three source GIFs and
+The tiny credited cameo uses host-side presentation and interaction without
+creating original actor, item or quest records. Its NPC clearance uses a guarded
+read view in the original player movement path. Its four source GIFs and
 decoded pixels have a separate copyright provenance record in
 `assets/easter_egg/provenance.json`. They are not Lagoon ROM extraction and are
 not covered by the MIT notices for the achievement toolkit. Keep the hidden

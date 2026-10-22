@@ -18,6 +18,12 @@ typedef struct SceneOamPolicy {
   int16_t x[128];
   uint8_t allow[128],clip_left[128];
 } SceneOamPolicy;
+typedef struct SceneOamPolicyInputs {
+  uint16_t left_extra,right_extra;
+  uint8_t left_strict,right_strict,motion_on;
+  uint8_t left[16],right[16],grace[128];
+  int edge_clip;
+} SceneOamPolicyInputs;
 typedef struct ScenePacket {
   uint8_t regs[PPU_SAVESTATE_REGS_SIZE],maps[2][16384];
   uint16_t defs[2][1024],vram[32768],pal[256],oam[256];
@@ -29,6 +35,7 @@ typedef struct ScenePacket {
   unsigned native_x,native_y,bg2_x,bg2_y,parallax,finite_clip;
   unsigned incoming_mosaic,mosaic_size,brightness,mosaic_y_phase,mosaic_backend,mosaic_y_size;
   SceneOamPolicy policy;
+  SceneOamPolicyInputs policy_inputs;
   uint64_t generation;
 } ScenePacket;
 static ScenePacket s_packets[2];
@@ -47,6 +54,22 @@ typedef struct SceneMismatch {
 static SceneMismatch s_mismatch[64];
 static unsigned s_mismatch_count;
 static uint32_t s_pixels[W*H];
+/* Source-decoded BG1/BG2 only. Moving objects still compose afresh, and the
+ * normal whole-field reference comparison still runs before presentation.
+ * Keep complete input bytes: neither a room/resource label nor a hash grants
+ * reuse after an upload, camera change, mosaic change or new generation. */
+typedef struct SceneBackgroundCache {
+  uint8_t regs[PPU_SAVESTATE_REGS_SIZE],maps[2][16384];
+  uint16_t defs[2][1024],vram[32768],pal[256];
+  uint8_t depth[W*H];
+  uint16_t colors[W*H];
+  unsigned valid,width,native_x,native_y,bg2_x,bg2_y,parallax,finite_clip;
+  unsigned incoming_mosaic,mosaic_size,brightness,mosaic_y_phase,mosaic_backend,mosaic_y_size;
+  int wx,wy,world_width,world_height;
+  uint64_t generation;
+} SceneBackgroundCache;
+static SceneBackgroundCache s_background;
+static uint64_t s_background_builds,s_background_reuses;
 static LagoonSceneRendererStats s_stats;
 static uint64_t s_mosaic_verified,s_mosaic_replaced;
 /* Immutable packet serials key source-only decoding. A row packs eight palette
@@ -251,8 +274,10 @@ static void write_report(void) {
       i?",":"",m->frame,m->width,m->x,m->y,m->candidate,m->reference,m->count,
       m->minx,m->maxx,m->miny,m->maxy,m->wx,m->wy,m->world_width,m->world_height);
   }
-  fprintf(f,"],\"mosaic_native_verified_presents\":%llu,\"mosaic_margin_presents\":%llu}\n",
-      (unsigned long long)s_mosaic_verified,(unsigned long long)s_mosaic_replaced);
+  fprintf(f,"],\"mosaic_native_verified_presents\":%llu,\"mosaic_margin_presents\":%llu,"
+      "\"background_builds\":%llu,\"background_reuses\":%llu}\n",
+      (unsigned long long)s_mosaic_verified,(unsigned long long)s_mosaic_replaced,
+      (unsigned long long)s_background_builds,(unsigned long long)s_background_reuses);
   fclose(f);
 }
 /* Diagnostics never flush from a frame/present/audio-sensitive path. */
@@ -262,6 +287,7 @@ static void report(const char *status,unsigned frame,unsigned width) {
 void LagoonSceneRenderer_Reset(void) {
   init_tables();
   memset(s_packets,0,sizeof(s_packets));s_build=0;s_complete=1;
+  s_background.valid=0;
   s_cache_serial=0;s_cache_width=0;++s_stats.resets;
   const char *m=getenv("LAGOON_SCENE_RENDERER");
   s_mode=m&&!strcmp(m,"off")?0:!m||!strcmp(m,"auto")?2:1;
@@ -327,6 +353,27 @@ static void object_policy(SceneOamPolicy *s,const Ppu *p) {
     s->clip_left[slot]=s_edge_clip&&p->wsOamLeftHintStrict&&!left&&!grace;
   }
 }
+/* OAM bytes are checked independently on every raster line. Its placement
+ * policy also uses these exact host inputs, normally constant for the field.
+ * Equality permits reusing only that pure derivation. A changed input still
+ * runs the original policy comparison, including changes with no visible
+ * effect; it never acquires or refuses a packet merely from this fingerprint. */
+static void object_policy_inputs(SceneOamPolicyInputs *s,const Ppu *p) {
+  s->left_extra=p->extraLeftCur;s->right_extra=p->extraRightCur;
+  s->left_strict=p->wsOamLeftHintStrict;s->right_strict=p->wsOamRightHintStrict;
+  s->motion_on=p->wsOamMotionGraceOn;s->edge_clip=s_edge_clip;
+  memcpy(s->left,p->wsOamLeftHint,sizeof(s->left));
+  memcpy(s->right,p->wsOamRightHint,sizeof(s->right));
+  memcpy(s->grace,p->wsOamMotionGrace,sizeof(s->grace));
+}
+static int object_policy_inputs_equal(const SceneOamPolicyInputs *s,const Ppu *p) {
+  return s->left_extra==p->extraLeftCur&&s->right_extra==p->extraRightCur&&
+    s->left_strict==p->wsOamLeftHintStrict&&s->right_strict==p->wsOamRightHintStrict&&
+    s->motion_on==p->wsOamMotionGraceOn&&s->edge_clip==s_edge_clip&&
+    !memcmp(s->left,p->wsOamLeftHint,sizeof(s->left))&&
+    !memcmp(s->right,p->wsOamRightHint,sizeof(s->right))&&
+    (!s->motion_on||!memcmp(s->grace,p->wsOamMotionGrace,sizeof(s->grace)));
+}
 void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t *r,
     const uint8_t *rom,size_t size,uint64_t generation,int authority) {
   if(!s_mode||line<1||line>H)return;
@@ -352,6 +399,7 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
     memcpy(s->vram,PpuRenderVram(p),sizeof(s->vram));memcpy(s->pal,p->cgram,sizeof(s->pal));
     memcpy(s->oam,p->oam,sizeof(s->oam));memcpy(s->high,p->highOam,sizeof(s->high));
     object_policy(&s->policy,p);
+    object_policy_inputs(&s->policy_inputs,p);
     s->vram_writes=p->vramWriteCount;s->oam_writes=p->oamWriteCount;
     int x=word(r,0x480),y=word(r,0x482);
     s->wx=x+(((p->hScroll[0]&1023)-x+512)&1023)-512;
@@ -379,10 +427,12 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
       p->oamWriteCount!=s->oam_writes||memcmp(s->pal,p->cgram,sizeof(s->pal))||
       memcmp(s->oam,p->oam,sizeof(s->oam))||memcmp(s->high,p->highOam,sizeof(s->high)))s->valid=0;
     else {
-      SceneOamPolicy policy;object_policy(&policy,p);
-      if(memcmp(&policy,&s->policy,sizeof(policy)))s->valid=0;
-      else {s->lines=line;if(line==H&&
-        (memcmp(s->vram,PpuRenderVram(p),sizeof(s->vram))||!objects_equal(s,p)))s->valid=0;}
+      if(!object_policy_inputs_equal(&s->policy_inputs,p)) {
+        SceneOamPolicy policy;object_policy(&policy,p);
+        if(memcmp(&policy,&s->policy,sizeof(policy))){s->valid=0;return;}
+      }
+      s->lines=line;if(line==H&&
+        (memcmp(s->vram,PpuRenderVram(p),sizeof(s->vram))||!objects_equal(s,p)))s->valid=0;
     }
   }
 }
@@ -484,8 +534,36 @@ static void mosaic_background_row(const ScenePacket *s,unsigned width,unsigned y
     if(c&&z>depth[x]){depth[x]=z;colors[x]=s->pal[((tile>>10)&7)*16+c];}
   }
 }
+static int same_background(const ScenePacket *s,unsigned width) {
+  const SceneBackgroundCache *b=&s_background;
+  return b->valid&&b->width==width&&b->generation==s->generation&&
+    b->wx==s->wx&&b->wy==s->wy&&b->world_width==s->world_width&&b->world_height==s->world_height&&
+    b->native_x==s->native_x&&b->native_y==s->native_y&&b->bg2_x==s->bg2_x&&b->bg2_y==s->bg2_y&&
+    b->parallax==s->parallax&&b->finite_clip==s->finite_clip&&
+    b->incoming_mosaic==s->incoming_mosaic&&b->mosaic_size==s->mosaic_size&&b->brightness==s->brightness&&
+    b->mosaic_y_phase==s->mosaic_y_phase&&b->mosaic_backend==s->mosaic_backend&&b->mosaic_y_size==s->mosaic_y_size&&
+    !memcmp(b->regs,s->regs,sizeof(b->regs))&&!memcmp(b->maps,s->maps,sizeof(b->maps))&&
+    !memcmp(b->defs,s->defs,sizeof(b->defs))&&!memcmp(b->vram,s->vram,sizeof(b->vram))&&
+    !memcmp(b->pal,s->pal,sizeof(b->pal));
+}
+static void remember_background(const ScenePacket *s,unsigned width) {
+  SceneBackgroundCache *b=&s_background;
+  memcpy(b->regs,s->regs,sizeof(b->regs));memcpy(b->maps,s->maps,sizeof(b->maps));
+  memcpy(b->defs,s->defs,sizeof(b->defs));memcpy(b->vram,s->vram,sizeof(b->vram));
+  memcpy(b->pal,s->pal,sizeof(b->pal));
+  b->width=width;b->generation=s->generation;b->wx=s->wx;b->wy=s->wy;
+  b->world_width=s->world_width;b->world_height=s->world_height;
+  b->native_x=s->native_x;b->native_y=s->native_y;b->bg2_x=s->bg2_x;b->bg2_y=s->bg2_y;
+  b->parallax=s->parallax;b->finite_clip=s->finite_clip;
+  b->incoming_mosaic=s->incoming_mosaic;b->mosaic_size=s->mosaic_size;b->brightness=s->brightness;
+  b->mosaic_y_phase=s->mosaic_y_phase;b->mosaic_backend=s->mosaic_backend;b->mosaic_y_size=s->mosaic_y_size;
+  b->valid=1; /* Input key only until a second matching render needs these BGs. */
+}
 static void render(const ScenePacket *s,unsigned width) {
   int left=(int)(width-256)/2;
+  int background_match=same_background(s,width);
+  int reuse_background=background_match&&s_background.valid==2;
+  if(reuse_background)++s_background_reuses;else ++s_background_builds;
   for(unsigned y=0;y<H;++y) {
     uint64_t rank[W];uint16_t obj[W];uint8_t priority[W];
     for(unsigned x=0;x<width;++x){rank[x]=UINT64_MAX;priority[x]=0;obj[x]=0;}
@@ -516,14 +594,26 @@ static void render(const ScenePacket *s,unsigned width) {
         if((c&0x8000)&&order<rank[x]){rank[x]=order;priority[x]=2+4*a->priority;obj[x]=c&0x7fff;}
       }
     }
-    uint8_t depth[W]={0};uint16_t colors[W];
-    for(unsigned x=0;x<width;++x)colors[x]=s->pal[0];
-    if(s->incoming_mosaic) {
-      mosaic_background_row(s,width,y,left,0,depth,colors);
-      mosaic_background_row(s,width,y,left,1,depth,colors);
+    uint8_t depth[W];uint16_t colors[W];
+    if(reuse_background) {
+      memcpy(depth,s_background.depth+y*width,width);
+      memcpy(colors,s_background.colors+y*width,width*sizeof(*colors));
     } else {
-      background_row(s,width,y,left,0,depth,colors);
-      background_row(s,width,y,left,1,depth,colors);
+      memset(depth,0,width);
+      for(unsigned x=0;x<width;++x)colors[x]=s->pal[0];
+      if(s->incoming_mosaic) {
+        mosaic_background_row(s,width,y,left,0,depth,colors);
+        mosaic_background_row(s,width,y,left,1,depth,colors);
+      } else {
+        background_row(s,width,y,left,0,depth,colors);
+        background_row(s,width,y,left,1,depth,colors);
+      }
+      /* A continuously moving camera misses every field. Do not also copy a
+       * decoded field that cannot be reused; wait for a repeated exact key. */
+      if(background_match) {
+        memcpy(s_background.depth+y*width,depth,width);
+        memcpy(s_background.colors+y*width,colors,width*sizeof(*colors));
+      }
     }
     for(unsigned x=0;x<width;++x)if(priority[x]>depth[x]){depth[x]=priority[x];colors[x]=obj[x];}
     unsigned yy=s->incoming_mosaic?((y+1-s->mosaic_y_phase)/s->mosaic_y_size)*s->mosaic_y_size+s->mosaic_y_phase:y+1;
@@ -552,6 +642,8 @@ static void render(const ScenePacket *s,unsigned width) {
       s_pixels[y*width+x]=outside?0:color;
     }
   }
+  if(!background_match)remember_background(s,width);
+  else if(!reuse_background)s_background.valid=2;
   ++s_stats.renders;s_stats.independent_pixels+=(uint64_t)width*H;
 }
 static int same_source(const ScenePacket *a,const ScenePacket *b) {

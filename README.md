@@ -79,9 +79,11 @@ letterboxing on a 16:9 display. Window scale affects windowed size only.
 
 ## Project status
 
-The current source and Windows preview are **0.2.1** /
-**v0.2.1-preview.1**, with local achievements and a hidden cameo using Lagoon-style typing dialogue,
-a portrait and uninterrupted music. Use the release
+The current source and Windows preview are **0.2.2** /
+**v0.2.2-preview.1**, with reduced CPU work in the shared widescreen renderer
+and native actor-slot iteration for qualified scripted rendering waits. Local
+achievements and the hidden cameo retain Lagoon-style typing dialogue, a portrait
+and uninterrupted music. Use the release
 notes for the exact contents and qualification of each downloadable package.
 
 This is experimental. Native combat, damage, death/revival, boss services and

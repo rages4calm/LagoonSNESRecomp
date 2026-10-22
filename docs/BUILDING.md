@@ -31,7 +31,12 @@ clean first-run setup, runtime DLL closure and isolated gameplay before creating
 or publishing its ZIP. Archive only `windows-preview.json` and its `files` list;
 setup's writable `local/` directory must never enter the published archive.
 
-The 0.2.1 candidate targets tag `v0.2.1-preview.1`. Its explicit stage also
+When the qualified launcher publish directory is immutable and on the same
+volume, `--hardlink-launcher` reuses those files in the temporary stage without
+another runtime copy. Treat staged binaries as immutable. This does not change
+the ZIP contents or the player's installation requirements.
+
+The 0.2.2 candidate targets tag `v0.2.2-preview.1`. Its explicit stage also
 includes `game/assets/achievements/catalog.json` (26 definitions), the exact
 CompanionAchievements/cJSON MIT notices and dependency provenance, and four
 small credited Crono GIFs, decoded dance/portrait headers, the owner-selected

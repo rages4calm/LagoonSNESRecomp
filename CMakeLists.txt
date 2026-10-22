@@ -45,6 +45,7 @@ add_executable(LagoonSNESRecomp
     src/lagoon_frame_probe.c
     src/lagoon_actor_compute.c
     src/lagoon_native_actor_commands.c
+    src/lagoon_native_iterator52.c
     src/host_contract.c
     src/game_rtl.c
     src/lagoon_native_recovery.c
