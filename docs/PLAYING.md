@@ -1,7 +1,11 @@
 # Playing and settings
 
 The hidden visitor accepts controller Y or keyboard **E** when you are nearby
-and facing him. Enter advances his dialogue; Escape cancels it.
+and facing him. Enter/controller A or Y reveals the rest of a typing page,
+then advances it on the next press; Escape/controller B cancels. His conversation
+uses the original Lagoon lettering and frame, with a Crono portrait. Music
+continues while the world pauses. Completing it plays a owner-selected Chrono Trigger laugh
+before the achievement chime.
 
 Build from [these instructions](BUILDING.md), open `Start Lagoon.cmd`, select your
 clean USA ROM in Companion Launcher and choose Play. Apply settings before starting

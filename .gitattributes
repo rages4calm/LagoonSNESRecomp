@@ -5,3 +5,5 @@ third_party/companion_achievements/** -text
 third_party/cjson/** -text
 assets/easter_egg/*.gif -text
 assets/easter_egg/crono_dance.generated.h -text
+assets/easter_egg/crono_portrait.generated.h -text
+assets/easter_egg/*.wav -text

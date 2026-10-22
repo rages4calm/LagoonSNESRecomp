@@ -75,6 +75,7 @@ add_executable(LagoonSNESRecomp
     src/lagoon_achievement_sound.c
     src/lagoon_achievement_ending.c
     src/lagoon_easter_egg.c
+    src/lagoon_dialogue_font.c
     third_party/companion_achievements/companion_achievements.c
     third_party/cjson/cJSON.c
     src/lagoon_sword_visual.c
@@ -123,6 +124,7 @@ endif()
 snesrecomp_target_mod_catalog(LagoonSNESRecomp ${CMAKE_SOURCE_DIR}/mods/preloaded)
 snesrecomp_target_stage_dir(LagoonSNESRecomp ${CMAKE_SOURCE_DIR}/assets/shaders assets/shaders)
 snesrecomp_target_stage_dir(LagoonSNESRecomp ${CMAKE_SOURCE_DIR}/assets/achievements assets/achievements)
+snesrecomp_target_stage_dir(LagoonSNESRecomp ${CMAKE_SOURCE_DIR}/assets/easter_egg assets/easter_egg)
 # Any other directory the game reads exe-relative (a translations/ table, ...)
 # is staged with snesrecomp_target_stage_dir, never with a separate ALL target.
 

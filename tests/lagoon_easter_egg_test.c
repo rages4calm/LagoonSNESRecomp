@@ -7,6 +7,7 @@
 #include "snes/interp816.h"
 static uint8_t rom[0x100000],ram[0x20000],before[0x20000];
 static Ppu ppu;
+static uint16_t font_vram[32768];
 static uint32_t frame[800*224],copy[800*224];
 static unsigned assertions;
 #define CHECK(x) do{assert(x);assertions++;}while(0)
@@ -50,7 +51,7 @@ static void setup(void){
   put(0x48e,0);memcpy(ram+0x50,s.descriptor,56);ram[0x500]=0xc0;ram[0x501]=0;
   ram[0x100e]=ram[0x41b]=ram[0x417]=0;put(0x502,X);put(0x504,Y+32);put(0x514,0);put(0x520,18);ram[0x50a]=3;
   put(0x480,1088);put(0x482,896);
-  memset(&ppu,0,sizeof ppu);ppu.inidisp=15;ppu.bgmode=9;ppu.obsel=2;
+  memset(&ppu,0,sizeof ppu);memcpy(ppu.vram,font_vram,sizeof font_vram);ppu.inidisp=15;ppu.bgmode=9;ppu.obsel=2;
   ppu.bgXsc[0]=0x71;ppu.bgXsc[1]=0x79;ppu.bgXsc[2]=0x3c;ppu.bgTileAdr=0x600;
   ppu.screenEnabled[0]=31;ppu.hScroll[0]=ppu.hScroll[1]=1088;
   ppu.vScroll[0]=ppu.vScroll[1]=896;
@@ -61,10 +62,12 @@ static void capture(uint64_t generation){
   LagoonEasterEgg_EndFrame(generation);LagoonEasterEgg_Observe(ram,sizeof ram,generation,1);
 }
 static void fresh(void){LagoonEasterEgg_Init(rom,sizeof rom);setup();capture(1);LagoonEasterEgg_Draw((uint8_t*)frame,256*4,256,224,0,1);}
-static void advance(void){LagoonEasterEgg_Tick(0,0);LagoonEasterEgg_Tick(SNES_PAD_A,0);}
+static unsigned tick;
+static void advance(void){tick+=10000;LagoonEasterEgg_Tick(0,tick);LagoonEasterEgg_Tick(SNES_PAD_A,tick);}
 int main(int argc,char **argv){
-  assert(argc==3);FILE *f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof rom,f)==sizeof rom);fclose(f);
+  assert(argc==4);FILE *f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof rom,f)==sizeof rom);fclose(f);
   f=fopen(argv[2],"rb");assert(f&&fread(ram,1,sizeof ram,f)==sizeof ram);fclose(f);
+  f=fopen(argv[3],"rb");assert(f&&fread(font_vram,1,sizeof font_vram,f)==sizeof font_vram);fclose(f);
   check_original_placement();
   fresh();CHECK(s.qualified&&s.valid&&s.near&&s.complete.valid&&s.complete.lines==224);
   capture(1);CHECK(!LagoonEasterEgg_TryInteract(SNES_PAD_Y)); /* no Draw yet */
@@ -132,10 +135,25 @@ int main(int argc,char **argv){
   /* Force an actual solid original metatile at the fixed site. */
   unsigned solid=0;while(solid<256){unsigned at=3*32768+solid*4;if((rom[at]&128)&&(rom[at+1]&128)&&(rom[at+2]&128)&&(rom[at+3]&128))break;solid++;}
   CHECK(solid<256);ram[map]=(uint8_t)solid;LagoonEasterEgg_Observe(ram,sizeof ram,1,1);CHECK(!s.valid);ram[map]=old;
+  fresh();CHECK(LagoonDialogueFont_Ready());
+  memset(frame,0x12,sizeof frame);LagoonEasterEgg_Draw((uint8_t*)frame,256*4,256,224,0,1);
+  for(unsigned y=0;y<224;y++)for(unsigned x=0;x<256;x++){
+    int sx=(int)x-X+s.complete.x+10,sy=(int)y-Y+s.complete.y+35;
+    if(sx<0||sx>=20||sy<0||sy>=35)CHECK(frame[y*256+x]==0x12121212); /* no prompt */
+  }
+  ppu.vram[0x6000]^=1;capture(1);LagoonEasterEgg_Draw((uint8_t*)frame,256*4,256,224,0,1);
+  CHECK(!LagoonDialogueFont_Ready()&&!LagoonEasterEgg_TryInteract(SNES_PAD_Y));
+  fresh();CHECK(LagoonEasterEgg_TryInteract(SNES_PAD_Y));LagoonEasterEgg_PollOpen(SNES_PAD_Y);
+  LagoonEasterEgg_Tick(0,100);CHECK(s.revealed==0);LagoonEasterEgg_Tick(0,249);CHECK(s.revealed==2);
+  LagoonEasterEgg_Tick(SNES_PAD_A,250);CHECK(s.page==0&&s.revealed==strlen(dialogue[0]));
+  CHECK(!LagoonEasterEgg_TakeDiscovery(NULL));LagoonEasterEgg_Close();
   fresh();CHECK(!LagoonEasterEgg_TakeDiscovery(NULL));CHECK(LagoonEasterEgg_TryInteract(SNES_PAD_Y));
   CHECK(LagoonEasterEgg_IsOpen()&&LagoonEasterEgg_PollOpen(SNES_PAD_Y));
   LagoonEasterEgg_Tick(SNES_PAD_Y,0);CHECK(s.page==0);advance();CHECK(s.page==1&&!LagoonEasterEgg_TakeDiscovery(NULL));
-  const uint32_t *image=NULL;int width=0,height=0;CHECK(LagoonEasterEgg_Image(&image,&width,&height)&&image&&width==640&&height==240);
+  tick+=10000;LagoonEasterEgg_Tick(0,tick);
+  const uint32_t *image=NULL;int width=0,height=0;CHECK(LagoonEasterEgg_Image(&image,&width,&height)&&image&&width==512&&height==448);
+  FILE *preview=fopen("dialogue.ppm","wb");assert(preview);fprintf(preview,"P6\n%d %d\n255\n",width,height);
+  for(int i=0;i<width*height;i++){uint32_t c=image[i];fputc(c>>16&255,preview);fputc(c>>8&255,preview);fputc(c&255,preview);}fclose(preview);
   advance();uint64_t discovered=0;CHECK(!LagoonEasterEgg_IsOpen()&&LagoonEasterEgg_TakeDiscovery(&discovered)&&discovered==1);
   CHECK(!LagoonEasterEgg_TakeDiscovery(NULL));
   fresh();LagoonEasterEgg_TryInteract(SNES_PAD_Y);LagoonEasterEgg_PollOpen(SNES_PAD_Y);LagoonEasterEgg_Tick(SNES_PAD_B,0);CHECK(!LagoonEasterEgg_IsOpen()&&!LagoonEasterEgg_TakeDiscovery(NULL));

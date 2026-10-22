@@ -34,6 +34,17 @@
         70
       ],
       "normalization": "Exact2x nearest-pixel decode; centered20x35 canvas; original opaque colors unchanged."
+    },
+    {
+      "file": "Crono - Status.gif",
+      "sha256": "a6e6af72c6fed7698adacc953ed3fafef4abf4a704991a6e4bb1da63e1a94c1b",
+      "bytes": 2535,
+      "source_size": [
+        96,
+        96
+      ],
+      "normalization": "Exact 2x nearest-pixel decode to 48x48; original colors unchanged.",
+      "source_url": "https://www.videogamesprites.net/ChronoTrigger/Party/Crono/Crono%20-%20Status.gif"
     }
   ],
   "animation": "Original left arm, both arms, right arm, both arms poses,180ms per pose.",
@@ -44,5 +55,18 @@
   ],
   "palette_entries": 13,
   "provenance_signature": "lagoon-carl-rages4calm-wrong-portal-v1",
-  "scope": "Three small credited source GIFs and their decoded display pixels only. No ROM, whole sprite sheet or other game assets."
+  "scope": "Four small credited source GIFs (three dance poses and one status portrait) and decoded display pixels only. No ROM, whole sprite sheet or other game assets.",
+  "portrait_header_sha256": "911d11fd0a36155a48e030d12c735b9b16765e1d3efb2aea980ae971732b66bc",
+  "completion_sound": {
+    "file": "B1.wav",
+    "sha256": "0dc7bc26a8547bb5c1e533afe363823bc89de74df3effa229315dce0e0901d6c",
+    "bytes": 495964,
+    "source": "Owner supplied CTSoundFX_wav/B1.wav from Downloads; explicitly selected for the completed Crono encounter on 2026-10-22.",
+    "game": "Chrono Trigger",
+    "rights": "Original game sound belongs to Square and respective rights holders. No MIT license is asserted.",
+    "channels": 2,
+    "sample_rate": 44100,
+    "frames": 123980,
+    "sample_width": 2
+  }
 }

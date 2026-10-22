@@ -23,13 +23,15 @@
 - **Dave Gamble and cJSON contributors** — JSON parsing, under the unchanged MIT
   notice in `third_party/cjson/LICENSE`.
 - **Square and the respective Chrono Trigger rights holders** — the small Crono
-  cameo artwork. The three front-arm poses were sourced from
+  cameo artwork. Three front-arm poses and the status portrait were sourced from
   [VideoGameSprites.net's Crono page](https://www.videogamesprites.net/ChronoTrigger/Party/Crono/)
   and decoded without repainting their original opaque colors. Source hashes,
   pixel normalization and attribution are in `assets/easter_egg/provenance.json`.
   No Chrono Trigger ROM or whole sprite sheet is included. This original artwork
   has separate copyright; the MIT licenses for Companion and achievements do not
-  grant a license to it. Cameo dialogue is original text written for this port.
+  grant a license to it. Cameo dialogue is original text written for this port. The owner-selected
+  completion laugh is the supplied `CTSoundFX_wav/B1.wav`; its original game
+  sound retains the same separate Square/rightsholder copyright.
 - **Valley Bell and libvgm contributors** — the separate offline VGM renderer
   used to import the privately supplied soundtrack. Its code is not linked into
   the game; retain the renderer's own license when obtaining or distributing it.

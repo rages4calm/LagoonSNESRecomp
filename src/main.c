@@ -67,6 +67,7 @@ static const char *lagoon_config_path="config.ini";
 static int achievement_session, achievement_diagnostic;
 static uint64_t achievement_generation;
 static int achievement_ending_display;
+static uint32_t cameo_laugh_until;
 static void LagoonHost_Generation(void) {
     uint64_t generation=RtlStateGeneration();
     if(generation!=achievement_generation){
@@ -102,6 +103,9 @@ static void LagoonHost_StartSession(void) {
     LagoonAchievementUI_Reset();
     achievement_generation=RtlStateGeneration();
     LagoonAchievementSound_Configure(g_config.enable_audio&&!achievement_diagnostic);
+    const char *base=SDL_GetBasePath();char laugh_path[4096];
+    snprintf(laugh_path,sizeof laugh_path,"%sassets/easter_egg/B1.wav",base?base:"");
+    LagoonAchievementSound_LoadLaugh(laugh_path);
 }
 static int LagoonHost_GameplayReady(void) {
     return g_ppu&&g_ram[0x48f]==0&&g_ram[0x48e]<75&&!g_ram[0x100e]&&
@@ -146,7 +150,11 @@ static void LagoonHost_TickOverlay(uint32_t human,uint32_t ticks) {
     if(LagoonAchievementUI_IsOpen())LagoonAchievementUI_Tick(human,ticks);
     else if(LagoonEasterEgg_IsOpen())LagoonEasterEgg_Tick(human,ticks);
     else if(LagoonSettings_IsOpen())LagoonSettings_Tick(human,ticks);else LagoonMap_Tick(human,ticks);
-    uint64_t generation;if(LagoonEasterEgg_TakeDiscovery(&generation))LagoonAchievements_SecretVisit(generation);
+    uint64_t generation;if(LagoonEasterEgg_TakeDiscovery(&generation)){
+        LagoonAchievements_SecretVisit(generation);
+        LagoonAchievementSound_PlayLaugh((unsigned)snesrecomp_desktop_get_volume());
+        cameo_laugh_until=ticks+LagoonAchievementSound_LaughDurationMs()+100;
+    }
     LagoonHost_SettingsRequest();
 }
 static int LagoonHost_OverlayImage(const uint32_t **pixels,int *width,int *height) {
@@ -189,7 +197,7 @@ static void LagoonHost_AfterFrame(const SnesDesktopHostFrameStats *stats) {
         LagoonEasterEgg_IsOpen()||LagoonAchievementUI_IsOpen(),ticks);
     LagoonAchievementUI_Tick(0,ticks);
     size_t notice;
-    if(notices_visible&&!LagoonAchievementUI_ToastActive()&&LagoonAchievements_PopNotice(&notice)){
+    if(notices_visible&&(int32_t)(ticks-cameo_laugh_until)>=0&&!LagoonAchievementUI_ToastActive()&&LagoonAchievements_PopNotice(&notice)){
         LagoonAchievementUI_StartToast(notice,ticks);
         LagoonAchievementSound_Play((unsigned)snesrecomp_desktop_get_volume());
     }
@@ -309,6 +317,7 @@ static const SnesDesktopHostGame kGameHost = {
     .title_overlay_poll_open = LagoonHost_PollOverlay,
     .title_overlay_tick = LagoonHost_TickOverlay,
     .title_overlay_image = LagoonHost_OverlayImage,
+    .title_overlay_continue_music = LagoonEasterEgg_IsOpen,
 };
 
 #ifndef __ANDROID__

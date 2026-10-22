@@ -46,10 +46,10 @@ def achievement_cameo_inputs(root:Path=ROOT)->dict[str,str]:
     selected[str(root/'third_party/cjson/LICENSE')]='licenses/cJSON-LICENSE'
     assets=root/'assets/easter_egg';provenance=assets/'provenance.json'
     record=json.loads(provenance.read_text(encoding='utf-8'))
-    names={'Crono - Left Arm (Front).gif','Crono - Right Arm (Front).gif','Crono - Arms Up (Front).gif'}
+    names={'Crono - Left Arm (Front).gif','Crono - Right Arm (Front).gif','Crono - Arms Up (Front).gif','Crono - Status.gif'}
     sources=record.get('source_files',[])
-    if not isinstance(sources,list) or len(sources)!=3 or {p.get('file') for p in sources if isinstance(p,dict)}!=names:
-        raise ValueError('Only the three reviewed Crono source GIFs may be packaged')
+    if not isinstance(sources,list) or len(sources)!=4 or {p.get('file') for p in sources if isinstance(p,dict)}!=names:
+        raise ValueError('Only the four reviewed Crono source GIFs may be packaged')
     for source in sources:
         path=assets/source['file']
         if not 0<path.stat().st_size<=4096 or path.stat().st_size!=source.get('bytes') or digest(path)!=source.get('sha256'): raise ValueError('Cameo asset differs from provenance: '+path.name)
@@ -57,6 +57,12 @@ def achievement_cameo_inputs(root:Path=ROOT)->dict[str,str]:
     header=assets/'crono_dance.generated.h'
     if not 0<header.stat().st_size<=16384 or digest(header)!=record.get('generated_header_sha256'): raise ValueError('Cameo header differs from provenance')
     selected[str(header)]='game/assets/easter_egg/'+header.name
+    portrait=assets/'crono_portrait.generated.h'
+    if not 0<portrait.stat().st_size<=16384 or digest(portrait)!=record.get('portrait_header_sha256'): raise ValueError('Cameo portrait differs from provenance')
+    selected[str(portrait)]='game/assets/easter_egg/'+portrait.name
+    sound=assets/'B1.wav'; sound_record=record.get('completion_sound',{})
+    if sound_record.get('file')!='B1.wav' or sound.stat().st_size!=495964 or sound_record.get('bytes')!=495964 or digest(sound)!=sound_record.get('sha256') or digest(sound)!='0dc7bc26a8547bb5c1e533afe363823bc89de74df3effa229315dce0e0901d6c': raise ValueError('Cameo sound differs from reviewed owner input')
+    selected[str(sound)]='game/assets/easter_egg/B1.wav'
     selected[str(provenance)]='game/assets/easter_egg/provenance.json'
     return selected
 

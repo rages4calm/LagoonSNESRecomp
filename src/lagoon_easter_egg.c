@@ -2,14 +2,16 @@
  * The guest RAM/ROM, OAM, collision and story remain read-only. The completed
  * raster witness is independent of widescreen being enabled. */
 #include "lagoon_easter_egg.h"
+#include "lagoon_dialogue_font.h"
 #include "snes/ppu.h"
 #include "snes_overlay_draw.h"
 #include "../assets/easter_egg/crono_dance.generated.h"
+#include "../assets/easter_egg/crono_portrait.generated.h"
 #include <string.h>
 
 /* Open ground east of the house: source collision alone also permits its
  * roof, so the live-scene visual proof fixes this path between wall and bank. */
-enum { ROOM=0, X=1232, Y=1008, SIDE=1536, PW=640, PH=240 };
+enum { ROOM=0, X=1232, Y=1008, SIDE=1536, PW=512, PH=448 };
 typedef struct Raster {
   uint64_t generation;
   unsigned lines, valid;
@@ -23,6 +25,8 @@ static struct {
   uint64_t generation,discovery_generation,shown_generation;
   unsigned qualified,have_generation,valid,near,opened,page,primed,pending,visible;
   uint32_t prior_world_input,prior_dialogue_input;
+  uint32_t typed_at;
+  unsigned revealed,typing_started;
   Raster build,complete;
 } s;
 static uint32_t panel[PW*PH];
@@ -47,6 +51,7 @@ static void select_generation(uint64_t generation){
 }
 void LagoonEasterEgg_Init(const uint8_t *rom,size_t size){
   memset(&s,0,sizeof s);s.rom=rom;s.size=size;
+  LagoonDialogueFont_Init(rom,size);
   if(size!=0x100000||
      source_hash(rom,size,0x05b2df,56)!=UINT64_C(0xab072f6fd13163b3)||
      source_hash(rom,size,0x018385,83)!=UINT64_C(0xaa6815d0b23960aa)||
@@ -126,7 +131,7 @@ void LagoonEasterEgg_ObserveRaster(const Ppu *p,unsigned line,const uint8_t *r,
   x+=(((int)(p->hScroll[0]&1023)-x+512)&1023)-512;
   y+=(((int)(p->vScroll[0]&1023)-y+512)&1023)-512+1;
   if(line==1){
-    s.build.valid=clear_site(r);s.build.x=x;s.build.y=y;
+    s.build.valid=clear_site(r);LagoonDialogueFont_Capture(p);s.build.x=x;s.build.y=y;
     s.build.camera_x=(uint16_t)word(r,0x480);s.build.camera_y=(uint16_t)word(r,0x482);
   }else if(x!=s.build.x||y!=s.build.y||word(r,0x480)!=s.build.camera_x||word(r,0x482)!=s.build.camera_y){
     s.build.valid=0;
@@ -153,16 +158,15 @@ int LagoonEasterEgg_Draw(uint8_t *dst,size_t pitch,unsigned width,unsigned heigh
       ((uint32_t*)(dst+(size_t)dy*pitch))[dx]=cameo_palette[index];painted++;
     }
   }
-  if(s.near&&top>=12&&left>=4&&left+36<(int)width)
-    snes_ovl_draw_text((uint32_t*)dst,(int)(pitch/4),224,left,top-10,"[Y/E]",0xfff2c46a,1);
   if(painted){s.visible=1;s.shown_generation=generation;}
   return painted!=0;
 }
 int LagoonEasterEgg_TryInteract(uint32_t human){
   uint32_t edge=human&~s.prior_world_input;s.prior_world_input=human;
-  if(s.opened||!s.valid||!s.near||!s.visible||s.shown_generation!=s.generation||!s.complete.valid||
+  if(s.opened||!LagoonDialogueFont_Ready()||!s.valid||!s.near||!s.visible||s.shown_generation!=s.generation||!s.complete.valid||
      s.complete.generation!=s.generation||!(edge&SNES_PAD_Y))return 0;
-  s.opened=1;s.page=0;s.primed=0;s.prior_dialogue_input=human;return 1;
+  s.opened=1;s.page=0;s.primed=0;s.revealed=s.typing_started=0;
+  s.prior_dialogue_input=human;return 1;
 }
 int LagoonEasterEgg_IsOpen(void){return s.opened!=0;}
 int LagoonEasterEgg_PollOpen(uint32_t human){
@@ -170,13 +174,23 @@ int LagoonEasterEgg_PollOpen(uint32_t human){
   return s.opened!=0;
 }
 void LagoonEasterEgg_Close(void){s.opened=s.page=s.primed=0;}
+static const char *const dialogue[]={
+  "...\nI finally get a\nspeaking part...\nand Carl puts me in\nthe wrong RPG.",
+  "I was looking for\nLucca and the\nMillennial Fair.\nWait... wrong game!\n\nPortal maintenance:\nrages4calm\nNow please let me\nfinish my dance."
+};
 void LagoonEasterEgg_Tick(uint32_t human,uint32_t ticks){
-  (void)ticks;if(!s.opened)return;
+  if(!s.opened)return;
+  if(!s.typing_started){s.typing_started=1;s.typed_at=ticks;}
+  unsigned length=(unsigned)strlen(dialogue[s.page]);
+  /* Original NPC dialogue reveals one character every three NTSC fields. */
+  unsigned count=(ticks-s.typed_at)/50;
+  if(count>s.revealed)s.revealed=count>length?length:count;
   if(!s.primed){s.prior_dialogue_input=human;s.primed=1;return;}
   uint32_t edge=human&~s.prior_dialogue_input;s.prior_dialogue_input=human;
   if(edge&SNES_PAD_B){LagoonEasterEgg_Close();return;}
   if(edge&(SNES_PAD_A|SNES_PAD_Y)){
-    if(s.page==0){s.page=1;return;}
+    if(s.revealed<length){s.revealed=length;return;}
+    if(s.page==0){s.page=1;s.revealed=0;s.typed_at=ticks;return;}
     s.pending=1;s.discovery_generation=s.generation;LagoonEasterEgg_Close();
   }
 }
@@ -186,20 +200,31 @@ int LagoonEasterEgg_TakeDiscovery(uint64_t *generation){
 }
 int LagoonEasterEgg_Image(const uint32_t **pixels,int *width,int *height){
   if(!s.opened)return 0;
-  const uint32_t bg=0xff101a28,fg=0xffe2ecf1,dim=0xff91a3b6,accent=0xff65ddc3;
-  for(unsigned i=0;i<PW*PH;i++)panel[i]=bg;
-  snes_ovl_fill_rect(panel,PW,PH,0,0,PW,4,accent);
-  snes_ovl_draw_text(panel,PW,PH,28,24,"A VERY LOST TIME TRAVELER",accent,1);
-  if(!s.page){
-    snes_ovl_draw_text(panel,PW,PH,28,67,"...",fg,1);
-    snes_ovl_draw_text(panel,PW,PH,28,94,"I finally get a speaking part...",fg,1);
-    snes_ovl_draw_text(panel,PW,PH,28,121,"and Carl puts me in the wrong RPG.",fg,1);
-  }else{
-    snes_ovl_draw_text(panel,PW,PH,28,67,"I was looking for Lucca and the Millennial Fair.",fg,1);
-    snes_ovl_draw_text(panel,PW,PH,28,94,"Wait... wrong game!",0xfff2c46a,1);
-    snes_ovl_draw_text(panel,PW,PH,28,135,"Portal maintenance: rages4calm",dim,1);
-    snes_ovl_draw_text(panel,PW,PH,28,158,"Now please let me finish my dance.",fg,1);
+  /* Transparent full-field canvas preserves the actual frozen wide scenery.
+   * These are the game's original resident font and border tiles, read once
+   * at a qualified ordinary Atland raster; no guest script or tilemap writes. */
+  memset(panel,0,sizeof panel);
+  LagoonDialogueFont_DrawBox(panel,PW,PH,144,0,368,64,2);
+  LagoonDialogueFont_DrawBox(panel,PW,PH,144,64,368,384,2);
+  LagoonDialogueFont_DrawBox(panel,PW,PH,0,80,128,128,2);
+  const char *name="Crono";
+  for(unsigned i=0;name[i];i++)LagoonDialogueFont_DrawChar(panel,PW,PH,160+i*16,16,name[i],2);
+  for(unsigned y=0;y<48;y++)for(unsigned x=0;x<48;x++){
+    uint32_t color=cameo_portrait_palette[cameo_portrait[y*48+x]];
+    for(unsigned sy=0;sy<2;sy++)for(unsigned sx=0;sx<2;sx++)
+      panel[(96+y*2+sy)*PW+16+x*2+sx]=color;
   }
-  snes_ovl_draw_text(panel,PW,PH,28,205,s.page?"A / Y: FINISH     B / ESC: CLOSE":"A / Y: NEXT       B / ESC: CLOSE",dim,1);
+  int x=160,y=88;
+  const char *text=dialogue[s.page];
+  for(unsigned i=0;text[i]&&i<s.revealed;i++){
+    if(text[i]=='\n'){x=160;y+=32;continue;}
+    LagoonDialogueFont_DrawChar(panel,PW,PH,x,y,text[i],2);x+=16;
+  }
+  if(s.revealed>=strlen(text)){
+    /* Same quiet white continuation cue as the native text window. */
+    snes_ovl_fill_rect(panel,PW,PH,480,426,12,2,0xffffffff);
+    snes_ovl_fill_rect(panel,PW,PH,482,428,8,2,0xffffffff);
+    snes_ovl_fill_rect(panel,PW,PH,484,430,4,2,0xffffffff);
+  }
   if(pixels)*pixels=panel;if(width)*width=PW;if(height)*height=PH;return 1;
 }
