@@ -38,6 +38,26 @@
 #define QOL_PACKAGE_ID "lagoon.quality"
 
 static int g_sword_reach_applied;
+/* The cloud's final portal is four by two original 32px door cells. The
+ * permanent 16px catchment changes only the source floor/door queries; the
+ * original loader still performs its real destination and quest processing. */
+static int g_cloud_source;
+static struct { uint64_t generation; uint16_t stack,x,y; uint8_t tick,active; } g_cloud;
+static uint64_t qol_cloud_hash(const uint8_t *r,size_t size,unsigned pc,unsigned count) {
+  size_t at=(pc>>16)*32768+(pc&32767);uint64_t h=UINT64_C(14695981039346656037);
+  if(!r||at>size||count>size-at)return 0;
+  while(count--)h=(h^r[at++])*UINT64_C(1099511628211);return h;
+}
+static int qol_cloud_original(const uint8_t*r,size_t size) {
+  return qol_cloud_hash(r,size,0x0180a0,3)==UINT64_C(0xc43eef17cf2af564)&&
+    qol_cloud_hash(r,size,0x01c7f6,247)==UINT64_C(0xaff449cb0a93fd39)&&
+    qol_cloud_hash(r,size,0x01ca05,31)==UINT64_C(0xaeb3151bba008651)&&
+    qol_cloud_hash(r,size,0x018385,83)==UINT64_C(0xaa6815d0b23960aa)&&
+    qol_cloud_hash(r,size,0x05bc0f,56)==UINT64_C(0x5f8513711df52250)&&
+    qol_cloud_hash(r,size,0x0580ad,2)==UINT64_C(0x089b5a07b5440acc)&&
+    qol_cloud_hash(r,size,0x058861,90)==UINT64_C(0x63b004a5ef7e4b5f);
+}
+static uint8_t qol_cloud_read(uint32_t addr,uint8_t value,const CpuWramReadContext*c);
 int LagoonQol_SwordReachEnabled(void) { return g_sword_reach_applied; }
 
 /* Walking speed.
@@ -286,6 +306,7 @@ static int qol_giles_first_aid(uint8_t *rom, size_t size) {
 }
 
 void LagoonQol_ResetTransient(void) {
+  memset(&g_cloud,0,sizeof g_cloud);
   g_recovery_armed = g_recovery_frames = 0;
   g_jump_armed = g_jump_holding = g_jump_frames = 0;
   g_def_written = 0;
@@ -397,6 +418,7 @@ void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size) {
   cpu_set_wram_read_filter_hook(NULL);
   g_recovery_rom = rom;
   g_recovery_rom_size = size;
+  g_cloud_source=qol_cloud_original(rom,size);
   /* Per-session feature state and transient timers have been cleared above. */
   if (!rom) {
     return;
@@ -606,7 +628,16 @@ static void qol_camera_project_queue(const CpuWramReadContext *c) {
 /* Called before canonical WRAM writes by both execution paths. No PC/register
  * assumptions: older generated routines do not keep an architectural PC live. */
 static uint8_t qol_filter_write(uint32_t addr, uint8_t value) {
-  if(addr==0x23C) value=LagoonFastMenus_Filter(addr,value,cpu_current_wram_context(),g_ram);
+  if(addr==0x23C) {
+    const CpuWramReadContext *context=cpu_current_wram_context();
+    /* Generated84E0 stores have no scoped pre-op cursor. The separate door
+     * policy still requires its complete real nested return frame; no menu or
+     * other native timer store acquires authority from this fallback context. */
+    CpuWramReadContext native={.instruction_pc=UINT32_MAX,.stack=g_cpu.S,
+      .y=g_cpu.Y,.pb=g_cpu.PB,.m=g_cpu.m_flag,.x=g_cpu.x_flag,.e=g_cpu.emulation};
+    if(!context)context=&native;
+    value=LagoonFastMenus_Filter(addr,value,context,g_ram);
+  }
   if(addr==0x519 && value==g_ram[addr])
     qol_camera_project_queue(cpu_current_wram_context());
   if (g_recovery_time || g_jump_hold || g_start_hp_applied) qol_check_timeline();
@@ -688,8 +719,44 @@ static uint8_t qol_filter_write(uint32_t addr, uint8_t value) {
  * unchanged. The caller's live JSR return frame identifies the helper even in
  * generated code, whose architectural PC is not maintained. Interpreter reads
  * must additionally identify the exact pre-instruction cursor. */
+static uint8_t qol_cloud_read(uint32_t addr,uint8_t value,const CpuWramReadContext*c) {
+  /* This shared bus hook also serves every other room and gameplay read. */
+  if(!c||!((addr==0x2c1&&c->instruction_pc==0x01c81b)||
+     (addr>=0x102b&&addr<=0x102c&&c->instruction_pc==0x01c892)||
+     (addr>=0x102d&&addr<=0x102e&&c->instruction_pc==0x01c89b)))return value;
+  if(!g_cloud_source||!c||!c->interpreter||c->pb!=1||c->x||c->e||
+     c->stack<0x102||c->stack>0x1fd||qol_wram_read16(c->stack+1)!=0x80a2||
+     qol_wram_read16(0x48e)!=0x2a||g_ram[0x100e]||g_ram[0x41b]||g_ram[0x417]>1||
+     (g_ram[0x500]&0xc1)!=0xc0||(g_ram[0x501]&0xf3)||g_ram[0x518]||
+     memcmp(g_ram+0x50,g_recovery_rom+0x2bc0f,56))return value;
+  unsigned x=qol_wram_read16(0x502),y=qol_wram_read16(0x504);
+  /* Coordinates are the exact original probe (x,y-1), including CA05's
+   * original y-1 door-cell convention. Only the surrounding void4 changes. */
+  if(x<176||x>=336||y<113||y>=209)return value;
+  if(addr==0x2c1&&c->instruction_pc==0x01c81b&&c->m) {
+    g_cloud.active=0;
+    if(value!=4||g_ram[addr]!=value||qol_wram_read16(0xb8)!=x||
+       qol_wram_read16(0xba)!=y-1||qol_wram_read16(0x8b)!=0x4000||g_ram[0x8d]!=0x7f)return value;
+    g_cloud.generation=RtlStateGeneration();g_cloud.stack=c->stack;
+    g_cloud.x=(uint16_t)x;g_cloud.y=(uint16_t)y;g_cloud.tick=g_ram[0x408];g_cloud.active=1;
+    return 1;
+  }
+  if(!g_cloud.active||c->m||g_cloud.stack!=c->stack||g_cloud.x!=x||g_cloud.y!=y||
+     g_cloud.generation!=RtlStateGeneration()||g_cloud.tick!=g_ram[0x408]||
+     qol_wram_read16(0x40)!=0x8861||g_ram[0x42]!=5||value!=g_ram[addr])return value;
+  if(c->instruction_pc==0x01c892&&addr>=0x102b&&addr<=0x102c&&c->y%11==0) {
+    unsigned cell=x>>5;if(cell<6)cell=6;if(cell>9)cell=9;
+    return (uint8_t)(cell>>((addr-0x102b)*8));
+  }
+  if(c->instruction_pc==0x01c89b&&addr>=0x102d&&addr<=0x102e&&c->y%11==2) {
+    unsigned cell=(y-1)>>5;if(cell<4)cell=4;if(cell>5)cell=5;
+    return (uint8_t)(cell>>((addr-0x102d)*8));
+  }
+  return value;
+}
 static uint8_t qol_filter_read(uint32_t addr, uint8_t value, const CpuWramReadContext *c) {
   if(addr==0x23C)return LagoonFastMenus_FilterRead(addr,value,c,g_ram);
+  value=qol_cloud_read(addr,value,c);
   value=LagoonFollower_FilterRead(addr,value,c,g_ram);
   if(g_world_read_filter)value=g_world_read_filter(addr,value,c,g_ram);
   if (!g_recovery_time || addr != 0x501 || !c) return value;

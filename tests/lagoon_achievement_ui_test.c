@@ -34,7 +34,19 @@ int main(void){
   LagoonAchievementUI_Tick(0,500);LagoonAchievementUI_Tick(SNES_PAD_B,501);assert(!LagoonAchievementUI_IsOpen());
   LagoonAchievementUI_StartToast(0,1000);assert(!LagoonAchievementUI_ToastActive());
   LagoonAchievementUI_StartToast(64,1000);assert(!LagoonAchievementUI_ToastActive());
-  LagoonAchievementUI_StartToast(1,1000);assert(LagoonAchievementUI_ToastActive()&&LagoonAchievementUI_ToastImage(&pixels,&width,&height)&&width==240&&height==60);
+  LagoonAchievementUI_StartToast(1,1000);assert(LagoonAchievementUI_ToastActive()&&LagoonAchievementUI_ToastImage(&pixels,&width,&height)&&width==144&&height==32);
+  /* The native toast occupies less than one third of the old panel's area;
+   * keep every border opaque and long copy clipped inside the compact shape. */
+  assert(width*height<240*60/3);
+  for(int x=0;x<width;x++)assert(pixels[x]==GOLD&&pixels[(height-1)*width+x]==GOLD);
+  for(int y=0;y<height;y++)assert(pixels[y*width]==GOLD&&pixels[y*width+width-1]==GOLD);
+  const char *title=definitions[1].title;
+  definitions[1].title="A World Beyond Darkness";
+  assert(LagoonAchievementUI_ToastImage(&pixels,&width,&height));
+  definitions[1].title="ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  assert(LagoonAchievementUI_ToastImage(&pixels,&width,&height));
+  for(int y=0;y<height;y++)assert(pixels[y*width+width-1]==GOLD);
+  definitions[1].title=title;
   LagoonAchievementUI_Open();assert(!LagoonAchievementUI_ToastImage(&pixels,&width,&height));LagoonAchievementUI_Close();
   LagoonAchievementUI_Tick(0,6499);assert(LagoonAchievementUI_ToastActive());LagoonAchievementUI_Tick(0,6500);assert(!LagoonAchievementUI_ToastActive());
   LagoonAchievementUI_StartToast(1,10000);LagoonAchievementUI_PauseToast(1,11000);LagoonAchievementUI_Tick(0,21000);

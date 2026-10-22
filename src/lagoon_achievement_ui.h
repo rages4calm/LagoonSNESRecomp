@@ -28,4 +28,6 @@ void LagoonAchievementUI_StartToast(size_t index,uint32_t ticks);
  * open. Call before Tick with the same clock when visibility changes. */
 void LagoonAchievementUI_PauseToast(int paused,uint32_t ticks);
 int LagoonAchievementUI_ToastActive(void);
+/* Compact144x32 native pixels; host anchors4px from the top/right of the
+ * presented field, without scaling this panel up independently of the game. */
 int LagoonAchievementUI_ToastImage(const uint32_t **pixels,int *width,int *height);

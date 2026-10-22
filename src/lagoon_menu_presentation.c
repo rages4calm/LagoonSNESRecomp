@@ -56,6 +56,12 @@ static int layout(uint8_t *dst, size_t pitch, const uint32_t *native,
   unsigned extra=virtual_width-256,center=(width-256)/2;
   uint32_t black=native[0];
   for(unsigned y=0;y<224;++y) {
+    /* The fifth equipment slot's original selection frame reaches column218.
+     * Its final pixels belong with the centered item, not with the displaced
+     * right ornament. The interior chain begins beyond the224px content edge;
+     * top/bottom title and ornament periods retain their original40px joins. */
+    unsigned right_border=equipment && y>=32 && y<200?32:40;
+    unsigned content_right=equipment?224:216;
     uint32_t *row=(uint32_t *)(dst+y*pitch);
     for(unsigned x=0;x<width;++x) {
       int vx=(int)x-left;
@@ -63,14 +69,14 @@ static int layout(uint8_t *dst, size_t pitch, const uint32_t *native,
       if(vx>=0 && vx<(int)virtual_width) {
         int sx=-1;
         if(vx<40)sx=vx;
-        else if(vx>=(int)virtual_width-40)sx=vx-(int)extra;
+        else if(vx>=(int)virtual_width-(int)right_border)sx=vx-(int)extra;
         else if(y<32 || y>=200) {
           unsigned title_left=equipment && y<32?56:88;
           unsigned title_right=equipment && y<32?200:168;
           if(x>=center+title_left && x<center+title_right)sx=(int)x-(int)center;
           else if(x<center+title_left)sx=40+(vx-40)%24;
           else sx=168+(int)(x-center-168)%24;
-        } else if(x>=center+40 && x<center+216)sx=(int)x-(int)center;
+        } else if(x>=center+40 && x<center+content_right)sx=(int)x-(int)center;
         if(sx>=0 && sx<256)color=native[y*256+(unsigned)sx];
         if((panel==LAGOON_MENU_MAGIC || equipment) && (y==divider || y==divider+1) &&
             vx>=24 && vx<(int)virtual_width-24)color=native[y*256+40];

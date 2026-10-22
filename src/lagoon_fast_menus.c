@@ -6,13 +6,21 @@
 #ifndef LAGOON_FAST_MENUS_TEST
 #include "mod_runtime.h"
 #endif
-static int enabled, valid_rom;
+static int enabled, valid_rom, valid_door_rom;
 static int match(const uint8_t *rom, size_t size, size_t offset,
     const uint8_t *bytes, size_t count) {
   return rom && offset <= size && count <= size-offset && !memcmp(rom+offset,bytes,count);
 }
 void LagoonFastMenus_Reset(const uint8_t *rom, size_t size) {
   enabled = 0;
+  /* Door timing is independent of the submenu contracts below. Only the real
+   * main-loop door ->8772 ->8703 ->1B/1C fade call chain may use it. */
+  valid_door_rom =
+    match(rom,size,0x878A,(const uint8_t *)"\xA9\xFF\x8D\x0E\x10\x22\x03\x87\x01\x60",10) &&
+    match(rom,size,0xC8E2,(const uint8_t *)"\x20\x72\x87",3) &&
+    match(rom,size,0x80A0,(const uint8_t *)"\x20\xF6\xC7",3) &&
+    match(rom,size,0x1465B,(const uint8_t *)"\x22\xC4\x83\x00\x6B",5) &&
+    match(rom,size,0x14672,(const uint8_t *)"\x22\x58\x84\x00\x6B",5);
   valid_rom =
     match(rom,size,0x4E0,(const uint8_t *)"\x8D\x3C\x02\xAD\x3C\x02\xD0\xFB\x6B",9) &&
     match(rom,size,0x91B,(const uint8_t *)"\xAD\x3C\x02\x3A\x8D\x3C\x02",7) &&
@@ -39,6 +47,20 @@ void LagoonFastMenus_Reset(const uint8_t *rom, size_t size) {
 void LagoonFastMenus_Activate(void) { enabled = valid_rom; }
 static uint32_t return24(const uint8_t *ram, unsigned address) {
   return ram[address] | ((uint32_t)ram[address+1]<<8) | ((uint32_t)ram[address+2]<<16);
+}
+static unsigned word(const uint8_t *r,unsigned a) {return r[a]|r[a+1]<<8;}
+static int owned_door(const CpuWramReadContext *c,const uint8_t *ram) {
+  if(!valid_door_rom || c->stack<0x100 || c->stack>0x1EA ||
+      ram[0x100E]!=255 || word(ram,0x48E)>=75 ||
+      (ram[0x500]&0xC0)!=0xC0 || !ram[0x520] || ram[0x521])return 0;
+  unsigned s=c->stack,b=ram[0x23D];
+  if(return24(ram,s+7)!=0x0080E3 || ram[s+10]!=1 ||
+      return24(ram,s+14)!=0x018792 || word(ram,s+17)!=0xC8E4 ||
+      word(ram,s+19)!=0x80A2)return 0;
+  if(return24(ram,s+1)==0x0083D8 && return24(ram,s+4)==0x02C65E &&
+      return24(ram,s+11)==0x018708 && b>=1 && b<=15)return 1;
+  return return24(ram,s+1)==0x008471 && return24(ram,s+4)==0x02C675 &&
+      return24(ram,s+11)==0x018765 && b<=14;
 }
 /* The opening has direct JSL fade callers rather than the world-loader's
  * dispatcher frames. Pin each direction and its original legal brightness
@@ -70,17 +92,20 @@ static int owned_close(const CpuWramReadContext *c,const uint8_t *ram) {
   return 0;
 }
 uint8_t LagoonFastMenus_Filter(uint32_t addr,uint8_t value,const CpuWramReadContext*c,const uint8_t*ram){
-  if(!enabled||addr!=0x23C||value!=3||!c||!ram||!c->interpreter||c->instruction_pc!=0x0084E0||c->pb||!c->m||c->x||c->e||c->stack>0x1FF9)return value;
+  if(!enabled||addr!=0x23C||value!=3||!c||!ram||c->pb||!c->m||c->x||c->e||c->stack>0x1FF9)return value;
+  /* Generated84E0 has no instruction cursor. Its exact physical ordinary-door
+   * frame separately owns this sole timer store; menu ownership stays as before. */
+  if(c->interpreter?c->instruction_pc!=0x0084E0:!owned_door(c,ram))return value;
   uint32_t inner=return24(ram,c->stack+1),outer=return24(ram,c->stack+4);
   if((inner==0x0083D8&&(outer==0x02B6B9||outer==0x02B7E3||outer==0x02BC44))||
-     (inner==0x008471&&(outer==0x02B6E6||outer==0x02B817||outer==0x02BC65))||owned_close(c,ram))return 1;
+     (inner==0x008471&&(outer==0x02B6E6||outer==0x02B817||outer==0x02BC65))||owned_close(c,ram)||owned_door(c,ram))return 1;
   return value;
 }
 uint8_t LagoonFastMenus_FilterRead(uint32_t addr,uint8_t value,const CpuWramReadContext*c,const uint8_t*ram){
   /* Keep a real counter1: the original NMI decrements unconditionally. Only
    * the exact owned opening/closing fade read may see zero early. If NMI already made1->0,
    * zero remains zero. Values above1 are never concealed or rewritten. */
-  if(!enabled||addr!=0x23C||value>1||!c||!ram||!c->interpreter||c->instruction_pc!=0x0084E3||c->pb||!c->m||c->x||c->e||(!owned_close(c,ram)&&!owned_open(c,ram)))return value;
+  if(!enabled||addr!=0x23C||value>1||!c||!ram||!c->interpreter||c->instruction_pc!=0x0084E3||c->pb||!c->m||c->x||c->e||(!owned_close(c,ram)&&!owned_open(c,ram)&&!owned_door(c,ram)))return value;
   return ram[0x23D]%3?0:value;
 }
 #ifndef LAGOON_FAST_MENUS_TEST

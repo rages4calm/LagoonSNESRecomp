@@ -7,10 +7,39 @@ with an empty function, guessed event result or synthetic return.
 
 ## Current scope
 
-Source 0.2.3 includes CompanionAchievements and a small host-side hidden encounter,
-targeting `v0.2.3-preview.1`. The interpreter safety net remains part of this
+Source 0.2.4 includes CompanionAchievements and a small host-side hidden encounter,
+targeting `v0.2.4-preview.1`. The interpreter safety net remains part of this
 release. The native entry counts below describe the preceding qualified native
 batch, rather than a new claim of complete native coverage.
+
+The owner completed the campaign and explored every map. This batch addresses
+those concrete reports without repeating campaign exploration. Ordinary door
+loading reuses source-qualified native RAM expansion, tile queues and the real
+forced-blank DMA consumer under a distinct physical door/main call chain. Child
+calls, genuine returns and device timing retain their original owners. Fade
+waits are intentionally shorter; picture/clock equality with the old loading
+sequence is not claimed. Unknown source, modes and owners remain interpreted.
+
+Visible ordinary enemies beyond the original horizontal view can execute their
+original AI and animation. Only exact source-bound reads receive visibility
+eligibility; guest flags, OAM queues, authored aggression distances and boss
+behavior remain original. First-phase Evil Spirit and Zerah bars instead use a
+host display correction: their original HUD selects a proxy or retired NPC. The
+replacement uses the fighting actor, original glyphs and live underlay, and
+requires all 1,024 original bar pixels to match. It never changes guest HP,
+combat or clocks. Later Thor/Bird phases retain their original primary HP bars.
+
+Thor's escorted bridge jump reuses Nasir's witnessed safe arc, with original NPC
+movement and a narrowly scoped collision read view. Generation recovery is
+limited to the source-identified Philips bridge. The cloud exit has a 16-pixel
+larger catchment on each side and retains the original door destination; this
+does not redraw the platform. The equipment cursor's rightmost column now stays
+inside the widened panel. The ending witness reads its byte-sized state without
+requiring the independent palette-animation counter to be zero.
+
+The map and special-menu visual style, a fuller objective journal and zoom-out
+remain deferred. The owner's preference is a Lagoon-style panel and a map that
+resembles the area's artwork more closely; the current functional map remains.
 
 The 0.2.3 native service handles finite setup and command-fetch windows around
 the original NPC, event and room-script dispatcher. It preserves the actual
@@ -75,10 +104,9 @@ Collision filters the original movement operands with exact caller/mode/source
 guards and retains the original movement, camera and guest state ownership.
 These focused checks do not replace the owner campaign playtest.
 
-The reported Atland house/door flicker remains open. Focused source/headless
-checks across the northern and southern streets matched native scenery and
-door sprites, but did not reproduce the fullscreen/enhanced presentation issue.
-No renderer guards were relaxed on the strength of those negative checks.
+The earlier negative Atland door checks were superseded by the reproduced moving
+door/load defect and its 0.2.3 fix described above. Other specific rendering
+reports still need a matching source or runtime reproduction.
 
 A separate shared OAM motion-history defect was reproduced in the actual PPU:
 a large jump into an offscreen parking position inherited up to three fields

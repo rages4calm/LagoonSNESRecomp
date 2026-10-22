@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
-enum { WIDTH=640,HEIGHT=360,ROWS=5,TOAST_WIDTH=240,TOAST_HEIGHT=60,TOAST_MS=5500 };
+enum { WIDTH=640,HEIGHT=360,ROWS=5,TOAST_WIDTH=144,TOAST_HEIGHT=32,TOAST_MS=5500 };
 static const uint32_t BG=0xff101a28,FG=0xffe2ecf1,DIM=0xff91a3b6,
   ACCENT=0xff65ddc3,GOLD=0xffffcf77,SELECTED=0xff203548,LINE=0xff314357;
 static uint32_t panel[WIDTH*HEIGHT],toast_panel[TOAST_WIDTH*TOAST_HEIGHT];
@@ -150,17 +150,17 @@ int LagoonAchievementUI_ToastImage(const uint32_t **pixels,int *width,int *heigh
   if(!toast_active||toast_paused||opened)return 0;
   LagoonAchievementRow row;if(!LagoonAchievements_GetRow(toast_index,&row)||!row.unlocked_at)return 0;
   for(unsigned i=0;i<TOAST_WIDTH*TOAST_HEIGHT;i++)toast_panel[i]=BG;
-  snes_ovl_fill_rect(toast_panel,TOAST_WIDTH,TOAST_HEIGHT,0,0,TOAST_WIDTH,2,GOLD);
-  trophy(toast_panel,TOAST_WIDTH,TOAST_HEIGHT,12,25,GOLD);
-  limited_text(toast_panel,TOAST_WIDTH,TOAST_HEIGHT,42,9,"ACHIEVEMENT UNLOCKED",24,ACCENT);
+  snes_ovl_stroke_rect(toast_panel,TOAST_WIDTH,TOAST_HEIGHT,0,0,TOAST_WIDTH,TOAST_HEIGHT,GOLD);
+  trophy(toast_panel,TOAST_WIDTH,TOAST_HEIGHT,5,12,GOLD);
+  limited_text(toast_panel,TOAST_WIDTH,TOAST_HEIGHT,28,4,"UNLOCKED",14,ACCENT);
   const char *source=row.title;
   for(unsigned line=0;source&&*source&&line<2;line++){
     while(*source==' ')source++;
-    size_t remaining=strlen(source),length=remaining<23?remaining:23;
-    if(remaining>23){size_t space=length;while(space&&source[space]!=' ')space--;if(space)length=space;}
-    char title[24];memcpy(title,source,length);title[length]=0;source+=length;while(*source==' ')source++;
+    size_t remaining=strlen(source),length=remaining<14?remaining:14;
+    if(remaining>14){size_t space=length;while(space&&source[space]!=' ')space--;if(space)length=space;}
+    char title[15];memcpy(title,source,length);title[length]=0;source+=length;while(*source==' ')source++;
     if(line==1&&*source&&length>=3){title[length-3]='.';title[length-2]='.';title[length-1]='.';}
-    limited_text(toast_panel,TOAST_WIDTH,TOAST_HEIGHT,42,26+(int)line*13,title,23,FG);
+    limited_text(toast_panel,TOAST_WIDTH,TOAST_HEIGHT,28,14+(int)line*9,title,14,FG);
   }
   if(pixels)*pixels=toast_panel;if(width)*width=TOAST_WIDTH;if(height)*height=TOAST_HEIGHT;return 1;
 }

@@ -15,6 +15,12 @@ missing or invalid files, run-ahead and netplay keep the SNES soundtrack. SNES
 sound effects remain original. Save-state loads restart the selected track;
 they do not restore its exact sample position.
 
+The 0.2.4 audit checked all 75 original room descriptors and the 17 PCM file
+identities, headers and loops. Fifty-three descriptors select a mapped theme;
+22 retain SNES music, including Elf Field's cue 3C and ambiguous boss scenes.
+The prisoner mantle award intentionally plays the SNES item jingle, then
+resumes Philips Castle's theme. No new theme substitutions were guessed.
+
 | SNES cue | Location/theme | X68000 archive track |
 |---|---|---|
 | 10 | Title | 01 Premonition |

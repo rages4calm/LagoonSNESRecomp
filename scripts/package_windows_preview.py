@@ -157,7 +157,7 @@ R2 or Ctrl+comma opens quick settings: master volume and X68000 music volume.
 Select Achievements there and press A/Y or Enter, or use Ctrl+J directly.
 The 26-entry achievement browser is also available in Companion. Progress is
 offline and local to this package's saves, independent of game saves/states.
-Unlocks have a short notification and original chime, following master volume.
+Unlocks have a compact top-right notification and original chime, following master volume.
 Loading a save does not retroactively award achievements; assisted diagnostic runs
 do not award progress. A hidden traveler has a spoiler-safe locked entry. His original-style typing
 dialogue has a portrait and keeps the music playing; his completion sound
@@ -171,8 +171,9 @@ shop prices, quest rewards or your existing saved totals.
 Some widescreen/special actor paths retain the original view. Audio's Soundtrack
 dropdown switches between Original SNES and the bundled X68000 music. Choose
 one, Apply and restart the game. No folder selection or conversion is needed.
-Complete campaign playtesting is still pending. Report room, actions/settings
-and whether a new game reproduces a problem.
+The owner completed a campaign and explored every map. Native and widescreen
+fallbacks remain; report room, actions/settings and whether a new game reproduces
+a problem. This preview fixes reports from that playthrough.
 
 Source and updates: https://github.com/rages4calm/LagoonSNESRecomp
 See docs/PLAYING.md for controls, CREDITS.md and licenses/ for notices.

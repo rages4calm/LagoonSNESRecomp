@@ -45,6 +45,8 @@ int main(int argc,char **argv) {
     unsigned w=widths[i],e=(w-256)/2;size_t pitch=(w+7)*4;
     uint32_t *out=malloc(pitch*224);assert(out);memset(out,0xA5,pitch*224);
     assert(layout((uint8_t *)out,pitch,native,w,LAGOON_MENU_EQUIPMENT));
+    for(unsigned y=32;y<200;++y)for(unsigned x=40;x<224;++x)
+      assert(out[y*(w+7)+e+x]==native[y*256+x]);
     for(unsigned y=0;y<32;++y)assert(!memcmp(out+y*(w+7)+e+56,native+y*256+56,144*4));
     for(unsigned y=154;y<156;++y)for(unsigned x=e+24;x<e+232;++x)assert(out[y*(w+7)+x]==native[y*256+40]);
     native[8*256+40]^=1;memset(out,0xA5,pitch*224);
@@ -72,7 +74,8 @@ int main(int argc,char **argv) {
       unsigned w=widths[i],e=(w-256)/2;size_t pitch=(w+7)*4;uint8_t *field=calloc(224,pitch),*out=malloc(224*pitch);assert(field&&out);memset(out,0xA5,224*pitch);
       for(unsigned y=0;y<224;++y)memcpy(field+y*pitch+e*4,native+y*256,1024);
       assert(LagoonMenuPresentation_Draw(out,pitch,field,pitch,w,224,p,ram,1));
-      for(unsigned y=32;y<200;++y)assert(!memcmp(out+y*pitch+(e+40)*4,native+y*256+40,176*4));
+      unsigned content_width=panel==LAGOON_MENU_EQUIPMENT?184:176;
+      for(unsigned y=32;y<200;++y)assert(!memcmp(out+y*pitch+(e+40)*4,native+y*256+40,content_width*4));
       for(unsigned y=0;y<224;++y)for(unsigned x=w*4;x<pitch;++x)assert(out[y*pitch+x]==0xA5);
       unsigned title_left=panel==LAGOON_MENU_EQUIPMENT?56:88;
       unsigned title_width=panel==LAGOON_MENU_EQUIPMENT?144:80;

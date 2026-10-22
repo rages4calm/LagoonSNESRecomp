@@ -29,16 +29,18 @@ int main(int argc,char **argv){
   setup();CHECK(!observe(0x02e99d,1));LagoonAchievementEnding_Reset(1);CHECK(!observe(0x02e9bd,1));
   setup();CHECK(!observe(0x02e99c,1));CHECK(!observe(0x02e9bd,1));
   /* The entry counter is not constrained: E99D owns its initialization.
-   * Only the balanced terminal boundary must carry the completed word7. */
+   * Only the balanced terminal boundary must carry the completed byte7. */
   setup();ram[0x1099]=0;ram[0x109a]=0x55;CHECK(!observe(0x02e99d,1));
   ram[0x1099]=7;ram[0x109a]=0;CHECK(observe(0x02e9bd,1));
   for(unsigned counter=0;counter<256;counter++)if(counter!=7){
     setup();CHECK(!observe(0x02e99d,1));ram[0x1099]=(uint8_t)counter;
     CHECK(!observe(0x02e9bd,1));ram[0x1099]=7;CHECK(!observe(0x02e9bd,1));
   }
-  for(unsigned high=1;high<256;high++){
-    setup();CHECK(!observe(0x02e99d,1));ram[0x109a]=(uint8_t)high;
-    CHECK(!observe(0x02e9bd,1));ram[0x109a]=0;CHECK(!observe(0x02e9bd,1));
+  /* The adjacent byte is independently animated by the actual ED91 source;
+   * real owner states carry208. Every palette phase must allow completion. */
+  for(unsigned palette=0;palette<256;palette++){
+    setup();CHECK(!observe(0x02e99d,1));ram[0x109a]=(uint8_t)palette;
+    CHECK(observe(0x02e9bd,1));CHECK(!observe(0x02e9bd,1));
   }
   for(unsigned mutation=0;mutation<15;mutation++){
     setup();CHECK(!observe(0x02e99d,1));
@@ -63,6 +65,6 @@ int main(int argc,char **argv){
   }
   setup();LagoonAchievementEnding_Init(rom,sizeof rom-1);CHECK(!observe(0x02e99d,1));CHECK(!observe(0x02e9bd,1));
   setup();CHECK(!observe(0x02e99d,1));CHECK(!observe(0x01e9bd,1));CHECK(observe(0x02e9bd,1));
-  printf("PASS ending witness %u assertions: real source spans,caller/mode/linear-stack/generation guards,terminal word1099==7,one-shot terminal event; CPU/RAM unchanged; synthetic boundaries,not campaign coverage\n",assertions);
+  printf("PASS ending witness %u assertions: real source spans,caller/mode/linear-stack/generation guards,terminal byte1099==7 with all256 independent109A palette phases,one-shot terminal event; CPU/RAM unchanged; synthetic boundaries,not campaign coverage\n",assertions);
   return 0;
 }

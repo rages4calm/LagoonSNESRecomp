@@ -1,6 +1,7 @@
 /* Permanent escorts navigate toward Nasir's recent position. The integration applies
- * only intent and velocity before the original tile-collision/movement path;
- * no endpoint in this module authorizes a position, door or quest-state write. */
+ * intent, bounded velocity and witnessed NPC visual height before original movement;
+ * source-owned collision read views admit only an observed completed jump corridor.
+ * No endpoint authorizes a position, door or quest-state write. */
 #include "lagoon_follower.h"
 #include <string.h>
 
@@ -10,7 +11,7 @@ static struct {
   uint64_t generation;
   uint32_t serial, cursor;
   unsigned head,count,room,actor,kind,last_tick;
-  uint16_t observed_x,observed_y,expected_x,expected_y;
+  uint16_t observed_x,observed_y,observed_z,expected_x,expected_y;
   uint8_t descriptor[56], valid_rom, observed, following, pending, pace,body_source;
   uint8_t joining,axis,tried,join_refused;
   uint16_t last_distance,blocked_x,blocked_y;
@@ -32,6 +33,30 @@ static struct {
   unsigned used;
   int bx,by,tx,ty;
 } search;
+/* Only a completed, observed player jump can authorize an escort gap edge.
+ * Four bounded witnesses retain close consecutive jumps without a speedup
+ * backlog. These disposable records contain no guest save or quest state. */
+enum { JUMP_POINTS=96,JUMP_QUEUE=4 };
+typedef struct JumpPath {Sample p[JUMP_POINTS];unsigned count,cursor,actor;uint8_t checked,active;} JumpPath;
+static struct {JumpPath recording,q[JUMP_QUEUE];unsigned head,count;uint8_t airborne;} jumps;
+static int jump_ground(const uint8_t*r,unsigned x,unsigned y);
+static int jump_edge(const uint8_t*r,unsigned x,unsigned y,unsigned d,unsigned pixels,int airborne);
+static void jump_observe(const uint8_t*r,unsigned x,unsigned y,unsigned z){
+  if(!jumps.airborne&&z){
+    memset(&jumps.recording,0,sizeof jumps.recording);jumps.airborne=1;
+    jumps.recording.p[jumps.recording.count++]=(Sample){s.observed_x,s.observed_y,s.observed_z,0};
+  }
+  if(!jumps.airborne)return;
+  JumpPath *p=&jumps.recording;
+  if(p->count>=JUMP_POINTS){jumps.airborne=0;return;}
+  p->p[p->count++]=(Sample){(uint16_t)x,(uint16_t)y,(uint16_t)z,0};
+  if(!z){
+    jumps.airborne=0;
+    if(p->count>2&&jumps.count<JUMP_QUEUE&&jump_ground(r,p->p[0].x,p->p[0].y)&&jump_ground(r,x,y)){
+      jumps.q[(jumps.head+jumps.count++)%JUMP_QUEUE]=*p;
+    }
+  }
+}
 static unsigned word(const uint8_t*r,unsigned a){return r[a]|r[a+1]<<8;}
 static unsigned absdiff(unsigned a,unsigned b){return a>b?a-b:b-a;}
 static uint64_t hash(const uint8_t*r,size_t size,unsigned pc,unsigned n){
@@ -39,9 +64,9 @@ static uint64_t hash(const uint8_t*r,size_t size,unsigned pc,unsigned n){
   if(!r||p>size||n>size-p)return 0;
   while(n--)h=(h^r[p++])*UINT64_C(1099511628211);return h;
 }
-void LagoonFollower_Discard(void){uint8_t v=s.valid_rom,b=s.body_source;memset(&s,0,sizeof s);s.valid_rom=v;s.body_source=b;memset(&nav,0,sizeof nav);discard_call();}
+void LagoonFollower_Discard(void){uint8_t v=s.valid_rom,b=s.body_source;memset(&s,0,sizeof s);s.valid_rom=v;s.body_source=b;memset(&nav,0,sizeof nav);memset(&jumps,0,sizeof jumps);discard_call();}
 void LagoonFollower_Reset(const uint8_t*r,size_t size){
-  memset(&s,0,sizeof s);memset(&nav,0,sizeof nav);discard_call();
+  memset(&s,0,sizeof s);memset(&nav,0,sizeof nav);memset(&jumps,0,sizeof jumps);discard_call();
   nav_rom=r;nav_rom_size=size;
   nav_source=hash(r,size,0x018385,83)==UINT64_C(0xaa6815d0b23960aa)&&
     hash(r,size,0x019bce,1100)==UINT64_C(0xc463c68b4606f575);
@@ -113,7 +138,7 @@ int LagoonFollower_Observe(const uint8_t*r,uint64_t generation){
   if(!same_scene(r,generation)){
     LagoonFollower_Discard();s.generation=generation;s.room=word(r,0x48e);
     memcpy(s.descriptor,r+0x50,sizeof s.descriptor);s.observed=1;
-    s.observed_x=x;s.observed_y=y;s.last_tick=tick;s.pace=3;
+    s.observed_x=x;s.observed_y=y;s.observed_z=word(r,0x514);s.last_tick=tick;s.pace=3;
     append(x,y,word(r,0x514));return 1;
   }
   if(tick==s.last_tick)return 1;
@@ -124,7 +149,8 @@ int LagoonFollower_Observe(const uint8_t*r,uint64_t generation){
     LagoonFollower_Discard();return 0;
   }
   if(dx+dy)s.pace=(uint8_t)(dx+dy);
-  s.observed_x=x;s.observed_y=y;s.last_tick=tick;
+  jump_observe(r,x,y,word(r,0x514));
+  s.observed_x=x;s.observed_y=y;s.observed_z=word(r,0x514);s.last_tick=tick;
   /* Stationary ticks retain the short spatial gap. Recording them as new
    * endpoints would eventually make an escort stand inside Nasir. */
   if(dx+dy)append(x,y,word(r,0x514));return 1;
@@ -156,6 +182,34 @@ static int nav_tile(const uint8_t*r,int x,int y,unsigned*v){
   unsigned index=((unsigned)y&0xfff0)*8+((unsigned)x>>4);
   if(index>=16384||!nav_read(r,map+index,&meta))return 0;
   return nav_read(r,defs+meta*4+((x&8)>>3)+((y&8)>>2),v);
+}
+static int jump_ground(const uint8_t*r,unsigned x,unsigned y){
+  static const int probe[5][2]={{0,-1},{-10,-8},{10,-8},{-10,8},{10,8}};
+  for(unsigned i=0;i<5;i++){unsigned a;if(!nav_tile(r,(int)x+probe[i][0],(int)y+probe[i][1],&a)||
+    (a&128)||((a&15)!=0&&(a&15)!=3&&(a&15)!=5))return 0;}
+  return 1;
+}
+static int jump_edge(const uint8_t*r,unsigned x,unsigned y,unsigned d,unsigned pixels,int airborne){
+  static const int probes[4][3][2]={{{11,0},{11,-8},{11,8}},{{0,9},{-10,9},{10,9}},{{-11,0},{-11,-8},{-11,8}},{{0,-9},{-10,-9},{10,-9}}};
+  if(d>3||pixels>5)return 0;
+  for(unsigned step=0;step<pixels;step++){
+    for(unsigned i=0;i<3;i++){unsigned a;
+      if(!nav_tile(r,(int)x+probes[d][i][0],(int)y+probes[d][i][1],&a)||(a&128)||(a&15)>5)return 0;
+      if(!airborne&&((a&15)==1||(a&15)==2||(a&15)==4))return 0;
+    }
+    if(d==0)x++;else if(d==1)y++;else if(d==2)x--;else y--;
+  }return 1;
+}
+static int jump_check(const uint8_t*r,const JumpPath*p){
+  if(p->count<3||p->p[0].z||p->p[p->count-1].z||!jump_ground(r,p->p[0].x,p->p[0].y)||
+     !jump_ground(r,p->p[p->count-1].x,p->p[p->count-1].y))return 0;
+  unsigned distance=0;
+  for(unsigned i=1;i<p->count;i++){
+    const Sample*a=&p->p[i-1],*b=&p->p[i];unsigned dx=absdiff(a->x,b->x),dy=absdiff(a->y,b->y);
+    if((dx&&dy)||dx+dy>5||b->z>0x3000)return 0;
+    unsigned d=b->x>a->x?0:b->y>a->y?1:b->x<a->x?2:3;
+    if(!jump_edge(r,a->x,a->y,d,dx+dy,a->z||b->z))return 0;distance+=dx+dy;
+  }return distance>=16;
 }
 static int nav_step(const uint8_t*r,unsigned x,unsigned y,unsigned d,unsigned pixels){
   static const int8_t probe[4][3][2]={{{11,0},{11,-8},{11,8}},{{0,9},{-10,9},{10,9}},
@@ -228,6 +282,32 @@ static int nav_route(const uint8_t*r,unsigned x,unsigned y,unsigned tx,unsigned 
   }
   return 1;
 }
+/* Historical/new snapshots do not serialize host navigation. A midair Thor
+ * already over the authored Philips water strip can finish toward Nasir's
+ * bank, using current source terrain. No other gap, actor or room qualifies. */
+static void jump_recover_philips(const uint8_t*r,unsigned q,unsigned x,unsigned y){
+  unsigned a=0x500+q,z=word(r,a+0x14),attr,px=word(r,0x502),py=word(r,0x504);
+  if(jumps.count||q!=0x800||s.room!=10||r[a+27]||!z||z>0x3000||x<160||x>=192||y<456||y>520||
+     absdiff(x,px)+absdiff(y,py)>256||!jump_ground(r,px,py)||
+     hash(nav_rom,nav_rom_size,0x05b50f,56)!=UINT64_C(0x5e70ee6b99a1b47a)||
+     memcmp(r+0x50,nav_rom+0x2b50f,56)||!nav_tile(r,x,y,&attr)||attr!=4)return;
+  unsigned d=px<160?2:px>=192?0:4;if(d>3)return;
+  unsigned tx=x;
+  for(unsigned n=0;n<64;n++){
+    if(!jump_edge(r,tx,y,d,1,1))return;
+    tx=d==0?tx+1:tx-1;
+    if(jump_ground(r,tx,y))break;
+  }
+  if(!jump_ground(r,tx,y))return;
+  JumpPath*p=&jumps.q[jumps.head];memset(p,0,sizeof *p);
+  p->checked=p->active=1;p->actor=q;p->cursor=1;
+  p->p[p->count++]=(Sample){(uint16_t)x,(uint16_t)y,(uint16_t)z,0};
+  unsigned total=absdiff(tx,x),done=0;
+  while(done<total){unsigned n=total-done;if(n>5)n=5;done+=n;
+    p->p[p->count++]=(Sample){(uint16_t)(d==0?x+done:x-done),(uint16_t)y,(uint16_t)(z*(total-done)/total),0};
+  }
+  jumps.count=1;
+}
 int LagoonFollower_Plan(const uint8_t*r,unsigned q,uint64_t generation,LagoonFollowerStep*out){
   int role=LagoonFollower_Role(r,q);
   if(!role){if(s.following&&q==s.actor){s.following=0;nav.count=0;}return 0;}
@@ -242,7 +322,35 @@ int LagoonFollower_Plan(const uint8_t*r,unsigned q,uint64_t generation,LagoonFol
   unsigned bootstrap=s.count<=LAGOON_FOLLOWER_DELAY;
   Sample*goal=at(bootstrap?s.count-1:s.count-1-LAGOON_FOLLOWER_DELAY);
   unsigned tx=goal->x,ty=goal->y;
-  if(absdiff(x,tx)+absdiff(y,ty)<=(bootstrap?18u:5u)){nav.count=0;return 1;}
+  jump_recover_philips(r,q,x,y);
+  if(jumps.count){
+    JumpPath*p=&jumps.q[jumps.head];Sample*first=&p->p[0],*last=&p->p[p->count?p->count-1:0];
+    unsigned to_start=absdiff(x,first->x)+absdiff(y,first->y),to_end=absdiff(x,last->x)+absdiff(y,last->y);
+    if(!p->checked){p->checked=1;if(!jump_check(r,p))p->count=0;}
+    if(!p->count||(!p->active&&to_end<=to_start)){
+      jumps.head=(jumps.head+1)%JUMP_QUEUE;jumps.count--;nav.count=0;
+    }else if(p->active){
+      if(p->actor!=q||p->cursor>=p->count){p->count=0;return 1;}
+      Sample*a=&p->p[p->cursor-1],*b=&p->p[p->cursor];
+      if(x!=a->x||y!=a->y){p->count=0;return 1;}
+      vector(out,x,y,b->x,b->y,5,0);out->height=b->z;out->connector=2;
+      if(!jump_edge(r,x,y,out->direction,absdiff(x,b->x)+absdiff(y,b->y),a->z||b->z)){p->count=0;out->moving=0;out->dx=out->dy=0;out->height=0;out->target_x=x;out->target_y=y;return 1;}
+      p->cursor++;
+      if(p->cursor==p->count){jumps.head=(jumps.head+1)%JUMP_QUEUE;jumps.count--;nav.count=0;}
+      return 1;
+    }else if(to_start<=256){
+      tx=first->x;ty=first->y;
+      if(!to_start){p->active=1;p->actor=q;p->cursor=1;nav.count=0;out->connector=2;return 1;}
+      if(to_start<=5){
+        vector(out,x,y,tx,ty,5,0);
+        if(!nav_step(r,x,y,out->direction,absdiff(x,out->target_x)+absdiff(y,out->target_y))){out->moving=0;out->dx=out->dy=0;}
+        return 1;
+      }
+      /* Reach the witnessed takeoff on ordinary collision, never snap XY. */
+      bootstrap=0;
+    }
+  }
+  if(absdiff(x,tx)+absdiff(y,ty)<=((jumps.count&&tx==jumps.q[jumps.head].p[0].x&&ty==jumps.q[jumps.head].p[0].y)?0u:(bootstrap?18u:5u))){nav.count=0;return 1;}
   if(nav.count&&x==nav.last_x&&y==nav.last_y)nav.blocked++;else nav.blocked=0;
   while(nav.cursor<nav.count){
     unsigned nx=nav.x[nav.cursor],ny=nav.y[nav.cursor];
@@ -291,12 +399,12 @@ static struct {
   uint16_t parent_s,actor;
   uint8_t parent[2],tick,active;
 } body;
-static struct {unsigned long long observed,planned,applied,connectors,refused,body_reads;} counts;
+static struct {unsigned long long observed,planned,applied,connectors,refused,body_reads,jump_steps,jump_reads;} counts;
 static const char *report_path;
 static void report(void){
   if(!report_path||!*report_path)return;FILE*f=fopen(report_path,"w");if(!f)return;
-  fprintf(f,"{\"schema\":\"Lagoon permanent follower v1\",\"observed\":%llu,\"planned\":%llu,\"applied\":%llu,\"connectors\":%llu,\"refused\":%llu,\"body_read_views\":%llu}\n",
-    counts.observed,counts.planned,counts.applied,counts.connectors,counts.refused,counts.body_reads);fclose(f);
+  fprintf(f,"{\"schema\":\"Lagoon permanent follower v1\",\"observed\":%llu,\"planned\":%llu,\"applied\":%llu,\"connectors\":%llu,\"refused\":%llu,\"body_read_views\":%llu,\"jump_steps\":%llu,\"jump_read_views\":%llu}\n",
+    counts.observed,counts.planned,counts.applied,counts.connectors,counts.refused,counts.body_reads,counts.jump_steps,counts.jump_reads);fclose(f);
 }
 static void discard_call(void){memset(&call,0,sizeof call);memset(&body,0,sizeof body);}
 static int owned_cpu(CpuState*c){
@@ -360,6 +468,8 @@ static void hook(CpuState*c,uint32_t pc){
     }
     unsigned a=0x500+c->X;
     put(c->ram,a+6,(uint16_t)call.step.dx);put(c->ram,a+8,(uint16_t)call.step.dy);
+    put(c->ram,a+0x14,call.step.connector==2?call.step.height:0);
+    if(call.step.connector==2)counts.jump_steps++;
     call.called=0;counts.applied++;
   }
 }
@@ -368,7 +478,27 @@ int LagoonFollower_OwnsVelocity(unsigned a){
   return call.active&&call.generation==RtlStateGeneration()&&
     ((a>=base+6&&a<=base+9));
 }
+/* Real 80C1 JSR retains the two-byte 80C3 owner during all three
+ * leading-edge probes. Only the completed arc step, current coordinates and
+ * exact original attribute query can expose its otherwise blocked gap nibble. */
+static uint8_t jump_filter_read(uint32_t a,uint8_t value,const CpuWramReadContext*c,const uint8_t*r){
+  static const unsigned pcs[]={0x019e29,0x019f31,0x019ead,0x019fb5};
+  if(!call.active||call.step.connector!=2||!call.step.moving||!c||!r||!c->interpreter||
+     !s.valid_rom||!nav_source||a!=0x2c1||value!=r[a]||(value&128)||(value&15)>5||
+     c->pb!=1||!c->m||c->x||c->e||c->stack!=call.parent_s||
+     c->y>8||(c->y&3)||call.generation!=RtlStateGeneration()||call.tick!=r[0x408]||
+     word(r,c->stack+1)!=0x80c3||!same_scene(r,call.generation)||!LagoonFollower_Role(r,call.actor))return value;
+  unsigned d=call.step.direction;if(d>3||c->instruction_pc!=pcs[d])return value;
+  unsigned q=0x500+call.actor,x=word(r,q+2),y=word(r,q+4);
+  if((int)x+call.step.dx!=call.step.target_x||(int)y+call.step.dy!=call.step.target_y)return value;
+  static const int probes[4][3][2]={{{11,0},{11,-8},{11,8}},{{0,9},{-10,9},{10,9}},{{-11,0},{-11,-8},{-11,8}},{{0,-9},{-10,-9},{10,-9}}};
+  unsigned i=c->y/4,attr;
+  if(word(r,0xb8)!=(unsigned)((int)x+probes[d][i][0])||word(r,0xba)!=(unsigned)((int)y+probes[d][i][1])||
+     !nav_tile(r,(int)x+probes[d][i][0],(int)y+probes[d][i][1],&attr)||attr!=value)return value;
+  counts.jump_reads++;return (uint8_t)((value&0xf0)|3);
+}
 uint8_t LagoonFollower_FilterRead(uint32_t a,uint8_t value,const CpuWramReadContext*c,const uint8_t*r){
+  value=jump_filter_read(a,value,c,r);
   if(!body.active||!c||!r||body.ram!=r||!c->interpreter||c->instruction_pc!=0x01a110||
      c->pb!=1||!c->m||c->x||c->e||c->stack!=(unsigned)body.parent_s-2||
      c->y!=body.actor||a!=0x500u+body.actor||value!=r[a]||

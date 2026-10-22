@@ -2,6 +2,7 @@
  * No timing, input, interrupt, decoder yield or DMA is synthesized here. The
  * guarded menu caller continues through the original upload queue afterward. */
 #include "lagoon_menu_decode.h"
+#include "lagoon_door_owner.h"
 #include <stdlib.h>
 #include <string.h>
 static void nz(CpuState *c,unsigned v,int wide) {
@@ -131,7 +132,7 @@ static uint32_t triple(const uint8_t*r,unsigned q){return r[q]|r[q+1]<<8|r[q+2]<
 bool LagoonMenuDecode_TryNative(CpuState*cpu,uint16_t entry_s,uint8_t hrv,uint32_t host_return_pc24,RecompReturn*out) {
   if(!cpu||!out||cpu->S!=entry_s||hrv!=3||cpu->host_return_valid!=3||
       entry_s<0x140||entry_s>0x1ec||!cpu->m_flag||cpu->x_flag||cpu->emulation||cpu->D||cpu->PB||
-      !(g_ram[0x23d]&0x80)||g_ram[0x275]!=0x81||g_ram[0x100e]||g_ram[0xe4]||
+      !(g_ram[0x23d]&0x80)||g_ram[0x275]!=0x81||(g_ram[0x100e]&&g_ram[0x100e]!=255)||g_ram[0xe4]||
       hash(g_rom+0x1143,0x1c1)!=UINT64_C(0x1ab145d7fd2e3ea6))return false;
   unsigned s=entry_s,ret=triple(g_ram,s+1),source=triple(g_ram,0xe0);
   uint32_t actual_return=(ret&0xff0000)|((ret+1)&0xffff);
@@ -141,7 +142,7 @@ bool LagoonMenuDecode_TryNative(CpuState*cpu,uint16_t entry_s,uint8_t hrv,uint32
     {7,0x10C5AE,0x0000,0xA00,9237,14084,UINT64_C(0x267092c7eb7add5b)},
     {8,0x10C45A,0x6E00,0x270,340,628,UINT64_C(0x9fe7c30d7f251578)}};
   unsigned expected_used=0,expected_output=0;
-  if(ret==0x0094D6) {
+  if(ret==0x0094D6&&!g_ram[0x100e]) {
     unsigned caller=triple(g_ram,s+6),parent=word(g_ram,s+9);
     for(unsigned i=0;i<3;i++) {
       unsigned id=cases[i].id,q=0x14e6+id*7;
@@ -159,7 +160,7 @@ bool LagoonMenuDecode_TryNative(CpuState*cpu,uint16_t entry_s,uint8_t hrv,uint32
    * rather than an unrelated room transition through this shared loader. */
   if(!expected_used&&(ret==0x018874||ret==0x018889)&&
       word(g_ram,s+4)==0x87d5&&word(g_ram,s+6)==0x8732&&
-      triple(g_ram,s+8)==0x0080e3&&g_ram[s+11]==2) {
+      ((!g_ram[0x100e]&&triple(g_ram,s+8)==0x0080e3&&g_ram[s+11]==2)||LagoonDoorOwner(g_rom,0x100000,g_ram,s+8))) {
     unsigned menu=triple(g_ram,s+12);
     /* Metadata only: original streams observed in the73-room campaign.
      * All70 were independently compared against the original decoder. */
@@ -234,7 +235,7 @@ bool LagoonMenuDecode_TryNative(CpuState*cpu,uint16_t entry_s,uint8_t hrv,uint32
       {0x1db67e,4571,8196,UINT64_C(0xd8c7ef13fce15517)},
       {0x1dc859,3438,7172,UINT64_C(0xc3310960b70d89c8)},
       {0x1dd5c7,3751,5188,UINT64_C(0x0140922d0c7eb2b8)}};
-    if(menu==0x02b73a||menu==0x02b87d||menu==0x02bc9b)for(unsigned i=0;i<sizeof(worlds)/sizeof(*worlds);i++) {
+    if(menu==0x02b73a||menu==0x02b87d||menu==0x02bc9b||LagoonDoorOwner(g_rom,0x100000,g_ram,s+8))for(unsigned i=0;i<sizeof(worlds)/sizeof(*worlds);i++) {
       size_t off=((source>>16)&31)*32768+(source&32767);
       if(source==worlds[i].source&&
           triple(g_ram,ret==0x018874?0x57:0x5d)==source&&
@@ -248,10 +249,10 @@ bool LagoonMenuDecode_TryNative(CpuState*cpu,uint16_t entry_s,uint8_t hrv,uint32
   if(!expected_used&&ret==0x0094d6) {
     unsigned caller=triple(g_ram,s+6),menu=0,id=99;
     if(caller==0x0097eb&&triple(g_ram,s+9)==0x018727&&
-        triple(g_ram,s+12)==0x0080e3&&g_ram[s+15]==2){menu=triple(g_ram,s+16);id=9;}
+        ((!g_ram[0x100e]&&triple(g_ram,s+12)==0x0080e3&&g_ram[s+15]==2)||LagoonDoorOwner(g_rom,0x100000,g_ram,s+12))){menu=LagoonDoorOwner(g_rom,0x100000,g_ram,s+12)?1:triple(g_ram,s+16);id=9;}
     if(caller==0x018898&&word(g_ram,s+9)==0x87d5&&word(g_ram,s+11)==0x8732&&
-        triple(g_ram,s+13)==0x0080e3&&g_ram[s+16]==2){menu=triple(g_ram,s+17);id=0;}
-    if(menu==0x02b73a||menu==0x02b87d||menu==0x02bc9b) {
+        ((!g_ram[0x100e]&&triple(g_ram,s+13)==0x0080e3&&g_ram[s+16]==2)||LagoonDoorOwner(g_rom,0x100000,g_ram,s+13))){menu=LagoonDoorOwner(g_rom,0x100000,g_ram,s+13)?1:triple(g_ram,s+17);id=0;}
+    if(menu==0x02b73a||menu==0x02b87d||menu==0x02bc9b||menu==1) {
       unsigned q=0x14e6+id*7;
       unsigned want_source=id==9?0x10bd00:0x11be00;
       unsigned want_used=id==9?1882:168,want_output=id==9?7716:548;

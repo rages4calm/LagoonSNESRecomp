@@ -1,4 +1,5 @@
 #include "lagoon_menu_close.h"
+#include "lagoon_door_owner.h"
 #include <stdlib.h>
 #include <string.h>
 static unsigned word(const uint8_t*r,unsigned q){return r[q]|r[q+1]<<8;}
@@ -128,26 +129,31 @@ int LagoonMenuClose_QueueTile(uint8_t*ram,CpuState*cpu,unsigned*landing){
 static uint64_t hash(const uint8_t*r,unsigned n){uint64_t h=UINT64_C(14695981039346656037);while(n--)h=(h^*r++)*UINT64_C(1099511628211);return h;}
 static int menu(unsigned pc){return pc==0x02b73a||pc==0x02b87d||pc==0x02bc9b;}
 static void close_hook(CpuState*c,uint32_t pc){
- unsigned s=c->S;if(!g_rom||!valid(c)||s>0x1e9||!(g_ram[0x23d]&128)||g_ram[0x275]!=0x81||g_ram[0x100e])return;
+ unsigned s=c->S;if(!g_rom||!valid(c)||s>0x1e9||!(g_ram[0x23d]&128)||g_ram[0x275]!=0x81||(g_ram[0x100e]&&g_ram[0x100e]!=255))return;
  if(pc==0x018ad1){
-  if(c->PB!=1||c->DB!=1||word(g_ram,s+1)!=0x8743||triple(g_ram,s+3)!=0x0080e3||g_ram[s+6]!=2||!menu(triple(g_ram,s+7)))return;
+  if(c->PB!=1||c->DB!=1||word(g_ram,s+1)!=0x8743||
+      !((!g_ram[0x100e]&&triple(g_ram,s+3)==0x0080e3&&g_ram[s+6]==2&&menu(triple(g_ram,s+7)))||LagoonDoorOwner(g_rom,0x100000,g_ram,s+3)))return;
   if(hash(g_rom+0x8acd,0x29)!=UINT64_C(0x6775aa0a59bb058d))return;
   if(LagoonMenuClose_FillHud(g_ram,c))interp_bridge_pre_opcode_redirect(0x018af2);
  }else if(pc==0x018a32){
-  if(c->PB!=1||c->DB!=1||word(g_ram,s+3)!=0x8740||triple(g_ram,s+5)!=0x0080e3||g_ram[s+8]!=2||!menu(triple(g_ram,s+9)))return;
+  if(c->PB!=1||c->DB!=1||word(g_ram,s+3)!=0x8740||
+      !((!g_ram[0x100e]&&triple(g_ram,s+5)==0x0080e3&&g_ram[s+8]==2&&menu(triple(g_ram,s+9)))||LagoonDoorOwner(g_rom,0x100000,g_ram,s+5)))return;
   if(hash(g_rom+0x8a32,0x2b)!=UINT64_C(0xd86c75e6a4d5a83d)||hash(g_rom+0x89fd,0x13)!=UINT64_C(0x3d7f288a19ab6db4))return;
   unsigned landing;if(LagoonMenuClose_AdvanceTile(g_ram,c,&landing))interp_bridge_pre_opcode_redirect(landing);
  }else if(pc==0x018a10){
-  if(c->PB!=1||c->DB!=1||word(g_ram,s+1)!=0x8740||triple(g_ram,s+3)!=0x0080e3||g_ram[s+6]!=2||!menu(triple(g_ram,s+7)))return;
+  if(c->PB!=1||c->DB!=1||word(g_ram,s+1)!=0x8740||
+      !((!g_ram[0x100e]&&triple(g_ram,s+3)==0x0080e3&&g_ram[s+6]==2&&menu(triple(g_ram,s+7)))||LagoonDoorOwner(g_rom,0x100000,g_ram,s+3)))return;
   if(hash(g_rom+0x8a10,0x1f)!=UINT64_C(0xcb479590b45590a5)||hash(g_rom+0xaa4,0x31)!=UINT64_C(0x4a2fc0d8151ac00e)||hash(g_rom+0x8311,0x74)!=UINT64_C(0x9e17ed9893b82194))return;
   if(LagoonMenuClose_PrepareTile(g_rom,0x100000,g_ram,c))interp_bridge_pre_opcode_redirect(0x018a2f);
  }else if(pc==0x02c5c6){
-  if(c->PB!=2||c->DB!=2||triple(g_ram,s+1)!=0x0080e3||g_ram[s+4]!=1||triple(g_ram,s+5)!=0x0187e5||word(g_ram,s+8)!=0x8732||triple(g_ram,s+10)!=0x0080e3||g_ram[s+13]!=2||!menu(triple(g_ram,s+14)))return;
+  if(c->PB!=2||c->DB!=2||triple(g_ram,s+1)!=0x0080e3||g_ram[s+4]!=1||triple(g_ram,s+5)!=0x0187e5||word(g_ram,s+8)!=0x8732||
+      !((!g_ram[0x100e]&&triple(g_ram,s+10)==0x0080e3&&g_ram[s+13]==2&&menu(triple(g_ram,s+14)))||LagoonDoorOwner(g_rom,0x100000,g_ram,s+10)))return;
   if(hash(g_rom+0x145c6,0x88)!=UINT64_C(0x610feb01f813f643))return;
   if(LagoonMenuClose_BuildMap(g_rom,0x100000,g_ram,c))interp_bridge_pre_opcode_redirect(0x02c64d);
  }else if(pc==0x0089ec){
   unsigned ret=triple(g_ram,s+1);
-  if(c->PB||c->DB!=1||(ret!=0x018a80&&ret!=0x018a90)||word(g_ram,s+4)!=0x8a31||word(g_ram,s+8)!=0x8740||triple(g_ram,s+10)!=0x0080e3||g_ram[s+13]!=2||!menu(triple(g_ram,s+14)))return;
+  if(c->PB||c->DB!=1||(ret!=0x018a80&&ret!=0x018a90)||word(g_ram,s+4)!=0x8a31||word(g_ram,s+8)!=0x8740||
+      !((!g_ram[0x100e]&&triple(g_ram,s+10)==0x0080e3&&g_ram[s+13]==2&&menu(triple(g_ram,s+14)))||LagoonDoorOwner(g_rom,0x100000,g_ram,s+10)))return;
   if(hash(g_rom+0x9ec,0xb8)!=UINT64_C(0x2037f99e6ce56f55))return;
   unsigned landing;if(LagoonMenuClose_QueueTile(g_ram,c,&landing))interp_bridge_pre_opcode_redirect(landing);
  }

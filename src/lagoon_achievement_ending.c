@@ -49,8 +49,11 @@ int LagoonAchievementEnding_Observe(const CpuState *c,uint32_t pc,uint64_t gener
   if(pc==0x02e99d){
     ending.cpu=c;ending.ram=c->ram;ending.entry_s=c->S;ending.armed=1;return 0;
   }
+  /* E99D's STZ/INC/LDA/CMP are M8 byte operations. $109A is the separate
+   * credits palette-animation counter (INC at02:ED91), not a high counter byte.
+   * Requiring it to be zero rejects real completed campaigns. */
   int valid=ending.armed&&ending.cpu==c&&ending.ram==c->ram&&ending.entry_s==c->S&&
-    c->ram[0x1099]==7&&!c->ram[0x109a];
+    c->ram[0x1099]==7;
   ending.armed=0;
   if(valid){ending.emitted=1;return 1;}
   return 0;

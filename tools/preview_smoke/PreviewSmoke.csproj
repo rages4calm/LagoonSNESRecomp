@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <UseAppHost>false</UseAppHost>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Reference the actual packaged adapter; never rebuild its source. -->
+    <Reference Include="lagoon.Companion">
+      <HintPath>$(PreviewPackageRoot)/lagoon.Companion.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Companion.Launcher.Core">
+      <HintPath>$(PreviewPackageRoot)/Companion.Launcher.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <Target Name="RequirePackage" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(PreviewPackageRoot)/windows-preview.json')"
+           Text="Pass -p:PreviewPackageRoot=the actual staged Windows preview root." />
+  </Target>
+</Project>

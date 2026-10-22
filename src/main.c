@@ -42,6 +42,8 @@
 #include "lagoon_easter_egg.h"
 #include "lagoon_easter_collision.h"
 #include "lagoon_achievement_ending.h"
+#include "lagoon_wide_ai.h"
+#include "lagoon_boss_hud.h"
 #include "snes/interp_bridge.h"
 #include "snes/ppu.h"
 #include "config.h"
@@ -181,6 +183,14 @@ static int LagoonHost_OverlayImage(const uint32_t **pixels,int *width,int *heigh
 static int LagoonHost_CameoBody(const uint8_t *ram,uint64_t generation,int *x,int *y){
     return !present("LAGOON_EASTER_EGG_DISABLE")&&LagoonEasterEgg_CollisionBody(ram,generation,x,y);
 }
+static void LagoonHost_WideActorOpcode(CpuState *cpu,uint32_t pc) {
+    LagoonWideAI_ObserveOpcode(cpu,pc,RtlStateGeneration());
+}
+static uint8_t LagoonHost_WorldRead(uint32_t address,uint8_t value,
+    const CpuWramReadContext *context,const uint8_t *ram) {
+    value=LagoonEasterCollision_FilterRead(address,value,context,ram);
+    return LagoonWideAI_FilterRead(address,value,context,ram,RtlStateGeneration());
+}
 static void LagoonHost_OnRom(const uint8_t *rom,size_t size) {
     LagoonMap_Init(rom,size);
     LagoonQuestGuidance_Init(rom,size);
@@ -189,8 +199,12 @@ static void LagoonHost_OnRom(const uint8_t *rom,size_t size) {
     interp_bridge_add_pre_opcode_hook(0x02e99d,LagoonHost_EndingOpcode);
     interp_bridge_add_pre_opcode_hook(0x02e9bd,LagoonHost_EndingOpcode);
     LagoonQol_OnRomLoaded(rom,size);
+    LagoonWideAI_Init(rom,size,&g_cpu);
+    LagoonBossHud_Init(rom,size);
+    interp_bridge_add_pre_opcode_hook(0x02973a,LagoonHost_WideActorOpcode);
+    interp_bridge_add_pre_opcode_hook(0x01ab31,LagoonHost_WideActorOpcode);
     LagoonEasterCollision_Init(rom,size,LagoonHost_CameoBody);
-    LagoonQol_SetWorldReadFilter(LagoonEasterCollision_FilterRead);
+    LagoonQol_SetWorldReadFilter(LagoonHost_WorldRead);
     LagoonFollower_Reset(rom,size);
 }
 static unsigned long long sword_appends;
@@ -199,6 +213,7 @@ static void LagoonHost_SwordReport(void){if(sword_report_path){FILE*f=fopen(swor
 static void LagoonHost_BeginFrame(unsigned frame) {
     static int initialized;if(!initialized){initialized=1;sword_report_path=getenv("LAGOON_SWORD_REPORT");if(sword_report_path&&*sword_report_path)atexit(LagoonHost_SwordReport);}
     LagoonWide_BeginFrame(frame);
+    LagoonWideAI_BeginFrame(RtlStateGeneration(),g_ppu?g_ppu->extraLeftRight:0,LagoonHost_GameplayReady());
     LagoonEasterEgg_BeginFrame(RtlStateGeneration());
     if(g_ppu)sword_appends+=LagoonSwordVisual_Prepare(g_ppu,g_rom,0x100000,g_ram,
         LagoonQol_SwordReachEnabled() && (!g_config.widescreen || g_ppu->wsLayerWidenMask==3));
@@ -290,18 +305,22 @@ static int LagoonHost_MapKey(int key,int modifiers,int pressed) {
 static int LagoonHost_DrawFrame(uint8_t *dst,size_t pitch,const uint8_t *field,int width,int height,double alpha) {
     if(!LagoonWide_DrawFrame(dst,pitch,field,width,height,alpha))
         for(int y=0;y<height;y++)memcpy(dst+(size_t)y*pitch,field+(size_t)y*width*4,(size_t)width*4);
+    LagoonBossHud_Draw(dst,pitch,field,(size_t)width*4,(unsigned)width,(unsigned)height,RtlStateGeneration());
     if(!present("LAGOON_EASTER_EGG_DISABLE"))LagoonEasterEgg_Draw(dst,pitch,(unsigned)width,(unsigned)height,SDL_GetTicks(),RtlStateGeneration());
     const uint32_t *image;int iw,ih;
     if(LagoonAchievementUI_ToastImage(&image,&iw,&ih)&&iw<=width&&ih<=height){
-        int x=width-iw-6,y=height-ih-6;if(x<0)x=0;if(y<0)y=0;
+        int x=width-iw-4,y=4;if(x<0)x=0;
         for(int row=0;row<ih;row++)memcpy(dst+(size_t)(y+row)*pitch+(size_t)x*4,image+(size_t)row*iw,(size_t)iw*4);
     }
     return 1;
 }
 static void LagoonHost_EndFrame(const uint8_t *field,unsigned number) {
     LagoonWide_EndFrame(field,number);LagoonEasterEgg_EndFrame(RtlStateGeneration());
+    LagoonBossHud_ObserveField(g_ppu,g_ram,RtlStateGeneration(),number,g_snesrecomp_last_hdmaen);
 }
 static void LagoonHost_Shutdown(void) {
+    if(present("LAGOON_WIDE_ENTITY_REPORT"))fprintf(stderr,"[lagoon-wide-ai] ai_reads=%llu animation_reads=%llu\n",
+        LagoonWideAI_AIReads(),LagoonWideAI_AnimationReads());
     LagoonMap_Save();LagoonAchievements_Shutdown();LagoonAchievementSound_Shutdown();achievement_session=0;
 }
 

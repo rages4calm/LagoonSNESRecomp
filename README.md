@@ -37,7 +37,10 @@ widescreen, a custom scene renderer and optional quality-of-life improvements.
 - **Built-in escort improvements:** Giles can receive first aid without spending
   a Healing Pot. Giles and Thor route around walls and stairs at Nasir's
   walking pace, keeping a short gap and the original wall collision. You can walk through
-  your active escort when reversing direction. Menus also open faster.
+  your active escort when reversing direction. Thor can follow a safe jump across
+  the tablet bridge, including after a mid-jump state reload. Menus open faster,
+  and ordinary area changes spend less time on the original loading work.
+  The cloud-to-castle jump also has a more forgiving landing catchment.
 - **Explored map:** press **M** or controller **L2** to pause and see your
   position, discovered exits, links to visited areas and discovered treasure.
   The early tablet quest includes next-step hints and relevant objective markers.
@@ -46,7 +49,7 @@ widescreen, a custom scene renderer and optional quality-of-life improvements.
   The game pauses while it is open.
 - **Local achievements:** 26 milestones for adventuring, bosses and completing
   the ending, powered by **CompanionAchievements**. Open them with **Ctrl+J**,
-  through **R2 → Achievements**, or in Companion. Unlocks have a small notification
+  through **R2 → Achievements**, or in Companion. Unlocks have a compact top-right notification
   and original chime. Progress works offline, saves separately from game saves
   and is never awarded just by loading one. A hidden traveler has a small surprise,
   with solid NPC collision, a portrait, original-style typing dialogue and music
@@ -79,11 +82,13 @@ letterboxing on a 16:9 display. Window scale affects windowed size only.
 
 ## Project status
 
-The current source and Windows preview are **0.2.3** /
-**v0.2.3-preview.1**, with native script setup/scanning, less DMA inspection work,
-and fixes for distant Atland house doors after loading and while walking. Local
-achievements and the hidden cameo retain Lagoon-style typing dialogue, a portrait
-and uninterrupted music. Use the release
+The current source and Windows preview are **0.2.4** /
+**v0.2.4-preview.1**, addressing reports from the owner's completed campaign:
+faster area loading, Thor's bridge crossing, a more forgiving castle landing,
+the Moon Sword equipment cursor, first-phase Evil Spirit/Zerah health bars,
+widescreen enemy simulation and the ending achievement. Local achievements
+now use compact top-right notices. The hidden cameo retains Lagoon-style typing
+dialogue, a portrait and uninterrupted music. Use the release
 notes for the exact contents and qualification of each downloadable package.
 
 This is experimental. Native combat, damage, death/revival, boss services and
@@ -93,7 +98,9 @@ that have not been qualified. Scenery contracts cover all 75 authored room
 descriptors, but that does **not** mean every actor, effect, menu or transition
 supports widescreen. Unsupported content falls back to the original view.
 
-The owner and friends will perform the uninterrupted start-to-finish playtest.
+The owner completed the campaign and explored every map. These reports
+supplement the focused automated checks; they do not prove every native or
+widescreen path is supported.
 Special actor/effect coverage and occasional frame-time spikes remain work in
 progress. Native enemy calculations now cover ordinary areas, including sprite
 packing and direction/velocity commands. A focused busy Elf Field route holds
