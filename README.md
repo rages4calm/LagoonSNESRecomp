@@ -48,7 +48,9 @@ widescreen, a custom scene renderer and optional quality-of-life improvements.
   the ending, powered by **CompanionAchievements**. Open them with **Ctrl+J**,
   through **R2 → Achievements**, or in Companion. Unlocks have a small notification
   and original chime. Progress works offline, saves separately from game saves
-  and is never awarded just by loading one. A hidden traveler has a small surprise.
+  and is never awarded just by loading one. A hidden traveler has a small surprise,
+  with solid NPC collision, a portrait, original-style typing dialogue and music
+  that continues while you talk.
 - **Companion Launcher:** display, audio, input and QoL settings in one place.
   Choose **Original SNES** or the bundled **X68000** music on Audio; no manual
   conversion or folder selection. Unmapped cues retain SNES music and sound
@@ -77,8 +79,9 @@ letterboxing on a 16:9 display. Window scale affects windowed size only.
 
 ## Project status
 
-The current source and Windows preview are **0.2.0** /
-**v0.2.0-preview.1**, with local achievements and a hidden cameo. Use the release
+The current source and Windows preview are **0.2.1** /
+**v0.2.1-preview.1**, with local achievements and a hidden cameo using Lagoon-style typing dialogue,
+a portrait and uninterrupted music. Use the release
 notes for the exact contents and qualification of each downloadable package.
 
 This is experimental. Native combat, damage, death/revival, boss services and

@@ -40,6 +40,7 @@
 #include "lagoon_achievement_ui.h"
 #include "lagoon_achievement_sound.h"
 #include "lagoon_easter_egg.h"
+#include "lagoon_easter_collision.h"
 #include "lagoon_achievement_ending.h"
 #include "snes/interp_bridge.h"
 #include "snes/ppu.h"
@@ -115,6 +116,20 @@ static void LagoonHost_OpenAchievements(void) {
     LagoonMap_Command(LAGOON_MAP_CLOSE);LagoonSettings_Close();LagoonEasterEgg_Close();
     LagoonAchievementUI_Open();
 }
+/* Opt-in read-only integration observation. Normal sessions do no file I/O. */
+static void LagoonHost_TestObserve(unsigned frame) {
+    static unsigned last_frame;static uint32_t last_at;
+    const char *path=getenv("LAGOON_TEST_OBSERVATION");if(!path||!*path)return;
+    if(frame!=~0u)last_frame=frame;
+    uint32_t now=SDL_GetTicks();if(now-last_at<100)return;last_at=now;
+    FILE *f=fopen(path,"w");if(!f)return;
+    fprintf(f,"{\"frame\":%u,\"room\":%u,\"x\":%u,\"y\":%u,\"facing\":%u,\"hp\":%u,\"ready\":%d,\"dialogue\":%d,\"settings\":%d,\"map\":%d,\"achievements\":%d,\"generation\":%llu}\n",
+        last_frame,g_ram[0x48e]|g_ram[0x48f]<<8,g_ram[0x502]|g_ram[0x503]<<8,
+        g_ram[0x504]|g_ram[0x505]<<8,g_ram[0x50a],g_ram[0x520]|g_ram[0x521]<<8,
+        LagoonHost_GameplayReady(),LagoonEasterEgg_IsOpen(),LagoonSettings_IsOpen(),
+        LagoonMap_IsOpen(),LagoonAchievementUI_IsOpen(),(unsigned long long)RtlStateGeneration());
+    fclose(f);
+}
 static void LagoonHost_SettingsRequest(void) {
     if(LagoonSettings_TakeAchievementsRequest())LagoonHost_OpenAchievements();
 }
@@ -138,6 +153,7 @@ static int LagoonHost_Gamepad(int button,int pressed) {
 }
 static int LagoonHost_PollOverlay(uint32_t human) {
     LagoonHost_StartSession();LagoonHost_Generation();LagoonHost_SettingsRequest();
+    LagoonEasterCollision_BeforeFrame();
     if(LagoonAchievementUI_IsOpen())return LagoonAchievementUI_PollOpen(human);
     if(LagoonEasterEgg_IsOpen())return LagoonEasterEgg_PollOpen(human);
     if(!LagoonSettings_IsOpen()&&!LagoonMap_IsOpen()&&!present("LAGOON_EASTER_EGG_DISABLE")&&
@@ -155,12 +171,15 @@ static void LagoonHost_TickOverlay(uint32_t human,uint32_t ticks) {
         LagoonAchievementSound_PlayLaugh((unsigned)snesrecomp_desktop_get_volume());
         cameo_laugh_until=ticks+LagoonAchievementSound_LaughDurationMs()+100;
     }
-    LagoonHost_SettingsRequest();
+    LagoonHost_SettingsRequest();LagoonHost_TestObserve(~0u);
 }
 static int LagoonHost_OverlayImage(const uint32_t **pixels,int *width,int *height) {
     if(LagoonAchievementUI_IsOpen())return LagoonAchievementUI_Image(pixels,width,height);
     if(LagoonEasterEgg_IsOpen())return LagoonEasterEgg_Image(pixels,width,height);
     return LagoonSettings_IsOpen()?LagoonSettings_Image(pixels,width,height):LagoonMap_Image(pixels,width,height);
+}
+static int LagoonHost_CameoBody(const uint8_t *ram,uint64_t generation,int *x,int *y){
+    return !present("LAGOON_EASTER_EGG_DISABLE")&&LagoonEasterEgg_CollisionBody(ram,generation,x,y);
 }
 static void LagoonHost_OnRom(const uint8_t *rom,size_t size) {
     LagoonMap_Init(rom,size);
@@ -170,6 +189,8 @@ static void LagoonHost_OnRom(const uint8_t *rom,size_t size) {
     interp_bridge_add_pre_opcode_hook(0x02e99d,LagoonHost_EndingOpcode);
     interp_bridge_add_pre_opcode_hook(0x02e9bd,LagoonHost_EndingOpcode);
     LagoonQol_OnRomLoaded(rom,size);
+    LagoonEasterCollision_Init(rom,size,LagoonHost_CameoBody);
+    LagoonQol_SetWorldReadFilter(LagoonEasterCollision_FilterRead);
     LagoonFollower_Reset(rom,size);
 }
 static unsigned long long sword_appends;
@@ -204,6 +225,7 @@ static void LagoonHost_AfterFrame(const SnesDesktopHostFrameStats *stats) {
     LagoonFrameProbe_Record(stats);
     LagoonMap_Observe(g_ram,RtlStateGeneration());
     LagoonMap_AfterFrame(stats->frame);
+    LagoonHost_TestObserve(stats->frame);
 }
 static int LagoonHost_MapKey(int key,int modifiers,int pressed) {
     /* The framework modal callback passes key only; use SDL's live modifier

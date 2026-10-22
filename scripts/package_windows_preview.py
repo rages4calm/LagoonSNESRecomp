@@ -157,7 +157,9 @@ The 26-entry achievement browser is also available in Companion. Progress is
 offline and local to this package's saves, independent of game saves/states.
 Unlocks have a short notification and original chime, following master volume.
 Loading a save does not retroactively award achievements; assisted diagnostic runs
-do not award progress. A hidden traveler has a spoiler-safe locked entry.
+do not award progress. A hidden traveler has a spoiler-safe locked entry. His original-style typing
+dialogue has a portrait and keeps the music playing; his completion sound
+follows master volume.
 The game pauses while these panels are open. No return to the launcher is needed
 to adjust those volumes. Companion also edits keyboard/controller/system hotkeys.
 Alt+Enter toggles fullscreen. F1 loads slot1; Shift+F1 saves slot1.
@@ -172,7 +174,7 @@ and whether a new game reproduces a problem.
 
 Source and updates: https://github.com/rages4calm/LagoonSNESRecomp
 See docs/PLAYING.md for controls, CREDITS.md and licenses/ for notices.
-The tiny credited Chrono Trigger cameo artwork has separate original copyright;
+The tiny credited Chrono Trigger cameo artwork and selected B1 sound have separate original copyright;
 it is not covered by the MIT licenses for Companion/CompanionAchievements.
 '''
     (stage/'READ ME.txt').write_text(text,encoding='utf-8');hashes['READ ME.txt']=digest(stage/'READ ME.txt')

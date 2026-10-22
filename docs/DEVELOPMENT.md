@@ -7,10 +7,25 @@ with an empty function, guessed event result or synthetic return.
 
 ## Current scope
 
-Source 0.2.0 adds CompanionAchievements and a small host-side hidden encounter,
-targeting `v0.2.0-preview.1`. The interpreter safety net remains part of this
+Source 0.2.1 includes CompanionAchievements and a small host-side hidden encounter,
+targeting `v0.2.1-preview.1`. The interpreter safety net remains part of this
 release. The native entry counts below describe the preceding qualified native
 batch, rather than a new claim of complete native coverage.
+
+The 0.2.1 encounter fixes were checked from an empty save directory through a
+new game using SDL's virtual gamepad and the normal controller mapping. Checks
+cover approaching from both sides, collision, walking around the NPC, completing
+and cancelling dialogue, actual WASAPI sound playback, a single secret unlock
+and movement afterward. The fresh-game dialogue font check binds only the
+required glyph and border tiles; unrelated unused BG3 art no longer blocks it.
+Collision filters the original movement operands with exact caller/mode/source
+guards and retains the original movement, camera and guest state ownership.
+These focused checks do not replace the owner campaign playtest.
+
+The reported Atland house/door flicker remains open. Focused source/headless
+checks across the northern and southern streets matched native scenery and
+door sprites, but did not reproduce the fullscreen/enhanced presentation issue.
+No renderer guards were relaxed on the strength of those negative checks.
 
 Scenery contracts cover all 75 authored room descriptors. Native work includes
 player damage, death/revival, recovery/reward loops, boss states, Bird/endgame

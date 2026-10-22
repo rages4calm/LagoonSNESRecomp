@@ -7,7 +7,9 @@
 
 static uint16_t pairs[256][2];
 static uint8_t tiles[512][8][8];
+static uint8_t used_tiles[512];
 static int qualified,ready;
+static unsigned encode(unsigned char c);
 static uint64_t hash_bytes(const uint8_t *bytes,size_t size){
   uint64_t hash=UINT64_C(14695981039346656037);
   while(size--)hash=(hash^*bytes++)*UINT64_C(1099511628211);
@@ -15,26 +17,46 @@ static uint64_t hash_bytes(const uint8_t *bytes,size_t size){
 }
 void LagoonDialogueFont_Init(const uint8_t *rom,size_t size){
   ready=qualified=0;memset(pairs,0,sizeof pairs);memset(tiles,0,sizeof tiles);
+  memset(used_tiles,0,sizeof used_tiles);
   if(!rom||size!=0x100000||
       hash_bytes(rom+0x10c29,1024)!=UINT64_C(0xd1f903123ac1ef9c))return;
   for(unsigned c=0;c<256;c++)for(unsigned half=0;half<2;half++){
     unsigned at=0x10c29+c*4+half*2;
     pairs[c][half]=(uint16_t)(rom[at]|rom[at+1]<<8);
   }
+  /* Only glyphs the renderer can request and its eight frame tiles belong
+   * to this immutable resource. Other BG3 art can change with prior events,
+   * so hashing the whole bank incorrectly rejected a genuine fresh game. */
+  for(unsigned c=32;c<127;c++){
+    unsigned code=encode((unsigned char)c);
+    for(unsigned half=0;half<2;half++){
+      unsigned tile=pairs[code][half]&1023;
+      if(tile<512)used_tiles[tile]=1;
+    }
+  }
+  static const unsigned border[]={0x16c,0x16d,0x16e,0x16f,0x17c,0x17d,0x17e,0x17f};
+  for(unsigned i=0;i<sizeof border/sizeof *border;i++)used_tiles[border[i]]=1;
   qualified=1;
 }
 int LagoonDialogueFont_Capture(const Ppu *ppu){
   ready=0;
   if(!qualified||!ppu||ppu->bgmode!=9||ppu->bgTileAdr!=0x600)return 0;
-  /* Entire resident BG3 font/frame bank is immutable in the verified scene.
-   * Hash words in SNES little-endian order, independent of host byte order. */
+  /* Fingerprint all144 requested glyph/frame tiles, with their tile IDs.
+   * Fresh and previously visited scenes differ in unused tiles1E2..1EF.
+   * Neither those changes nor the state of a previously visited NPC affect
+   * the exact immutable lettering we render. Hash in SNES little-endian. */
   uint64_t hash=UINT64_C(14695981039346656037);
-  for(unsigned i=0x6000;i<0x7000;i++){
-    hash=(hash^(ppu->vram[i]&255))*UINT64_C(1099511628211);
-    hash=(hash^(ppu->vram[i]>>8))*UINT64_C(1099511628211);
+  for(unsigned tile=0;tile<512;tile++)if(used_tiles[tile]){
+    hash=(hash^(tile&255))*UINT64_C(1099511628211);
+    hash=(hash^(tile>>8))*UINT64_C(1099511628211);
+    for(unsigned y=0;y<8;y++){
+      uint16_t word=ppu->vram[0x6000+tile*8+y];
+      hash=(hash^(word&255))*UINT64_C(1099511628211);
+      hash=(hash^(word>>8))*UINT64_C(1099511628211);
+    }
   }
-  if(hash!=UINT64_C(0x3099d7e1e3b9d5d6))return 0;
-  for(unsigned tile=0;tile<512;tile++)for(unsigned y=0;y<8;y++){
+  if(hash!=UINT64_C(0x853a41847e8da997))return 0;
+  for(unsigned tile=0;tile<512;tile++)if(used_tiles[tile])for(unsigned y=0;y<8;y++){
     uint16_t planes=ppu->vram[0x6000+tile*8+y];
     for(unsigned x=0;x<8;x++)tiles[tile][y][x]=(uint8_t)(
         ((planes>>(7-x))&1)|((planes>>(14-x))&2));

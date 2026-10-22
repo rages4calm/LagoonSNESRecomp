@@ -5,12 +5,16 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 enum { RATE=48000, FRAMES=31200, MAX_WAV_BYTES=2*1024*1024, MAX_LAUGH_FRAMES=RATE*8 };
 static int16_t samples[FRAMES];
 static uint8_t *laugh_samples;
 static int laugh_bytes;
 static SDL_AudioStream *stream;
 static bool enabled, prepared, failed;
+static bool laugh_trace_pending;
+static bool trace(void){const char *v=getenv("LAGOON_ACHIEVEMENT_SOUND_TRACE");return v&&*v&&strcmp(v,"0");}
 static void open_stream(void);
 void LagoonAchievementSound_Configure(bool value) {
   enabled=value;
@@ -79,6 +83,7 @@ bool LagoonAchievementSound_LoadLaugh(const char *path) {
   if(!converted||!laugh_samples||laugh_bytes<=0||laugh_bytes%2||laugh_bytes>MAX_LAUGH_FRAMES*2) {
     SDL_free(laugh_samples);laugh_samples=NULL;laugh_bytes=0;return false;
   }
+  if(trace())fprintf(stderr,"[cameo-sound] loaded B1 frames=%d rate=%d duration_ms=%u\n",laugh_bytes/2,RATE,LagoonAchievementSound_LaughDurationMs());
   return true;
 }
 unsigned LagoonAchievementSound_LaughDurationMs(void) {
@@ -97,6 +102,10 @@ void LagoonAchievementSound_SetVolume(unsigned volume) {
   SDL_SetAudioStreamGain(stream,(float)volume/100.0f);
   /* Muting discards queued effects: unmuting cannot revive them. */
   if(!volume)SDL_ClearAudioStream(stream);
+  if(laugh_trace_pending&&SDL_GetAudioStreamQueued(stream)==0){
+    if(trace())fprintf(stderr,"[cameo-sound] B1 queue drained on playback device\n");
+    laugh_trace_pending=false;
+  }
 }
 static void play_samples(unsigned volume,const int16_t *data,size_t bytes) {
   if(!enabled||!stream||failed||!data||!bytes)return;
@@ -111,6 +120,11 @@ void LagoonAchievementSound_Play(unsigned volume) {
 }
 void LagoonAchievementSound_PlayLaugh(unsigned volume) {
   play_samples(volume,(const int16_t*)laugh_samples,(size_t)laugh_bytes);
+  if(trace()){
+    int queued=stream?SDL_GetAudioStreamQueued(stream):0;
+    fprintf(stderr,"[cameo-sound] B1 play enabled=%d device=%s volume=%u source_bytes=%d queued_bytes=%d\n",enabled,SDL_GetCurrentAudioDriver()?SDL_GetCurrentAudioDriver():"none",volume,laugh_bytes,queued);
+    laugh_trace_pending=enabled&&stream&&volume&&laugh_bytes&&queued>0;
+  }
 }
 void LagoonAchievementSound_Shutdown(void) {
   if(stream)SDL_DestroyAudioStream(stream);

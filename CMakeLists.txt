@@ -75,6 +75,7 @@ add_executable(LagoonSNESRecomp
     src/lagoon_achievement_sound.c
     src/lagoon_achievement_ending.c
     src/lagoon_easter_egg.c
+    src/lagoon_easter_collision.c
     src/lagoon_dialogue_font.c
     third_party/companion_achievements/companion_achievements.c
     third_party/cjson/cJSON.c

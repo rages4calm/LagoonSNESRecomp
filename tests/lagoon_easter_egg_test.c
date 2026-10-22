@@ -94,6 +94,18 @@ int main(int argc,char **argv){
     CHECK(opaque>100&&changed>=opaque);
   }
   CHECK(!memcmp(before,ram,sizeof ram)&&rom_before==source_hash(rom,sizeof rom,0x008000,sizeof rom));
+  /* A foreground player cell keeps native depth order at the visitor's feet. */
+  fresh();int body_x=0,body_y=0;
+  CHECK(LagoonEasterEgg_CollisionBody(ram,1,&body_x,&body_y)&&body_x==X&&body_y==Y);
+  CHECK(!LagoonEasterEgg_CollisionBody(ram,2,&body_x,&body_y));
+  int left=X-s.complete.x-10,top=Y-s.complete.y-35;
+  ppu.oam[0]=(uint16_t)((top+27)<<8|(left+6));ppu.oam[1]=0;
+  for(unsigned y=0;y<8;y++)ppu.vram[0x4000+y]=255;
+  capture(1);unsigned masked=0;for(unsigned i=0;i<20*35;i++)masked+=s.complete.foreground[i];CHECK(masked==64);
+  for(unsigned i=0;i<256*224;i++)frame[i]=0xff123456;
+  CHECK(LagoonEasterEgg_Draw((uint8_t*)frame,256*4,256,224,0,1));
+  for(unsigned y=27;y<35;y++)for(unsigned x=6;x<14;x++)CHECK(frame[(top+y)*256+left+x]==0xff123456);
+  fresh();
   /* Actual source colors animate; no stale/current-camera substitutes. */
   LagoonEasterEgg_Draw((uint8_t*)frame,256*4,256,224,0,1);memcpy(copy,frame,256*224*4);
   LagoonEasterEgg_Draw((uint8_t*)frame,256*4,256,224,360,1);CHECK(memcmp(copy,frame,256*224*4)!=0);
@@ -141,7 +153,9 @@ int main(int argc,char **argv){
     int sx=(int)x-X+s.complete.x+10,sy=(int)y-Y+s.complete.y+35;
     if(sx<0||sx>=20||sy<0||sy>=35)CHECK(frame[y*256+x]==0x12121212); /* no prompt */
   }
-  ppu.vram[0x6000]^=1;capture(1);LagoonEasterEgg_Draw((uint8_t*)frame,256*4,256,224,0,1);
+  ppu.vram[0x6000+0x1e2*8]^=1;capture(1);
+  CHECK(LagoonDialogueFont_Ready()); /* unrelated NPC/event art must not block talking */
+  fresh();ppu.vram[0x6000]^=1;capture(1);LagoonEasterEgg_Draw((uint8_t*)frame,256*4,256,224,0,1);
   CHECK(!LagoonDialogueFont_Ready()&&!LagoonEasterEgg_TryInteract(SNES_PAD_Y));
   fresh();CHECK(LagoonEasterEgg_TryInteract(SNES_PAD_Y));LagoonEasterEgg_PollOpen(SNES_PAD_Y);
   LagoonEasterEgg_Tick(0,100);CHECK(s.revealed==0);LagoonEasterEgg_Tick(0,249);CHECK(s.revealed==2);

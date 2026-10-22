@@ -4,8 +4,8 @@ $repoRoot=Split-Path $PSScriptRoot -Parent
 $workspaceRoot=Split-Path $repoRoot -Parent
 . (Join-Path $workspaceRoot 'env.ps1')
 $testRoot=[IO.Path]::GetFullPath($ScratchRoot)
-$allowedRoots=@('work-native-batch49','work-native-batch50') | ForEach-Object { [IO.Path]::GetFullPath((Join-Path $workspaceRoot $_))+[IO.Path]::DirectorySeparatorChar }
-if(!($allowedRoots | Where-Object {$testRoot.StartsWith($_,[StringComparison]::OrdinalIgnoreCase)})){throw 'Sound tests require a new scratch directory inside work-native-batch49 or work-native-batch50.'}
+$allowedRoots=@('work-native-batch49','work-native-batch50','work-native-batch51') | ForEach-Object { [IO.Path]::GetFullPath((Join-Path $workspaceRoot $_))+[IO.Path]::DirectorySeparatorChar }
+if(!($allowedRoots | Where-Object {$testRoot.StartsWith($_,[StringComparison]::OrdinalIgnoreCase)})){throw 'Sound tests require a new scratch directory inside work-native-batch49,50 or51.'}
 if(Test-Path -LiteralPath $testRoot){throw 'Existing test inputs are preserved. Choose a new synthetic scratch directory.'}
 New-Item -ItemType Directory -Path $testRoot | Out-Null
 $deps=Join-Path $env:RETCOMM_TOOLCHAIN_DIR 'deps'

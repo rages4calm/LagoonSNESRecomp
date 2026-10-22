@@ -31,11 +31,12 @@ clean first-run setup, runtime DLL closure and isolated gameplay before creating
 or publishing its ZIP. Archive only `windows-preview.json` and its `files` list;
 setup's writable `local/` directory must never enter the published archive.
 
-The 0.2.0 candidate targets tag `v0.2.0-preview.1`. Its explicit stage also
+The 0.2.1 candidate targets tag `v0.2.1-preview.1`. Its explicit stage also
 includes `game/assets/achievements/catalog.json` (26 definitions), the exact
-CompanionAchievements/cJSON MIT notices and dependency provenance, and the three
-small credited Crono GIFs, decoded header and artwork provenance. The Crono
-artwork retains separate original copyright; the software's MIT notices do not
+CompanionAchievements/cJSON MIT notices and dependency provenance, and four
+small credited Crono GIFs, decoded dance/portrait headers, the owner-selected
+`B1.wav` completion sound and provenance. The Crono
+artwork and sound retain separate original copyright; the software's MIT notices do not
 license it. No Chrono Trigger ROM or whole sprite sheet is included.
 `achievement_cameo_inputs()` in the packager checks catalog identity/definitions
 and provenance hashes before creating the stage. Do not substitute achievement

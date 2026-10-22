@@ -4,10 +4,12 @@
 #include <stdint.h>
 struct Ppu;
 
-/* Host-only cameo. Every guest pointer is const; no guest state is modified. */
+/* Host-rendered cameo. Guest pointers stay const; collision is a scoped
+ * read view consumed by the original movement code. */
 void LagoonEasterEgg_Init(const uint8_t *rom,size_t size);
 void LagoonEasterEgg_Observe(const uint8_t *ram,size_t size,uint64_t generation,int gameplay_ready);
 void LagoonEasterEgg_BeginFrame(uint64_t generation);
+int LagoonEasterEgg_CollisionBody(const uint8_t *ram,uint64_t generation,int *x,int *y);
 void LagoonEasterEgg_ObserveRaster(const struct Ppu *ppu,unsigned line,
     const uint8_t *ram,uint64_t generation,int hdma_active);
 void LagoonEasterEgg_EndFrame(uint64_t generation);

@@ -158,6 +158,8 @@ static const uint16_t kDefTableStock[QOL_STAT_ENTRIES] = {
     0x00CB, 0x00D4, 0x00DF, 0x00E7, 0x00F3, 0x00FF,
 };
 
+static LagoonQolWorldReadFilter g_world_read_filter;
+void LagoonQol_SetWorldReadFilter(LagoonQolWorldReadFilter filter){g_world_read_filter=filter;}
 static uint16_t qol_wram_read16(uint32_t addr);
 static void qol_wram_write16(uint32_t addr, uint16_t value);
 static uint8_t qol_filter_write(uint32_t addr, uint8_t value);
@@ -689,6 +691,7 @@ static uint8_t qol_filter_write(uint32_t addr, uint8_t value) {
 static uint8_t qol_filter_read(uint32_t addr, uint8_t value, const CpuWramReadContext *c) {
   if(addr==0x23C)return LagoonFastMenus_FilterRead(addr,value,c,g_ram);
   value=LagoonFollower_FilterRead(addr,value,c,g_ram);
+  if(g_world_read_filter)value=g_world_read_filter(addr,value,c,g_ram);
   if (!g_recovery_time || addr != 0x501 || !c) return value;
   qol_check_timeline();
   uint32_t elapsed = (uint32_t)snes_frame_counter - g_recovery_start_frame;

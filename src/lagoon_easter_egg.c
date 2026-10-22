@@ -17,6 +17,7 @@ typedef struct Raster {
   unsigned lines, valid;
   int x,y;
   uint16_t camera_x,camera_y;
+  uint8_t foreground[20*35];
 } Raster;
 static struct {
   const uint8_t *rom;
@@ -92,6 +93,11 @@ static int clear_site(const uint8_t *r){
     if((r[a]&0xc0)==0xc0&&distance(word(r,a+2),X)<64&&distance(word(r,a+4),Y)<64)return 0;
   return 1;
 }
+int LagoonEasterEgg_CollisionBody(const uint8_t *r,uint64_t generation,int *x,int *y){
+  if(!s.have_generation||generation!=s.generation||!LagoonDialogueFont_Ready()||
+     !ordinary_world(r)||!clear_site(r))return 0;
+  if(x)*x=X;if(y)*y=Y;return 1;
+}
 static int facing_site(const uint8_t *r){
   int dx=X-(int)word(r,0x502),dy=Y-(int)word(r,0x504);
   if(word(r,0x514)||r[0x50a]>3)return 0;
@@ -120,6 +126,32 @@ static int raster_supported(const Ppu *p){
     p->screenEnabled[0]==31&&p->hScroll[0]==p->hScroll[1]&&p->vScroll[0]==p->vScroll[1]&&
     !p->hScroll[2]&&!p->vScroll[2]&&!(p->oamaddh&0x80);
 }
+/* Native depth order: when Nasir stands in front, retain opaque pixels from
+ * his actual live OBJ pack instead of painting the visitor over his head.
+ * Word4000..423F is the original36-tile player pack, separate from town actors. */
+static void player_foreground(const Ppu *p,const uint8_t *r,Raster *field){
+  if(word(r,0x504)<=Y)return;
+  int left=X-field->x-10,top=Y-field->y-35;
+  for(unsigned n=0;n<128;n++){
+    unsigned high=(p->highOam[n/4]>>((n&3)*2))&3,tag=p->oam[n*2+1];
+    if((tag&0x100)||(tag&255)>=36)continue;
+    int size=(high&2)?16:8;
+    int ox=(p->oam[n*2]&255)|((high&1)<<8),oy=p->oam[n*2]>>8;
+    if(ox>=256)ox-=512;if(oy>=224)oy-=256;
+    if(ox>=left+20||ox+size<=left||oy>=top+35||oy+size<=top)continue;
+    for(int yy=0;yy<size;yy++)for(int xx=0;xx<size;xx++){
+      int dx=ox+xx-left,dy=oy+yy-top;if(dx<0||dx>=20||dy<0||dy>=35)continue;
+      unsigned sx=(tag&0x4000)?size-1-xx:xx,sy=(tag&0x8000)?size-1-yy:yy;
+      unsigned tile=((((tag&255)>>4)+(sy>>3))<<4)|(((tag&15)+(sx>>3))&15);
+      if(tile>=36)continue;
+      unsigned at=0x4000+tile*16+(sy&7),bit=7-(sx&7);
+      uint32_t planes=p->vram[at]|(uint32_t)p->vram[at+8]<<16;
+      unsigned color=((planes>>bit)&1)|((planes>>(bit+7))&2)|
+        ((planes>>(bit+14))&4)|((planes>>(bit+21))&8);
+      if(color)field->foreground[dy*20+dx]=1;
+    }
+  }
+}
 void LagoonEasterEgg_ObserveRaster(const Ppu *p,unsigned line,const uint8_t *r,
     uint64_t generation,int hdma_active){
   if(line<1||line>224)return;
@@ -132,6 +164,7 @@ void LagoonEasterEgg_ObserveRaster(const Ppu *p,unsigned line,const uint8_t *r,
   y+=(((int)(p->vScroll[0]&1023)-y+512)&1023)-512+1;
   if(line==1){
     s.build.valid=clear_site(r);LagoonDialogueFont_Capture(p);s.build.x=x;s.build.y=y;
+    player_foreground(p,r,&s.build);
     s.build.camera_x=(uint16_t)word(r,0x480);s.build.camera_y=(uint16_t)word(r,0x482);
   }else if(x!=s.build.x||y!=s.build.y||word(r,0x480)!=s.build.camera_x||word(r,0x482)!=s.build.camera_y){
     s.build.valid=0;
@@ -148,13 +181,13 @@ int LagoonEasterEgg_Draw(uint8_t *dst,size_t pitch,unsigned width,unsigned heigh
     uint32_t ticks,uint64_t generation){
   s.visible=0;
   if(!dst||width<256||width>800||(width&1)||height!=224||pitch<width*4||pitch%4||pitch>64000||
-     !s.valid||!s.complete.valid||generation!=s.generation||generation!=s.complete.generation)return 0;
+     !LagoonDialogueFont_Ready()||!s.valid||!s.complete.valid||generation!=s.generation||generation!=s.complete.generation)return 0;
   int left=(int)(width-256)/2+X-s.complete.x-10,top=Y-s.complete.y-35;
   if(left>= (int)width||left+20<=0||top>=224||top+35<=0)return 0;
   static const uint8_t steps[]={0,2,1,2};unsigned frame=steps[(ticks/180)%4],painted=0;
   for(int y=0;y<35;y++)for(int x=0;x<20;x++){
     unsigned index=cameo_frames[frame][y*20+x];int dx=left+x,dy=top+y;
-    if(index&&dx>=0&&dx<(int)width&&dy>=0&&dy<224){
+    if(index&&!s.complete.foreground[y*20+x]&&dx>=0&&dx<(int)width&&dy>=0&&dy<224){
       ((uint32_t*)(dst+(size_t)dy*pitch))[dx]=cameo_palette[index];painted++;
     }
   }

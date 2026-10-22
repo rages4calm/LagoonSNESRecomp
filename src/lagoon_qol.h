@@ -13,6 +13,10 @@
 /* Clear host-only immunity/hold counters after a guest timeline discontinuity.
  * Also observes RtlStateGeneration before active CPU reads/writes/frame ticks. */
 void LagoonQol_ResetTransient(void);
+struct CpuWramReadContext;
+typedef uint8_t (*LagoonQolWorldReadFilter)(uint32_t,uint8_t,const struct CpuWramReadContext*,const uint8_t*);
+/* Compose a title-owned read view without replacing existing QoL filters. */
+void LagoonQol_SetWorldReadFilter(LagoonQolWorldReadFilter filter);
 
 void LagoonQol_OnRomLoaded(const uint8_t *rom, size_t size);
 /* Visual extension is enabled only after the source-guarded hit rectangles
