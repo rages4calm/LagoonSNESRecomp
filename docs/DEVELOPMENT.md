@@ -7,10 +7,42 @@ with an empty function, guessed event result or synthetic return.
 
 ## Current scope
 
-Source 0.2.2 includes CompanionAchievements and a small host-side hidden encounter,
-targeting `v0.2.2-preview.1`. The interpreter safety net remains part of this
+Source 0.2.3 includes CompanionAchievements and a small host-side hidden encounter,
+targeting `v0.2.3-preview.1`. The interpreter safety net remains part of this
 release. The native entry counts below describe the preceding qualified native
 batch, rather than a new claim of complete native coverage.
+
+The 0.2.3 native service handles finite setup and command-fetch windows around
+the original NPC, event and room-script dispatcher. It preserves the actual
+outer call and physical return frame, the diagnostic hook, every command-child
+call and the terminal return. Source, mode, pointer, generation and per-opcode
+deadline guards remain; unknown or changed contexts stay interpreted. This adds
+manual source-qualified service coverage without changing the generated entry
+counts below.
+
+An actual Atland save/load check reproduced distant house doors disappearing
+with unchanged camera and graphics bytes. Successful loads can now recover only
+the 10,048 complete bytes produced by the original actor loader, after checking
+its sources, descriptor and complete resident prefix. The remaining 704 bytes of
+the larger physical upload remain unowned. This fixes that reproduced ownership
+gap. A separate, Atland-only static-door bridge uses the completed original draw
+producer and its displayed OAM/PPU scroll. The next CPU camera may already be
+ahead; it cannot supply a future pose. Exact current world-record, scene, source,
+generation and resource guards remain, and existing NPC/held paths are unchanged.
+Continuous moving/reversing checks compare every visible source door pixel across
+446 displayed fields, with no missing-door fields. This does not establish that
+every fullscreen flicker report throughout the game is fixed.
+
+Atland's signed negative map margins also use the original fill metatile. Its
+value participates in both the captured packet and background-cache keys. The
+full reference gate stays mandatory; other room/mosaic policies are unchanged.
+
+Fullscreen-spell DMA inspection uses constant-time circular range intersections
+instead of scanning every transferred byte to classify fixed VRAM ranges. DMA
+order, individual write observers, original rendering and ownership checks are
+unchanged. Real-WASAPI hidden OpenGL checks retain raw frame intervals and identify
+original requested loader waits separately from host work. They do not certify
+physical fullscreen scanout, a zero-enemy comparison or universal locked 60 FPS.
 
 The 0.2.2 renderer avoids recalculating all 128 sprite placement policies on
 every later raster line when their exact inputs are unchanged. Changed inputs

@@ -12,7 +12,7 @@ import time
 
 DIAGNOSTIC_RANGES={'SNESRECOMP_AOTBLK': (10,10000000),
                    'SNESRECOMP_CYC_WATCH': (16,0xffffff)}
-DIAGNOSTIC_BOOLEANS={'SNESRECOMP_HOST_PROFILE','SNESRECOMP_LLE_BOUNCE','SNESRECOMP_DMA_LOG','LAGOON_ACTOR_COMPUTE_REPORT','LAGOON_NATIVE_MUSIC_TRACE','LAGOON_NATIVE_ITERATOR52_REPORT'}
+DIAGNOSTIC_BOOLEANS={'SNESRECOMP_HOST_PROFILE','SNESRECOMP_LLE_BOUNCE','SNESRECOMP_DMA_LOG','LAGOON_ACTOR_COMPUTE_REPORT','LAGOON_NATIVE_MUSIC_TRACE','LAGOON_NATIVE_ITERATOR52_REPORT','LAGOON_NATIVE_SCRIPTS53_REPORT'}
 
 
 def validate_diagnostic_boolean(key,value):
@@ -203,7 +203,7 @@ def main():
     overrides={}
     for spec in args.env:
         key,sep,value=spec.partition('=')
-        if not sep or key not in diagnostic_paths|diagnostic_numbers|diagnostic_booleans|diagnostic_ranges.keys()|{'LAGOON_WIDE_ASPECT','LAGOON_SCENE_RENDERER','LAGOON_ACTOR_COMPUTE','LAGOON_ACTOR_COMMANDS','LAGOON_ACTOR_COMMANDS_REPORT','LAGOON_NATIVE_ITERATOR52','LAGOON_CAMPAIGN_FIXTURE_ROOM','LAGOON_SCRIPT_FIXTURE','SNESRECOMP_LLE_INTERP_TARGET'}:
+        if not sep or key not in diagnostic_paths|diagnostic_numbers|diagnostic_booleans|diagnostic_ranges.keys()|{'LAGOON_WIDE_ASPECT','LAGOON_SCENE_RENDERER','LAGOON_ACTOR_COMPUTE','LAGOON_ACTOR_COMMANDS','LAGOON_ACTOR_COMMANDS_REPORT','LAGOON_NATIVE_ITERATOR52','LAGOON_NATIVE_SCRIPTS53','LAGOON_CAMPAIGN_FIXTURE_ROOM','LAGOON_SCRIPT_FIXTURE','SNESRECOMP_LLE_INTERP_TARGET'}:
             raise SystemExit('Unsupported diagnostic override: '+spec)
         if key in diagnostic_paths:
             p=Path(value);p=(p if p.is_absolute() else out/p).resolve()
@@ -226,7 +226,7 @@ def main():
                 live_input=args.live_input,real_audio=args.real_audio,frames=args.frames)
         elif key=='LAGOON_ACTOR_COMMANDS_REPORT':
             if value not in {'0','1'}:raise SystemExit('Report must be 0 or 1')
-        elif key in {'LAGOON_SCENE_RENDERER','LAGOON_ACTOR_COMPUTE','LAGOON_ACTOR_COMMANDS','LAGOON_NATIVE_ITERATOR52'}:
+        elif key in {'LAGOON_SCENE_RENDERER','LAGOON_ACTOR_COMPUTE','LAGOON_ACTOR_COMMANDS','LAGOON_NATIVE_ITERATOR52','LAGOON_NATIVE_SCRIPTS53'}:
             choices={'off','verify','auto'} if key=='LAGOON_SCENE_RENDERER' else {'off','on','auto'}
             if value not in choices:
                 raise SystemExit('Unsupported mode for '+key+': '+value)

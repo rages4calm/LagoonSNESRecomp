@@ -79,9 +79,9 @@ letterboxing on a 16:9 display. Window scale affects windowed size only.
 
 ## Project status
 
-The current source and Windows preview are **0.2.2** /
-**v0.2.2-preview.1**, with reduced CPU work in the shared widescreen renderer
-and native actor-slot iteration for qualified scripted rendering waits. Local
+The current source and Windows preview are **0.2.3** /
+**v0.2.3-preview.1**, with native script setup/scanning, less DMA inspection work,
+and fixes for distant Atland house doors after loading and while walking. Local
 achievements and the hidden cameo retain Lagoon-style typing dialogue, a portrait
 and uninterrupted music. Use the release
 notes for the exact contents and qualification of each downloadable package.

@@ -32,6 +32,7 @@ typedef struct ScenePacket {
   unsigned count,lines,frame,serial,valid;
   uint32_t vram_writes,oam_writes;
   int wx,wy,world_width,world_height;
+  unsigned map_fill,fill_meta;
   unsigned native_x,native_y,bg2_x,bg2_y,parallax,finite_clip;
   unsigned incoming_mosaic,mosaic_size,brightness,mosaic_y_phase,mosaic_backend,mosaic_y_size;
   SceneOamPolicy policy;
@@ -50,6 +51,7 @@ typedef struct SceneMismatch {
   unsigned frame,width,x,y,count,minx,miny,maxx,maxy;
   uint32_t candidate,reference;
   int wx,wy,world_width,world_height;
+  unsigned map_fill,fill_meta;
 } SceneMismatch;
 static SceneMismatch s_mismatch[64];
 static unsigned s_mismatch_count;
@@ -64,6 +66,7 @@ typedef struct SceneBackgroundCache {
   uint8_t depth[W*H];
   uint16_t colors[W*H];
   unsigned valid,width,native_x,native_y,bg2_x,bg2_y,parallax,finite_clip;
+  unsigned map_fill,fill_meta;
   unsigned incoming_mosaic,mosaic_size,brightness,mosaic_y_phase,mosaic_backend,mosaic_y_size;
   int wx,wy,world_width,world_height;
   uint64_t generation;
@@ -407,6 +410,10 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
     s->native_x=p->hScroll[0];s->native_y=p->vScroll[0]+1;
     s->parallax=LagoonSceneRenderer_ParallaxRoom(r);s->finite_clip=word(r,0x48e)==1||word(r,0x48e)==2||word(r,0x48e)==8||LagoonSceneRenderer_AdditionalRoom(r);s->bg2_x=p->hScroll[1];s->bg2_y=p->vScroll[1]+1;
     s->world_width=word(r,0x53)*8;s->world_height=word(r,0x55)*8;
+    /* Atland's ordinary widened shadow repeats its original833E fill tile
+     * beyond signed map zero. Finite rooms and mosaic keep their own policy. */
+    s->map_fill=!s->incoming_mosaic&&word(r,0x48e)==0&&word(r,0x53)==192&&word(r,0x55)==192;
+    s->fill_meta=r[0x52];
     s->count=(unsigned)p->extraObjectCount;
     for(unsigned i=0;i<s->count;++i) {
       const PpuExtraObject *b=&p->extraObjects[i];SceneObject *a=&s->objects[i];
@@ -487,9 +494,16 @@ static void background_row(const ScenePacket *s,unsigned width,unsigned y,int le
       unsigned address=0x7000+layer*0x800+((qy>>3)&31)*32+((qx>>3)&31)+((qx&256)?0x400:0);
       tile=s->vram[address&32767];
     }else {
-      if(qx<0||qy<0||qx>=s->world_width||qy>=s->world_height){x+=count;continue;}
-      unsigned meta=s->maps[layer][(qy>>4)*128+(qx>>4)];
-      tile=s->defs[layer][meta*4+((qx&8)>>3)+((qy&8)>>2)];
+      if(qx<0||qy<0) {
+        if(!s->map_fill){x+=count;continue;}
+        /* WsShadowSetBlankTile uses map_tile(layer,-16,-16), hence quadrant0
+         * of the source fill metatile, not a guessed wrapped map location. */
+        tile=s->defs[layer][s->fill_meta*4];
+      } else {
+        if(qx>=s->world_width||qy>=s->world_height){x+=count;continue;}
+        unsigned meta=s->maps[layer][(qy>>4)*128+(qx>>4)];
+        tile=s->defs[layer][meta*4+((qx&8)>>3)+((qy&8)>>2)];
+      }
       if(layer)tile&=0xdfff;
     }
     uint64_t row=graphics_row(s,tile,qy&7,0,4);
@@ -538,6 +552,7 @@ static int same_background(const ScenePacket *s,unsigned width) {
   const SceneBackgroundCache *b=&s_background;
   return b->valid&&b->width==width&&b->generation==s->generation&&
     b->wx==s->wx&&b->wy==s->wy&&b->world_width==s->world_width&&b->world_height==s->world_height&&
+    b->map_fill==s->map_fill&&b->fill_meta==s->fill_meta&&
     b->native_x==s->native_x&&b->native_y==s->native_y&&b->bg2_x==s->bg2_x&&b->bg2_y==s->bg2_y&&
     b->parallax==s->parallax&&b->finite_clip==s->finite_clip&&
     b->incoming_mosaic==s->incoming_mosaic&&b->mosaic_size==s->mosaic_size&&b->brightness==s->brightness&&
@@ -553,6 +568,7 @@ static void remember_background(const ScenePacket *s,unsigned width) {
   memcpy(b->pal,s->pal,sizeof(b->pal));
   b->width=width;b->generation=s->generation;b->wx=s->wx;b->wy=s->wy;
   b->world_width=s->world_width;b->world_height=s->world_height;
+  b->map_fill=s->map_fill;b->fill_meta=s->fill_meta;
   b->native_x=s->native_x;b->native_y=s->native_y;b->bg2_x=s->bg2_x;b->bg2_y=s->bg2_y;
   b->parallax=s->parallax;b->finite_clip=s->finite_clip;
   b->incoming_mosaic=s->incoming_mosaic;b->mosaic_size=s->mosaic_size;b->brightness=s->brightness;
@@ -651,6 +667,7 @@ static int same_source(const ScenePacket *a,const ScenePacket *b) {
     a->incoming_mosaic!=b->incoming_mosaic||a->mosaic_y_phase!=b->mosaic_y_phase||a->mosaic_backend!=b->mosaic_backend||
     a->mosaic_y_size!=b->mosaic_y_size||
     a->world_width!=b->world_width||a->world_height!=b->world_height||a->count!=b->count||
+    a->map_fill!=b->map_fill||a->fill_meta!=b->fill_meta||
     a->parallax!=b->parallax||a->finite_clip!=b->finite_clip||a->bg2_x!=b->bg2_x||a->bg2_y!=b->bg2_y||
     memcmp(a->regs,b->regs,sizeof(a->regs))||memcmp(&a->policy,&b->policy,sizeof(a->policy))||
     memcmp(a->oam,b->oam,sizeof(a->oam))||memcmp(a->high,b->high,sizeof(a->high))||

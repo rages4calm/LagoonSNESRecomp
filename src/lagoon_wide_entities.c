@@ -1275,6 +1275,40 @@ static int loaded_common3_after_common2(const uint8_t *rom,size_t size,
     source_hash(rom,size,0x11c8b9,1115,UINT64_C(0x1de930f56ff2cd59)) &&
     resident_bytes_hash((const uint8_t*)(vram+0x5800),0x6c0)==UINT64_C(0xcfc427708e515931);
 }
+static int loaded_atland(LagoonWideAtlas *a,const uint8_t *rom,size_t size,
+    const uint8_t *ram,const uint16_t *vram,uint64_t generation) {
+  /* Original8869 and009143 produce10048 complete actor bytes. Its physical
+   * 2A00 upload also copies704 older-buffer bytes: those stay unowned even if
+   * a particular save happens to contain familiar art there. Rebind only the
+   * exact source-produced prefix, never the unknown transfer tail. */
+  static const struct {unsigned address,length;uint64_t hash;} spans[]={
+    {0x05b2df,56,UINT64_C(0xab072f6fd13163b3)},
+    {0x018869,100,UINT64_C(0xdad543165362dc76)},
+    {0x009143,445,UINT64_C(0x734e7c5c9157de09)},
+    {0x0188cd,20,UINT64_C(0x801ae5fb1002d89f)},
+    {0x00908a,81,UINT64_C(0xa4d117801c8e3fec)},
+    {0x00884b,56,UINT64_C(0x2b1eec1eca0b79f0)},
+    {0x0089a7,13,UINT64_C(0x81364db374fb949a)},
+    {0x0087b4,120,UINT64_C(0xeeb909fdbd678929)},
+    {0x0094a1,69,UINT64_C(0x1d3849a43513aa9f)},
+    {0x0094e6,28,UINT64_C(0x8c127e1e18de36d2)},
+    {0x019008,52,UINT64_C(0xa88fac624f0201e7)},
+    {0x0190bb,56,UINT64_C(0xc95e85bc3e0b6b01)},
+    {0x019114,17,UINT64_C(0x32b0eeac8deba992)},
+    {0x138000,6778,UINT64_C(0xee5eca56428db0f9)},
+    {0x198000,8044,UINT64_C(0x7571e59545cc6376)}
+  };
+  for(unsigned i=0;i<sizeof spans/sizeof *spans;++i)
+    if(!source_hash(rom,size,spans[i].address,spans[i].length,spans[i].hash))return 0;
+  for(unsigned i=0;i<56;++i) {
+    unsigned value;if(!rom_byte(rom,size,0x05b2df+i,&value)||value!=ram[0x50+i])return 0;
+  }
+  if(resident_bytes_hash((const uint8_t*)(vram+0x4400),10048)!=UINT64_C(0x1b2702f8c56329ce))return 0;
+  LagoonWideAtlas bound={0};memset(bound.owned,1,10048);
+  bound.generation=generation;bound.room=0;bound.source=0x198000;
+  bound.completed=10048;bound.transfer_next=0xaf40;bound.ready=1;
+  *a=bound;return 1;
+}
 static int loaded_room14(LagoonWideAtlas *a,const uint8_t *rom,size_t size,
     const uint8_t *ram,const uint16_t *vram,uint64_t generation) {
   /* The original actor stream finishes at8324 bytes. The physical2A00 upload
@@ -1313,6 +1347,7 @@ int LagoonWideAtlas_RebindResident(LagoonWideAtlas *a,const uint8_t *rom,
   if(!a||!rom||size!=kRomSize||!ram||!vram||!generation||a->ready||
       a->completed||a->transfer_left||ram[0x100e]||ram[0x48f])return 0;
   unsigned room=ram[0x48e];
+  if(room==0)return loaded_atland(a,rom,size,ram,vram,generation);
   if(room==0x14)return loaded_room14(a,rom,size,ram,vram,generation);
   if(room!=8&&room!=9)return 0;
   unsigned descriptor=0x05b2df+room*56;
@@ -1868,6 +1903,32 @@ static int producer_pose_frame(const uint8_t *ram,unsigned e,uint8_t *frame) {
       expected!=r[28]||!LagoonWideEntities_CurrentSource(g_rom,kRomSize,r[27]<2?0:p[0x48e]+1,expected))return 0;
   *frame=expected;return 1;
 }
+static int producer_prop_frame(unsigned e,uint8_t *frame) {
+  if(!s_frame.producer_valid||e>=kEntities)return 0;
+  const uint8_t *p=s_frame.producer_ram,*r=p+0x500+e*64,*now=g_ram+0x500+e*64;
+  /* C44E consumes the completed producer's literal0C/0E coordinates. The
+   * next CPU iteration may already have advanced the camera and rewritten
+   * these coordinates; it does not own the OAM being displayed. Bind the
+   * producer to both actual BG scrolls, and keep the current static world
+   * record/descriptor/quest identity exact instead of borrowing a future pose. */
+  if(!producer_context(p,s_frame.ram)||p[0x100e]||g_ram[0x100e]||
+      ram_word(p,0x48e)||ram_word(g_ram,0x48e)||
+      !LagoonSceneRenderer_ExactRoom(g_ram)||memcmp(p+0x50,g_ram+0x50,56)||
+      memcmp(p+0x90,g_ram+0x90,4)||p[0x4e1]!=g_ram[0x4e1]||
+      !pose_record_equal(r,now)||!pose_centered(p,0x500+e*64)||
+      (r[0]&0xc8)!=0xc0||(now[0]&0xc0)!=0xc0||
+      r[24]!=5||now[24]!=5||r[28]!=0x3e||
+      !LagoonWideEntities_AllowedKind(0,5,r[27])||
+      !source_hash(g_rom,kRomSize,0x01c44e,97,UINT64_C(0x036e1148b4ed807b))||
+      !LagoonWideEntities_CurrentSource(g_rom,kRomSize,0,0x3e)||
+      g_ppu->inidisp!=15||g_ppu->bgmode!=9||g_ppu->bgXsc[0]!=0x71||
+      g_ppu->bgXsc[1]!=0x79||g_ppu->bgXsc[2]!=0x3c||g_ppu->bgTileAdr!=0x600||
+      g_ppu->mosaic||g_ppu->setini||g_ppu->cgadsub||g_ppu->windowsel||(g_ppu->cgwsel&1))return 0;
+  for(unsigned layer=0;layer<2;++layer)
+    if((g_ppu->hScroll[layer]&1023)!=(ram_word(p,0x480)&1023)||
+       (g_ppu->vScroll[layer]&1023)!=(ram_word(p,0x482)&1023))return 0;
+  *frame=0x3e;return 1;
+}
 
 void LagoonWideEntities_BeginFrame(int enabled) {
   s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;PpuSetExtraObjects(g_ppu,NULL,0);
@@ -2017,10 +2078,13 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     if(queued[e] || !atlas_ok || !LagoonWideEntities_AllowedKind(room,type,kind))continue;
     int ordinary=(type==1||type==2) && kind<(type==1?128:64) && s_pose[e].valid && s_kind_witness[type-1][kind];
     int held=native_pose_matches(ram,e);
-    uint8_t producer_frame;int produced=producer_packet&&type==1&&producer_pose_frame(ram,e,&producer_frame);
+    uint8_t producer_frame;int produced=type==5?producer_prop_frame(e,&producer_frame):
+      producer_packet&&type==1&&producer_pose_frame(ram,e,&producer_frame);
     const uint8_t *pose_ram=produced?s_frame.producer_ram:ram;
-    int x=signed_word(ram_word(pose_ram,a+2)-ram_word(pose_ram,0x480));
-    int y=signed_word(ram_word(pose_ram,a+4)-ram_word(pose_ram,0x482));
+    int x=produced?signed_word(ram_word(pose_ram,a+12)):
+      signed_word(ram_word(pose_ram,a+2)-ram_word(pose_ram,0x480));
+    int y=produced?signed_word(ram_word(pose_ram,a+14)):
+      signed_word(ram_word(pose_ram,a+4)-ram_word(pose_ram,0x482));
     if((x>=-96 && x<352) || y < -32 || y>=288) continue;
     uint8_t frame;int used_current=0;
     if(produced){frame=producer_frame;used_current=2;}

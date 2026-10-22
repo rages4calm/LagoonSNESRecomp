@@ -2,6 +2,7 @@
  * that image and extend only its proven transparent canvas with the current
  * PPU backdrop. Original black/white palette pulses keep their original cadence. */
 #include "lagoon_wide_spell3.h"
+#include "lagoon_vram_span.h"
 #include "snes/ppu.h"
 #include <string.h>
 extern unsigned char g_snesrecomp_last_hdmaen;
@@ -75,10 +76,9 @@ static int owned(unsigned a){return (a>=0x6000&&a<0x7260)||
 void LagoonWideSpell3_Dma(const uint8_t *rom,size_t size,const uint8_t *r,
     uint64_t generation,unsigned channel,unsigned bank,unsigned source,
     unsigned destination,unsigned length,int original_mode) {
-  unsigned bytes=length?length:65536,first=(destination&32767)*2;int touches=0,graphics=0;
-  for(unsigned n=0;n<bytes;++n) {unsigned a=(first+n)&65535;
-    if(owned(a))touches=1;if(graphics_address(a))graphics=1;
-  }
+  unsigned bytes=length?length:65536,first=(destination&32767)*2;
+  unsigned overlap=LagoonVramSpan_Spell3Mask(first,bytes);
+  int touches=overlap&1,graphics=(overlap>>1)&1;
   if(!touches)return;
   int first_map=r && original_mode && channel==1 && bank==0x11 && source==0xf37d &&
     destination==0x7000 && length==0x800 && r[0x537]==3 && r[0x417]==1;

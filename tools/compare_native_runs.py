@@ -190,8 +190,19 @@ def iterator52_control(left, right, old_overrides, new_overrides):
         approved=bool(identities_equal and baseline_mode=='off' and candidate_mode in {'auto','on'} and old==new))
 
 
-def compare_runs(baseline, candidate, interp_control_target=None, native_iterator_control=False):
-    if interp_control_target is not None and native_iterator_control:
+def scripts53_control(left, right, old_overrides, new_overrides):
+    old,new=dict(old_overrides or {}),dict(new_overrides or {})
+    baseline_mode=old.pop('LAGOON_NATIVE_SCRIPTS53',None)
+    candidate_mode=new.pop('LAGOON_NATIVE_SCRIPTS53',None)
+    identities_equal=all(isinstance(left.get(k),str) and re.fullmatch(r'[0-9a-f]{64}',left[k])
+        and left[k]==right.get(k) for k in ('exe_sha256','program_manifest_sha256'))
+    return dict(kind='outer_script_scanner53',baseline_mode=baseline_mode,
+        candidate_mode=candidate_mode,same_executable_and_manifest=identities_equal,
+        approved=bool(identities_equal and baseline_mode=='off' and candidate_mode in {'auto','on'} and old==new))
+
+
+def compare_runs(baseline, candidate, interp_control_target=None, native_iterator_control=False, native_scripts_control=False):
+    if sum((interp_control_target is not None,bool(native_iterator_control),bool(native_scripts_control)))>1:
         raise ValueError('Declare exactly one execution control')
     left, right = load_run(baseline), load_run(candidate)
     result = dict(schema='lagoon strict native replay comparison v2',
@@ -241,6 +252,13 @@ def compare_runs(baseline, candidate, interp_control_target=None, native_iterato
             unexpected_inputs.pop('diagnostic_overrides',None)
         else:
             unexpected_inputs['execution_control']=control
+    if native_scripts_control:
+        control=scripts53_control(left['receipt'],right['receipt'],left['normalized_overrides'],right['normalized_overrides'])
+        result['execution_control']=control
+        if control['approved']:
+            unexpected_inputs.pop('diagnostic_overrides',None)
+        else:
+            unexpected_inputs['execution_control']=control
     result['unapproved_input_differences'] = unexpected_inputs
     a, b = left['presentations'], right['presentations']
     mismatches = [i for i in range(max(len(a), len(b)))
@@ -283,9 +301,10 @@ def main():
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--interp-control-target', help='Declare the sole baseline-only interpreter target; requires the same EXE/manifest. All observed differences remain reported.')
     parser.add_argument('--native-iterator-control',action='store_true',help='Declare only iterator52 off versus auto/on with the same EXE/manifest. All guest, clock, audio and picture comparisons remain strict.')
+    parser.add_argument('--native-scripts-control',action='store_true',help='Declare only outer-script scanner53 off versus auto/on with the same EXE/manifest. Every other input, picture, clock and audio comparison remains strict.')
     args = parser.parse_args()
     try:
-        result = compare_runs(args.baseline, args.candidate, args.interp_control_target,args.native_iterator_control)
+        result = compare_runs(args.baseline, args.candidate, args.interp_control_target,args.native_iterator_control,args.native_scripts_control)
     except (OSError, ValueError, KeyError, TypeError) as error:
         result = dict(schema='lagoon strict native replay comparison v2', passed=False,
                       valid_evidence=False, error=str(error))
