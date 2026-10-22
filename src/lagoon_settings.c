@@ -17,7 +17,7 @@ extern int snesrecomp_desktop_get_volume(void);
 extern void snesrecomp_desktop_set_volume(int volume);
 enum {WIDTH=640,HEIGHT=360};
 static uint32_t panel[WIDTH*HEIGHT],prior_input,repeat_at;
-static unsigned opened,selected,primed,repeat_armed;
+static unsigned opened,selected,primed,repeat_armed,achievements_requested;
 static char config_file[1024];
 static int save_failed;
 #ifdef _WIN32
@@ -111,19 +111,23 @@ static int persist_music(unsigned volume){
  if(f)file_remove(temporary);free(after);free(before);return wrote;
 }
 void LagoonSettings_Configure(const char *path){
- opened=selected=primed=repeat_armed=0;prior_input=repeat_at=0;save_failed=0;config_file[0]=0;
+ opened=selected=primed=repeat_armed=achievements_requested=0;prior_input=repeat_at=0;save_failed=0;config_file[0]=0;
  if(path&&strlen(path)<sizeof config_file)memcpy(config_file,path,strlen(path)+1);
  size_t bytes=0;char *text=file_read(config_file,&bytes);unsigned value=100;size_t a,b,c;int section;const char *nl;
  if(text&&!locate(text,bytes,&a,&b,&c,&value,&section,&nl))value=100;free(text);LagoonSoundtrack_SetVolume(value);
 }
-void LagoonSettings_Open(void){opened=1;selected=0;primed=repeat_armed=0;repeat_at=prior_input=0;}
+void LagoonSettings_Open(void){opened=1;selected=0;primed=repeat_armed=achievements_requested=0;repeat_at=prior_input=0;}
 void LagoonSettings_Close(void){opened=0;primed=repeat_armed=0;}
 int LagoonSettings_IsOpen(void){return opened!=0;}
 int LagoonSettings_PollOpen(uint32_t human){if(opened&&!primed){prior_input=human;primed=1;}return opened!=0;}
+int LagoonSettings_TakeAchievementsRequest(void){unsigned requested=achievements_requested;achievements_requested=0;return requested!=0;}
 void LagoonSettings_Command(unsigned command){
  if(!opened)return;
  if(command==LAGOON_SETTINGS_CLOSE){LagoonSettings_Close();return;}
- if(command==LAGOON_SETTINGS_UP||command==LAGOON_SETTINGS_DOWN){selected^=1;return;}
+ if(command==LAGOON_SETTINGS_ACTIVATE){if(selected==2){achievements_requested=1;LagoonSettings_Close();}return;}
+ if(command==LAGOON_SETTINGS_UP){selected=selected?selected-1:2;return;}
+ if(command==LAGOON_SETTINGS_DOWN){selected=(selected+1)%3;return;}
+ if(selected==2)return;
  if(command!=LAGOON_SETTINGS_LEFT&&command!=LAGOON_SETTINGS_RIGHT)return;
  int value=selected?(int)LagoonSoundtrack_GetVolume():snesrecomp_desktop_get_volume();
  int next=value+(command==LAGOON_SETTINGS_LEFT?-5:5);if(next<0)next=0;if(next>100)next=100;if(next==value)return;
@@ -134,6 +138,7 @@ void LagoonSettings_Tick(uint32_t human,uint32_t ticks){
  if(!opened)return;if(!primed){prior_input=human;primed=1;return;}
  uint32_t edge=human&~prior_input,nav=human&(SNES_PAD_UP|SNES_PAD_DOWN|SNES_PAD_LEFT|SNES_PAD_RIGHT);
  if(edge&SNES_PAD_B){LagoonSettings_Close();return;}
+ if(edge&(SNES_PAD_A|SNES_PAD_Y)){LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);if(!opened)return;}
  if(edge&nav){repeat_at=ticks+SNES_OVL_REPEAT_DELAY;repeat_armed=1;}
  else if(nav&&repeat_armed&&(int32_t)(ticks-repeat_at)>=0){edge|=nav;repeat_at=ticks+SNES_OVL_REPEAT_RATE;}
  if(!nav)repeat_armed=0;
@@ -148,14 +153,15 @@ int LagoonSettings_Image(const uint32_t **pixels,int *width,int *height){
  for(unsigned n=0;n<WIDTH*HEIGHT;n++)panel[n]=bg;
  rect(0,0,WIDTH,4,accent);text(28,25,"LAGOON  /  QUICK SETTINGS",accent);
  text(28,52,"GAME PAUSED - CHANGES APPLY IMMEDIATELY",dim);
- for(unsigned row=0;row<2;row++){
-  int y=91+(int)row*80,v=row?(int)LagoonSoundtrack_GetVolume():snesrecomp_desktop_get_volume();char label[48];
-  if(row==selected){rect(16,y-10,608,68,0xff203548);text(28,y,">",accent);}
-  text(48,y,row?"X68000 MUSIC":"MASTER VOLUME",fg);snprintf(label,sizeof label,"%d%%",v);text(552,y,label,fg);
-  rect(48,y+25,548,8,0xff314357);rect(48,y+25,548*v/100,8,accent);
+ for(unsigned row=0;row<3;row++){
+  int y=91+(int)row*64;char label[48];
+  if(row==selected){rect(16,y-10,608,54,0xff203548);text(28,y,">",accent);}
+  text(48,y,row==2?"ACHIEVEMENTS":row?"X68000 MUSIC":"MASTER VOLUME",fg);
+  if(row<2){int v=row?(int)LagoonSoundtrack_GetVolume():snesrecomp_desktop_get_volume();snprintf(label,sizeof label,"%d%%",v);text(552,y,label,fg);rect(48,y+23,548,6,0xff314357);rect(48,y+23,548*v/100,6,accent);}
+  else{text(552,y,"OPEN",accent);text(48,y+23,"VIEW YOUR JOURNEY AND LOCAL UNLOCKS",dim);}
  }
- text(28,255,"UP/DOWN: SELECT     LEFT/RIGHT: ADJUST",fg);
- text(28,281,"B / ESC: CLOSE     R2 / CTRL+COMMA: TOGGLE",dim);
- text(28,307,save_failed?"MUSIC LEVEL IS SESSION ONLY - CONFIG COULD NOT BE SAVED":"MASTER AFFECTS MUSIC AND SFX. MUSIC TRIM AFFECTS X68000 ONLY.",save_failed?0xffffbf69:dim);
+ text(28,282,"UP/DOWN: SELECT     LEFT/RIGHT: ADJUST",fg);
+ text(28,307,selected==2?"A / ENTER: OPEN     B / ESC: CLOSE":"B / ESC: CLOSE     R2 / CTRL+COMMA: TOGGLE",dim);
+ text(28,333,save_failed?"MUSIC LEVEL IS SESSION ONLY - CONFIG COULD NOT BE SAVED":"PREFERENCES AND ACHIEVEMENTS STAY OUTSIDE GAME SAVES.",save_failed?0xffffbf69:dim);
  if(pixels)*pixels=panel;if(width)*width=WIDTH;if(height)*height=HEIGHT;return 1;
 }

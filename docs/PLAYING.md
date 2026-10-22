@@ -1,5 +1,8 @@
 # Playing and settings
 
+The hidden visitor accepts controller Y or keyboard **E** when you are nearby
+and facing him. Enter advances his dialogue; Escape cancels it.
+
 Build from [these instructions](BUILDING.md), open `Start Lagoon.cmd`, select your
 clean USA ROM in Companion Launcher and choose Play. Apply settings before starting
 or restart to use changes. This is an experimental build with interpreter fallback.
@@ -113,8 +116,10 @@ bindings are retained.
 | --- | --- |
 | M / controller L2 | Open or close the explored map. |
 | Ctrl+comma / controller R2 | Open or close quick settings. |
+| Ctrl+J | Open or close achievements. |
 | Arrow keys / D-pad | Navigate a map or settings panel. |
 | Left/Right in quick settings | Adjust the selected volume by 5%. |
+| Enter / controller A or Y on Achievements | Open the achievement browser from quick settings. |
 | Escape / controller B | Close a panel. |
 | Keypad + / Keypad - | Raise or lower master volume during gameplay. |
 | Alt+Enter | Toggle fullscreen. |
@@ -126,6 +131,35 @@ battle or escort. Master volume affects all audio. X68000 music volume trims onl
 the optional replacement soundtrack; its sound effects retain the master level.
 These settings persist without returning to Companion. Changing the soundtrack
 itself still requires Companion and a restart.
+
+## Achievements
+
+**Ctrl+J** opens the in-game browser. With a controller, press **R2**, select
+**Achievements** and press **A** or **Y**. Up/Down selects entries; Left/Right
+changes page. **Escape**, controller **B** or **R2** closes it. Gameplay pauses
+while browsing. The Companion **Achievements** page shows the same earned,
+locked and partial progress; the launcher only reads progress and never awards it.
+
+There are 26 achievements covering bosses, levels, treasure, early quests, gold,
+the completed ending and a hidden encounter. Locked secret text stays masked in
+both browsers. Each new unlock has a short notification and a synthesized chime.
+The chime follows **master volume**, including mute, rather than the X68000 music
+trim. Notifications wait while panels/dialogue are open.
+
+Progress works offline; there is no account or server. It belongs to the selected
+game save folder and is stored separately at
+`Achievements/lagoon/native-qol/unseeded/progress.json` beneath it. In the preview,
+that is inside `local/saves`; in the normal source checkout, inside `build/saves`.
+Loading an older game save or state does not erase earned achievements. Extracting
+a separate preview gives it independent local progress unless you transfer your
+save folder yourself.
+
+Loading a save establishes a baseline and does not retroactively award its
+existing accomplishments or replay unlock sounds. Continue playing to earn
+future qualifying milestones. Scripted/assisted diagnostic sessions disable
+tracking. A corrupt/unreadable progress file or another running copy leaves
+gameplay available and shows a tracking status; the game does not reset the file
+or change guest HP, items, rewards, flags or clocks to award achievements.
 
 ## Audio
 

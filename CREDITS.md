@@ -16,12 +16,30 @@
 - **RetroPortingToolKit and SNESRecomp contributors** — recompilation, runtime,
   rendering and the interpreter safety net. See the framework's license.
 - **Companion Launcher contributors** — the shared launcher foundation.
+- **Carl Prewitt Jr. / CompanionAchievements contributors** — the portable local
+  achievement system, distributed under its unchanged MIT notice in
+  `third_party/companion_achievements/LICENSE`. Exact imported core and dependency
+  hashes are recorded in that directory's `provenance.json`.
+- **Dave Gamble and cJSON contributors** — JSON parsing, under the unchanged MIT
+  notice in `third_party/cjson/LICENSE`.
+- **Square and the respective Chrono Trigger rights holders** — the small Crono
+  cameo artwork. The three front-arm poses were sourced from
+  [VideoGameSprites.net's Crono page](https://www.videogamesprites.net/ChronoTrigger/Party/Crono/)
+  and decoded without repainting their original opaque colors. Source hashes,
+  pixel normalization and attribution are in `assets/easter_egg/provenance.json`.
+  No Chrono Trigger ROM or whole sprite sheet is included. This original artwork
+  has separate copyright; the MIT licenses for Companion and achievements do not
+  grant a license to it. Cameo dialogue is original text written for this port.
 - **Valley Bell and libvgm contributors** — the separate offline VGM renderer
   used to import the privately supplied soundtrack. Its code is not linked into
   the game; retain the renderer's own license when obtaining or distributing it.
 - **joshleaves / ghidra-snes and Ghidra contributors** — reverse-engineering tools.
 
 Original work and dependency licenses remain with their respective authors.
+The playable package retains the exact achievement toolkit and cJSON MIT notices
+under `licenses/`, alongside the framework and launcher license notices. The
+root PolyForm license is unchanged and does not replace these separate notices
+or the original music/artwork copyrights.
 
 The sword/lagoon and compass application icons are original AI-generated artwork
 created for this project. They do not replace the game's original artwork.

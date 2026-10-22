@@ -7,9 +7,58 @@ from __future__ import annotations
 import argparse,hashlib,json,os
 from pathlib import Path
 import shutil,subprocess
+import re
 
 ROOT=Path(__file__).resolve().parents[1]
 def digest(path:Path)->str: return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def achievement_cameo_inputs(root:Path=ROOT)->dict[str,str]:
+    """Audit the small, explicit public additions before creating a stage.
+
+    Progress, profiles, ROMs and whole sprite sheets can never enter this list.
+    The embedded artwork is separately copyrighted; preserve its provenance.
+    """
+    catalog=root/'assets/achievements/catalog.json'
+    if catalog.stat().st_size>32768: raise ValueError('Oversized achievement catalog')
+    data=json.loads(catalog.read_text(encoding='utf-8'))
+    if not isinstance(data,dict) or type(data.get('schemaVersion')) is not int or data['schemaVersion']!=1 or data.get('gameId')!='lagoon' or data.get('editionId')!='native-qol' or type(data.get('catalogVersion')) is not int or data['catalogVersion']!=1:
+        raise ValueError('Unsupported Lagoon achievement catalog identity/schema')
+    rows=data.get('achievements');ids=set()
+    if not isinstance(rows,list) or len(rows)!=26: raise ValueError('Expected the reviewed 26-entry achievement catalog')
+    for row in rows:
+        identifier=row.get('id') if isinstance(row,dict) else None
+        if not isinstance(identifier,str) or not re.fullmatch(r'[a-z0-9._-]{1,80}',identifier) or identifier in ids:
+            raise ValueError('Invalid or duplicate achievement ID')
+        ids.add(identifier)
+        if any(not isinstance(row.get(k),str) or not row[k] for k in ('title','description','event')) or row.get('rule') not in ('milestone','counter') or type(row.get('target')) is not int or not 0<row['target']<=0xffffffff:
+            raise ValueError('Invalid achievement definition: '+identifier)
+    if not {'story.finished','secret.wrong-game'}.issubset(ids): raise ValueError('Missing reviewed ending/cameo achievement')
+    selected={str(catalog):'game/assets/achievements/catalog.json'}
+    provenance=root/'third_party/companion_achievements/provenance.json'
+    record=json.loads(provenance.read_text(encoding='utf-8'))
+    for folder,key,names in [('companion_achievements','core_files',{'companion_achievements.c','companion_achievements.h','LICENSE'}),('cjson','cjson_files',{'cJSON.c','cJSON.h','LICENSE'})]:
+        hashes=record.get(key)
+        if not isinstance(hashes,dict) or set(hashes)!=names: raise ValueError('Incomplete achievement dependency provenance: '+folder)
+        for name,expected in hashes.items():
+            if digest(root/'third_party'/folder/name)!=expected: raise ValueError('Achievement dependency differs from provenance: '+folder+'/'+name)
+    selected[str(provenance)]='licenses/CompanionAchievements-provenance.json'
+    selected[str(root/'third_party/companion_achievements/LICENSE')]='licenses/CompanionAchievements-LICENSE'
+    selected[str(root/'third_party/cjson/LICENSE')]='licenses/cJSON-LICENSE'
+    assets=root/'assets/easter_egg';provenance=assets/'provenance.json'
+    record=json.loads(provenance.read_text(encoding='utf-8'))
+    names={'Crono - Left Arm (Front).gif','Crono - Right Arm (Front).gif','Crono - Arms Up (Front).gif'}
+    sources=record.get('source_files',[])
+    if not isinstance(sources,list) or len(sources)!=3 or {p.get('file') for p in sources if isinstance(p,dict)}!=names:
+        raise ValueError('Only the three reviewed Crono source GIFs may be packaged')
+    for source in sources:
+        path=assets/source['file']
+        if not 0<path.stat().st_size<=4096 or path.stat().st_size!=source.get('bytes') or digest(path)!=source.get('sha256'): raise ValueError('Cameo asset differs from provenance: '+path.name)
+        selected[str(path)]='game/assets/easter_egg/'+path.name
+    header=assets/'crono_dance.generated.h'
+    if not 0<header.stat().st_size<=16384 or digest(header)!=record.get('generated_header_sha256'): raise ValueError('Cameo header differs from provenance')
+    selected[str(header)]='game/assets/easter_egg/'+header.name
+    selected[str(provenance)]='game/assets/easter_egg/provenance.json'
+    return selected
 
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
@@ -25,7 +74,8 @@ def main():
     a=ap.parse_args();stage=a.stage.resolve()
     if stage.exists(): raise SystemExit('Stage must not exist. Existing work is preserved.')
     if not a.game_exe.is_file() or not (a.launcher/'lagoon.Companion.exe').is_file() or not (a.launcher/'coreclr.dll').is_file(): raise SystemExit('Qualified game EXE and self-contained Companion are required.')
-    selected={str(ROOT/n):n for n in ['Setup Lagoon.cmd','scripts/setup_windows.ps1','scripts/preview-default.ini','rom_identity.txt','LICENSE','CREDITS.md']}
+    selected={str(ROOT/n):n for n in ['Setup Lagoon.cmd','scripts/setup_windows.ps1','scripts/preview-default.ini','rom_identity.txt','LICENSE','CREDITS.md','docs/PLAYING.md','docs/SOUNDTRACK.md']}
+    selected.update(achievement_cameo_inputs())
     selected[str(a.game_exe)]='game/LagoonSNESRecomp.exe'
     audio=set()
     for name in ['lagoon-x68000.msu','pack.json']+[f'lagoon-x68000-{n}.pcm' for n in range(1,41)]:
@@ -78,8 +128,8 @@ def main():
     text='''LAGOON COMPANION — WINDOWS PREVIEW
 
 This playable work in progress requires Windows 10/11 x64 and your own clean,
-unheadered Lagoon USA ROM (1 MiB). No ROM, extracted graphics, saves or generated
-C source are included. The native game and self-contained Companion
+unheadered Lagoon USA ROM (1 MiB). No ROM, extracted Lagoon graphics, saves or
+ROM-derived generated C source are included. The native game and self-contained Companion
 EXEs are included. The interpreter safety net remains enabled.
 
 1. Extract the entire ZIP into a writable folder.
@@ -96,7 +146,13 @@ Extract a new preview into a separate folder and keep your previous saves.
 M or controller L2 opens the exploration map. Esc/B closes it; left/right select
 visited areas. Early tablet objectives include next-step hints and map markers.
 R2 or Ctrl+comma opens quick settings: master volume and X68000 music volume.
-The game pauses while either panel is open. No return to the launcher is needed
+Select Achievements there and press A/Y or Enter, or use Ctrl+J directly.
+The 26-entry achievement browser is also available in Companion. Progress is
+offline and local to this package's saves, independent of game saves/states.
+Unlocks have a short notification and original chime, following master volume.
+Loading a save does not retroactively award achievements; assisted diagnostic runs
+do not award progress. A hidden traveler has a spoiler-safe locked entry.
+The game pauses while these panels are open. No return to the launcher is needed
 to adjust those volumes. Companion also edits keyboard/controller/system hotkeys.
 Alt+Enter toggles fullscreen. F1 loads slot1; Shift+F1 saves slot1.
 Quality of life has independent EXP and gold reward selectors: Original or 2x through 8x;
@@ -109,7 +165,9 @@ Complete campaign playtesting is still pending. Report room, actions/settings
 and whether a new game reproduces a problem.
 
 Source and updates: https://github.com/rages4calm/LagoonSNESRecomp
-See CREDITS.md and licenses/ for authors and dependency notices.
+See docs/PLAYING.md for controls, CREDITS.md and licenses/ for notices.
+The tiny credited Chrono Trigger cameo artwork has separate original copyright;
+it is not covered by the MIT licenses for Companion/CompanionAchievements.
 '''
     (stage/'READ ME.txt').write_text(text,encoding='utf-8');hashes['READ ME.txt']=digest(stage/'READ ME.txt')
     contract={'format':1,'mode':'prebuilt-own-rom','package':a.package_id,'game_sha256':digest(a.game_exe),'generated_manifest_sha256':digest(a.generated_manifest),'source_commit':subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip(),'framework_patch_sha256':digest(ROOT/'patches/lagoon-framework.patch'),'files':dict(sorted(hashes.items()))}

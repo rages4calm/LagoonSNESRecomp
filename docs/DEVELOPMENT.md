@@ -7,6 +7,11 @@ with an empty function, guessed event result or synthetic return.
 
 ## Current scope
 
+Source 0.2.0 adds CompanionAchievements and a small host-side hidden encounter,
+targeting `v0.2.0-preview.1`. The interpreter safety net remains part of this
+release. The native entry counts below describe the preceding qualified native
+batch, rather than a new claim of complete native coverage.
+
 Scenery contracts cover all 75 authored room descriptors. Native work includes
 player damage, death/revival, recovery/reward loops, boss states, Bird/endgame
 services, sprite staging, resource/tile queues, numeric UI helpers and original
@@ -237,8 +242,9 @@ Broader quest guidance, a full objective journal and a possible15–20% zoom-out
 remain later work.
 
 The title-owned quick-settings panel shares the frozen-overlay host and edits
-master volume or replacement-music trim only. L2 opens the map; R2 or Ctrl+comma
-opens settings. Native controller callbacks keep these extra triggers separate
+master volume or replacement-music trim, with an entry for the read-only
+achievement browser. L2 opens the map; R2 or Ctrl+comma opens settings; Ctrl+J
+opens achievements directly. Native controller callbacks keep these extra triggers separate
 from the twelve SNES inputs. Companion also exposes keyboard, controller and
 system-hotkey editors with optimistic revisions and rollback across native files.
 Reward selectors scale only the source-qualified enemy/boss gold and EXP words;
@@ -318,6 +324,28 @@ loop headers and SNES sound effects stay intact. Existing clipping in supplied
 samples cannot be reconstructed through playback attenuation.
 
 ## Qualification
+
+Achievements observe completed gameplay changes without modifying guest memory,
+clocks, scripts or rewards. An isolated host worker owns the
+CompanionAchievements C engine and atomic local progress writes; gameplay queues
+bounded facts and the UI reads published progress. The launcher is read-only.
+The catalog has 26 entries, including a source-bound actual ending completion
+witness after the seven credits scenes and final artwork return; entering a
+boss room is never treated as completing the game. Loads/generation changes
+clear transient observation witnesses without awarding the loaded snapshot.
+Assisted diagnostic sessions disable tracking and notification audio.
+Progress uses `<actual-save-root>/Achievements/lagoon/native-qol/unseeded/`;
+storage failure or an existing writer disables tracking without blocking play
+or replacing the owner's progress. UI panels pause the guest and consume opener
+and close-button input before gameplay resumes. The unlock sound has a separate
+host stream and follows master volume; it never touches the SPC driver.
+
+The tiny credited cameo is host-only presentation and interaction, independent
+of original actors, collision, items and quest flags. Its three source GIFs and
+decoded pixels have a separate copyright provenance record in
+`assets/easter_egg/provenance.json`. They are not Lagoon ROM extraction and are
+not covered by the MIT notices for the achievement toolkit. Keep the hidden
+location and discovery text out of player-facing instructions.
 
 Keep source, architectural mode, actual guest return-stack and generation guards.
 Native promotion is checked against original opcodes with complete memory,
@@ -428,8 +456,9 @@ host-callback API. The dirty SDK checkout and public baseline pin are preserved.
 [Build instructions](BUILDING.md). Keep the framework patch and dependency licenses.
 Apply/check the cumulative patch on clean checkouts; preserve intentional local
 framework changes in active workspaces. Never reset the SDK or accidentally
-commit a dirty submodule pointer. ROMs, generated C, decomp exports, states,
-extracted assets and raw validation stay private. The owner-approved converted
+commit a dirty submodule pointer. ROMs, ROM-derived generated C, decomp exports, states,
+extracted Lagoon assets and raw validation stay private. The tiny credited cameo
+is a separate, explicitly requested third-party artwork inclusion. The owner-approved converted
 X68000 album and its MP3 listening exports are the explicit audio distribution
 exception; other private audio remains local.
 

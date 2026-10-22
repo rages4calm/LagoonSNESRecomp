@@ -70,6 +70,13 @@ add_executable(LagoonSNESRecomp
     src/lagoon_transition_present.c
     src/lagoon_quest_guidance.c
     src/lagoon_settings.c
+    src/lagoon_achievements.c
+    src/lagoon_achievement_ui.c
+    src/lagoon_achievement_sound.c
+    src/lagoon_achievement_ending.c
+    src/lagoon_easter_egg.c
+    third_party/companion_achievements/companion_achievements.c
+    third_party/cjson/cJSON.c
     src/lagoon_sword_visual.c
     src/lagoon_campaign_debug.c
 )
@@ -115,6 +122,7 @@ endif()
 # to configure.
 snesrecomp_target_mod_catalog(LagoonSNESRecomp ${CMAKE_SOURCE_DIR}/mods/preloaded)
 snesrecomp_target_stage_dir(LagoonSNESRecomp ${CMAKE_SOURCE_DIR}/assets/shaders assets/shaders)
+snesrecomp_target_stage_dir(LagoonSNESRecomp ${CMAKE_SOURCE_DIR}/assets/achievements assets/achievements)
 # Any other directory the game reads exe-relative (a translations/ table, ...)
 # is staged with snesrecomp_target_stage_dir, never with a separate ALL target.
 
@@ -125,6 +133,8 @@ target_include_directories(LagoonSNESRecomp PRIVATE
     ${SNESRECOMP_ROOT}/runner/src/desktop
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/recomp
+    ${CMAKE_SOURCE_DIR}/third_party/companion_achievements
+    ${CMAKE_SOURCE_DIR}/third_party/cjson
 )
 target_link_libraries(LagoonSNESRecomp PRIVATE ${SNESRECOMP_RUNNER_LIBRARIES})
 target_compile_definitions(LagoonSNESRecomp PRIVATE

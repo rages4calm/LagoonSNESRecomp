@@ -14,6 +14,7 @@
 #include "snes/ppu.h"
 #include "snes/ws_shadow.h"
 #include "snes/interp_bridge.h"
+#include "lagoon_easter_egg.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -659,6 +660,7 @@ void LagoonWide_BeginFrame(unsigned number) {
 /* Observe the actual raster, without adding a PPU line enhancer (which has
  * its own BG viewport semantics). SNES output row0 samples scrollY+1. */
 void LagoonWide_ObserveRaster(const Ppu *ppu,unsigned line,void *context) {
+  LagoonEasterEgg_ObserveRaster(ppu,line,g_ram,RtlStateGeneration(),g_snesrecomp_last_hdmaen!=0);
   (void)context;
   int mosaic=s_incoming_mosaic_frame && s_initial_world_authority &&
       s_world_chars_ready && !g_snesrecomp_last_hdmaen;

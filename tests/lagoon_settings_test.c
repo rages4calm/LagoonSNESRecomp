@@ -34,6 +34,20 @@ int main(int argc,char**argv){
  write(path,"[Lagoon]\nSoundtrackVolume=0\n");LagoonSettings_Configure(path);LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_DOWN);LagoonSettings_Command(LAGOON_SETTINGS_LEFT);assert(music==0);
  const uint32_t *pixels=NULL;int width=0,height=0;assert(LagoonSettings_Image(&pixels,&width,&height)&&pixels&&width==640&&height==360);
  assert(pixels[0]==0xff65ddc3);LagoonSettings_Close();assert(!LagoonSettings_Image(&pixels,&width,&height));
- puts("PASS settings overlay: master/music5steps, heldrepeat, opener latch, close, limits; targeted atomic UTF8/BOM/newline INI persistence, unknownfields, duplicate/malformed preservation; frozen640x360 image");
+ /* The read-only browser action is a one-shot host request. Selecting it
+  * never changes either volume or the owner's settings document. */
+ char *unchanged=file_read(path,&n);unsigned before_music=music,before_calls=master_calls;
+ LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_UP);assert(selected==2);
+ LagoonSettings_Command(LAGOON_SETTINGS_LEFT);LagoonSettings_Command(LAGOON_SETTINGS_RIGHT);
+ assert(music==before_music&&master_calls==before_calls&&!LagoonSettings_TakeAchievementsRequest());
+ LagoonSettings_PollOpen(SNES_PAD_A);LagoonSettings_Tick(SNES_PAD_A,800);
+ assert(LagoonSettings_IsOpen()&&!LagoonSettings_TakeAchievementsRequest());
+ LagoonSettings_Tick(0,810);LagoonSettings_Tick(SNES_PAD_A,820);
+ assert(!LagoonSettings_IsOpen()&&LagoonSettings_TakeAchievementsRequest()&&!LagoonSettings_TakeAchievementsRequest());
+ result=file_read(path,&n);assert(!strcmp(result,unchanged));free(result);free(unchanged);
+ LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);assert(LagoonSettings_IsOpen()&&!LagoonSettings_TakeAchievementsRequest());
+ LagoonSettings_Command(LAGOON_SETTINGS_DOWN);LagoonSettings_Command(LAGOON_SETTINGS_DOWN);assert(selected==2);
+ LagoonSettings_Command(LAGOON_SETTINGS_DOWN);assert(selected==0);LagoonSettings_Close();
+ puts("PASS settings overlay: master/music5steps, heldrepeat, opener latch, close, limits; targeted atomic UTF8/BOM/newline INI persistence, unknownfields, duplicate/malformed preservation; frozen640x360 image; one-shot browser request, heldopener protection and unchanged volume/settings");
  return 0;
 }

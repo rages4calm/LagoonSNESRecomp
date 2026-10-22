@@ -1,0 +1,48 @@
+{
+  "asset": "Crono front-arm dance cycle",
+  "game": "Chrono Trigger (1995)",
+  "original_rights": "Original game artwork belongs to Square and its respective rights holders. No MIT license for this artwork is asserted.",
+  "source_credit": "VideoGameSprites.net / Chrono Trigger / Party / Crono",
+  "source_page": "https://www.videogamesprites.net/ChronoTrigger/Party/Crono/",
+  "source_files": [
+    {
+      "file": "Crono - Left Arm (Front).gif",
+      "sha256": "3becc7164706e4155e8d2bfbc6c88e5155c6eb63415d162ecb12130ab5525fd3",
+      "bytes": 761,
+      "source_size": [
+        36,
+        70
+      ],
+      "normalization": "Exact2x nearest-pixel decode; centered20x35 canvas; original opaque colors unchanged."
+    },
+    {
+      "file": "Crono - Right Arm (Front).gif",
+      "sha256": "d767c83cb3cd38e3ad54d3df9f6f8dedb79715792c289f380599062921971003",
+      "bytes": 769,
+      "source_size": [
+        36,
+        70
+      ],
+      "normalization": "Exact2x nearest-pixel decode; centered20x35 canvas; original opaque colors unchanged."
+    },
+    {
+      "file": "Crono - Arms Up (Front).gif",
+      "sha256": "a7a2baa95a4e5947ffc53d871180cc0a069274a69557a53e813b8b584f3bbab9",
+      "bytes": 771,
+      "source_size": [
+        40,
+        70
+      ],
+      "normalization": "Exact2x nearest-pixel decode; centered20x35 canvas; original opaque colors unchanged."
+    }
+  ],
+  "animation": "Original left arm, both arms, right arm, both arms poses,180ms per pose.",
+  "generated_header_sha256": "222e3ec5adce8039ec861bace653909af99c298cf4216db48f47d165acc060a5",
+  "runtime_dimensions": [
+    20,
+    35
+  ],
+  "palette_entries": 13,
+  "provenance_signature": "lagoon-carl-rages4calm-wrong-portal-v1",
+  "scope": "Three small credited source GIFs and their decoded display pixels only. No ROM, whole sprite sheet or other game assets."
+}

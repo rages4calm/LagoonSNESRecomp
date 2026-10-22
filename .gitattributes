@@ -1,2 +1,7 @@
 # Unified patch context uses significant single-space blank lines.
 patches/*.patch -whitespace
+# Imported bytes and decoded sprite data are pinned by provenance hashes.
+third_party/companion_achievements/** -text
+third_party/cjson/** -text
+assets/easter_egg/*.gif -text
+assets/easter_egg/crono_dance.generated.h -text

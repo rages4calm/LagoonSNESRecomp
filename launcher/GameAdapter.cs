@@ -26,11 +26,36 @@ public sealed class GameAdapter : JsonGameAdapterBase
             "Your clean ROM is checked before Play. The QoL-patched ROM is for analysis only."),
             new OptionDefinition("config.path", "Game", "Native settings file", OptionKind.Text,
             OptionValue.From(Path.Combine(Project, PreviewPackage ? "local/config.ini" : "build/config.ini")),
-            "After first setup, native saves and settings stay beside the game.") }.Concat(NativeSettings.Options).ToArray(), HasSetup: PreviewPackage);
+            "After first setup, native saves and settings stay beside the game.") }.Concat(NativeSettings.Options).ToArray(), HasSetup: PreviewPackage, HasAchievements: true);
 
     public GameAdapter(string? dataRoot = null) : base(Game, new[] { new ProfileDescriptor("original", "Original", "original") }, dataRoot ??
         Environment.GetEnvironmentVariable("COMPANION_DATA_ROOT") ??
-        CompanionDataPaths.DesktopRoot()) { NativeSettings.PreviewLayout = PreviewPackage; }
+        (PreviewPackage ? Path.Combine(Project, "local", "companion") : CompanionDataPaths.DesktopRoot())) { NativeSettings.PreviewLayout = PreviewPackage; }
+
+    public override AchievementSnapshot ReadAchievements(ProfileDescriptor profile)
+    {
+        var settings = ReadSettings(profile);
+        var executable = settings.Values["engine.path"].GetString() ?? Path.Combine(DefaultBuild, "LagoonSNESRecomp.exe");
+        var engineRoot = Path.GetDirectoryName(executable) ?? DefaultBuild;
+        var catalog = Path.Combine(engineRoot, "assets", "achievements", "catalog.json");
+        if (!File.Exists(catalog)) catalog = Path.Combine(Project, "assets", "achievements", "catalog.json");
+        // Match the actual native --save-root contract. Companion's settings
+        // profile is a separate namespace and never receives gameplay progress.
+        var saveRoot = PreviewPackage ? Path.Combine(Project, "local", "saves") : Path.Combine(engineRoot, "saves");
+        return ReadAchievementFiles(catalog, saveRoot);
+    }
+
+    internal static AchievementSnapshot ReadAchievementFiles(string catalog, string saveRoot)
+    {
+        var progress = Path.Combine(saveRoot, "Achievements", "lagoon", "native-qol", "unseeded", "progress.json");
+        var snapshot = AchievementJsonReader.Read(catalog, progress, "lagoon", "native-qol");
+        // Schema1 has no hidden flag. The catalog's secret ID namespace keeps
+        // its reveal in the game; a locked browser row only offers a gentle hint.
+        return snapshot with { Entries = snapshot.Entries.Select(entry =>
+            entry.Id.StartsWith("secret.", StringComparison.Ordinal) && entry.UnlockedAt == 0
+                ? entry with { Title = "A familiar stranger", Description = "Find a traveler who has taken a wrong turn." }
+                : entry).ToArray() };
+    }
 
     public override SettingsSnapshot ReadSettings(ProfileDescriptor profile)
     {

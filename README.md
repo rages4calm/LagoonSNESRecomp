@@ -4,7 +4,7 @@ A work-in-progress Windows port of **Lagoon (USA)** built with
 [SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp).
 Native gameplay runs alongside an interpreter safety net, with experimental
 widescreen, a custom scene renderer and optional quality-of-life improvements.
-**Bring your own clean USA ROM.** No ROM or extracted game graphics are bundled.
+**Bring your own clean USA ROM.** No ROM or extracted Lagoon graphics are bundled.
 
 ![Atland with Enhanced original pixels at 1920 by 1080](docs/screenshots/atland-epx-1920x1080.png)
 
@@ -42,7 +42,13 @@ widescreen, a custom scene renderer and optional quality-of-life improvements.
   position, discovered exits, links to visited areas and discovered treasure.
   The early tablet quest includes next-step hints and relevant objective markers.
 - **Quick settings:** controller **R2** or **Ctrl+comma** opens an in-game
-  master-volume and X68000 music-volume panel. The game pauses while it is open.
+  master-volume and X68000 music-volume panel, with an Achievements entry.
+  The game pauses while it is open.
+- **Local achievements:** 26 milestones for adventuring, bosses and completing
+  the ending, powered by **CompanionAchievements**. Open them with **Ctrl+J**,
+  through **R2 → Achievements**, or in Companion. Unlocks have a small notification
+  and original chime. Progress works offline, saves separately from game saves
+  and is never awarded just by loading one. A hidden traveler has a small surprise.
 - **Companion Launcher:** display, audio, input and QoL settings in one place.
   Choose **Original SNES** or the bundled **X68000** music on Audio; no manual
   conversion or folder selection. Unmapped cues retain SNES music and sound
@@ -71,8 +77,9 @@ letterboxing on a 16:9 display. Window scale affects windowed size only.
 
 ## Project status
 
-The source and installed local development build are now **0.1.10**. The latest
-packaged Windows preview remains **0.1.3**; its release notes describe that package.
+The current source and Windows preview are **0.2.0** /
+**v0.2.0-preview.1**, with local achievements and a hidden cameo. Use the release
+notes for the exact contents and qualification of each downloadable package.
 
 This is experimental. Native combat, damage, death/revival, boss services and
 endgame routes, display fades and guarded HUD dispatch have focused checks;
@@ -111,6 +118,9 @@ See [full credits](CREDITS.md) for the original developers and project dependenc
 
 Retain the included licenses: the SNESRecomp foundation and derivatives use
 **PolyForm Noncommercial**; Companion Launcher and the Lagoon launcher adapter
-use **MIT**. Public source availability does not remove the noncommercial terms.
-ROMs, generated ROM-derived code, extracted assets, saves and private validation
-captures stay local. The gallery contains selected development screenshots.
+use **MIT**, as do CompanionAchievements and cJSON under their own included
+notices. Public source availability does not remove the noncommercial terms.
+ROMs, generated ROM-derived code, extracted Lagoon assets, saves and private
+validation captures stay local. The tiny credited Chrono Trigger cameo has its
+own original copyright; it is not MIT-licensed artwork. The gallery contains
+selected development screenshots.

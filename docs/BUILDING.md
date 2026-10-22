@@ -6,7 +6,7 @@ path to your clean USA ROM on **Game**, click **Apply**, then **Run setup**.
 The release includes the qualified native game EXE and self-contained Companion
 EXE, each with its own icon. No .NET, Git, Rust, Python, compiler installation,
 generation or download is needed. You supply the clean ROM, which is verified
-and read in place. No ROM, extracted graphics, generated C source or saves
+and read in place. No ROM, extracted Lagoon graphics, ROM-derived C source or saves
 are distributed. The optional X68000 music is bundled; choose **Original SNES**
 or **X68000** under Audio and Apply. No folder selection is required. First
 setup checks every package file and prepares `local/` for
@@ -30,6 +30,16 @@ manifest is represented only by its SHA256. Audit the complete stage and verify
 clean first-run setup, runtime DLL closure and isolated gameplay before creating
 or publishing its ZIP. Archive only `windows-preview.json` and its `files` list;
 setup's writable `local/` directory must never enter the published archive.
+
+The 0.2.0 candidate targets tag `v0.2.0-preview.1`. Its explicit stage also
+includes `game/assets/achievements/catalog.json` (26 definitions), the exact
+CompanionAchievements/cJSON MIT notices and dependency provenance, and the three
+small credited Crono GIFs, decoded header and artwork provenance. The Crono
+artwork retains separate original copyright; the software's MIT notices do not
+license it. No Chrono Trigger ROM or whole sprite sheet is included.
+`achievement_cameo_inputs()` in the packager checks catalog identity/definitions
+and provenance hashes before creating the stage. Do not substitute achievement
+progress or a developer profile for this public catalog.
 
 The legacy multi-platform setup-host workflow is not the Windows Companion
 preview pipeline and must not be used to publish this preview.
@@ -59,6 +69,13 @@ Build CompanionLauncher 0.2.0's local NuGet packages, then:
 ```powershell
 powershell -File scripts/build_launcher.ps1 -CompanionRoot C:\path\to\CompanionLauncher
 ```
+
+The portable CompanionAchievements C core and cJSON are pinned under
+`third_party/`, with unchanged MIT notices and exact hashes in
+`third_party/companion_achievements/provenance.json`; no separate SDK install is
+needed. The game embeds its catalog and tiny cameo pixels. Companion reads the
+public JSON catalog beside the game. Deploy that catalog with the matching
+executable, along with the credited artwork/provenance and dependency notices.
 
 The game expects SHA256
 `46c811f0cacffe8f20e1d63072d25d7c47e9bb3fd5124851fd05aca9884d21fb`,

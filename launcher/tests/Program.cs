@@ -3,6 +3,11 @@ using Companion.Launcher.Core;
 using System.Text;
 
 // Explicit private inputs; no ROM fixtures or owner settings bundled.
+if (args.Length == 2 && args[0] == "--achievements-only")
+{
+    AchievementChecks.Run(Path.GetFullPath(args[1]));
+    return;
+}
 if (args.Length == 2 && args[0] == "--settings-only")
 {
     SettingsChecks.Run(Path.GetFullPath(args[1]));

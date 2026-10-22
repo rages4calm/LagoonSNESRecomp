@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 1,
+  "gameId": "lagoon",
+  "editionId": "native-qol",
+  "catalogVersion": 1,
+  "title": "Lagoon Recomp",
+  "achievements": [
+    {
+      "id": "boss.samson",
+      "title": "Beyond Samson",
+      "description": "Defeat Samson and complete the original victory sequence.",
+      "event": "boss.0",
+      "rule": "milestone",
+      "target": 1
+    },
+    {
+      "id": "boss.natela",
+      "title": "Beyond Natela",
+      "description": "Defeat Natela and complete the original victory sequence.",
+      "event": "boss.1",
+      "rule": "milestone",
+      "target": 1
+    },
+    {
+      "id": "boss.eardon",
+      "title": "Beyond Eardon",
+      "description": "Defeat Eardon and complete the original victory sequence.",
+      "event": "boss.2",
+      "rule": "milestone",
+      "target": 1
+    },
+    {
+      "id": "boss.duma",
+      "title": "Beyond Duma",
+      "description": "Defeat Duma and complete the original victory sequence.",
+      "event": "boss.3",
+      "rule": "milestone",
+      "target": 1
+    },
+    {
+      "id": "boss.thimale",
+      "title": "Beyond Thimale",
+      "description": "Defeat Thimale and complete the original victory sequence.",
+      "event": "boss.4",
+      "rule": "milestone",
+      "target": 1
+    },
+    {
+      "id": "boss.ella",
+      "title": "Beyond Ella",
+      "description": "Defeat Ella and complete the original victory sequence.",
+      "event": "boss.5",
+      "rule": "milestone",
+      "target": 1
+    },
+    {
+      "id": "boss.battler",
+      "title": "Beyond Battler",
+      "description": "Defeat Battler and complete the original victory sequence.",
+      "event": "boss.6",
+      "rule": "milestone",
+      "target": 1
+    },
+    {
+      "id": "level.2",
+      "title": "Finding Your Feet",
+      "description": "Reach level 2 through a completed level-up.",
+      "event": "player.level",
+      "rule": "milestone",
+      "target": 2
+    },
+    {
+      "id": "level.5",
+      "title": "Seasoned Adventurer",
+      "description": "Reach level 5 through a completed level-up.",
+      "event": "player.level",
+      "rule": "milestone",
+      "target": 5
+    },
+    {
+      "id": "level.10",
+      "title": "Growing Stronger",
+      "description": "Reach level 10 through a completed level-up.",
+      "event": "player.level",
+      "rule": "milestone",
+      "target": 10
+    },
+    {
+      "id": "level.20",
+      "title": "Hero of Lakeland",
+      "description": "Reach level 20 through a completed level-up.",
+      "event": "player.level",
+      "rule": "milestone",
+      "target": 20
+    },
+    {
+      "id": "level.30",
+      "title": "Beyond the Legend",
+      "description": "Reach level 30 through a completed level-up.",
+      "event": "player.level",
+      "rule": "milestone",
+      "target": 30
+    },
+    {
+      "id": "treasure.1",
+      "title": "A Promising Find",
+      "description": "Open 1 treasure chest in one adventure.",
+      "event": "treasure.opened",
+      "rule": "milestone",
+      "target": 1
+    },
+    {
+      "id": "treasure.10",
+      "title": "Leave No Chest Behind",
+      "description": "Open 10 treasure chests in one adventure.",
+      "event": "treasure.opened",
+      "rule": "milestone",
+      "target": 10
+    },
+    {
+      "id": "treasure.25",
+      "title": "Treasure Seeker",
+      "description": "Open 25 treasure chests in one adventure.",
+      "event": "treasure.opened",
+      "rule": "milestone",
+      "target": 25
+    },
+    {
+      "id": "tablet.faith",
+      "title": "A Tablet of Faith",
+      "description": "Obtain the Tablet of Faith.",
+      "event": "tablet.0",
+      "rule": "milestone",
+      "target": 1
+    },
+    {
+      "id": "tablet.wish",
+      "title": "A Tablet of Wish",
+      "description": "Obtain the Tablet of Wish.",
+      "event": "tablet.1",
+      "rule": "milestone",
+      "target": 1
+    },
+    {
+      "id": "tablet.hope",
+      "title": "A Tablet of Hope",
+      "description": "Obtain the Tablet of Hope.",
+      "event": "tablet.2",
+      "rule": "milestone",
+      "target": 1
+    },
+    {
+      "id": "tablet.all",
+      "title": "Three Pieces of a Promise",
+      "description": "Collect all three tablets in one adventure.",
+      "event": "tablet.all",
+      "rule": "milestone",
+      "target": 1
+    },
+    {
+      "id": "quest.tablet-spell",
+      "title": "Words That Open Doors",
+      "description": "Let the Voloh elder complete the tablet spell.",
+      "event": "quest.tablet-spell",
+      "rule": "milestone",
+      "target": 1
+    },
+    {
+      "id": "quest.giles-home",
+      "title": "Nobody Left Behind",
+      "description": "Bring Giles safely home to Atland.",
+      "event": "quest.giles-home",
+      "rule": "milestone",
+      "target": 1
+    },
+    {
+      "id": "gold.1000",
+      "title": "Rainy-Day Fund",
+      "description": "Save up 1,000 gold while adventuring.",
+      "event": "player.gold",
+      "rule": "milestone",
+      "target": 1000
+    },
+    {
+      "id": "gold.5000",
+      "title": "A Comfortable Purse",
+      "description": "Save up 5,000 gold while adventuring.",
+      "event": "player.gold",
+      "rule": "milestone",
+      "target": 5000
+    },
+    {
+      "id": "gold.10000",
+      "title": "Deep Pockets",
+      "description": "Save up 10,000 gold while adventuring.",
+      "event": "player.gold",
+      "rule": "milestone",
+      "target": 10000
+    },
+    {
+      "id": "story.finished",
+      "title": "A World Beyond Darkness",
+      "description": "Complete the ending, credits and final artwork.",
+      "event": "story.finished",
+      "rule": "milestone",
+      "target": 1
+    },
+    {
+      "id": "secret.wrong-game",
+      "title": "Wait... Wrong Game!",
+      "description": "Find and speak to the traveler who took the wrong portal.",
+      "event": "secret.wrong-game",
+      "rule": "milestone",
+      "target": 1
+    }
+  ]
+}

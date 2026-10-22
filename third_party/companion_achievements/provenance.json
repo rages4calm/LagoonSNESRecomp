@@ -1,0 +1,14 @@
+{
+  "toolkit": "CompanionAchievements0.2.0/core0.1.0",
+  "core_files": {
+    "companion_achievements.c": "e634b4cfdbe41f269a4b0cd21c269377af7389ff7a10e5c3a277d6453a672047",
+    "companion_achievements.h": "d3325dbc0cc475c40751b491ea2ff53974586e80c1fb83312d3492ee0fbfc4d3",
+    "LICENSE": "82b02f59ce281ca7507fe08b4148cbb4c8ec6d0c6acaff5987f2af68efd71dec"
+  },
+  "cjson": "Existing EarthBound native-source MIT cJSON, unchanged",
+  "cjson_files": {
+    "cJSON.c": "48946750eba4a93f0f6ab0ea884eaf8bcca70a6977ec1c1a9ee93881d26f4d4e",
+    "cJSON.h": "254db291898b17874be2503607afe483ecd80274effb427a88da9029b0a26e6b",
+    "LICENSE": "ca7ea72cf3674a70394b1f377e85dc402a2dfae37385f14da6ccba4296849f9b"
+  }
+}
