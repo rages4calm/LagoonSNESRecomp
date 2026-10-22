@@ -17,8 +17,12 @@ manifest=json.loads((a.gen/'program_manifest.json').read_text())
 for pc in (0x0080e9,):
  assert manifest['nodes'][f'{pc:06X}:M1X0']['disposition']=='aot_eligible'
  for mode in ('M0X0','M0X1','M1X1'):assert manifest['nodes'].get(f'{pc:06X}:{mode}',{}).get('disposition')!='aot_eligible'
-for pc in ('01D409','008106','0080B3','0080E6'):
+for pc in ('01D409','008106'):
  for mode in ('M0X0','M0X1','M1X0','M1X1'):assert manifest['nodes'].get(f'{pc}:{mode}',{}).get('disposition')!='aot_eligible'
+# Batch46 qualifies these exactM1X0 services; unknown widths remain original.
+for pc in ('0080B3', '0080E6'):
+ for mode in ('M0X0','M0X1','M1X0','M1X1'):
+  assert (manifest['nodes'].get(f'{pc}:{mode}',{}).get('disposition')=='aot_eligible')==(mode=='M1X0')
 functions={}
 for f in a.gen.glob('bank*_v2.c'):
  t=f.read_text(encoding='utf-8')
@@ -34,5 +38,5 @@ a.out.mkdir(parents=True)
 test=repo/'tests/lagoon_inline_helper_oracle_test.c';exe=a.out/'inline-helper.exe'
 subprocess.run([a.compiler,'-std=c11','-O2','-Wall','-Wextra','-Wno-unused-label','-Wno-unused-parameter','-Wno-unused-variable','-I'+str(sdk),'-I'+str(a.out.resolve()),str(test),str(sdk/'snes/interp816.c'),'-o',str(exe)],check=True)
 run=subprocess.run([str(exe.resolve()),str(a.rom.resolve())],capture_output=True,text=True);print(run.stdout,end='');print(run.stderr,end='')
-record={'passed':run.returncode==0,'research_only':True,'production_promotion_qualified':False,'rom_sha256':identity,'manifest_sha256':sha(a.gen/'program_manifest.json'),'sources':{str(x.relative_to(repo)):sha(x)for x in(test,Path(__file__),sdk/'snes/interp816.c')},'generated_bodies':{n:{'pc':f'{functions[n][0]:06X}','sha256':hashlib.sha256(functions[n][1].encode()).hexdigest()}for n in sorted(selected)},'stdout':run.stdout,'stderr':run.stderr,'returncode':run.returncode,'scope':'Actual generated0080E9..8105 helper prefix versus original65816 opcodes until before original8106indirectJMP. Both physicalframes produced by original0181A7JSR/01D409JSL; inputs varyselector/hiddenA/DP/Y/flags/stack/deadlines. All3sourcePLA/DPwrites/PHY/TAY/tablereads/PLY execute unchanged. FullWRAM/IO/deadstack/registers/flags/CPU/master/copro clocks; no target/handler synthesis, ownership bridge or physicalMMIO/hardware timing claim.'}
+record={'passed':run.returncode==0,'research_only':True,'production_promotion_qualified':False,'rom_sha256':identity,'manifest_sha256':sha(a.gen/'program_manifest.json'),'sources':{str(x.relative_to(repo)):sha(x)for x in(test,Path(__file__),sdk/'snes/interp816.c')},'generated_bodies':{n:{'pc':f'{functions[n][0]:06X}','sha256':hashlib.sha256(functions[n][1].encode()).hexdigest()}for n in sorted(selected)},'stdout':run.stdout,'stderr':run.stderr,'returncode':run.returncode,'scope':'Actual generated0080E9..8105 helper prefix versus original65816 opcodes until before original8106indirectJMP. Both physicalframes produced by original0181A7JSR/01D409JSL; inputs varyselector/hiddenA/DP/Y/flags/stack/deadlines. All3sourcePLA/DPwrites/PHY/TAY/tablereads/PLY execute unchanged. FullWRAM/IO/deadstack/registers/flags/CPU/master/copro clocks; title dispatch guard deliberately declines to isolate this original prefix; no target/handler synthesis, ownership bridge or physicalMMIO/hardware timing claim.'}
 (a.out/'result.json').write_text(json.dumps(record,indent=2)+'\n',encoding='utf-8');assert record['passed']

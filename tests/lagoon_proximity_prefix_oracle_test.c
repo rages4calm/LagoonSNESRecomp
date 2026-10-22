@@ -28,7 +28,7 @@ int cpu_take_tailcall_return_context(uint16*s,uint8*h){if(!inherit)return 0;inhe
 void cpu_tailcall_inherit_return_context(uint16 s,uint8 h){inherit=1;inherited_s=s;inherited_h=h;}
 int interp_bridge_lle_master_deadline_reached(const CpuState*c){return deadline&&c->master_cycles>=deadline;}
 int interp_bridge_lle_unwind_pending(void){return pending;}
-RecompReturn interp_bridge_lle_yield_unwind(CpuState*c,uint32 pc){(void)c;pending=1;boundary=pc;return (RecompReturn)RECOMP_RETURN_LLE_UNWIND_BASE;}
+RecompReturn interp_bridge_lle_yield_unwind(CpuState*c,uint32 pc){(void)c;inherit=0;pending=1;boundary=pc;return (RecompReturn)RECOMP_RETURN_LLE_UNWIND_BASE;}
 void cpu_instruction_timing_commit(CpuState*c){(void)c;}
 int cpu_dispatch_has_entry(CpuState*c,uint32 pc){(void)c;(void)pc;return 0;}
 int interp_bridge_has_direct_paired_bounce(void){return 0;}

@@ -54,3 +54,6 @@ __pycache__/
 
 # Explicitly requested listening exports; other local audio remains ignored.
 !/soundtrack/listening/*.mp3
+
+# Private local qualification receipts are outside the public source surface.
+/validation/

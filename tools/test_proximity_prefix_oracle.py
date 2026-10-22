@@ -17,8 +17,12 @@ manifest=json.loads((a.gen/'program_manifest.json').read_text())
 for pc in (0x0281de,0x028255):
  assert manifest['nodes'][f'{pc:06X}:M1X0']['disposition']=='aot_eligible'
  for mode in ('M0X0','M0X1','M1X1'):assert manifest['nodes'].get(f'{pc:06X}:{mode}',{}).get('disposition')!='aot_eligible'
-for pc in ('02824A','0080B3','0080E6'):
+for pc in ():
  for mode in ('M0X0','M0X1','M1X0','M1X1'):assert manifest['nodes'].get(f'{pc}:{mode}',{}).get('disposition')!='aot_eligible'
+# Batch46 qualifies these exactM1X0 services; unknown widths remain original.
+for pc in ('02824A', '0080B3', '0080E6'):
+ for mode in ('M0X0','M0X1','M1X0','M1X1'):
+  assert (manifest['nodes'].get(f'{pc}:{mode}',{}).get('disposition')=='aot_eligible')==(mode=='M1X0')
 functions={}
 for f in a.gen.glob('bank*_v2.c'):
  t=f.read_text(encoding='utf-8')
@@ -27,10 +31,13 @@ for f in a.gen.glob('bank*_v2.c'):
   functions[m[1]]=(pc,body,f)
 selected={n for n,(pc,body,f)in functions.items()if pc in (0x0281de,0x028255)and n.endswith('_M1X0')}
 assert len(selected)==2
+# The production824A continuation is now native; this prefix-only oracle
+# still stops at its actual source entry and executes no callee outcome.
+next_name=next(n for n,(pc,body,f)in functions.items()if pc==0x02824a and n.endswith('_M1X0'))
 for name in selected:
- assert set(re.findall(r'\b(\w+_M[01]X[01])\(cpu\)',functions[name][1]))<=selected
+ assert set(re.findall(r'\b(\w+_M[01]X[01])\(cpu\)',functions[name][1]))<=selected|{next_name}
 a.out.mkdir(parents=True)
-(a.out/'proximity_prefix_under_test.h').write_text('\n'.join('RecompReturn '+n+'(CpuState*c);'for n in sorted(selected))+'\n'+'\n'.join(functions[n][1]for n in sorted(selected)),encoding='utf-8')
+(a.out/'proximity_prefix_under_test.h').write_text('\n'.join('RecompReturn '+n+'(CpuState*c);'for n in sorted(selected))+'\nRecompReturn '+next_name+'(CpuState*c){return interp_bridge_lle_yield_unwind(c,0x02824a); }\n'+'\n'.join(functions[n][1]for n in sorted(selected)),encoding='utf-8')
 production=(sdk/'snes/snes.c').read_text(encoding='utf-8')
 read=production[production.index('    case 0x4216:'):production.index('    case 0x4016:',production.index('    case 0x4216:'))]
 write=production[production.index('    case 0x4202: {'):production.index('    case 0x4204: {')]

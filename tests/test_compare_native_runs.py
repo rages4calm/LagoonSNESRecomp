@@ -52,6 +52,12 @@ class StrictComparisonTests(unittest.TestCase):
         self.assertFalse(result['valid_evidence'])
         self.assertFalse(result['passed'])
 
+    def test_native_contract_failure_cannot_be_qualified(self):
+        (self.b / 'stderr.log').write_text('[native_contract] malformed NORMAL S/PB\n')
+        result = compare.compare_runs(self.a, self.b)
+        self.assertFalse(result['valid_evidence'])
+        self.assertFalse(result['passed'])
+
     def audio_capture(self, root, data=b'\x00\x01\x00\x02'):
         path = root / 'audio.pcm'
         path.write_bytes(data)
@@ -90,6 +96,20 @@ class StrictComparisonTests(unittest.TestCase):
         result = compare.compare_runs(self.a, self.b)
         self.assertFalse(result['passed'])
         self.assertFalse(result['diagnostic_outputs']['SNESRECOMP_DSPREG_TRACE_FILE']['exact'])
+
+    def test_apu_queue_capture_stays_strict_and_local(self):
+        key = 'SNESRECOMP_APU_QUEUE_TRACE'
+        for root in (self.a, self.b):
+            path = root / 'queue.csv'
+            path.write_text('event,clock,port,value\napply,123,1,61\n')
+            self.change_receipt(root, diagnostic_overrides={key: str(path)})
+        self.assertTrue(compare.compare_runs(self.a, self.b)['passed'])
+        (self.b / 'queue.csv').write_text('event,clock,port,value\napply,124,1,61\n')
+        result = compare.compare_runs(self.a, self.b)
+        self.assertFalse(result['passed'])
+        self.assertFalse(result['diagnostic_outputs'][key]['exact'])
+        self.change_receipt(self.b, diagnostic_overrides={key: str(self.a / 'queue.csv')})
+        self.assertFalse(compare.compare_runs(self.a, self.b)['valid_evidence'])
 
     def test_exact_and_distinct_executable_identity(self):
         result = compare.compare_runs(self.a, self.b)

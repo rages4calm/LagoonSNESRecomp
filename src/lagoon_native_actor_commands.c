@@ -1,7 +1,7 @@
 /* Ordinary enemy direction/velocity dispatch on the host. The complete source
  * prefix is RAM/ROM-only; original AI, collision, jumps, NMI, audio and actual
  * terminal RTL remain in their original owners. Unknown selectors/contexts run
- * unchanged through the existing interpreter, including the global80E6 floor. */
+ * unchanged through the existing source dispatch and interpreter fallback. */
 #include "lagoon_native_actor_commands.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -69,6 +69,21 @@ int LagoonNativeActorCommands_Try(const uint8_t*rom,size_t size,CpuState*c,uint6
    !r[0x520]||r[0x521]||r[0x406]||r[0x100e]||r[0x23d]!=15||r[0x275]!=0x81||word(r,0x48e)>0x4a)return 0;
  return LagoonNativeActorCommands_Apply(rom,size,r,c,selector);
 }
+#if !defined(LAGOON_NATIVE_ACTOR_COMMANDS_TEST) || defined(LAGOON_NATIVE_ACTOR_COMMANDS_CONTINUATION_TEST)
+extern RecompReturn Lagoon_BankRoutine_CommandReturn80E5_M1X0(CpuState *cpu);
+bool LagoonNativeActorCommands_Continue(const uint8_t*rom,size_t size,CpuState*c,
+    uint16_t entry_s,uint8_t hrv,uint32_t host_return,RecompReturn*out,
+    uint64_t generation,uint64_t frame,int normal_world){
+ if(!out||!c||c->S!=entry_s||hrv!=3||c->host_return_valid!=3||
+    host_return!=(c->A==0x11?0x0181b0u:0x0181bau))return false;
+ if(!LagoonNativeActorCommands_Try(rom,size,c,generation,frame,normal_world))return false;
+ /* The established prefix already simulated PHB/PLB and left dead bytes.
+  * It did not push a live savedDB; only the actual finalRTL remains. */
+ cpu_tailcall_inherit_return_context(entry_s,hrv);
+ *out=Lagoon_BankRoutine_CommandReturn80E5_M1X0(c);
+ return true;
+}
+#endif
 #ifndef LAGOON_NATIVE_ACTOR_COMMANDS_TEST
 #include "common_rtl.h"
 #include "snes/interp_bridge.h"
@@ -80,6 +95,14 @@ static void hook(CpuState*c,uint32_t pc){
  if(!enabled||c!=&g_cpu||(pc&0x7fffff)!=0x0080b9||!g_ppu)return;
  seen++;
  if(LagoonNativeActorCommands_Try(g_rom,0x100000,c,RtlStateGeneration(),frame_generation,!PPU_forcedBlank(g_ppu))){applied++;interp_bridge_pre_opcode_redirect(0x0080e5);}
+}
+bool LagoonNativeActorCommands_Run(CpuState*c,uint16_t entry_s,uint8_t hrv,
+    uint32_t host_return,RecompReturn*out){
+ if(enabled!=1||c!=&g_cpu||!g_ppu)return false;
+ seen++;
+ if(!LagoonNativeActorCommands_Continue(g_rom,0x100000,c,entry_s,hrv,
+    host_return,out,RtlStateGeneration(),frame_generation,!PPU_forcedBlank(g_ppu)))return false;
+ applied++;return true;
 }
 void LagoonNativeActorCommands_BeforeFrame(void){
  if(enabled<0){const char*v=getenv("LAGOON_ACTOR_COMMANDS");enabled=!v||!strcmp(v,"auto")||!strcmp(v,"on");v=getenv("LAGOON_ACTOR_COMMANDS_REPORT");report_enabled=v&&!strcmp(v,"1");atexit(report);}

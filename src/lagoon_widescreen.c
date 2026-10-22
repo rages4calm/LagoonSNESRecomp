@@ -38,6 +38,7 @@ static unsigned s_world_char_key;
 static uint8_t s_world_char_used[1024];
 static int s_world_chars_ready;
 static int s_initial_world_authority;
+static int s_incoming_mosaic_frame,s_present_incoming_mosaic;
 static LagoonWideBackground s_background;
 static LagoonWideTorches s_torches;
 static uint64_t s_state_generation;
@@ -152,6 +153,7 @@ void LagoonWide_PrepareFrame(int drawable_w, int drawable_h, int *width, int *he
 }
 
 void LagoonWide_Reset(void) {
+  s_incoming_mosaic_frame=s_present_incoming_mosaic=0;
   LagoonSceneRenderer_Reset();
   s_retained.valid=0;s_using_retained=0;
   s_retained_invalidation_kind=1;s_retained_invalidation_address=0;
@@ -365,7 +367,10 @@ static int upload_characters_owned(void) {
   }
   return 1;
 }
-static int world_scene_geometry(void) {
+/* Map/source geometry is also useful while the original loader applies its
+ * all-background mosaic. That effect changes sampling, not resource identity.
+ * Drawing still requires the separate non-mosaic predicate below. */
+static int world_map_geometry(void) {
   if(s_using_retained)return retained_scene_matches();
   if(room_parallax() && (PPU_bgTileAdr(g_ppu,0) || PPU_bgTileAdr(g_ppu,1) ||
       !PPU_bgTilemapWider(g_ppu,0) || PPU_bgTilemapHigher(g_ppu,0) ||
@@ -373,11 +378,21 @@ static int world_scene_geometry(void) {
       !parallax_raster(g_ppu) ||
       !LagoonWideEntities_ParallaxMapForRoom(PpuRenderVram(g_ppu),g_rom,0x100000,word(0x48e))))return 0;
   return (g_ram[0x500]&0xC0)==0xC0 && (!g_ram[0x50] || room_parallax()) &&
-      !(g_ppu->mosaic&3) && (g_ppu->bgmode&7)==1 &&
+      (g_ppu->bgmode&7)==1 &&
       !PPU_bigTiles(g_ppu,0) && !PPU_bigTiles(g_ppu,1) &&
       PPU_bgTilemapAdr(g_ppu,0)==0x7000 && PPU_bgTilemapAdr(g_ppu,1)==0x7800 &&
       valid_pointer(pointer(0x88)) && valid_pointer(pointer(0x8b)) &&
       valid_pointer(pointer(0x69)) && valid_pointer(pointer(0x75));
+}
+static int world_scene_geometry(void) {
+  return !(g_ppu->mosaic&3) && world_map_geometry();
+}
+static int initial_world_source_ready(void) {
+  /* Accumulate the ordinary settling window during the original $00:8481
+   * all-BG fade ($FF,$EF,...,$0F) only after incoming source/native map agree.
+   * This grants no mosaic drawing authority and never bypasses settling. */
+  return audited_room_resources() && background_upload_ready() &&
+      (world_scene_geometry() || ((g_ppu->mosaic&15)==15 && world_map_geometry())) && native_world_map();
 }
 static int unsafe_modal_ui(void) {
   if(s_using_retained)return !retained_scene_matches();
@@ -514,12 +529,14 @@ void LagoonWide_BeginFrame(unsigned number) {
   /* $100E spans the final fade, after the full world graphics/map upload.
    * Authorize that first visible world from actual completed bytes, never
    * from the loading flag or a prior quiet/text-free frame alone. */
-  if(audited_room_resources() && background_upload_ready() && world_scene_geometry() && native_world_map()) {
+  if(initial_world_source_ready()) {
     if(!s_world_chars_ready)capture_world_characters(s_background.bytes);
     if(s_world_chars_ready && s_world_char_key==world_resource_key() && upload_characters_owned() &&
         LagoonWideEntities_WorldCharacters(PpuRenderVram(g_ppu),s_world_chars,s_world_char_used))
       s_initial_world_authority=1;
   }
+  s_incoming_mosaic_frame=s_initial_world_authority && (g_ppu->mosaic&15)==15 &&
+      !s_using_retained && !g_snesrecomp_last_hdmaen;
   /* A successful full v3 state load restores the completed raster together
    * with RAM and all PPU state. Its exact native map can prove coherence on
    * the first field, unlike a room loader whose RAM can run ahead of raster.
@@ -618,11 +635,13 @@ void LagoonWide_BeginFrame(unsigned number) {
  * its own BG viewport semantics). SNES output row0 samples scrollY+1. */
 void LagoonWide_ObserveRaster(const Ppu *ppu,unsigned line,void *context) {
   (void)context;
+  int mosaic=s_incoming_mosaic_frame && s_initial_world_authority &&
+      s_world_chars_ready && !g_snesrecomp_last_hdmaen;
   LagoonSceneRenderer_ObserveRaster(ppu,line,g_ram,g_rom,0x100000,RtlStateGeneration(),
-      !s_using_retained && s_was_active && !s_native_fallback && s_world_chars_ready &&
+      mosaic?LAGOON_SCENE_INCOMING_MOSAIC:(!s_using_retained && s_was_active && !s_native_fallback && s_world_chars_ready &&
       (word(0x48e)==0 || word(0x48e)==1 || word(0x48e)==2 || word(0x48e)==3 || word(0x48e)==4 ||
        word(0x48e)==5 || word(0x48e)==6 || word(0x48e)==7 || word(0x48e)==8 ||
-       LagoonSceneRenderer_AdditionalRoom(g_ram)) && !g_snesrecomp_last_hdmaen);
+       LagoonSceneRenderer_AdditionalRoom(g_ram)) && !g_snesrecomp_last_hdmaen));
   if(!s_outdoor_frame || line<1 || line>224)return;
   if((s_using_retained ? !s_retained.valid : !audited_room_ready()) || !room_bounds_enabled(view_room()))return;
   if(view_parallax()) {
@@ -681,6 +700,11 @@ void LagoonWide_EndFrame(const uint8_t *field,unsigned number) {
   (void)field;
   s_completed_frame=number;
   refresh_torches();
+  s_present_incoming_mosaic=s_incoming_mosaic_frame && s_initial_world_authority &&
+      initial_world_source_ready() && s_world_chars_ready &&
+      s_world_char_key==world_resource_key() && upload_characters_owned() &&
+      LagoonWideEntities_WorldCharacters(PpuRenderVram(g_ppu),s_world_chars,s_world_char_used) &&
+      !g_snesrecomp_last_hdmaen;
   s_present_fallback=s_native_fallback || LagoonWideParallaxQueue_Pending(&s_parallax_queue) ||
       !audited_room_ready() || unsafe_modal_ui() ||
       (room_parallax() && !world_scene_geometry()) ||
@@ -692,10 +716,10 @@ void LagoonWide_EndFrame(const uint8_t *field,unsigned number) {
   if(s_outdoor_present)for(unsigned y=0;y<224;++y)
     if(!s_row_known[y]) {s_present_fallback=1;s_outdoor_present=0;break;}
   LagoonSceneRenderer_EndFrame(number,RtlStateGeneration(),
-      !s_present_fallback && !s_using_retained && s_was_active &&
+      s_present_incoming_mosaic?LAGOON_SCENE_INCOMING_MOSAIC:(!s_present_fallback && !s_using_retained && s_was_active &&
       (word(0x48e)==0 || word(0x48e)==1 || word(0x48e)==2 || word(0x48e)==3 || word(0x48e)==4 ||
        word(0x48e)==5 || word(0x48e)==6 || word(0x48e)==7 || word(0x48e)==8 ||
-       LagoonSceneRenderer_AdditionalRoom(g_ram)) && !g_snesrecomp_last_hdmaen);
+       LagoonSceneRenderer_AdditionalRoom(g_ram)) && !g_snesrecomp_last_hdmaen));
   if(!s_present_fallback && s_was_active && !s_using_retained && g_ppu->inidisp==15)
     retain_completed_scene(); /* Exact completed packets, never partial incoming captures. */
   report_outdoor(number);
@@ -712,15 +736,22 @@ int LagoonWide_DrawFrame(uint8_t *dst,size_t pitch,const uint8_t *field,
   if(width>=256 && height>0 && LagoonWideSpell3_DrawMargins(dst,pitch,
       (unsigned)width,(unsigned)height,g_ppu,g_rom,0x100000u,g_ram,
       RtlStateGeneration()))return 1;
-  if(s_present_fallback) {
-    if(!LagoonMenuPresentation_Draw(dst,pitch,field,(size_t)width*4,
-        (unsigned)width,(unsigned)height,g_ppu,g_ram,g_config.widescreen))
-      LagoonWideEntities_BlankField(dst,pitch,(unsigned)width,(unsigned)height);
-  }
+  /* A verified menu owns the completed presentation, even if an original
+   * loader flag or an outgoing world packet survives this field. Do not let
+   * either world presenter replace its exact source-pixel border/content. */
+  if(LagoonMenuPresentation_Draw(dst,pitch,field,(size_t)width*4,
+      (unsigned)width,(unsigned)height,g_ppu,g_ram,g_config.widescreen))return 1;
+  if(s_present_fallback)
+    LagoonWideEntities_BlankField(dst,pitch,(unsigned)width,(unsigned)height);
   else if(s_outdoor_present)for(unsigned y=0;y<(unsigned)height && y<224;++y)
     LagoonWideEntities_MaskRoomRow(dst+y*pitch,(unsigned)width,
         s_row_world_x[y],s_row_world_y[y],s_extent_width,s_extent_height);
   LagoonSceneRenderer_TryPresent(dst,pitch,dst,pitch,(unsigned)width,(unsigned)height,RtlStateGeneration());
+  /* A proven incoming field owns its original native center. The independent
+   * mosaic class writes margins only after exact native-word agreement; a
+   * refused candidate retains the real center with safe blank margins. Never
+   * let the outgoing room cache paint over either result during fade-in. */
+  if(s_present_incoming_mosaic)return 1;
   /* Loader uploads can invalidate the exact world packet halfway through a
    * field. Keep one coherent full-width outgoing canvas during that interval,
    * using the real fade brightness. Incoming world output still needs every

@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 struct Ppu;
+enum { LAGOON_SCENE_WORLD = 1, LAGOON_SCENE_INCOMING_MOSAIC = 2 };
 typedef struct LagoonSceneRendererStats {
   uint64_t resets, packets, refused_packets, renders, independent_pixels;
   uint64_t verified_presents, replaced_presents, mismatches, fallbacks;
@@ -20,7 +21,9 @@ void LagoonSceneRenderer_ObserveRaster(const struct Ppu *ppu,unsigned line,
     const uint8_t *ram,const uint8_t *rom,size_t rom_size,
     uint64_t generation,int authority);
 void LagoonSceneRenderer_EndFrame(unsigned frame,uint64_t generation,int authority);
-/* Full-word, whole-field reference equality is required before output changes.
+/* Ordinary world: full-word, whole-field equality before output changes.
+ * Proven incoming mosaic: full native256x224 word equality, then margins only;
+ * the original native center is never replaced by this presentation class.
  * Default auto replaces exact candidates. Explicit verify never replaces. */
 int LagoonSceneRenderer_TryPresent(uint8_t *dst,size_t pitch,
     const uint8_t *reference,size_t reference_pitch,unsigned width,unsigned height,

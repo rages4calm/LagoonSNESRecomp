@@ -27,6 +27,7 @@ typedef struct ScenePacket {
   uint32_t vram_writes,oam_writes;
   int wx,wy,world_width,world_height;
   unsigned native_x,native_y,bg2_x,bg2_y,parallax,finite_clip;
+  unsigned incoming_mosaic,mosaic_size,brightness,mosaic_y_phase,mosaic_backend,mosaic_y_size;
   SceneOamPolicy policy;
   uint64_t generation;
 } ScenePacket;
@@ -47,6 +48,7 @@ static SceneMismatch s_mismatch[64];
 static unsigned s_mismatch_count;
 static uint32_t s_pixels[W*H];
 static LagoonSceneRendererStats s_stats;
+static uint64_t s_mosaic_verified,s_mosaic_replaced;
 /* Immutable packet serials key source-only decoding. A row packs eight palette
  * indices into bytes; mirrored samples select another byte without redecoding.
  * These caches never contain final/reference framebuffer pixels. */
@@ -249,7 +251,8 @@ static void write_report(void) {
       i?",":"",m->frame,m->width,m->x,m->y,m->candidate,m->reference,m->count,
       m->minx,m->maxx,m->miny,m->maxy,m->wx,m->wy,m->world_width,m->world_height);
   }
-  fprintf(f,"]}\n");
+  fprintf(f,"],\"mosaic_native_verified_presents\":%llu,\"mosaic_margin_presents\":%llu}\n",
+      (unsigned long long)s_mosaic_verified,(unsigned long long)s_mosaic_replaced);
   fclose(f);
 }
 /* Diagnostics never flush from a frame/present/audio-sensitive path. */
@@ -273,12 +276,20 @@ static int parallax_raster(const Ppu *p,const uint8_t *r) {
   unsigned raster[4]={p->hScroll[0]&1023,p->vScroll[0]&1023,p->hScroll[1]&1023,p->vScroll[1]&1023};
   return LagoonWideEntities_ParallaxRaster(camera,raster);
 }
+static int mosaic_vertical_table(const Ppu *p,unsigned size) {
+  if(size<1||size>16)return 0;
+  for(unsigned y=1;y<=H;++y)if(p->mosaicModulo[y]!=(y/size)*size)return 0;
+  return 1;
+}
 static int supported(const Ppu *p,const uint8_t *r,const uint8_t *rom,size_t size,int authority) {
   int parallax=LagoonSceneRenderer_ParallaxRoom(r);
+  int incoming=authority==LAGOON_SCENE_INCOMING_MOSAIC;
   return p&&authority&&r&&rom&&size==0x100000&&scene_resources(r,NULL)&&
-    !r[0x100e]&&r[0x50]==(parallax?(word(r,0x48e)==7?2:1):0)&&word(r,0x48c)<=64&&
+    (incoming || !r[0x100e])&&r[0x50]==(parallax?(word(r,0x48e)==7?2:1):0)&&word(r,0x48c)<=64&&
     word(r,0x53)>0&&word(r,0x53)<=256&&word(r,0x55)>0&&word(r,0x55)<=256&&
-    p->inidisp==15&&p->bgmode==9&&!p->mosaic&&p->obsel==2&&!p->setini&&
+    (incoming?(p->inidisp>0&&p->inidisp<=15&&(p->mosaic&15)==15&&!p->extraObjectCount&&
+       ((p->renderFlags&kPpuRenderFlags_NewRenderer)?(p->lastMosaicModulo>=1&&p->lastMosaicModulo<=16):p->mosaicStartLine<=1)):
+      (authority==LAGOON_SCENE_WORLD&&p->inidisp==15&&!p->mosaic))&&p->bgmode==9&&p->obsel==2&&!p->setini&&
     p->bgXsc[0]==0x71&&p->bgXsc[1]==(parallax?0x7a:0x79)&&p->bgXsc[2]==0x3c&&p->bgTileAdr==0x600&&
     !p->cgadsub&&!(p->cgwsel&1)&&!p->windowsel&&!p->screenWindowed[0]&&!p->screenWindowed[1]&&
     p->screenEnabled[0]==31&&
@@ -324,6 +335,15 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
     s->valid=0;s->lines=0;s->generation=generation;
     if(!p||!supported(p,r,rom,size,authority))return;
     s->valid=1;s->lines=1;
+    s->incoming_mosaic=authority==LAGOON_SCENE_INCOMING_MOSAIC;
+    s->mosaic_size=PPU_mosaicSize(p);s->brightness=p->inidisp&15;
+    s->mosaic_backend=!!(p->renderFlags&kPpuRenderFlags_NewRenderer);
+    s->mosaic_y_phase=s->mosaic_backend?0:p->mosaicStartLine;
+    s->mosaic_y_size=s->mosaic_backend&&s->mosaic_size>1?p->lastMosaicModulo:s->mosaic_size;
+    /* NMI may replace MOSAIC after line0 initialized its vertical table.
+     * Keep the actual validated table's size, not the newer register size. */
+    if(s->incoming_mosaic&&s->mosaic_backend&&s->mosaic_size>1&&
+        !mosaic_vertical_table(p,s->mosaic_y_size)){s->valid=0;return;}
     memcpy(s->regs,&p->inidisp,sizeof(s->regs));
     memcpy(s->maps[0],r+0x10000,16384);memcpy(s->maps[1],r+0x14000,16384);
     unsigned definitions;
@@ -348,7 +368,13 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
       for(unsigned yy=0;yy<b->height;++yy)memcpy(a->pixels+yy*b->width,b->pixels+yy*b->stride,b->width*2);
     }
   }else if(s->valid) {
-    if(!p||!authority||generation!=s->generation||line!=s->lines+1||
+    if(!p||!authority||(authority==LAGOON_SCENE_INCOMING_MOSAIC)!=s->incoming_mosaic||generation!=s->generation||line!=s->lines+1||
+      (s->incoming_mosaic&&(s->mosaic_backend!=!!(p->renderFlags&kPpuRenderFlags_NewRenderer)||
+        (s->mosaic_backend&&s->mosaic_size>1&&s->mosaic_y_size!=p->lastMosaicModulo)||
+        (s->mosaic_backend&&s->mosaic_size>1&&
+          (p->mosaicModulo[line]!=(line/s->mosaic_y_size)*s->mosaic_y_size||
+           (line==H&&!mosaic_vertical_table(p,s->mosaic_y_size))))||
+        (!s->mosaic_backend&&s->mosaic_y_phase!=p->mosaicStartLine)))||
       memcmp(s->regs,&p->inidisp,sizeof(s->regs))||p->vramWriteCount!=s->vram_writes||
       p->oamWriteCount!=s->oam_writes||memcmp(s->pal,p->cgram,sizeof(s->pal))||
       memcmp(s->oam,p->oam,sizeof(s->oam))||memcmp(s->high,p->highOam,sizeof(s->high)))s->valid=0;
@@ -363,7 +389,8 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
 void LagoonSceneRenderer_EndFrame(unsigned frame,uint64_t generation,int authority) {
   if(!s_mode)return;
   ScenePacket *s=&s_packets[s_build];
-  s->valid=s->valid&&s->lines==H&&s->generation==generation&&authority;
+  s->valid=s->valid&&s->lines==H&&s->generation==generation&&authority&&
+      ((authority==LAGOON_SCENE_INCOMING_MOSAIC)==s->incoming_mosaic);
   if(!++s_serial){memset(s_plane_keys,0,sizeof(s_plane_keys));s_serial=1;s_cache_serial=0;}
   s->frame=frame;s->serial=s_serial;
   if(s->valid)++s_stats.packets;else ++s_stats.refused_packets;
@@ -425,6 +452,38 @@ static void background_row(const ScenePacket *s,unsigned width,unsigned y,int le
     x+=count;
   }
 }
+/* Native-aligned mosaic blocks extend mathematically into the margins. The
+ * generic PPU's clamped native mosaicModulo table is deliberately not used.
+ * BG1 margins use the proven room map; static parallax BG2 uses its complete
+ * authored pages. Native samples use the actual circular PPU map history. */
+static int mosaic_x(int x,unsigned size) {
+  int remainder=x%(int)size;if(remainder<0)remainder+=(int)size;
+  return x-remainder;
+}
+static void mosaic_background_row(const ScenePacket *s,unsigned width,unsigned y,
+    int left,unsigned layer,uint8_t *depth,uint16_t *colors) {
+  unsigned my=((y+1-s->mosaic_y_phase)/s->mosaic_y_size)*s->mosaic_y_size+s->mosaic_y_phase;
+  int static_bg2=s->parallax&&layer==1;
+  for(unsigned x=0;x<width;++x) {
+    int mx=mosaic_x((int)x-left,s->mosaic_size),native=mx>=0&&mx<256;
+    int qx=(static_bg2?(int)s->bg2_x:native?(int)s->native_x:s->wx)+mx;
+    int qy=(static_bg2?(int)s->bg2_y:native?(int)s->native_y:s->wy)-1+(int)my;
+    unsigned tile;
+    if(static_bg2)tile=s->vram[0x7800+(((unsigned)qy>>8)&1)*0x400+
+        (((unsigned)qy>>3)&31)*32+(((unsigned)qx>>3)&31)];
+    else if(native)tile=s->vram[(0x7000+layer*0x800+((qy>>3)&31)*32+
+        ((qx>>3)&31)+((qx&256)?0x400:0))&32767];
+    else {
+      if(qx<0||qy<0||qx>=s->world_width||qy>=s->world_height)continue;
+      unsigned meta=s->maps[layer][(qy>>4)*128+(qx>>4)];
+      tile=s->defs[layer][meta*4+((qx&8)>>3)+((qy&8)>>2)];
+      if(layer)tile&=0xdfff;
+    }
+    unsigned c=graphics(s,tile,qx&7,qy&7,0,4);
+    unsigned z=((tile&0x2000)?12:8)-layer;
+    if(c&&z>depth[x]){depth[x]=z;colors[x]=s->pal[((tile>>10)&7)*16+c];}
+  }
+}
 static void render(const ScenePacket *s,unsigned width) {
   int left=(int)(width-256)/2;
   for(unsigned y=0;y<H;++y) {
@@ -436,6 +495,9 @@ static void render(const ScenePacket *s,unsigned width) {
       unsigned dy=(y-o[1])&255;if(dy>=n)continue;
       if(!s->policy.allow[slot])continue;
       int ox=s->policy.x[slot];
+      /* This incoming class grants no new far-actor/parked-OAM authority.
+       * Preserve only native objects and their actual edge-straddling cells. */
+      if(s->incoming_mosaic&&(ox>=256||ox+(int)n<=0))continue;
       unsigned tile=o[2]|o[3]<<8,sy=(tile&0x8000)?n-1-dy:dy;
       for(unsigned dx=0;dx<n;++dx) {
         int nx=ox+(int)dx,x=nx+left;if((nx<0&&s->policy.clip_left[slot])||x<0||x>=(int)width)continue;
@@ -456,11 +518,22 @@ static void render(const ScenePacket *s,unsigned width) {
     }
     uint8_t depth[W]={0};uint16_t colors[W];
     for(unsigned x=0;x<width;++x)colors[x]=s->pal[0];
-    background_row(s,width,y,left,0,depth,colors);
-    background_row(s,width,y,left,1,depth,colors);
+    if(s->incoming_mosaic) {
+      mosaic_background_row(s,width,y,left,0,depth,colors);
+      mosaic_background_row(s,width,y,left,1,depth,colors);
+    } else {
+      background_row(s,width,y,left,0,depth,colors);
+      background_row(s,width,y,left,1,depth,colors);
+    }
     for(unsigned x=0;x<width;++x)if(priority[x]>depth[x]){depth[x]=priority[x];colors[x]=obj[x];}
-    unsigned yy=y+1;
-    for(unsigned xx=0;xx<256;xx+=8) {
+    unsigned yy=s->incoming_mosaic?((y+1-s->mosaic_y_phase)/s->mosaic_y_size)*s->mosaic_y_size+s->mosaic_y_phase:y+1;
+    if(s->incoming_mosaic)for(unsigned xx=0;xx<256;++xx) {
+      unsigned sx=xx/s->mosaic_size*s->mosaic_size;
+      unsigned tile=s->vram[0x3c00+(yy/8)*32+sx/8],palette=((tile>>10)&7)*4,pz=(tile&0x2000)?15:1;
+      unsigned c=graphics(s,tile,sx&7,yy&7,0x6000,2),x=left+xx;
+      if(c&&pz>depth[x])colors[x]=s->pal[palette+c];
+    }
+    else for(unsigned xx=0;xx<256;xx+=8) {
       unsigned tile=s->vram[0x3c00+(yy/8)*32+xx/8],palette=((tile>>10)&7)*4,pz=(tile&0x2000)?15:1;
       uint64_t row=graphics_row(s,tile,yy&7,0x6000,2);
       for(unsigned dx=0;dx<8;++dx) {
@@ -472,13 +545,19 @@ static void render(const ScenePacket *s,unsigned width) {
       int outside=(s->parallax||s->finite_clip)&&((int)x<left||(int)x>=left+256)&&
         (s->wx+(int)x-left<0||s->wx+(int)x-left>=s->world_width||
          s->wy+(int)y<0||s->wy+(int)y>=s->world_height);
-      s_pixels[y*width+x]=outside?0:s_rgb15[colors[x]&32767];
+      uint32_t color=s_rgb15[colors[x]&32767];
+      if(s->incoming_mosaic&&s->brightness!=15)color=
+          ((((color>>16)&255)*s->brightness/15)<<16)|
+          ((((color>>8)&255)*s->brightness/15)<<8)|((color&255)*s->brightness/15);
+      s_pixels[y*width+x]=outside?0:color;
     }
   }
   ++s_stats.renders;s_stats.independent_pixels+=(uint64_t)width*H;
 }
 static int same_source(const ScenePacket *a,const ScenePacket *b) {
   if(a->generation!=b->generation||a->wx!=b->wx||a->wy!=b->wy||a->native_x!=b->native_x||a->native_y!=b->native_y||
+    a->incoming_mosaic!=b->incoming_mosaic||a->mosaic_y_phase!=b->mosaic_y_phase||a->mosaic_backend!=b->mosaic_backend||
+    a->mosaic_y_size!=b->mosaic_y_size||
     a->world_width!=b->world_width||a->world_height!=b->world_height||a->count!=b->count||
     a->parallax!=b->parallax||a->finite_clip!=b->finite_clip||a->bg2_x!=b->bg2_x||a->bg2_y!=b->bg2_y||
     memcmp(a->regs,b->regs,sizeof(a->regs))||memcmp(&a->policy,&b->policy,sizeof(a->policy))||
@@ -506,12 +585,14 @@ int LagoonSceneRenderer_TryPresent(uint8_t *dst,size_t pitch,const uint8_t *ref,
     if(s_cache_width!=width||s_cache_serial!=previous->serial||!same_source(s,previous))render(s,width);
     s_cache_serial=s->serial;s_cache_width=width;
   }
-  for(unsigned y=0;y<H;++y)if(memcmp(s_pixels+y*width,ref+y*ref_pitch,width*4)) {
+  unsigned first=s->incoming_mosaic?(width-256)/2:0;
+  unsigned compared=s->incoming_mosaic?256:width;
+  for(unsigned y=0;y<H;++y)if(memcmp(s_pixels+y*width+first,ref+y*ref_pitch+first*4,compared*4)) {
     if(s_report[0]&&s_mismatch_count<64) {
       SceneMismatch *m=&s_mismatch[s_mismatch_count++];memset(m,0,sizeof(*m));
       m->frame=s->frame;m->width=width;m->wx=s->wx;m->wy=s->wy;
       m->world_width=s->world_width;m->world_height=s->world_height;m->minx=width;m->miny=H;
-      for(unsigned yy=y;yy<H;++yy)for(unsigned xx=0;xx<width;++xx) {
+      for(unsigned yy=y;yy<H;++yy)for(unsigned xx=first;xx<first+compared;++xx) {
         uint32_t r;memcpy(&r,ref+yy*ref_pitch+xx*4,4);uint32_t c=s_pixels[yy*width+xx];
         if(c==r)continue;
         if(!m->count){m->x=xx;m->y=yy;m->candidate=c;m->reference=r;}
@@ -522,7 +603,17 @@ int LagoonSceneRenderer_TryPresent(uint8_t *dst,size_t pitch,const uint8_t *ref,
     ++s_stats.mismatches;++s_stats.fallbacks;report("mismatch",s->frame,width);return 0;
   }
   ++s_stats.verified_presents;
-  if(s_mode==2){for(unsigned y=0;y<H;++y)memcpy(dst+y*pitch,s_pixels+y*width,width*4);++s_stats.replaced_presents;}
-  report(s_mode==2?"replaced":"verified",s->frame,width);return s_mode==2;
+  if(s->incoming_mosaic)++s_mosaic_verified;
+  if(s_mode==2){
+    for(unsigned y=0;y<H;++y) {
+      if(s->incoming_mosaic) {
+        memcpy(dst+y*pitch,s_pixels+y*width,first*4);
+        memcpy(dst+y*pitch+(first+256)*4,s_pixels+y*width+first+256,(width-first-256)*4);
+      }else memcpy(dst+y*pitch,s_pixels+y*width,width*4);
+    }
+    ++s_stats.replaced_presents;if(s->incoming_mosaic)++s_mosaic_replaced;
+  }
+  report(s->incoming_mosaic?(s_mode==2?"mosaic-margins":"mosaic-native-verified"):
+      (s_mode==2?"replaced":"verified"),s->frame,width);return s_mode==2;
 }
 void LagoonSceneRenderer_GetStats(LagoonSceneRendererStats *out){if(out)*out=s_stats;}

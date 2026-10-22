@@ -7157,7 +7157,7 @@ index e01e3ba..92162d8 100644
   * Run the interpreter over guest code at entry_pc24, in the context of `cpu`.
   * `cpu` is updated in place. Returns:
 diff --git a/runner/src/snes/ppu.c b/runner/src/snes/ppu.c
-index 25dcfe03b6615138c04c376ec83f7a52ca5fe5de..fc830f5f97b50b44565233aecd7d4b6298ec0e6d 100644
+index 25dcfe03b6615138c04c376ec83f7a52ca5fe5de..292d93ffe0e30393c2d8773eaff471d4c6455857 100644
 --- a/runner/src/snes/ppu.c
 +++ b/runner/src/snes/ppu.c
 @@ -167,6 +167,12 @@ void ppu_rb_residue_set(Ppu *ppu, const PpuRollbackResidue *in) {
@@ -7192,7 +7192,29 @@ index 25dcfe03b6615138c04c376ec83f7a52ca5fe5de..fc830f5f97b50b44565233aecd7d4b62
  void PpuSetMode2LayerCapture(Ppu *ppu, int layer) {
    ppu->wsMode2CaptureLayer = layer >= 0 && layer < 2 ? (uint8_t)(layer + 1) : 0;
  }
-@@ -1110,7 +1121,14 @@ static void PpuDrawBackground_4bpp(Ppu *ppu, PpuPixelPrioBufs *dstbuf,
+@@ -802,7 +813,11 @@ void ppu_runLine(Ppu* ppu, int line) {
+     s_oam_snap_frame = snes_frame_counter;
+     debug_server_on_oam_render();
+   }
+-  if(line == 0) {
++  /* Beam/frame hosts may render visible lines 1..224 without line 0.
++   * Refresh this derived lookup on the first visible line too, after that
++   * line's raster register writes. Keep pre-render state changes below
++   * restricted to line 0. */
++  if (line == 0 || line == 1) {
+     if (PPU_mosaicSize(ppu) != ppu->lastMosaicModulo) {
+       int mod = PPU_mosaicSize(ppu);
+       ppu->lastMosaicModulo = mod;
+@@ -813,6 +828,8 @@ void ppu_runLine(Ppu* ppu, int line) {
+     }
+ 
+ 
++  }
++  if(line == 0) {
+     // pre-render line
+     // TODO: this now happens halfway into the first line
+     ppu->mosaicStartLine = 1;
+@@ -1110,7 +1127,14 @@ static void PpuDrawBackground_4bpp(Ppu *ppu, PpuPixelPrioBufs *dstbuf,
    int tileadr1 = tileadr + 7 - (y & 0x7), tileadr0 = tileadr + (y & 0x7);
    const uint16 *addr;
    bool ws_shadow = WsShadowLayerActive(layer);
@@ -7208,7 +7230,7 @@ index 25dcfe03b6615138c04c376ec83f7a52ca5fe5de..fc830f5f97b50b44565233aecd7d4b62
    for (size_t windex = 0; windex < win.nr; windex++) {
      if (win.bits & (1 << windex))
        continue;  // layer is disabled for this window part
-@@ -2792,6 +2810,7 @@ void PpuSetExtraObjects(Ppu *ppu,const PpuExtraObject *objects,size_t count) {
+@@ -2792,6 +2816,7 @@ void PpuSetExtraObjects(Ppu *ppu,const PpuExtraObject *objects,size_t count) {
    ppu->extraObjects=objects;ppu->extraObjectCount=objects?count:0;
  }
  
@@ -7216,7 +7238,7 @@ index 25dcfe03b6615138c04c376ec83f7a52ca5fe5de..fc830f5f97b50b44565233aecd7d4b62
  bool PpuComposeExtraObjects(const PpuExtraObject *objects,size_t count,
      int y,int x0,size_t width,unsigned first_slot,
      uint16_t *depth,uint16_t *colors,uint64_t *order) {
-@@ -3205,6 +3224,85 @@ static int raster_reg_journaled(uint16_t reg) {
+@@ -3205,6 +3230,85 @@ static int raster_reg_journaled(uint16_t reg) {
    }
  }
  
@@ -13551,3 +13573,93 @@ index 0000000000000000000000000000000000000000..757ef2c71eddd90c73781859eab51aaa
 +    printf("12 tail-chain scenarios, %d failures\n", failures);
 +    return failures ? 1 : 0;
 +}
+diff --git a/runner/src/snes/apu.c b/runner/src/snes/apu.c
+index d3b14790708d775bf89103adf332f5b3ff1b6d28..f975348b4cb7bd181fde119eb56c734ecbff54f3 100644
+--- a/runner/src/snes/apu.c
++++ b/runner/src/snes/apu.c
+@@ -5,6 +5,7 @@
+ #include <stdint.h>
+ #include <stdbool.h>
+ #include <stddef.h>
++#include <limits.h>
+ 
+ 
+ #include "apu.h"
+@@ -28,6 +29,61 @@ static const uint8_t bootRom[0x40] = {
+   0xf6, 0xda, 0x00, 0xba, 0xf4, 0xc4, 0xf4, 0xdd, 0x5d, 0xd0, 0xdb, 0x1f, 0x00, 0x00, 0xc0, 0xff
+ };
+ 
++/* Optional bounded device-queue evidence. CPU beam stamps on a deferred
++ * audio_trace APPLY describe when catch-up ran, not the SPC application
++ * cycle. Capture both the scheduled target and actual device cycle here.
++ * Buffer until exit so diagnostic I/O cannot change catch-up cadence. */
++typedef struct ApuQueueTraceEvent {
++  uint64_t guest, target, clock;
++  uint8_t kind, port, value;
++} ApuQueueTraceEvent;
++enum { APU_QUEUE_TRACE_CAPACITY = 65536 };
++static ApuQueueTraceEvent *apu_queue_trace_events;
++static size_t apu_queue_trace_count;
++static unsigned apu_queue_trace_overflow;
++static int apu_queue_trace_enabled = -1;
++static const char *apu_queue_trace_path;
++
++static void apu_queue_trace_finish(void) {
++  if (!apu_queue_trace_events) return;
++  FILE *file = fopen(apu_queue_trace_path, "wb");
++  if (file) {
++    fputs("event,port,value,guest_cycle,target_cycle,port_clock\n", file);
++    for (size_t i = 0; i < apu_queue_trace_count; ++i) {
++      const ApuQueueTraceEvent *event = apu_queue_trace_events + i;
++      fprintf(file, "%c,%u,%u,%llu,%llu,%llu\n", event->kind,
++          event->port, event->value, (unsigned long long)event->guest,
++          (unsigned long long)event->target, (unsigned long long)event->clock);
++    }
++    fprintf(file, "END,%llu,%u\n", (unsigned long long)apu_queue_trace_count,
++        apu_queue_trace_overflow);
++    fclose(file);
++  }
++  free(apu_queue_trace_events);
++  apu_queue_trace_events = NULL;
++}
++
++static void apu_queue_trace(const Apu *apu, uint8_t kind, uint8_t port,
++                          uint8_t value, uint64_t guest, uint64_t target) {
++  if (apu_queue_trace_enabled < 0) {
++    apu_queue_trace_path = getenv("SNESRECOMP_APU_QUEUE_TRACE");
++    apu_queue_trace_enabled = apu_queue_trace_path && *apu_queue_trace_path;
++    if (apu_queue_trace_enabled) {
++      apu_queue_trace_events = calloc(APU_QUEUE_TRACE_CAPACITY,
++                                      sizeof(*apu_queue_trace_events));
++      if (!apu_queue_trace_events) { apu_queue_trace_enabled = 0; return; }
++      atexit(apu_queue_trace_finish);
++    }
++  }
++  if (!apu_queue_trace_enabled) return;
++  if (apu_queue_trace_count == APU_QUEUE_TRACE_CAPACITY) {
++    if (apu_queue_trace_overflow != UINT_MAX) ++apu_queue_trace_overflow;
++    return;
++  }
++  apu_queue_trace_events[apu_queue_trace_count++] = (ApuQueueTraceEvent){
++      guest, target, apu->portClock, kind, port, value};
++}
++
+ Apu* apu_init(void) {
+   Apu* apu = calloc(1, sizeof(Apu));  /* zero padding: saveload/co-sim hash determinism */
+   apu->spc = spc_init(apu);
+@@ -79,6 +135,7 @@ void apu_writePortNow(Apu* apu, uint8_t port, uint8_t val) {
+ }
+ 
+ static void apu_applyPortWrite(Apu* apu, const ApuPortWrite *w) {
++  apu_queue_trace(apu, 'A', w->port, w->val, 0, w->target_cycle);
+   apu_writePortNow(apu, w->port, w->val);
+ }
+ 
+@@ -117,6 +174,7 @@ bool apu_schedulePortWrite(Apu* apu, uint8_t port, uint8_t val,
+   apu->portQTail++;
+   apu->portLastGuest = guest_cycle;
+   apu->portLastTarget = target;
++  apu_queue_trace(apu, 'Q', w->port, w->val, guest_cycle, target);
+   return true;
+ }
+ 

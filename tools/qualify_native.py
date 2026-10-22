@@ -66,7 +66,7 @@ def campaign_setup_writes(data):
 
 
 def runtime_failure_lines(text):
-    fatal_markers=('[brk]','[interp_cap]','[interp_low_exec]','[cpu_halt]','assertion failed')
+    fatal_markers=('[brk]','[interp_cap]','[interp_low_exec]','[cpu_halt]','[native_contract]','assertion failed')
     return [line.strip() for line in text.splitlines()
             if any(marker in line.lower() for marker in fatal_markers)
             or re.search(r'(?:lagoon\.qol:|\[lagoon-qol\])[^\r\n]*\brefused\b',line,re.IGNORECASE)]
@@ -194,6 +194,7 @@ def main():
                       'LAGOON_SCENE_RENDERER_REPORT','LAGOON_TRANSITION_REPORT','LAGOON_SWORD_REPORT',
                       'LAGOON_NATIVE_RECOVERY_REPORT','LAGOON_FOLLOWER_REPORT',
                       'SNESRECOMP_APURAM_TRACE_FILE','SNESRECOMP_DSPREG_TRACE_FILE','SNESRECOMP_DSPOUT',
+                      'SNESRECOMP_APU_QUEUE_TRACE',
                       'SNESRECOMP_FRAME_TIMING','SNESRECOMP_GL_TIMING','SNESRECOMP_TITLE_OVERLAY_DUMP',
                       'SNESRECOMP_TITLE_OVERLAY_DISPLAY_SCREENSHOT'}
     diagnostic_numbers={'SNESRECOMP_HOST_PROFILE_START_FRAME','SNESRECOMP_PPU_HEARTBEAT','LAGOON_MAP_SELFTEST_FRAME'}

@@ -33,6 +33,7 @@ RecompReturn interp_tier_dispatch_rewritten_return(CpuState*c,uint32 p,uint32 s)
 RecompReturn interp_tier_dispatch_popped_return(CpuState*c,uint32 p,uint32 s,uint16 e){(void)c;(void)p;(void)s;(void)e;assert(0);return RECOMP_RETURN_NORMAL;}
 RecompReturn cpu_dispatch_pc_from(CpuState*c,uint32 p,uint16 e,uint32 s){(void)c;(void)p;(void)e;(void)s;assert(0);return RECOMP_RETURN_NORMAL;}
 RecompReturn cpu_unresolved_abandon_balanced(CpuState*c,uint32 p,uint16 e,uint8 h){(void)c;(void)p;(void)e;(void)h;assert(0);return RECOMP_RETURN_NORMAL;}
+RecompReturn interp_tier_dispatch_balanced(CpuState*c,uint32 p,uint32 site,uint16 s,uint8 h,bool jump){(void)c;(void)p;(void)site;(void)s;(void)h;(void)jump;assert(0);return RECOMP_RETURN_NORMAL;}
 uint32_t cpu_region_speed(uint32_t a){(void)a;return 8;}
 static uint8 peek(uint32 a){int32_t o=cpu_wram_offset(a>>16,a);if(o>=0)return ram[o];if((a>>16)<64&&(a&65535)>=0x2100&&(a&65535)<0x4400)return io[a&65535];if((a&65535)>=32768)return rom[((a>>16)&31)*32768+(a&32767)];return 0;}
 static void write(uint32 a,uint8 v){int32_t o=cpu_wram_offset(a>>16,a);if(o>=0){ram[o]=v;return;}if((a>>16)<64&&(a&65535)>=0x2100&&(a&65535)<0x4400){io[a&65535]=v;if((a&65535)==0x4203){unsigned p=io[0x4202]*v;io[0x4216]=p;io[0x4217]=p>>8;}}}
@@ -62,7 +63,7 @@ static RecompReturn source_child(CpuState*c,unsigned pc,uint32*out){
 RecompReturn interp_tier_run_call_frame(CpuState*c,uint32 pc,uint32 site,uint8 n,uint32*out){(void)site;assert(n==2);return source_child(c,pc,out);}
 RecompReturn interp_tier_dispatch_tail(CpuState*c,uint32 pc,uint32 site,uint16 s,uint8 h){
  assert(s==c->S&&h==2);
- if(site==0x01bb49){assert(pc==0x01bb4c&&c->x_flag);unknown_tails++;pending=1;boundary=pc;return (RecompReturn)RECOMP_RETURN_LLE_UNWIND_BASE;}
+ if(site==0x01bb49||site==0x01bb3a){assert(pc==0x01bb4c&&c->x_flag);unknown_tails++;pending=1;boundary=pc;return (RecompReturn)RECOMP_RETURN_LLE_UNWIND_BASE;}
  assert(site==0x01bb5c||site==0x01be8a);
  if(case_unknown)return source_child(c,pc,NULL);
  pending=1;boundary=pc;return (RecompReturn)RECOMP_RETURN_LLE_UNWIND_BASE;
@@ -71,6 +72,12 @@ RecompReturn interp_tier_dispatch_tail(CpuState*c,uint32 pc,uint32 site,uint16 s
  * enemy-only sampler guard refuses this projectile owner (and room0); exercise
  * its original generated source fallback. Its host math has a separate oracle. */
 bool LagoonActorCompute_Sample(CpuState*c,uint16_t s,uint8_t h,uint32_t pc,RecompReturn*out){
+ (void)c;(void)s;(void)h;(void)pc;(void)out;return false;
+}
+bool LagoonActorCompute_Cell(CpuState*c,uint16_t s,uint8_t h,uint32_t pc,RecompReturn*out){
+ (void)c;(void)s;(void)h;(void)pc;(void)out;return false;
+}
+bool LagoonNativeActorCommands_Run(CpuState*c,uint16_t s,uint8_t h,uint32_t pc,RecompReturn*out){
  (void)c;(void)s;(void)h;(void)pc;(void)out;return false;
 }
 #ifdef WHOLE_NATIVE_CLOSURE
@@ -86,11 +93,11 @@ static void compare(unsigned kind,unsigned slot,unsigned pattern,unsigned phase,
  for(unsigned n=0;n<16;n++){unsigned a=0xd40+n*24;ram[a]=pattern==2?kind:pattern==3?(n%33+1):0;put(a+1,500+n);put(a+3,600+n);put(a+5,(n&1)?2:-2);put(a+7,(n&2)?2:-2);put(a+22,0xffff);ram[a+16]=n&7;ram[a+18]=(slot*17+n)&255;}
  unsigned a=0xd40+slot*24;ram[a]=kind;if(pattern==4){ram[a]=2;ram[a+18]=9;}if(pattern==5){put(a+1,4096);put(a+3,4096);}if(pattern==0)memset(ram+0xd40,0,384);
  if(unknown){ram[a]=39;ram[0x60]=0x60;ram[0x3a9]=unknown==4?0x60:unknown==1?0xe2:0xc2;ram[0x3aa]=unknown==1?0x30:0x20;ram[0x3ab]=0x60;if(unknown==3){ram[0x3ab]=0xe2;ram[0x3ac]=0x10;ram[0x3ad]=0x60;}}
- CpuState initial={0};initial.A=hi|0x81;initial.X=0x7777;initial.Y=0x123;initial.S=stack;initial.DB=initial.PB=1;initial.P=0x24|((flags&1)?1:0)|((flags&2)?0xc0:0)|((flags&4)?8:0);initial.host_return_valid=2;initial.ram=ram;cpu_p_to_mirrors(&initial);put(stack+1,0x1234);
+ CpuState initial={0};initial.A=hi|0x81;initial.X=ITERATION_PC==0x01bb25?slot*24:0x7777;initial.Y=0x123;initial.S=stack;initial.DB=initial.PB=1;initial.P=0x24|((flags&1)?1:0)|((flags&2)?0xc0:0)|((flags&4)?8:0);initial.host_return_valid=2;initial.ram=ram;cpu_p_to_mirrors(&initial);put(stack+1,0x1234);
  deadline=phase==0?0:phase==1?1:phase==2?100:phase==3?1000:phase==4?4000:20000;pending=boundary=inherited_pending=0;memcpy(before,ram,sizeof ram);CpuState actual=initial;
- RecompReturn result=Lagoon_Projectile_UpdateAll_M1X0(&actual);assert(!g_recomp_stack_top);cpu_mirrors_to_p(&actual);assert(result==RECOMP_RETURN_NORMAL||(pending&&boundary));memcpy(expected,ram,sizeof ram);memcpy(expected_io,io,sizeof io);
+ RecompReturn result=ITERATION_ROOT(&actual);assert(!g_recomp_stack_top);cpu_mirrors_to_p(&actual);assert(result==RECOMP_RETURN_NORMAL||(pending&&boundary));memcpy(expected,ram,sizeof ram);memcpy(expected_io,io,sizeof io);
  if(!pending){completed++;if(pattern==4){unsigned higher=0;for(unsigned n=slot+1;n<16;n++)if(ram[0xd40+n*24]&&ram[0xd52+n*24])higher++;same_pass+=higher;}if(pattern==5)retired+=!ram[a];}else{interrupted++;if(boundary==0x01bb4c)unknown_cases++;}
- memcpy(ram,before,sizeof ram);memset(io,0,sizeof io);Interp816*i=make_interp(&initial,0x01bb05);unsigned stop=boundary?boundary:0x011235,ops=0;uint64_t cycles=0,last=0;bus_extra=0;
+ memcpy(ram,before,sizeof ram);memset(io,0,sizeof io);Interp816*i=make_interp(&initial,ITERATION_PC);unsigned stop=boundary?boundary:0x011235,ops=0;uint64_t cycles=0,last=0;bus_extra=0;
  while(cycles<actual.cycles){if(++ops>100000){fprintf(stderr,"oraclecap k%u pattern%u phase%u pc%02x%04x\n",kind,pattern,phase,i->k,i->pc);assert(0);}last=cycles*6+bus_extra;cycles+=interp816_runOpcode(i);}
  unsigned first=0;while(first<sizeof ram&&ram[first]==expected[first])first++;
  if(first<sizeof ram||memcmp(io,expected_io,sizeof io)||i->a!=actual.A||i->x!=actual.X||i->y!=actual.Y||i->sp!=actual.S||i->dp!=actual.D||i->db!=actual.DB||i->k!=actual.PB||interp816_getFlags(i)!=actual.P||(((unsigned)i->k<<16)|i->pc)!=stop){fprintf(stderr,"STATE k%u slot%u pat%u ph%u fl%u hi%04x unk%u RAM%05x A%04x/%04x X%04x/%04x Y%04x/%04x S%04x/%04x P%02x/%02x PC%06x/%06x cycles%llu\n",kind,slot,pattern,phase,flags,hi,unknown,first,i->a,actual.A,i->x,actual.X,i->y,actual.Y,i->sp,actual.S,interp816_getFlags(i),actual.P,((unsigned)i->k<<16)|i->pc,stop,(unsigned long long)cycles);assert(0);}
@@ -102,4 +109,4 @@ int main(int argc,char**argv){assert(argc==2);FILE*f=fopen(argv[1],"rb");assert(
  for(unsigned p=0;p<6;p++)for(unsigned slot=0;slot<16;slot++)for(unsigned phase=0;phase<6;phase++)compare(3,slot,p,phase,0,0,0x180,0);
  for(unsigned u=1;u<5;u++)for(unsigned phase=0;phase<6;phase++)compare(39,0,1,phase,0,0,0x180,u);
  for(unsigned k=1;k<34;k++)for(unsigned fl=0;fl<8;fl++)compare(k,0,1,3,fl,0x100,0x1fd0,0);
- printf("PASS BB05 %u cases completed%u interrupted%u actual-original-child-calls%u source-opcodes%llu same-pass-higher-born%u retired%u unknown-width-exact-tails%u all-four-returned-modes-mask%X\n",cases,completed,interrupted,child_calls,(unsigned long long)source_ops,same_pass,retired,unknown_cases,returned_modes);assert(completed&&interrupted&&same_pass&&retired&&unknown_cases&&unknown_tails&&returned_modes==15);return 0;}
+ printf("PASS projectile iteration %u cases completed%u interrupted%u actual-original-child-calls%u source-opcodes%llu same-pass-higher-born%u retired%u unknown-width-exact-tails%u all-four-returned-modes-mask%X\n",cases,completed,interrupted,child_calls,(unsigned long long)source_ops,same_pass,retired,unknown_cases,returned_modes);assert(completed&&interrupted&&(same_pass||ITERATION_PC==0x01bb25)&&retired&&unknown_cases&&unknown_tails&&returned_modes==15);return 0;}

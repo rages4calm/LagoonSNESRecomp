@@ -17,8 +17,12 @@ manifest=json.loads((a.gen/'program_manifest.json').read_text())
 for pc in (0x01d3e9,0x01d45f):
  assert manifest['nodes'][f'{pc:06X}:M1X0']['disposition']=='aot_eligible'
  for mode in ('M0X0','M0X1','M1X1'):assert manifest['nodes'].get(f'{pc:06X}:{mode}',{}).get('disposition')!='aot_eligible'
-for pc in ('01D409','0080E9','0080B3','0080E6'):
+for pc in ('01D409',):
  for mode in ('M0X0','M0X1','M1X0','M1X1'):assert manifest['nodes'].get(f'{pc}:{mode}',{}).get('disposition')!='aot_eligible'
+# Batch46 qualifies these exactM1X0 services; unknown widths remain original.
+for pc in ('0080E9', '0080B3', '0080E6'):
+ for mode in ('M0X0','M0X1','M1X0','M1X1'):
+  assert (manifest['nodes'].get(f'{pc}:{mode}',{}).get('disposition')=='aot_eligible')==(mode=='M1X0')
 functions={}
 for f in a.gen.glob('bank*_v2.c'):
  t=f.read_text(encoding='utf-8')

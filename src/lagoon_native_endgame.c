@@ -235,6 +235,11 @@ int LagoonNativeEndgameHook(unsigned event,const CpuState *c,uint32_t source,
   return 0;
 }
 const LagoonNativeEndgameStats *LagoonNativeEndgameGetStats(void){return &stats;}
+void LagoonNativeEndgameConsumeInline(unsigned family) {
+  /* Native DC replaces this one witness, without retiring unrelated waits. */
+  memset(&inline_witness, 0, sizeof inline_witness);
+  if (family < 6) ++stats.native_inline[family];
+}
 void LagoonNativeEndgameBeforeFrame(void) {
   if(g_rom)(void)interp_bridge_set_aot_indirect_long_tail_hook(0x008106,inline_tail);
   if(g_rom)(void)interp_bridge_set_aot_indirect_long_call_tail_hook(0x0080E6,hud_tail);

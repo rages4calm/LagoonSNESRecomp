@@ -14,7 +14,7 @@ display fades and queued graphics transfers. The HUD-number dispatcher has a
 separate, source-guarded handoff
 using its actual cross-bank JSL return frame. Counts of
 compiled functions are analysis counts, not completion percentages. The current
-manifest retains 541 AOT entries; host-side changes do not imply
+manifest retains 582 AOT entries; host-side changes do not imply
 additional compiled guest functions. Generated
 code alone does not prove that a runtime dispatcher reaches a compiled entry.
 
@@ -34,14 +34,14 @@ returned modes retain original-opcode fallback, including the overlapping RTI
 entry. Passing memory and picture checks alone is insufficient.
 The finite animation table has its own separate original-opcode tests.
 
-The original enemy proximity/retirement service has a qualified M1X0 prefix and
-its original RTL return leaf. It preserves the real record clearing, hardware
-multiply and physical stack, then stops before the unqualified JSL at02:824A.
-That command and its variable continuation still execute original opcodes.
-Other entry widths stay interpreted. This reduces host execution work while
-preserving guest instruction timing; it is distinct from the earlier source-
-qualified enemy math shortcuts that intentionally remove guest computation cost.
-The original command can reinitialize a retired actor; its behavior is preserved.
+The original enemy proximity/retirement service now includes the qualified
+M1X0 command at02:824A and its actual return. The bank-request family preserves
+its real cross-bank return frame, saved data bank and original source targets.
+Unknown modes and pointers remain interpreted. This preserves the original
+record clearing, multiplication and possible actor reinitialization; retirement
+is not replaced with permanent deletion. The full ordinary actor depth-sort and
+draw iteration loop is also compiled in its qualified mode, retaining the
+original dynamic draw selector and its real child handlers.
 
 The ordinary enemy projectile-request dispatcher has a separate M1X0 native
 closure for ten authored enemy kinds, including facing shots and projectile fans.
@@ -56,21 +56,52 @@ Source-opcode checks include the actual ancestor dispatcher and unknown pointer
 boundaries. Live controls separately verify native activation, real projectile
 allocation and exact ordered APU events, registers, physical state and clocks.
 
-The item-use request and selection prefix now qualifies M1X0 through the boundary
-before its original inline JSL. The real caller's two-byte return frame remains
-intact. The inline JSL, final indirect jump and item action still execute
-their original opcodes; other widths retain the interpreter. A real L-button
-Shiny Ball use has matched floor/native controls with exact pictures, memory,
-APU events and clocks. Source tests separately cover all selection bytes,
-request/busy branches, real caller stack frames and deadline exits. Do not use
-the generic ExecutePtr lowering for Lagoon's inline helper: its assumed width,
-stack and flag behavior differs from Lagoon's original ABI. Exact prior handler
-roots remain seeded independently of the newly bounded prefix.
-The inline helper's original M1X0 table-addressing prefix is separately compiled,
-consuming its actual three-byte JSL frame while retaining the two-byte ancestor.
-It stops before the original indirect jump; that instruction and its destination
-remain interpreted. Original-source tests include partial execution and deadlines,
-and actual item controls preserve the complete return path, memory and APU clocks.
+The item-use request and selection prefix preserves its actual caller's
+two-byte return frame. The inline helper consumes only its real three-byte JSL
+frame; six exact table/parent/physical-stack contexts can then dispatch directly
+to available qualified native handlers. The families are item use, magic,
+death, two boss-script tables and two specific NPC script commands. Other table
+words, source mismatches, modes and return owners fall back before mutation.
+Unexpected native return-stack violations terminate with a contract diagnostic
+instead of fabricating a return. The generic ExecutePtr lowering remains
+inappropriate for Lagoon's ABI.
+
+All eight authored magic table handlers and their finite debit/spawn helpers
+have original-opcode checks; live controls separately exercise actual spell8,
+real L-button Shiny Ball use and the retirement route. Source-only tests of
+eight music/script/query parents do not establish natural quest activation.
+Assisted attempts to trigger NPC commands30/39 did not reach those commands,
+so their runtime activation remains unproved. These attempted routes are not
+registered as positive native coverage.
+
+The broad development0.1.8 batch retains exact clock/physical state checks and
+all previous native entries. Source checks cover15,720 bank-dispatch cases,
+4,096 parent cases,60,480 inline guard cases,11,968 magic cases and640 actual
+actor iteration cases. Counts describe bounded tests, not campaign completion.
+A matched native/interpreted-magic route preserves716 ordered pictures, eight
+checkpoints, all audio queue targets/application clocks, SPC memory, DSP
+registers and PCM bytes. A separate read-only buffered queue observer verifies
+actual device application time; old captures without it cannot pass that gate.
+The legacy raw strict comparison is retained unchanged, including failures.
+
+Widescreen presentation now gives completed source-qualified menus priority
+over world caches. Qualified incoming all-background mosaic packets preserve
+the original256-pixel center and add margins only after every224-line center
+word matches. Unsupported packets retain safe original output; an incoming
+scene never inherits stale outgoing scenery over its center. The shared PPU's
+derived mosaic lookup is refreshed at the first visible line, supporting beam
+hosts that render1..224 without line0. Pre-render flags and guest timing are
+unchanged. Both PPU backends have independent scalar mosaic checks; an actual
+14-to-2A transition verifies44 mosaic frames with zero center mismatches and
+immediate widescreen on the first clear frame. Earlier broad checks cover eight
+room families and three menu panels, separate from this final affected route.
+
+A focused246-field hidden1080p OpenGL/EPX/original-audio enemy walk preserves
+all guest periods, nonwall gameplay observations and12 checkpoint files.
+No interval exceeded20ms in this check. The native actor loop saves a little
+host work against its same-build interpreter control; whole-route work is
+close to the previous build. This does not establish a global performance
+improvement or a locked60Hz guarantee.
 
 The assisted campaign work uses original loaders, doors and event/boss scripts,
 with position/stat assistance to reach affected cases quickly. It is distinct

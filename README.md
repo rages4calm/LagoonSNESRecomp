@@ -69,7 +69,7 @@ letterboxing on a 16:9 display. Window scale affects windowed size only.
 
 ## Project status
 
-The source and local development build are now **0.1.7**. The latest packaged
+The source and local development build are now **0.1.8**. The latest packaged
 Windows preview remains **0.1.3**; its release notes describe that package.
 
 This is experimental. Native combat, damage, death/revival, boss services and
@@ -86,6 +86,11 @@ packing and direction/velocity commands. A focused busy Elf Field route holds
 the intended 30 game updates per second with approximately 60 displayed frames
 per second; this is not a full-game performance guarantee. A guarded transition
 bridge also covers the brief gap before an area's loading flag appears.
+Incoming mosaic fades now retain the current room's original center and fill
+qualified widescreen margins; completed menus take priority over cached scenery.
+Native table dispatch now covers qualified item, spell, death and boss-script
+contexts, with the full ordinary actor sorting loop also compiled. Unknown
+script contexts continue through the interpreter.
 Tablet hints are available;
 a full objective journal, broader route guidance and zoom-out remain later work. See [development scope](docs/DEVELOPMENT.md)
 and [how to report a playtest issue](docs/PLAYING.md#reporting-a-bug).

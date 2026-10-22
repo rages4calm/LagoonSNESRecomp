@@ -47,6 +47,9 @@ RecompReturn interp_tier_dispatch_tail(CpuState*c,uint32 pc,uint32 site,uint16 s
  (void)site;CHECK(pc==0x008106&&h==3&&c->S==(uint16)(s+3));
  boundary=pc;pending=1;return (RecompReturn)RECOMP_RETURN_LLE_UNWIND_BASE;}
 RecompReturn interp_tier_run_call_frame(CpuState*c,uint32 pc,uint32 site,uint8 n,uint32*out){(void)c;(void)pc;(void)site;(void)n;(void)out;CHECK(0);return RECOMP_RETURN_NORMAL;}
+/* This tool isolates the original prefix; the separately qualified title
+ * dispatch guard deliberately declines so all original instructions execute. */
+bool LagoonInlineTable_Run(CpuState*c,uint16_t e,uint8_t h,uint32_t r,RecompReturn*out){(void)c;(void)e;(void)h;(void)r;(void)out;return false;}
 #include "inline_helper_under_test.h"
 static uint8 rd(void*ctx,uint32 a){(void)ctx;bus_extra+=2;return peek(a);}
 static void wr(void*ctx,uint32 a,uint8 v){(void)ctx;bus_extra+=2;write(a,v);}

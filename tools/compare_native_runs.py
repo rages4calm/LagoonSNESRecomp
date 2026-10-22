@@ -15,7 +15,7 @@ from pathlib import Path
 
 COMPONENTS = ('fb.bmp', 'fb.bgrx', 'wram.bin', 'vram.bin', 'oam.bin',
               'cgram.bin', 'sram.bin', 'regs.json', 'apu.tsv', 'dma.tsv', 'ppuw.tsv')
-FATAL = ('[brk]', '[interp_cap]', '[interp_low_exec]', '[cpu_halt]', 'assertion failed')
+FATAL = ('[brk]', '[interp_cap]', '[interp_low_exec]', '[cpu_halt]', '[native_contract]', 'assertion failed')
 INPUT_KEYS = ('rom_sha256', 'route_sha256', 'frames', 'input_config_sha256',
               'effective_config_sha256', 'enabled_features', 'enabled_package_features',
               'diagnostic_overrides', 'private_mod_state', 'script_only_input',
@@ -23,7 +23,7 @@ INPUT_KEYS = ('rom_sha256', 'route_sha256', 'frames', 'input_config_sha256',
 REQUIRED = ('exe_sha256', 'program_manifest_sha256', 'rom_sha256', 'route_sha256',
             'frames', 'effective_config_sha256')
 STRICT_CAPTURE_PATHS = {'SNESRECOMP_APURAM_TRACE_FILE', 'SNESRECOMP_DSPREG_TRACE_FILE',
-                        'SNESRECOMP_DSPOUT'}
+                        'SNESRECOMP_DSPOUT', 'SNESRECOMP_APU_QUEUE_TRACE'}
 ADVISORY_REPORT_PATHS = {'LAGOON_NATIVE_RECOVERY_REPORT', 'LAGOON_SCENE_RENDERER_REPORT',
                          'LAGOON_FOLLOWER_REPORT', 'LAGOON_FRAME_PROBE',
                          'LAGOON_TRANSITION_REPORT', 'LAGOON_SWORD_REPORT',
