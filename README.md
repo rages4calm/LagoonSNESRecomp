@@ -127,3 +127,11 @@ ROMs, generated ROM-derived code, extracted Lagoon assets, saves and private
 validation captures stay local. The tiny credited Chrono Trigger cameo has its
 own original copyright; it is not MIT-licensed artwork. The gallery contains
 selected development screenshots.
+
+## Community and contact
+
+Discord: **chrono.trigger**
+
+[**R.A.I.D. — Retro AI Development**](https://discord.gg/Ad9BwSzctP) · a Discord
+for AI-assisted retro reverse-engineering, decomp & recomp. I post my work there;
+join to discuss this project and the others.
