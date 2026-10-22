@@ -17,17 +17,33 @@
     },
     {
       "file": "town-32x9-fullscreen.png",
+      "date": "2026-10-22",
       "width": 1920,
       "height": 1080,
       "aspect": "32:9",
-      "frame": 6650,
-      "fullscreen": true,
+      "host_frame": 546,
+      "fullscreen": false,
+      "hidden_window": true,
+      "physical_scanout_verified": false,
+      "filename_note": "Legacy filename retained for existing links; this replacement is a hidden nonfullscreen GPU readback.",
       "video_driver": "windows",
+      "renderer": "OpenGL",
+      "enhanced_pixels": true,
       "camera_center": true,
-      "exe_sha256": "536d1a63104f34a8149680c651a339583ee28ed37548c1194a7631e6cde3e40f",
-      "route_sha256": "265504e4def5745294ded9cb427b149ee29bef12ef1c83ce30be6ab3d8609280",
-      "png_sha256": "86dea249b4666136f91864371039c61ecb519d1fba154094c1b77e1bacb539f8",
-      "capture": "SDL renderer output readback before Present; lossless BMP to PNG"
+      "exe_sha256": "2ad2be559779e685d7ea00441ab57535c90829f9f46218de70640ec4b1a3ded4",
+      "route_sha256": "50925b5d3ccf80adee2053dd757b142d327791c5ac5cde0ef7cde524979994a1",
+      "png_sha256": "2c1a84ff6ba3565ea123eb1d6c74b0ecd4c3cf4b829d724c2a5af25c045c9d4e",
+      "capture": "Actual hidden OpenGL post-EPX readback before Swap; lossless RGB BMP to PNG; no resizing",
+      "source_pixel_size": [
+        682,
+        224
+      ],
+      "enabled_features": [
+        "camera_center",
+        "walk_speed"
+      ],
+      "scene": "Original held-direction walking on Atland street after assisted positioning; captured while moving right, before three subsequent reversals.",
+      "limitations": "This bounded route did not reproduce the reported movement flicker; it is not a fullscreen scanout or full-game rendering guarantee."
     },
     {
       "file": "cave-16x9-fullscreen.png",
@@ -204,5 +220,5 @@
   ],
   "accepted_build_exe_sha256": "904d218f875e4ebd877e9f5df4b85aecf901efbdc70fd7b04c26d9822fcf752b",
   "accepted_build_validation": "All three source presentation frames exactly match the final published build after transition settlement/compositor changes; original full-resolution SDL captures retained.",
-  "accepted_build_validation_scope": "The top-level accepted-build fields describe the original first three batch-4 captures. Later entries each record their own executable identity and limits."
+  "accepted_build_validation_scope": "The top-level accepted-build fields are historical batch-4 evidence, not a current-build claim. The town-32x9 image was replaced on 2026-10-22; its own entry records the new executable and hidden-window provenance. Other entries retain their original identities."
 }

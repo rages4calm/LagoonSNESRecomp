@@ -11,6 +11,18 @@ not a full-game rendering or performance guarantee.
 
 Actual OpenGL fullscreen readback with EPX and camera centering.
 
+## Atland streets — Enhanced pixels, 32:9
+
+![Atland street with complete house facades and closed doors](town-32x9-fullscreen.png?v=2)
+
+Actual **1920×1080 hidden OpenGL EPX readback**, captured during ordinary
+held-direction walking after assisted positioning. The view is letterboxed at
+32:9. This replaces an older image that showed an isolated door. The legacy
+filename includes “fullscreen”; this new capture uses a hidden nonfullscreen
+window and does not verify physical fullscreen scanout. A short back-and-forth
+route did not reproduce the reported movement flicker; broader playtesting
+remains necessary. [Capture metadata](captures.json).
+
 ## Atland dialogue — 21:9, 1920×1080
 
 [![Atland NPC dialogue with the world remaining wide](atland-dialogue-21x9-1920x1080.png?v=2)](atland-dialogue-21x9-1920x1080.png)
@@ -44,7 +56,7 @@ frame expands. The early inventory is mostly empty. [Metadata](captures.json).
 
 Actual **1920×1080 desktop-fullscreen OpenGL captures**. The map shows Nasir,
 observed terrain, visited positions, discovered exits and treasure markers.
-Unvisited destinations stay unknown. Open with **M** or **Select+L**; browse
+Unvisited destinations stay unknown. Open with **M** or **L2**; browse
 visited areas with Left/Right and return to Nasir with Y. Gameplay pauses while
 browsing, and exploration saves automatically.
 

@@ -7176,7 +7176,7 @@ index e01e3ba..92162d8 100644
   * Run the interpreter over guest code at entry_pc24, in the context of `cpu`.
   * `cpu` is updated in place. Returns:
 diff --git a/runner/src/snes/ppu.c b/runner/src/snes/ppu.c
-index 25dcfe03b6615138c04c376ec83f7a52ca5fe5de..292d93ffe0e30393c2d8773eaff471d4c6455857 100644
+index 25dcfe0..15b6984 100644
 --- a/runner/src/snes/ppu.c
 +++ b/runner/src/snes/ppu.c
 @@ -167,6 +167,12 @@ void ppu_rb_residue_set(Ppu *ppu, const PpuRollbackResidue *in) {
@@ -7249,7 +7249,20 @@ index 25dcfe03b6615138c04c376ec83f7a52ca5fe5de..292d93ffe0e30393c2d8773eaff471d4
    for (size_t windex = 0; windex < win.nr; windex++) {
      if (win.bits & (1 << windex))
        continue;  // layer is disabled for this window part
-@@ -2792,6 +2816,7 @@ void PpuSetExtraObjects(Ppu *ppu,const PpuExtraObject *objects,size_t count) {
+@@ -2764,6 +2788,12 @@ static void PpuUpdateWidescreenOamHistory(Ppu *ppu, int line) {
+       const int dx = x - ppu->wsOamMotionX[slot];
+       if (dx != 0 && dx > -32 && dx < 32) {
+         ppu->wsOamMotionGrace[slot] = kPpuWsOamMovingGraceFrames;
++      } else if (dx != 0) {
++        /* A discontinuity also ends grace earned before the jump. Keeping
++         * its remaining frames resurrects a slot whose owner just parked
++         * it while retaining tile/Y bytes (Lagoon does this at raw X320).
++         * This is a motion boundary, not a blacklist of parked coordinates. */
++        ppu->wsOamMotionGrace[slot] = 0;
+       } else if (ppu->wsOamMotionGrace[slot]) {
+         ppu->wsOamMotionGrace[slot]--;
+       }
+@@ -2792,6 +2822,7 @@ void PpuSetExtraObjects(Ppu *ppu,const PpuExtraObject *objects,size_t count) {
    ppu->extraObjects=objects;ppu->extraObjectCount=objects?count:0;
  }
  
@@ -7257,7 +7270,7 @@ index 25dcfe03b6615138c04c376ec83f7a52ca5fe5de..292d93ffe0e30393c2d8773eaff471d4
  bool PpuComposeExtraObjects(const PpuExtraObject *objects,size_t count,
      int y,int x0,size_t width,unsigned first_slot,
      uint16_t *depth,uint16_t *colors,uint64_t *order) {
-@@ -3205,6 +3230,85 @@ static int raster_reg_journaled(uint16_t reg) {
+@@ -3205,6 +3236,85 @@ static int raster_reg_journaled(uint16_t reg) {
    }
  }
  

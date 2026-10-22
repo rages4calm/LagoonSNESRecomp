@@ -27,6 +27,18 @@ checks across the northern and southern streets matched native scenery and
 door sprites, but did not reproduce the fullscreen/enhanced presentation issue.
 No renderer guards were relaxed on the strength of those negative checks.
 
+A separate shared OAM motion-history defect was reproduced in the actual PPU:
+a large jump into an offscreen parking position inherited up to three fields
+of left-margin visibility. Large discontinuities now clear that history;
+small movement and briefly stationary sprites retain their existing grace.
+Boundary tests also preserve legitimately positioned sprites at the same X
+coordinate. This fixes a shared visibility rule, not a blacklist of doors or
+Atland coordinates. Four walking passes through Atland with three reversals
+matched before/after in 61 source frames and three actual hidden OpenGL/EPX
+readbacks; that route did not exhibit the owner's remaining flicker. The older
+gallery image's detached door and uncovered doorway were already absent from
+the current matched view; the gallery now has a current 1920x1080 capture.
+
 Scenery contracts cover all 75 authored room descriptors. Native work includes
 player damage, death/revival, recovery/reward loops, boss states, Bird/endgame
 services, sprite staging, resource/tile queues, numeric UI helpers and original
