@@ -52,6 +52,7 @@ add_executable(LagoonSNESRecomp
     src/lagoon_native_camera.c
     src/lagoon_native_endgame.c
     src/lagoon_native_inline.c
+    src/lagoon_native_music.c
     src/lagoon_state.c
     src/lagoon_fast_menus.c
     src/lagoon_menu_decode.c

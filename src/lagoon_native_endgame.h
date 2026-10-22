@@ -5,6 +5,8 @@ typedef struct LagoonNativeEndgameStats {
   unsigned long long waits[13],queue_ancestors;
   unsigned long long hud_calls,hud_armed,hud_proposals,hud_takes,hud_refusals;
   unsigned long long native_inline[6];
+  unsigned long long script_fixture_applied;
+  unsigned long long native_music[3],native_music_refusals[3];
 } LagoonNativeEndgameStats;
 void LagoonNativeEndgameBeforeFrame(void);
 unsigned LagoonNativeEndgameDescriptors(InterpAotContinuation *out,unsigned cap);
@@ -14,3 +16,6 @@ int LagoonNativeEndgameHook(unsigned event,const CpuState *cpu,uint32_t source,
     InterpAotAncestor *proposal);
 const LagoonNativeEndgameStats *LagoonNativeEndgameGetStats(void);
 void LagoonNativeEndgameConsumeInline(unsigned family);
+
+void LagoonNativeEndgameConsumeMusic(unsigned writer);
+void LagoonNativeEndgameRefuseMusic(unsigned writer);

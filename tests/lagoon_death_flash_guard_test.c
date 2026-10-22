@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include "lagoon_endgame_host_stubs.h"
 #include "../src/lagoon_native_recovery.c"
 static uint8_t rom[0x100000],ram[0x20000],snapshot[0x20000];
 const uint8_t *g_rom;

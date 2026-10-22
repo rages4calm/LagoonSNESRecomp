@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include "lagoon_endgame_host_stubs.h"
 static uint8_t rom[0x100000],snapshot[0x100000];
 const uint8_t *g_rom;
 static InterpAotContinuation entries[64];

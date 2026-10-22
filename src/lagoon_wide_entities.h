@@ -112,8 +112,9 @@ void LagoonWideAtlas_Write(LagoonWideAtlas *atlas, unsigned byte_address);
 int LagoonWideAtlas_CellOwned(const LagoonWideAtlas *atlas, unsigned base1,
     unsigned base2, const LagoonWideCell *cell);
 /* Successful full-state-load recovery only. Complete descriptor/source and
- * complete resource identity is required, including any proven original common
- * upload overlap. Room14 owns only complete tiles of its exact8324-byte stream;
+ * complete resource identity is required, including proven original common2
+ * or common2-then-common3 overlap. Common3 without that proven prior writer
+ * remains unowned. Room14 owns only complete tiles of its exact8324-byte stream;
  * its unknown physical-upload tail remains unowned. No partial DMA is repaired.
  * Caller owns the one-attempt successful-load/generation/scene gate. */
 int LagoonWideAtlas_RebindResident(LagoonWideAtlas *atlas,const uint8_t *rom,

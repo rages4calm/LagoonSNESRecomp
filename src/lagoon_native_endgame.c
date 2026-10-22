@@ -1,8 +1,12 @@
 /* Original inline-table dispatch and Thor script continuations. All hooks are
- * read-only: real CALL/JML/RTL instructions own every lent guest frame. */
+ * read-only except the explicit default-off script-input fixture: real
+ * CALL/JML/RTL instructions own every lent guest frame. */
 #include "lagoon_native_endgame.h"
 #include "common_rtl.h"
 #include <string.h>
+#include <stdlib.h>
+#include "lagoon_script_fixture.h"
+#include "lagoon_native_music.h"
 
 typedef struct {unsigned pc,count;uint64_t hash;} SourceSpan;
 static uint64_t hash(unsigned pc,unsigned count) {
@@ -240,7 +244,21 @@ void LagoonNativeEndgameConsumeInline(unsigned family) {
   memset(&inline_witness, 0, sizeof inline_witness);
   if (family < 6) ++stats.native_inline[family];
 }
+static unsigned fixture_selector,fixture_used,fixture_initialized;
+static uint64_t fixture_generation,fixture_frame;
+static void script_fixture_hook(CpuState *c,uint32_t pc) {
+  if(pc!=0x01cc9a||!fixture_selector||c!=&g_cpu)return;
+  if(LagoonScriptFixture_Apply(g_rom,0x100000,c,&g_cpu,RtlStateGeneration(),
+      fixture_frame,fixture_selector,&fixture_used))++stats.script_fixture_applied;
+}
+void LagoonNativeEndgameConsumeMusic(unsigned w){if(w<3)++stats.native_music[w];}
+void LagoonNativeEndgameRefuseMusic(unsigned w){if(w<3)++stats.native_music_refusals[w];}
 void LagoonNativeEndgameBeforeFrame(void) {
+  LagoonNativeMusic_BeforeFrame();
+  if(!fixture_initialized){fixture_initialized=1;fixture_selector=LagoonScriptFixture_Parse(getenv("LAGOON_SCRIPT_FIXTURE"));}
+  fixture_frame=RtlStateGeneration();
+  if(fixture_generation!=fixture_frame){fixture_generation=fixture_frame;fixture_used=0;}
+  if(fixture_selector&&g_rom)interp_bridge_add_pre_opcode_hook(0x01cc9a,script_fixture_hook);
   if(g_rom)(void)interp_bridge_set_aot_indirect_long_tail_hook(0x008106,inline_tail);
   if(g_rom)(void)interp_bridge_set_aot_indirect_long_call_tail_hook(0x0080E6,hud_tail);
 }

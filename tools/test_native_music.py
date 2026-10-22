@@ -1,0 +1,10 @@
+"""Three exact source-owned APU writers, with ordered legacy access-point clocks."""
+import argparse,hashlib,json,subprocess
+from pathlib import Path
+p=argparse.ArgumentParser(description=__doc__)
+for k in ['rom','out']:p.add_argument('--'+k,type=Path,required=True)
+p.add_argument('--compiler',default='clang');a=p.parse_args();repo=Path(__file__).resolve().parents[1];sdk=repo/'snesrecomp/runner/src';sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+expected=next(s.split('=',1)[1].strip()for s in(repo/'rom_identity.txt').read_text(encoding='utf8').splitlines()if s.startswith('expected_sha256'));assert sha(a.rom)==expected and not a.out.exists();a.out.mkdir(parents=True)
+s=(sdk/'cpu_state.c').read_text(encoding='utf8');s=s[s.index('uint32_t cpu_region_speed(uint32_t adr) {'):];s=s[:s.index('\n}')+2]+'\n';(a.out/'music_bus_under_test.h').write_text(s,encoding='utf8')
+test=repo/'tests/lagoon_native_music_test.c';exe=a.out/'native-music.exe';subprocess.run([a.compiler,'-std=c11','-O2','-Wall','-Wextra','-Werror','-Wno-unused-parameter','-I'+str(sdk),'-I'+str(a.out.resolve()),str(test),str(sdk/'snes/interp816.c'),'-o',str(exe)],check=True)
+r=subprocess.run([str(exe.resolve()),str(a.rom.resolve())],capture_output=True,text=True);print(r.stdout,end='');print(r.stderr,end='');record=dict(passed=r.returncode==0,stdout=r.stdout,stderr=r.stderr,returncode=r.returncode,rom_sha256=expected,source_sha256={str(p.relative_to(repo)):sha(p)for p in [Path(__file__),test,repo/'src/lagoon_native_music.c',repo/'src/lagoon_native_music.h',sdk/'cpu_state.c',sdk/'snes/interp816.c']},scope='Originalregion-cost65816 bytecode after12realJSLcalls; actual8sourceinstructions and3bytephysicalRTL, orderedAPUaccess data+CPU/master/copro point, allflags/hiddenA/deadlines. Unknowns readonlyTrythenoriginal-entry wrapperboundary. Commit stub retainsactualcoproclockupdate, noSPC/DSP/NMI/refresh emulation; actualdevice controls required. Observation is existinginterpreter opcode-start policy, not physicalbus accuracy.');(a.out/'result.json').write_text(json.dumps(record,indent=2)+'\n',encoding='utf8');assert record['passed']

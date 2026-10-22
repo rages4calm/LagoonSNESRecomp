@@ -13,10 +13,11 @@ services, sprite staging, resource/tile queues, numeric UI helpers and original
 display fades and queued graphics transfers. The HUD-number dispatcher has a
 separate, source-guarded handoff
 using its actual cross-bank JSL return frame. Counts of
-compiled functions are analysis counts, not completion percentages. The current
-manifest retains 582 AOT entries; host-side changes do not imply
-additional compiled guest functions. Generated
-code alone does not prove that a runtime dispatcher reaches a compiled entry.
+compiled functions are analysis counts, not completion percentages. Installed
+development 0.1.9 has 580 AOT-eligible entries, 77 analyzed interpreter entries
+and 438 roots. Three complex music upload paths intentionally retain original
+opcodes. Generated code alone does not prove that a runtime dispatcher reaches
+a compiled entry.
 
 The original 34-slot projectile animation table has qualified M1X0 leaf handlers
 and its shared return tail. Its effect dispatch now also qualifies all six
@@ -60,7 +61,7 @@ The item-use request and selection prefix preserves its actual caller's
 two-byte return frame. The inline helper consumes only its real three-byte JSL
 frame; six exact table/parent/physical-stack contexts can then dispatch directly
 to available qualified native handlers. The families are item use, magic,
-death, two boss-script tables and two specific NPC script commands. Other table
+death, two boss-script tables and 27 source-qualified NPC script commands. Other table
 words, source mismatches, modes and return owners fall back before mutation.
 Unexpected native return-stack violations terminate with a contract diagnostic
 instead of fabricating a return. The generic ExecutePtr lowering remains
@@ -70,12 +71,17 @@ All eight authored magic table handlers and their finite debit/spawn helpers
 have original-opcode checks; live controls separately exercise actual spell8,
 real L-button Shiny Ball use and the retirement route. Source-only tests of
 eight music/script/query parents do not establish natural quest activation.
-Assisted attempts to trigger NPC commands30/39 did not reach those commands,
-so their runtime activation remains unproved. These attempted routes are not
-registered as positive native coverage.
+A default-off, source-bound diagnostic fixture now aliases only the original
+NPC script pointer after a lawful NPC 0 interaction. Commands 30/39 each reach the
+native dispatcher and their original CCD8 return: 81 pictures and two checkpoints
+match the same-build interpreter controls. Only two script-input bytes change;
+PC, physical frames and handler outcomes remain original. The earlier malformed
+NPC 80 attempts remain negative evidence. Assisted activation is distinct from
+natural quest progression, and does not establish live coverage of all 27 commands.
+The other 13 commands in this table retain original dispatch.
 
-The broad development0.1.8 batch retains exact clock/physical state checks and
-all previous native entries. Source checks cover15,720 bank-dispatch cases,
+The verified development0.1.8 batch retains exact clock/physical state checks.
+Source checks cover15,720 bank-dispatch cases,
 4,096 parent cases,60,480 inline guard cases,11,968 magic cases and640 actual
 actor iteration cases. Counts describe bounded tests, not campaign completion.
 A matched native/interpreted-magic route preserves716 ordered pictures, eight
@@ -83,6 +89,32 @@ checkpoints, all audio queue targets/application clocks, SPC memory, DSP
 registers and PCM bytes. A separate read-only buffered queue observer verifies
 actual device application time; old captures without it cannot pass that gate.
 The legacy raw strict comparison is retained unchanged, including failures.
+
+The 0.1.9 music work adds three source-owned native port writers for FE00/FE2F/
+FE5E. They publish the port access at the same opcode-start CPU/master point as
+the original interpreter, then charge the original instruction total. The real
+RTL frame, mode, source, caller and generation remain guarded; unknown contexts
+use original opcodes. This changes no shared clock policy or guest duration.
+The three complex upload/handshake paths FE9B/FEEC/FF69 remain interpreted until
+their device-event timing is qualified. The three writers pass 38,412 original-
+opcode cases, including ordered port observations, deadlines and physical returns.
+A fresh control excludes exactly the five remaining native music entries. The
+81-picture NPC music route and 716-picture spell route match full checkpoint
+state/clocks, actual queue targets/application clocks, DSP registers and PCM.
+All three native port-writer counters are positive; the control counters are zero.
+The legacy raw trace still differs in deferred-apply CPU-beam/sample observations
+and retains its failed strict result. The separate device comparison passes;
+its exact timestamps are not inferred from those observation fields. The final
+0.1.9 rebuild matches the qualified candidate on both routes.
+
+Compatible Voloh loads now recognize the exact original common2-then-common3
+resource history. Common3 expands 1,476 bytes but uploads 1,728, including bytes left
+by common2. Both streams, original predicates/writers, all 10,752 ordinary atlas
+bytes and the complete common upload must match. Its 1,216 bytes outside the
+ordinary atlas remain unowned. The new scope has original C1C6/C026 NPC cells and
+independent planar-pixel checks, plus an assisted stationary NPC 47 case. Moving
+or unqualified forms still decline. This is a specific resource combination,
+not generic follower or natural escort coverage.
 
 Widescreen presentation now gives completed source-qualified menus priority
 over world caches. Qualified incoming all-background mosaic packets preserve
@@ -102,6 +134,18 @@ No interval exceeded20ms in this check. The native actor loop saves a little
 host work against its same-build interpreter control; whole-route work is
 close to the previous build. This does not establish a global performance
 improvement or a locked60Hz guarantee.
+
+The 0.1.9 read-only character-discovery scan visits each metatile once and reads
+only its covered tile definitions. Across 75 original room maps, source reads
+fall from 7,407,646 to 660,398 (about 91%); 1,195 cases compare each plane and final
+used-character bits, including odd edges, fill, parallax and changed sources.
+The upload/VRAM/torch ownership checks are unchanged and no persistent authority
+is cached. A qualified acquisition candidate was measured on a matched 97-field
+original 14-to15 OpenGL/EPX/WASAPI route: total guest work changes 127.91 to
+124.33 ms; loader field 83 changes 2.54 to 2.43 ms.
+Both captures retain two intervals above 20 ms and the same original guest periods;
+maximum intervals are 22.36/22.30 ms. This is bounded extra CPU headroom, not an
+all-area speedup or removal of every spike.
 
 The assisted campaign work uses original loaders, doors and event/boss scripts,
 with position/stat assistance to reach affected cases quickly. It is distinct

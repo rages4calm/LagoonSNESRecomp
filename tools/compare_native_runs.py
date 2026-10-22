@@ -18,7 +18,7 @@ COMPONENTS = ('fb.bmp', 'fb.bgrx', 'wram.bin', 'vram.bin', 'oam.bin',
 FATAL = ('[brk]', '[interp_cap]', '[interp_low_exec]', '[cpu_halt]', '[native_contract]', 'assertion failed')
 INPUT_KEYS = ('rom_sha256', 'route_sha256', 'frames', 'input_config_sha256',
               'effective_config_sha256', 'enabled_features', 'enabled_package_features',
-              'diagnostic_overrides', 'private_mod_state', 'script_only_input',
+              'diagnostic_overrides', 'script_fixture_input', 'private_mod_state', 'script_only_input',
               'visible_display', 'offscreen_gpu', 'input_msu_pack')
 REQUIRED = ('exe_sha256', 'program_manifest_sha256', 'rom_sha256', 'route_sha256',
             'frames', 'effective_config_sha256')

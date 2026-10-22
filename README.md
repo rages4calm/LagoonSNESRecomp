@@ -19,7 +19,7 @@ widescreen, a custom scene renderer and optional quality-of-life improvements.
   additional scenery, supported NPC/enemy sprites, selected multipart boss poses
   and supported projectile and fullscreen magic effects beyond the original view.
   Loading a compatible Elf Field or Voloh state also recovers supported actors in the
-  added view without requiring a door reload.
+  added view without requiring a door reload, including more supported Voloh NPCs.
   Supported enemy defeat effects also recover after compatible state loads.
   Equipped spell graphics also recover after compatible loads, including
   supported homing spells in the added view.
@@ -69,8 +69,8 @@ letterboxing on a 16:9 display. Window scale affects windowed size only.
 
 ## Project status
 
-The source and local development build are now **0.1.8**. The latest packaged
-Windows preview remains **0.1.3**; its release notes describe that package.
+The source and installed local development build are now **0.1.9**. The latest
+packaged Windows preview remains **0.1.3**; its release notes describe that package.
 
 This is experimental. Native combat, damage, death/revival, boss services and
 endgame routes, display fades and guarded HUD dispatch have focused checks;
@@ -90,7 +90,11 @@ Incoming mosaic fades now retain the current room's original center and fill
 qualified widescreen margins; completed menus take priority over cached scenery.
 Native table dispatch now covers qualified item, spell, death and boss-script
 contexts, with the full ordinary actor sorting loop also compiled. Unknown
-script contexts continue through the interpreter.
+script contexts continue through the interpreter. The NPC script family now
+has 27 guarded commands; two have also been verified through assisted NPC
+interactions with their original returns. A read-only map-resource scan also reduces
+loading work without changing game speed. Remaining frame-time spikes are still
+being checked.
 Tablet hints are available;
 a full objective journal, broader route guidance and zoom-out remain later work. See [development scope](docs/DEVELOPMENT.md)
 and [how to report a playtest issue](docs/PLAYING.md#reporting-a-bug).

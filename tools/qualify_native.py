@@ -203,7 +203,7 @@ def main():
     overrides={}
     for spec in args.env:
         key,sep,value=spec.partition('=')
-        if not sep or key not in diagnostic_paths|diagnostic_numbers|diagnostic_booleans|diagnostic_ranges.keys()|{'LAGOON_WIDE_ASPECT','LAGOON_SCENE_RENDERER','LAGOON_ACTOR_COMPUTE','LAGOON_ACTOR_COMMANDS','LAGOON_ACTOR_COMMANDS_REPORT','LAGOON_CAMPAIGN_FIXTURE_ROOM','SNESRECOMP_LLE_INTERP_TARGET'}:
+        if not sep or key not in diagnostic_paths|diagnostic_numbers|diagnostic_booleans|diagnostic_ranges.keys()|{'LAGOON_WIDE_ASPECT','LAGOON_SCENE_RENDERER','LAGOON_ACTOR_COMPUTE','LAGOON_ACTOR_COMMANDS','LAGOON_ACTOR_COMMANDS_REPORT','LAGOON_CAMPAIGN_FIXTURE_ROOM','LAGOON_SCRIPT_FIXTURE','SNESRECOMP_LLE_INTERP_TARGET'}:
             raise SystemExit('Unsupported diagnostic override: '+spec)
         if key in diagnostic_paths:
             p=Path(value);p=(p if p.is_absolute() else out/p).resolve()
@@ -219,6 +219,8 @@ def main():
             if not re.fullmatch(r'[0-9a-fA-F]{6}',value):
                 raise SystemExit('Interpreter control target must be one exact six-digit hexadecimal PC')
             value=value.upper()
+        elif key=='LAGOON_SCRIPT_FIXTURE':
+            if value not in {'30','39'}:raise SystemExit('Script fixture must be exactly 30 or 39')
         elif key=='LAGOON_CAMPAIGN_FIXTURE_ROOM':
             validate_fixture_room(value,campaign_warps=args.campaign_warps,visible=args.visible,
                 live_input=args.live_input,real_audio=args.real_audio,frames=args.frames)
@@ -250,6 +252,7 @@ def main():
     receipt['present_log_path']=str(out/'presents.csv') if not args.no_present_log else None
     receipt.update(enabled_features=sorted(enabled),enabled_package_features=sorted(selected),
                    diagnostic_overrides=overrides,private_mod_state=state,private_working_directory=str(host))
+    receipt['script_fixture_input']=({'source_pc':'01CC9A','selector':overrides['LAGOON_SCRIPT_FIXTURE'],'script_alias':'05C6AF' if overrides['LAGOON_SCRIPT_FIXTURE']=='30' else '05CAB1','writes':'A1/A2 only; once per state generation after real NPC interaction; original bank/dispatcher/handlers unchanged'} if 'LAGOON_SCRIPT_FIXTURE' in overrides else None)
     receipt['seeded_save_files']=seeded
     receipt['campaign_warps']=campaign_plan
     receipt['campaign_setup_writes']=setup_writes

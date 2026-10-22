@@ -1238,6 +1238,28 @@ static int loaded_common2(const uint8_t *rom,size_t size,const uint8_t *ram,
     source_hash(rom,size,0x11c2f3,1478,UINT64_C(0xc0213329560cbd75)) &&
     resident_bytes_hash((const uint8_t*)(vram+0x5800),0x6e0)==UINT64_C(0x1cbe9642dd57379b);
 }
+static int loaded_common3_after_common2(const uint8_t *rom,size_t size,
+    const uint8_t *ram,const uint16_t *vram) {
+  int common2=0,common3=0;
+  for(unsigned off=0x40;off<0x840;off+=0x40) {
+    const uint8_t *record=ram+0x500+off;
+    if((record[0]&0xc0)!=0xc0||record[24]!=1)continue;
+    common2|=record[27]==0;common3|=record[27]==1||record[27]==3;
+  }
+  /* Original8869 uploads common2 before common3 when both predicates hold.
+   * Common3 decompresses1476 bytes but physically uploads1728, retaining
+   * common2 dictionary/buffer history. A common3-only output/hash is NOT an
+   * equivalent source. Prove both original streams and the complete composite
+   * upload, not merely the512-byte overlap with the ordinary room atlas. */
+  return common2&&common3 &&
+    source_hash(rom,size,0x018869,100,UINT64_C(0xdad543165362dc76)) &&
+    source_hash(rom,size,0x0189ab,74,UINT64_C(0x95741a8958255850)) &&
+    source_hash(rom,size,0x0094a1,69,UINT64_C(0x1d3849a43513aa9f)) &&
+    source_hash(rom,size,0x0094f4,14,UINT64_C(0x4e13deb2122a3a59)) &&
+    source_hash(rom,size,0x11c2f3,1478,UINT64_C(0xc0213329560cbd75)) &&
+    source_hash(rom,size,0x11c8b9,1115,UINT64_C(0x1de930f56ff2cd59)) &&
+    resident_bytes_hash((const uint8_t*)(vram+0x5800),0x6c0)==UINT64_C(0xcfc427708e515931);
+}
 static int loaded_room14(LagoonWideAtlas *a,const uint8_t *rom,size_t size,
     const uint8_t *ram,const uint16_t *vram,uint64_t generation) {
   /* The original actor stream finishes at8324 bytes. The physical2A00 upload
@@ -1302,7 +1324,12 @@ int LagoonWideAtlas_RebindResident(LagoonWideAtlas *a,const uint8_t *rom,
     /* Common2's original5800 upload overwrites the final512 bytes of the
      * room09 atlas. Prove the complete composite plus the complete common
      * upload, including its nonoverlapping5900..5B6F remainder. */
-    if(room!=9||hash!=UINT64_C(0x14079b23bf17e7b6)||!loaded_common2(rom,size,ram,vram))return 0;
+    if(room!=9)return 0;
+    if(hash==UINT64_C(0x14079b23bf17e7b6)) {
+      if(!loaded_common2(rom,size,ram,vram))return 0;
+    }else if(hash==UINT64_C(0x76736332646ae97e)) {
+      if(!loaded_common3_after_common2(rom,size,ram,vram))return 0;
+    }else return 0;
   }
   LagoonWideAtlas bound={0};memset(bound.owned,1,sizeof(bound.owned));
   bound.generation=generation;bound.room=room;bound.source=actor;

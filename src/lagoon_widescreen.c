@@ -316,6 +316,25 @@ static void retain_completed_scene(void) {
   s_retained.generation=RtlStateGeneration();
   LagoonWideEntities_RetainScene();s_retained.valid=1;
 }
+/* Each map byte selects a16x16 metatile. Discover its actually covered
+ * quadrants once, then read each referenced definition once. This is a local
+ * read-only scan; no map/resource authority survives the call. */
+static void mark_map_characters(unsigned layer,unsigned tw,unsigned th) {
+  uint8_t quadrants[256]={0};
+  unsigned map=pointer(layer?0x8b:0x88),definitions=pointer(layer?0x75:0x69);
+  for(unsigned y=0;y<th;y+=2)for(unsigned x=0;x<tw;x+=2) {
+    unsigned mask=1;
+    if(x+1<tw)mask|=2;
+    if(y+1<th)mask|=(x+1<tw)?12:4;
+    quadrants[byte_at(map+(y/2)*128+x/2)]|=(uint8_t)mask;
+  }
+  for(unsigned meta=0;meta<256;++meta)for(unsigned q=0;q<4;++q)
+    if(quadrants[meta]&(1u<<q)) {
+      unsigned a=definitions+meta*8+q*2;
+      unsigned tile=byte_at(a)|(byte_at(a+1)<<8);
+      s_world_char_used[tile&1023]=1;
+    }
+}
 static int capture_world_characters(const uint8_t *upload) {
     /* BG3 map $3C00 aliases unused BG1 character slots. Own only characters
      * actually referenced by the complete room, including its fill tile. */
@@ -329,8 +348,7 @@ static int capture_world_characters(const uint8_t *upload) {
         continue;
       }
       s_world_char_used[map_tile(layer,-16,-16)&1023]=1;
-      for(unsigned y=0;y<th;++y)for(unsigned x=0;x<tw;++x)
-        s_world_char_used[map_tile(layer,(int)x*8,(int)y*8)&1023]=1;
+      mark_map_characters(layer,tw,th);
     }
     unsigned torch_bytes=LagoonWideTorches_Bytes(word(0x48e),pointer(0x57));
     if(upload) {

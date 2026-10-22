@@ -21,7 +21,7 @@ subprocess.run([a.compiler,'-std=c11','-O2','-Wall','-Wextra','-Werror','-Wno-un
  str(runner/'snes/interp816.c'),'-o',str(binary)],check=True)
 r=subprocess.run([str(binary.resolve()),str(a.rom.resolve())],capture_output=True,text=True)
 print(r.stdout,end='');print(r.stderr,end='');r.check_returncode()
-files=['src/lagoon_native_endgame.c','src/lagoon_native_endgame.h',
+files=['tests/lagoon_endgame_host_stubs.h','src/lagoon_script_fixture.h','src/lagoon_native_endgame.c','src/lagoon_native_endgame.h',
  'snesrecomp/runner/src/snes/interp_bridge.c','snesrecomp/runner/src/snes/interp_bridge.h',
  'snesrecomp/runner/src/snes/interp816.c','tests/lagoon_endgame_inline_oracle_test.c','tools/test_endgame_inline_oracle.py']
 (a.out/'result.json').write_text(json.dumps(dict(status='PASS',rom_sha256=expected,

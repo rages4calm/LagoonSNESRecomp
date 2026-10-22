@@ -22,7 +22,38 @@ static const InlineFamily families[] = {
   {0xB939,16,UINT64_C(0x30553B57596F8E6E),{0xB5C2},UINT64_C(0xBDE4304FD717A8CC),0},
   {0xD409,25,UINT64_C(0x33C94789007A6341),{0x81AA},UINT64_C(0xBB5C824FD4F297B9),0},
   {0xCCDB,40,UINT64_C(0x388D2B99932B1042),{0xCCD8},UINT64_C(0xBB983F4FD52420FE),
-   (UINT64_C(1) << 30) | (UINT64_C(1) << 39)}
+   UINT64_C(0xF2FFEE0F78)}
+};
+
+/* Exact CCDB targets proved against original handlers; remaining selectors stay original. */
+static const uint16_t script_targets[40]={
+  [3]=0xCD65,
+  [4]=0xCD79,
+  [5]=0xCD8D,
+  [6]=0xCDA0,
+  [8]=0xCDE3,
+  [9]=0xCDF6,
+  [10]=0xCE0A,
+  [11]=0xCE1E,
+  [17]=0xD17A,
+  [18]=0xD193,
+  [19]=0xD199,
+  [21]=0xD20C,
+  [22]=0xD27D,
+  [23]=0xD2BB,
+  [24]=0xD2C5,
+  [25]=0xD2CB,
+  [26]=0xD2D1,
+  [27]=0xD2E1,
+  [28]=0xD2E9,
+  [29]=0xD2F0,
+  [30]=0xD31D,
+  [31]=0xD341,
+  [33]=0xD352,
+  [36]=0xD3B4,
+  [37]=0xD3BB,
+  [38]=0xD3C1,
+  [39]=0xD3C8,
 };
 
 static uint64_t source_hash(unsigned pc, unsigned n) {
@@ -66,8 +97,7 @@ bool LagoonInlineTable_Run(CpuState *c, uint16_t entry_s, uint8_t hrv,
   if (!known || source_hash(0x8000 + ((owner - 3) & 32767), 3) != f->parent_hash)
     return false;
   unsigned target = 0x010000 | word(g_rom + 0x8000 + ((call + 4) & 32767) + c->A * 2);
-  if (f->call == 0xCCDB && !((c->A == 30 && target == 0x01D31D) ||
-                            (c->A == 39 && target == 0x01D3C8))) return false;
+  if (f->call == 0xCCDB && target != (0x010000u | script_targets[c->A])) return false;
   if (!cpu_dispatch_has_entry(c, target) || cpu_dispatch_inline_arg_bytes(target))
     return false;
   LagoonNativeEndgameConsumeInline((unsigned)(f - families));
