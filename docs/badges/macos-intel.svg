@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="220" height="34" viewBox="0 0 220 34" role="img" aria-labelledby="title">
+  <title id="title">Download macOS Intel — platform preview</title>
+  <rect width="220" height="34" rx="5" fill="#596579"/>
+  <path d="M5 0h131v34H5a5 5 0 0 1-5-5V5a5 5 0 0 1 5-5" fill="#253142"/>
+  <g fill="#fff" font-family="Segoe UI,Arial,sans-serif" font-size="11" font-weight="700" text-anchor="middle">
+    <text x="68" y="21">macOS · INTEL</text><text x="178" y="21">PREVIEW ↓</text>
+  </g>
+</svg>

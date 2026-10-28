@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="204" height="34" viewBox="0 0 204 34" role="img" aria-labelledby="title">
+  <title id="title">Download Linux x64 — platform preview</title>
+  <rect width="204" height="34" rx="5" fill="#9a6700"/>
+  <path d="M5 0h115v34H5a5 5 0 0 1-5-5V5a5 5 0 0 1 5-5" fill="#253142"/>
+  <g fill="#fff" font-family="Segoe UI,Arial,sans-serif" font-size="11" font-weight="700" text-anchor="middle">
+    <text x="60" y="21">LINUX x64</text><text x="162" y="21">PREVIEW ↓</text>
+  </g>
+</svg>

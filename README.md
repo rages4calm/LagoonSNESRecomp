@@ -1,16 +1,27 @@
 # Lagoon Recomp
 
+[![Windows x64 — stable download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.2.5/Lagoon-Companion-0.2.5-win-x64.zip)
+[![Linux x64 — preview download](docs/badges/linux.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.2.5-ports-preview.1/Lagoon-Companion-0.2.5-linux-x64-preview.tar.gz)
+
+[![macOS Apple Silicon — preview download](docs/badges/macos-arm64.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.2.5-ports-preview.1/Lagoon-Companion-0.2.5-macos-arm64-preview.tar.gz)
+[![macOS Intel — preview download](docs/badges/macos-intel.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.2.5-ports-preview.1/Lagoon-Companion-0.2.5-macos-x64-preview.tar.gz)
+
+[Windows notes & checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.2.5) ·
+[Linux/macOS notes & checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.2.5-ports-preview.1) ·
+[Setup](#run-it) · [Screenshots](docs/screenshots/README.md) · [Credits](CREDITS.md)
+
 A desktop port of **Lagoon (USA)** built with
 [SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp).
 Native gameplay runs alongside an interpreter safety net, with
-widescreen, a custom scene renderer and optional quality-of-life improvements.
+widescreen, a custom scene renderer, an exploration map, local achievements
+and optional quality-of-life improvements. This is not a 100% native CPU conversion.
 **Bring your own clean USA ROM.** No ROM or extracted Lagoon graphics are bundled.
 
-**Windows:** [stable0.2.5](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.2.5).
-**Linux x64 and macOS Intel/Apple Silicon:** [experimental platform previews](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.2.5-ports-preview.1).
-These are native target executables with portable Companion. Hosted graphics,
-persistence and launcher checks pass; a complete target-system gameplay
-playthrough is still pending. [Platform setup and limits](docs/PORTING.md).
+**Windows 0.2.5 is stable.** Linux x64, Intel Mac and Apple Silicon Mac are
+**experimental previews** with portable Companion. All three passed native
+compilation, OpenGL readback, persistence, settings and packaged-launcher checks.
+Complete target-system gameplay, real audio and controller playtesting are still
+pending. [Platform requirements and testing limits](docs/PORTING.md).
 
 ![Atland with Enhanced original pixels at 1920 by 1080](docs/screenshots/atland-epx-1920x1080.png)
 
@@ -61,6 +72,8 @@ playthrough is still pending. [Platform setup and limits](docs/PORTING.md).
   with solid NPC collision, a portrait, original-style typing dialogue and music
   that continues while you talk.
 - **Companion Launcher:** display, audio, input and QoL settings in one place.
+  Windows keeps its existing interface; Linux/macOS use the shared portable
+  Companion interface with the same native settings and achievement browser.
   Choose **Original SNES** or the bundled **X68000** music on Audio; no manual
   conversion or folder selection. Unmapped cues retain SNES music and sound
   effects remain original. X68000 cues now have balanced playback levels, with
@@ -68,6 +81,8 @@ playthrough is still pending. [Platform setup and limits](docs/PORTING.md).
   the native settings directly. [Music details and MP3s](docs/SOUNDTRACK.md).
 
 ## Run it
+
+### Windows — stable
 
 Download the **Windows x64 ZIP** from
 [Releases](https://github.com/rages4calm/LagoonSNESRecomp/releases).
@@ -78,8 +93,27 @@ Companion are included, each with a custom icon; no compiler, SDK or download is
 needed for setup. Your ROM is verified and is never bundled or copied by setup.
 Release settings and saves live in the extracted folder's `local` directory.
 
+### Linux and macOS — previews
+
+Choose your platform's download above and extract the **entire `.tar.gz`**.
+Open **Start Lagoon.command**, or run `./lagoon.Companion` from the extracted
+folder. Select your clean USA ROM on **Game** and **Apply**, then use
+**Game setup → Run setup → Play**.
+
+**Python 3.11+ is required for first-run setup.** The .NET runtime is bundled;
+no compiler is required. Linux builds target a compatible Ubuntu 24.04-era
+desktop runtime and OpenGL 3.3+. Mac builds were checked on macOS 15 and are not
+notarized; use macOS's per-app approval if first launch is blocked.
+Keep the extracted folder together. [Full platform notes](docs/PORTING.md).
+
+### Saves and display settings
+
+Release settings, saves, map exploration and achievement progress live in
+**local/**. Preserve that directory when upgrading.
+
 For a source checkout, [build the game and launcher](docs/BUILDING.md), then open
-**Start Lagoon.cmd**. Development settings and saves remain in `build`.
+the appropriate platform launcher. **Start Lagoon.cmd** is the Windows entry
+point. Development settings and saves retain their existing `build` paths.
 
 On a **1920×1080 monitor**, start with desktop fullscreen, **16:9 widescreen**,
 VSync on and optional Enhanced original pixels. Leave linear filtering and frame
@@ -87,6 +121,13 @@ blending off for a sharp picture. 21:9 and 32:9 show more horizontal scenery, wi
 letterboxing on a 16:9 display. Window scale affects windowed size only.
 
 ## Project status
+
+**Linux/macOS platform preview 1** adds native target builds, portable Companion,
+ROM/payload-verified setup, Unix path handling, persistence checks and audited
+runtime dependencies. The optional X68000 album is bundled. Hosted build,
+graphics, persistence and launcher checks passed; the completed Windows
+playthrough does not certify Linux/macOS gameplay. Please include your OS,
+architecture, settings and reproduction steps in bug reports.
 
 The current Windows release is **0.2.5** / **v0.2.5**. It fixes map text losing
 pixel rows during overlay presentation, keeping small lettering readable at
@@ -140,8 +181,10 @@ Retain the included licenses: the SNESRecomp foundation and derivatives use
 **PolyForm Noncommercial**; Companion Launcher and the Lagoon launcher adapter
 use **MIT**, as do CompanionAchievements and cJSON under their own included
 notices. Public source availability does not remove the noncommercial terms.
-ROMs, generated ROM-derived code, extracted Lagoon assets, saves and private
-validation captures stay local. The tiny credited Chrono Trigger cameo has its
+ROMs, extracted Lagoon assets, saves and private validation captures are not
+uploaded or distributed. Generated ROM-derived code is excluded from public
+source and downloads; authorized platform builds use private build inputs.
+The tiny credited Chrono Trigger cameo has its
 own original copyright; it is not MIT-licensed artwork. The gallery contains
 selected development screenshots.
 
