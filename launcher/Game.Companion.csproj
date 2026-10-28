@@ -11,7 +11,7 @@
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove="tests/**/*.cs" />
+    <Compile Remove="tests/**/*.cs;desktop/**/*.cs" />
     <PackageReference Include="Companion.Launcher.Core" Version="[0.2.0]" />
     <PackageReference Include="Companion.Launcher.Windows" Version="[0.2.0]" />
   </ItemGroup>

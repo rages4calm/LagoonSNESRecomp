@@ -1,0 +1,97 @@
+# Manual, ROM-free compile qualification. This does NOT build a playable game,
+# upload generated C, change the release/tag, or claim a campaign playtest.
+name: Linux and macOS portability checks
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portability-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host:
+    name: Host compile (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux-x64
+          - os: macos-15
+            platform: macos-arm64
+          - os: macos-15-intel
+            platform: macos-x64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/checkout@v4
+        with:
+          repository: rages4calm/companion-launcher
+          ref: fae4d7020f19c2af00319dd49e2e926d272685ac
+          path: companion-foundation
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Linux desktop development dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgl1-mesa-dev libegl1-mesa-dev \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
+            libxinerama-dev libasound2-dev libpulse-dev libudev-dev \
+            libwayland-dev libxkbcommon-dev libfontconfig1 libxss-dev libxtst-dev xvfb xauth
+      - name: Assert no ROM or generated program is committed
+        run: |
+          python3 - <<'PY'
+          import pathlib, subprocess
+          tracked = subprocess.check_output(['git', 'ls-files', '-z']).decode().split('\0')
+          bad = [p for p in tracked if p and (p.startswith('src/gen/') or p == 'recomp/funcs.h' or pathlib.Path(p).suffix.lower() in {'.sfc','.smc','.sav','.srm'})]
+          if bad:
+              raise SystemExit('Private program inputs committed: ' + repr(bad))
+          PY
+      - name: Test portable package guards and setup preservation
+        run: python3 -P tests/test_portable_package.py
+      - name: Build actual authored game host without ROM-derived code
+        run: |
+          python3 -P scripts/build_port.py --setup-host --jobs 3 --cmake-arg=-DLAGOON_BUILD_PORT_TESTS=ON
+          cmake --build build-port-setup --target lagoon_posix_achievements_test lagoon_host_path_test lagoon_platform_probe -j3
+          build-port-setup/lagoon_host_path_test
+          if [ '${{ runner.os }}' = 'Linux' ]; then xvfb-run -a build-port-setup/lagoon_platform_probe; else build-port-setup/lagoon_platform_probe; fi
+          mkdir -p build-port-setup/private-profile
+          build-port-setup/lagoon_posix_achievements_test run "$PWD/build-port-setup/private-profile"
+      - name: Verify compile-only metadata cannot qualify as a playable package
+        run: |
+          python3 - <<'PY'
+          import json, pathlib
+          metadata = json.loads(pathlib.Path('build-port-setup/lagoon-build.json').read_text())
+          assert metadata['playable'] is False
+          assert metadata['generated_manifest_sha256'] == ''
+          print(json.dumps(metadata, indent=2))
+          PY
+      - name: Build shared portable Companion and check Lagoon settings/UI
+        run: |
+          dotnet pack companion-foundation/src/Companion.Launcher.Core -c Release -o companion-foundation/packages
+          dotnet pack companion-foundation/src/Companion.Launcher.Avalonia -c Release -o companion-foundation/packages
+          export COMPANION_LAUNCHER_FEED="$PWD/companion-foundation/packages"
+          dotnet run --project launcher/tests/Lagoon.Launcher.Tests.csproj -c Release -- --settings-only "$PWD/build-port-setup/settings-check"
+          dotnet restore tests/launcher-portable-ui/Lagoon.Portable.UI.Tests.csproj --configfile launcher/nuget.config
+          dotnet run --project tests/launcher-portable-ui/Lagoon.Portable.UI.Tests.csproj -c Release --no-restore -- "$PWD/build-port-setup/ui-check"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compile-only-metadata-${{ matrix.platform }}
+          path: build-port-setup/lagoon-build.json
+          if-no-files-found: error
+          retention-days: 7

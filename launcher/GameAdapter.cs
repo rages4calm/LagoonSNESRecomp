@@ -9,17 +9,19 @@ public sealed class GameAdapter : JsonGameAdapterBase
     private static string FindProject()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
-            if (File.Exists(Path.Combine(dir.FullName, "rom_identity.txt"))) return dir.FullName;
+            if (File.Exists(Path.Combine(dir.FullName, "rom_identity.txt")) || File.Exists(Path.Combine(dir.FullName, "portable-package.json"))) return dir.FullName;
         return AppContext.BaseDirectory;
     }
 
     private static readonly string Project = FindProject();
-    private static readonly bool PreviewPackage = File.Exists(Path.Combine(Project, "windows-preview.json"));
+    private static readonly bool PortablePackage = File.Exists(Path.Combine(Project, "portable-package.json"));
+    private static readonly bool PreviewPackage = PortablePackage || File.Exists(Path.Combine(Project, "windows-preview.json"));
+    private static readonly string EngineName = OperatingSystem.IsWindows() ? "LagoonSNESRecomp.exe" : "LagoonSNESRecomp";
     private static readonly string DefaultBuild = Path.Combine(Project, PreviewPackage ? "game" : "build");
     private static readonly GameDefinition Game = new(
         "lagoon", "Lagoon", "Native recompilation in progress · interpreter fallback enabled",
         new[] { new OptionDefinition("engine.path", "Game", "Native executable", OptionKind.Text,
-            OptionValue.From(Path.Combine(DefaultBuild, "LagoonSNESRecomp.exe")),
+            OptionValue.From(Path.Combine(DefaultBuild, EngineName)),
             PreviewPackage ? "The bundled native Lagoon executable." : "The locally built Lagoon executable."),
             new OptionDefinition("rom.path", "Game", "Original USA ROM", OptionKind.Text,
             OptionValue.From(PreviewPackage ? "" : Path.GetFullPath(Path.Combine(Project, "..", "Lagoon (USA).sfc"))),
@@ -35,7 +37,7 @@ public sealed class GameAdapter : JsonGameAdapterBase
     public override AchievementSnapshot ReadAchievements(ProfileDescriptor profile)
     {
         var settings = ReadSettings(profile);
-        var executable = settings.Values["engine.path"].GetString() ?? Path.Combine(DefaultBuild, "LagoonSNESRecomp.exe");
+        var executable = settings.Values["engine.path"].GetString() ?? Path.Combine(DefaultBuild, EngineName);
         var engineRoot = Path.GetDirectoryName(executable) ?? DefaultBuild;
         var catalog = Path.Combine(engineRoot, "assets", "achievements", "catalog.json");
         if (!File.Exists(catalog)) catalog = Path.Combine(Project, "assets", "achievements", "catalog.json");
@@ -107,13 +109,14 @@ public sealed class GameAdapter : JsonGameAdapterBase
             if (!File.Exists(marker)) return new(false, "Select your clean USA ROM and Apply, then open Game setup and Run setup.");
             try
             {
+                if (PortablePackage) PortablePackageChecks.Validate(Project);
                 using var ready = JsonDocument.Parse(File.ReadAllText(marker).TrimStart('\uFEFF'));
-                using var contract = JsonDocument.Parse(File.ReadAllText(Path.Combine(Project, "windows-preview.json")));
+                using var contract = JsonDocument.Parse(File.ReadAllText(Path.Combine(Project, PortablePackage ? "portable-package.json" : "windows-preview.json")));
                 foreach (var field in new[] { "package", "generated_manifest_sha256", "game_sha256" })
                     if (ready.RootElement.GetProperty(field).GetString() != contract.RootElement.GetProperty(field).GetString())
                         return new(false, "Setup belongs to a different preview. Extract the new preview into a fresh folder.");
             }
-            catch (Exception ex) when (ex is IOException or JsonException or KeyNotFoundException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or KeyNotFoundException or InvalidOperationException)
             { return new(false, "Setup readiness is incomplete. Run Game setup from a fresh extracted preview."); }
         }
         var executable = values["engine.path"].GetString() ?? "";
@@ -155,7 +158,7 @@ public sealed class GameAdapter : JsonGameAdapterBase
 
     public override async Task SetupAsync(ProfileDescriptor profile, IProgress<OperationProgress>? progress, CancellationToken cancellationToken)
     {
-        if (!PreviewPackage) throw new InvalidOperationException("First-run setup is provided by the Windows preview package. Development checkouts use tools/regen.sh.");
+        if (!PreviewPackage) throw new InvalidOperationException("First-run setup is provided by a packaged release. Development checkouts use tools/regen.sh.");
         var storedBefore = base.ReadSettings(profile);
         var before = ReadSettings(profile);
         var rom = before.Values["rom.path"].GetString() ?? "";
@@ -164,8 +167,11 @@ public sealed class GameAdapter : JsonGameAdapterBase
             if (!Convert.ToHexString(SHA256.HashData(stream)).Equals("46C811F0CACFFE8F20E1D63072D25D7C47E9BB3FD5124851FD05ACA9884D21FB", StringComparison.Ordinal))
                 throw new InvalidDataException("Select the clean, unheadered Lagoon USA ROM. Patched and different revisions are unsupported.");
         progress?.Report(new("Verifying your ROM and preparing local settings. No downloads are needed.", 0));
-        var powershell = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe");
-        var result = await SetupProcessRunner.RunAsync(new(powershell, Project, new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", Path.Combine(Project, "scripts", "setup_windows.ps1"), "-Rom", rom }), cancellationToken);
+        var setup = PortablePackage
+            ? new LaunchPlan("python3", Project, new[] { Path.Combine(Project, "scripts", "setup_portable.py"), "--root", Project, "--rom", rom })
+            : new LaunchPlan(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe"), Project, new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", Path.Combine(Project, "scripts", "setup_windows.ps1"), "-Rom", rom });
+        if (PortablePackage) PortablePackageChecks.Validate(Project);
+        var result = await SetupProcessRunner.RunAsync(setup, cancellationToken);
         if (result.ExitCode != 0) throw new InvalidOperationException("Setup failed. Existing saves and runtime were preserved.\n" + result.StandardError + "\n" + result.StandardOutput);
         cancellationToken.ThrowIfCancellationRequested();
         using var ready = JsonDocument.Parse(File.ReadAllText(Path.Combine(Project, "local", "setup-ready.json")).TrimStart('\uFEFF'));

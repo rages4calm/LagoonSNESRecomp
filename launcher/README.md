@@ -93,3 +93,26 @@ Use `COMPANION_DATA_ROOT` pointing to the synthetic launcher-data root for UI sm
 tests. Screenshots and synthetic test fixtures stay outside the public repository.
 
 The shared packages and this adapter are MIT licensed; see LICENSE.
+
+## Linux and macOS Companion
+
+The existing Windows Forms launcher stays in Game.Companion.csproj. The portable
+Avalonia shell is desktop/Game.Companion.Desktop.csproj, sharing GameAdapter,
+NativeSettings, input/hotkey definitions and achievement browsing. It uses the
+pinned Companion.Launcher.Avalonia0.2.0 package and Avalonia12.1.4. Build the local
+Companion Core/Avalonia packages first and set COMPANION_LAUNCHER_FEED to their
+packages directory (see CompanionLauncher README).
+
+```sh
+dotnet publish launcher/desktop/Game.Companion.Desktop.csproj -c Release \
+  -r linux-x64 --self-contained true -o build-port/launcher
+```
+
+Use osx-x64 or osx-arm64 on the matching Mac. A source checkout expects its native
+executable at build/LagoonSNESRecomp; a portable package detects
+portable-package.json and uses game/LagoonSNESRecomp plus writable local/. Setup
+invokes python3 scripts/setup_portable.py --root PACKAGE --rom YOUR_ROM.
+Python3.11+ is needed for first setup; .NET is self-contained in release packages.
+Play preserves the short relative save-root and shared native INI/mod contracts.
+Wrong-OS/architecture packages, changed executables and incomplete setup are
+refused. Target-OS builds and hardware gameplay qualification are separate checks.

@@ -4,6 +4,7 @@
     <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../PortablePackageChecks.cs" Link="PortablePackageChecks.cs" />
     <Compile Include="../GameAdapter.cs" Link="GameAdapter.cs" />
     <Compile Include="../NativeSettings.cs" Link="NativeSettings.cs" />
     <Compile Include="../NativeInputSettings.cs" Link="NativeInputSettings.cs" />

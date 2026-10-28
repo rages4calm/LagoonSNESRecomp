@@ -57,3 +57,10 @@ __pycache__/
 
 # Private local qualification receipts are outside the public source surface.
 /validation/
+
+# Portable launcher UI checks compile locally; no managed binaries enter source.
+/tests/launcher-portable-ui/bin/
+/tests/launcher-portable-ui/obj/
+
+# This local feed is rebuilt per developer; Windows release lock stays pinned.
+/launcher/desktop/packages.lock.json

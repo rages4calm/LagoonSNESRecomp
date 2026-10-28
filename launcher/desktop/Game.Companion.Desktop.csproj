@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>lagoon.Companion</AssemblyName>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../GameAdapter.cs" Link="GameAdapter.cs" />
+    <Compile Include="../NativeSettings.cs" Link="NativeSettings.cs" />
+    <Compile Include="../NativeInputSettings.cs" Link="NativeInputSettings.cs" />
+    <Compile Include="../PortablePackageChecks.cs" Link="PortablePackageChecks.cs" />
+    <PackageReference Include="Companion.Launcher.Core" Version="[0.2.0]" />
+    <PackageReference Include="Companion.Launcher.Avalonia" Version="[0.2.0]" />
+    <PackageReference Include="Avalonia.Desktop" Version="[12.1.4]" />
+  </ItemGroup>
+</Project>

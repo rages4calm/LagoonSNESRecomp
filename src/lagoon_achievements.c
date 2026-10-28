@@ -1,6 +1,7 @@
 /* Host-only CompanionAchievements adapter. Gameplay only queues immutable facts;
  * the serialized storage worker never owns guest memory or guest clocks. */
 #include "lagoon_achievements.h"
+#include "lagoon_host_path.h"
 #include "lagoon_achievements_catalog.generated.h"
 #include "cJSON.h"
 #include <SDL3/SDL.h>
@@ -65,9 +66,10 @@ static bool directories(const char*path){
 #else
   if(path[0]!='/')return false;
 #endif
-  memcpy(p,path,n+1);unsigned unc=path[0]=='\\'&&path[1]=='\\'?2:0;
-  for(size_t i=1;i<n;i++)if(p[i]=='/'||p[i]=='\\'){
-    if(i==2&&p[1]==':')continue;if(p[i-1]=='/'||p[i-1]=='\\')continue;
+  memcpy(p,path,n+1);unsigned unc=LAGOON_HOST_WINDOWS_PATHS&&path[0]=='\\'&&path[1]=='\\'?2:0;
+  for(size_t i=1;i<n;i++)if(LagoonHostPath_IsSeparator(p[i],LAGOON_HOST_WINDOWS_PATHS)){
+    if(LAGOON_HOST_WINDOWS_PATHS&&i==2&&p[1]==':')continue;
+    if(LagoonHostPath_IsSeparator(p[i-1],LAGOON_HOST_WINDOWS_PATHS))continue;
     if(unc){--unc;continue;}char c=p[i];p[i]=0;bool ok=directory_one(p);p[i]=c;if(!ok)return false;
   }
   return directory_one(p);

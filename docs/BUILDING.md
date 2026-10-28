@@ -105,3 +105,10 @@ python -P tools/check_runtime_catalog.py --runtime-root build
 For a configured Windows preview, use `--runtime-root path/to/preview/game
 --writable-root path/to/preview/local` to check setup's copies as well. This
 checks public sidecar bytes; it does not modify preferences or qualify gameplay.
+
+## Linux and macOS
+
+For prebuilt experimental native packages and hosted test scope, see
+[Porting](PORTING.md). The portable Companion uses the same adapter/settings as
+Windows through launcher/desktop/Game.Companion.Desktop.csproj. The Windows
+Forms host and current stable Windows release remain separate.

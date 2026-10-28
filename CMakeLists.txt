@@ -148,7 +148,44 @@ target_compile_definitions(LagoonSNESRecomp PRIVATE
     SNES_GAME_VERSION="${SNESRECOMP_BUILD_VERSION}"
     SNES_GAME_TITLE="Lagoon"
 )
+# Portable release jobs deliberately compile the pinned SDL3 source as static;
+# a developer machine's Homebrew or distribution SDL shared library must not
+# become an undeclared package dependency. Windows keeps its existing toolchain.
+option(LAGOON_PORTABLE_STATIC_SDL3 "Build pinned static SDL3 for a Unix portable package" OFF)
+if(LAGOON_PORTABLE_STATIC_SDL3)
+    if(NOT UNIX OR NOT SNESRECOMP_SDL_BACKEND STREQUAL "SDL3" OR NOT SNESRECOMP_SDL3_FETCH)
+        message(FATAL_ERROR "LAGOON_PORTABLE_STATIC_SDL3 requires Unix, SDL3 and its pinned source fallback")
+    endif()
+    set(CMAKE_DISABLE_FIND_PACKAGE_SDL3 TRUE)
+endif()
 snesrecomp_target_sdl(LagoonSNESRecomp)
+
+# Explicit target-host persistence checks; never part of the playable executable
+# or an automatic campaign. The caller supplies a fresh private output directory.
+option(LAGOON_BUILD_PORT_TESTS "Build Linux/macOS persistence integration checks" OFF)
+if(LAGOON_BUILD_PORT_TESTS)
+    if(NOT UNIX OR NOT TARGET SDL3::SDL3)
+        message(FATAL_ERROR "LAGOON_BUILD_PORT_TESTS requires Unix and SDL3")
+    endif()
+    add_executable(lagoon_posix_achievements_test EXCLUDE_FROM_ALL
+        tests/lagoon_achievements_posix_test.c
+        src/lagoon_achievements.c
+        third_party/companion_achievements/companion_achievements.c
+        third_party/cjson/cJSON.c)
+    target_include_directories(lagoon_posix_achievements_test PRIVATE
+        src third_party/companion_achievements third_party/cjson)
+    target_compile_definitions(lagoon_posix_achievements_test PRIVATE _POSIX_C_SOURCE=200809L)
+    if(APPLE)
+        # flock is a BSD API: POSIX-only feature selection hides LOCK_EX even
+        # though macOS provides the actual lock used by the game.
+        target_compile_definitions(lagoon_posix_achievements_test PRIVATE _DARWIN_C_SOURCE=1)
+    endif()
+    target_link_libraries(lagoon_posix_achievements_test PRIVATE SDL3::SDL3 m)
+    add_executable(lagoon_host_path_test EXCLUDE_FROM_ALL tests/lagoon_host_path_test.c)
+    target_include_directories(lagoon_host_path_test PRIVATE src)
+    add_executable(lagoon_platform_probe EXCLUDE_FROM_ALL tests/lagoon_platform_probe.c)
+    target_link_libraries(lagoon_platform_probe PRIVATE SDL3::SDL3)
+endif()
 
 # The desktop host: launcher flow, ROM resolution, config.ini + [KeyMap],
 # window + SDL/OpenGL presenters, audio, gamepads, the save-state browser and
@@ -161,6 +198,16 @@ snesrecomp_target_desktop_host(LagoonSNESRecomp)
 # staged beside the executable when none is there yet, so the first launch
 # opens on that dump rather than asking for one.
 snesrecomp_target_rom_cache(LagoonSNESRecomp)
+
+# Package qualification is explicit. A ROM-free CI setup host can prove that the
+# authored host compiles on an OS, but must never be labelled a playable port.
+set(_lagoon_manifest_sha256 "")
+if(EXISTS "${LAGOON_GENERATED_DIR}/program_manifest.json")
+    file(SHA256 "${LAGOON_GENERATED_DIR}/program_manifest.json" _lagoon_manifest_sha256)
+endif()
+file(SHA256 "${CMAKE_SOURCE_DIR}/patches/lagoon-framework.patch" _lagoon_patch_sha256)
+file(GENERATE OUTPUT "$<TARGET_FILE_DIR:LagoonSNESRecomp>/lagoon-build.json" CONTENT
+"{\n  \"format_version\": 1,\n  \"version\": \"${GAME_RELEASE_VERSION}\",\n  \"system\": \"${CMAKE_SYSTEM_NAME}\",\n  \"processor\": \"${CMAKE_SYSTEM_PROCESSOR}\",\n  \"playable\": $<IF:$<BOOL:${SNESRECOMP_SETUP_HOST}>,false,true>,\n  \"executable\": \"$<TARGET_FILE_NAME:LagoonSNESRecomp>\",\n  \"generated_manifest_sha256\": \"${_lagoon_manifest_sha256}\",\n  \"framework_patch_sha256\": \"${_lagoon_patch_sha256}\"\n}\n")
 
 # Companion is the normal entry point. Retain the old UI only as an explicit
 # development option; it is not linked into the default game executable.

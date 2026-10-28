@@ -1,10 +1,16 @@
 # Lagoon Recomp
 
-A Windows port of **Lagoon (USA)** built with
+A desktop port of **Lagoon (USA)** built with
 [SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp).
 Native gameplay runs alongside an interpreter safety net, with
 widescreen, a custom scene renderer and optional quality-of-life improvements.
 **Bring your own clean USA ROM.** No ROM or extracted Lagoon graphics are bundled.
+
+**Windows:** [stable0.2.5](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.2.5).
+**Linux x64 and macOS Intel/Apple Silicon:** [experimental platform previews](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.2.5-ports-preview.1).
+These are native target executables with portable Companion. Hosted graphics,
+persistence and launcher checks pass; a complete target-system gameplay
+playthrough is still pending. [Platform setup and limits](docs/PORTING.md).
 
 ![Atland with Enhanced original pixels at 1920 by 1080](docs/screenshots/atland-epx-1920x1080.png)
 

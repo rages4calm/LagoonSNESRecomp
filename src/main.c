@@ -37,6 +37,7 @@
 #include "lagoon_settings.h"
 #include "lagoon_sword_visual.h"
 #include "lagoon_achievements.h"
+#include "lagoon_host_path.h"
 #include "lagoon_achievement_ui.h"
 #include "lagoon_achievement_sound.h"
 #include "lagoon_easter_egg.h"
@@ -96,7 +97,7 @@ static void LagoonHost_StartSession(void) {
         present("LAGOON_SCRIPT_FIXTURE")||present("LAGOON_CAMPAIGN_WARPS")||
         present("LAGOON_ACHIEVEMENTS_DIAGNOSTIC");
     char path[4096];const char *save=RtlSaveRoot();
-    if(save&&(save[0]=='/'||save[0]=='\\'||(save[0]&&save[1]==':')))
+    if(LagoonHostPath_IsAbsolute(save,LAGOON_HOST_WINDOWS_PATHS))
         snprintf(path,sizeof path,"%s",save);
     else {
         char *cwd=SDL_GetCurrentDirectory();

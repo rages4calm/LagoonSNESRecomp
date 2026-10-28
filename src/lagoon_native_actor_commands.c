@@ -70,10 +70,19 @@ int LagoonNativeActorCommands_Try(const uint8_t*rom,size_t size,CpuState*c,uint6
  return LagoonNativeActorCommands_Apply(rom,size,r,c,selector);
 }
 #if !defined(LAGOON_NATIVE_ACTOR_COMMANDS_TEST) || defined(LAGOON_NATIVE_ACTOR_COMMANDS_CONTINUATION_TEST)
+#ifndef SNESRECOMP_SETUP_HOST
 extern RecompReturn Lagoon_BankRoutine_CommandReturn80E5_M1X0(CpuState *cpu);
+#endif
 bool LagoonNativeActorCommands_Continue(const uint8_t*rom,size_t size,CpuState*c,
     uint16_t entry_s,uint8_t hrv,uint32_t host_return,RecompReturn*out,
     uint64_t generation,uint64_t frame,int normal_world){
+#ifdef SNESRECOMP_SETUP_HOST
+ /* ROM-free setup hosts cannot execute the real generated terminal RTL. Refuse
+  * before touching CPU/RAM/output; never substitute a fake guest return. */
+ (void)rom;(void)size;(void)c;(void)entry_s;(void)hrv;(void)host_return;
+ (void)out;(void)generation;(void)frame;(void)normal_world;
+ return false;
+#else
  if(!out||!c||c->S!=entry_s||hrv!=3||c->host_return_valid!=3||
     host_return!=(c->A==0x11?0x0181b0u:0x0181bau))return false;
  if(!LagoonNativeActorCommands_Try(rom,size,c,generation,frame,normal_world))return false;
@@ -82,6 +91,7 @@ bool LagoonNativeActorCommands_Continue(const uint8_t*rom,size_t size,CpuState*c
  cpu_tailcall_inherit_return_context(entry_s,hrv);
  *out=Lagoon_BankRoutine_CommandReturn80E5_M1X0(c);
  return true;
+#endif
 }
 #endif
 #ifndef LAGOON_NATIVE_ACTOR_COMMANDS_TEST
