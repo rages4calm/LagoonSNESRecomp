@@ -1,0 +1,46 @@
+name: Publish audited platform preview assets
+on:
+  workflow_dispatch:
+    inputs:
+      release_id:
+        required: true
+        default: '426870672'
+      generated_manifest_sha256:
+        required: true
+        default: '67a87e43c43317eaaf8bc7303bce70c8c6a98a37e9c7ea79aa9af16257fbae11'
+permissions:
+  contents: write
+jobs:
+  upload:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x64
+            link: LAGOON_PORT_LINUX_X64_URL
+          - platform: macos-x64
+            link: LAGOON_PORT_MACOS_X64_URL
+          - platform: macos-arm64
+            link: LAGOON_PORT_MACOS_ARM64_URL
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Audit and upload only public runtime files to a draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PORT_ARTIFACT_URL: ${{ secrets[matrix.link] }}
+          PREVIEW_RELEASE_ID: ${{ inputs.release_id }}
+          PREVIEW_MANIFEST_SHA: ${{ inputs.generated_manifest_sha256 }}
+        run: python3 -P scripts/publish_port_preview.py --platform '${{ matrix.platform }}' --release-id "$PREVIEW_RELEASE_ID" --manifest-sha "$PREVIEW_MANIFEST_SHA" --out '${{ runner.temp }}/qualified-${{ matrix.platform }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qualification-${{ matrix.platform }}
+          path: |
+            ${{ runner.temp }}/qualified-${{ matrix.platform }}/qualification.json
+            ${{ runner.temp }}/qualified-${{ matrix.platform }}/launcher.png
+          if-no-files-found: error
+          retention-days: 7
