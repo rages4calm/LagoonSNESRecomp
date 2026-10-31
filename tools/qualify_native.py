@@ -66,7 +66,7 @@ def campaign_setup_writes(data):
 
 
 def runtime_failure_lines(text):
-    fatal_markers=('[brk]','[interp_cap]','[interp_low_exec]','[cpu_halt]','[native_contract]','assertion failed')
+    fatal_markers=('[brk]','[interp_cap]','[interp_low_exec]','[cpu_halt]','[native_contract]', '[dsp_capture]','assertion failed')
     return [line.strip() for line in text.splitlines()
             if any(marker in line.lower() for marker in fatal_markers)
             or re.search(r'(?:lagoon\.qol:|\[lagoon-qol\])[^\r\n]*\brefused\b',line,re.IGNORECASE)]
@@ -108,6 +108,9 @@ def main():
         parser.error('Display capture requires --visible or --offscreen')
     repo=Path(__file__).resolve().parents[1];rom=repo.parent/'Lagoon (USA).sfc'
     exe=args.exe.resolve();route=args.route.resolve();out=args.out.resolve()
+    manifest=args.manifest.resolve() if args.manifest else repo/'src/gen/program_manifest.json'
+    if not manifest.is_file():
+        parser.error('Matching program manifest does not exist: '+str(manifest))
     out.mkdir(parents=True,exist_ok=False)
     # Freeze input bytes before launch: another investigation may edit its source
     # script while the game process is starting. Receipts must describe what ran.
@@ -269,7 +272,6 @@ def main():
     for rel in ('config.ini','keybinds.ini','mods/preloaded/state.toml'):
         p=repo/'build'/rel
         if p.exists():receipt[rel]=dict(sha256=sha(p),text=p.read_text(encoding='utf-8'))
-    manifest=args.manifest.resolve() if args.manifest else repo/'src/gen/program_manifest.json'
     if manifest.exists():
         (out/'program_manifest.json').write_bytes(manifest.read_bytes())
         receipt['program_manifest_sha256']=sha(manifest)

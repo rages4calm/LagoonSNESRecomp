@@ -15,7 +15,7 @@ from pathlib import Path
 
 COMPONENTS = ('fb.bmp', 'fb.bgrx', 'wram.bin', 'vram.bin', 'oam.bin',
               'cgram.bin', 'sram.bin', 'regs.json', 'apu.tsv', 'dma.tsv', 'ppuw.tsv')
-FATAL = ('[brk]', '[interp_cap]', '[interp_low_exec]', '[cpu_halt]', '[native_contract]', 'assertion failed')
+FATAL = ('[brk]', '[interp_cap]', '[interp_low_exec]', '[cpu_halt]', '[native_contract]', '[dsp_capture]', 'assertion failed')
 INPUT_KEYS = ('rom_sha256', 'route_sha256', 'frames', 'input_config_sha256',
               'effective_config_sha256', 'enabled_features', 'enabled_package_features',
               'diagnostic_overrides', 'script_fixture_input', 'private_mod_state', 'script_only_input',

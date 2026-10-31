@@ -2,9 +2,25 @@
 import importlib.util
 from pathlib import Path
 import unittest
+import subprocess
+import sys
+import tempfile
 
 spec=importlib.util.spec_from_file_location('qualify_native',Path(__file__).resolve().parents[1]/'tools/qualify_native.py')
 qualify=importlib.util.module_from_spec(spec);spec.loader.exec_module(qualify)
+
+class ManifestPreflightTests(unittest.TestCase):
+    def test_missing_manifest_refused_before_outputs_or_game_launch(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            route=root/'route.txt';route.write_text('quit\n')
+            output=root/'run'
+            result=subprocess.run([sys.executable,'-P',str(Path(qualify.__file__)),
+                '--exe',sys.executable,'--route',str(route),'--out',str(output),
+                '--manifest',str(root/'missing.json')],capture_output=True,text=True)
+            self.assertEqual(result.returncode,2)
+            self.assertIn('Matching program manifest does not exist',result.stderr)
+            self.assertFalse(output.exists())
 
 class SetupTests(unittest.TestCase):
     def test_actual_valid_protection_and_disclosure(self):
@@ -31,6 +47,8 @@ class RuntimeFailureTests(unittest.TestCase):
     def test_requested_camera_cannot_silently_refuse(self):
         line='lagoon.qol: camera_center refused, affected camera code has an AOT entry'
         self.assertEqual(qualify.runtime_failure_lines(line),[line])
+        capture='[dsp_capture] invalid epoch or overwritten sample span: 4294967295'
+        self.assertEqual(qualify.runtime_failure_lines(capture),[capture])
         self.assertEqual(qualify.runtime_failure_lines('[lagoon-qol] recovery_time refused: code differs'),
                          ['[lagoon-qol] recovery_time refused: code differs'])
 

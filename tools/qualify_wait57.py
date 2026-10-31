@@ -17,7 +17,8 @@ def main():
         '--seed-save-root',str(a.seed_save_root.resolve()),'--frames',str(a.frames),
         '--features','camera_center,walk_speed','--env','LAGOON_NATIVE_WAIT_REPORT=1',
         '--env','SNESRECOMP_APURAM_TRACE_FILE=aram.log',
-        '--env','SNESRECOMP_DSPREG_TRACE_FILE=dsp.log']
+        '--env','SNESRECOMP_DSPREG_TRACE_FILE=dsp.log',
+        '--env','SNESRECOMP_DSPOUT=dsp.s16']
     entries={}
     for mode in ('floor','native'):
         command=common+['--out',str(out/mode)]
@@ -33,7 +34,7 @@ def main():
         '--out',str(out/'comparison.json')])
     proof={'actual_aot_entries':entries,'strict_comparison_exit':result.returncode,
            'passed':result.returncode==0 and entries['floor']==0 and entries['native']>0,
-           'scope':'Same EXE and manifest; original81F7 control versus actual native entries. Ordered pictures, complete checkpoint state/clocks and ARAM/DSP-write streams remain strict. Assisted source fixtures, not a campaign.'}
+           'scope':'Same EXE and manifest; original81F7 control versus actual native entries. Ordered pictures, complete checkpoint state/clocks and per-frame ARAM/DSP snapshots and complete DSP sample stream remain strict. Assisted source fixtures, not a campaign.'}
     (out/'result.json').write_text(json.dumps(proof,indent=2)+'\n',encoding='utf-8')
     print(json.dumps(proof));return 0 if proof['passed']else 1
 

@@ -301,9 +301,13 @@ class StrictComparisonTests(unittest.TestCase):
         self.assertIn('diagnostic_overrides', result['input_differences'])
 
     def test_fatal_log_overrides_exit_zero_and_success_claim(self):
-        (self.b / 'stderr.log').write_text('[brk] invalid guest\n')
-        result = compare.compare_runs(self.a, self.b)
-        self.assertFalse(result['valid_evidence'])
+        for line in ('[brk] invalid guest',
+                     '[dsp_capture] invalid epoch or overwritten sample span: 4294967295',
+                     '[dsp_capture] sample write failed'):
+            with self.subTest(line=line):
+                (self.b / 'stderr.log').write_text(line+'\n')
+                result = compare.compare_runs(self.a, self.b)
+                self.assertFalse(result['valid_evidence'])
 
     def test_missing_clock_is_not_exact(self):
         for root in (self.a, self.b):

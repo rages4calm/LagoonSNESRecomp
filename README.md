@@ -25,6 +25,8 @@ pending. [Platform requirements and testing limits](docs/PORTING.md).
 
 Development source now uses the October 30 SNESRecomp framework, preserving
 Lagoon's fixes and adding the shared native DSP mixer and fused ROM reads.
+The development follow-up fixes native queue deadline/audio handoff timing and
+bounds diagnostic audio capture across save-state loads.
 Release downloads above retain their existing qualification. The interpreter
 remains supported. [Integration checks and remaining timing work](docs/FRAMEWORK-UPGRADE-2026-10-31.md).
 
