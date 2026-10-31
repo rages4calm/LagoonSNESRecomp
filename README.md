@@ -23,6 +23,11 @@ compilation, OpenGL readback, persistence, settings and packaged-launcher checks
 Complete target-system gameplay, real audio and controller playtesting are still
 pending. [Platform requirements and testing limits](docs/PORTING.md).
 
+Development source now uses the October 30 SNESRecomp framework, preserving
+Lagoon's fixes and adding the shared native DSP mixer and fused ROM reads.
+Release downloads above retain their existing qualification. The interpreter
+remains supported. [Integration checks and remaining timing work](docs/FRAMEWORK-UPGRADE-2026-10-31.md).
+
 ![Atland with Enhanced original pixels at 1920 by 1080](docs/screenshots/atland-epx-1920x1080.png)
 
 [More screenshots](docs/screenshots/README.md) ·

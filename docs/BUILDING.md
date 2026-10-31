@@ -70,6 +70,22 @@ applies/checks the required framework patch. `framework_pins.txt` records the
 upstream baseline; `patches/lagoon-framework.patch` carries the local compatibility
 and precise-root timing changes. The public submodule pin is reachable upstream.
 
+The current pin is `98f41838443a7cd7f9d56bec41387a6ebfc3bcbc` (October 30,
+2026), including the post-0.4.3 shared GPU Mode 7 work. Never update/reset a
+dirty SDK to reach that pin. Keep it intact and select an isolated worktree:
+put its absolute path in the ignored `framework.local`, or set
+`LAGOON_FRAMEWORK_ROOT`. CMake and the patch/regeneration helpers honor that
+selection. An explicit CMake `SNESRECOMP_ROOT` cache entry still takes precedence;
+use a separate build directory for comparisons. Fresh clones use `snesrecomp`.
+The patch helper refuses the wrong revision before writing; `--print-root`
+reports its selection without applying anything.
+
+The DSP mixer defaults to `NATIVE` and immutable interpreter ROM reads to
+`FUSED`. Reference builds can select `-DSNESRECOMP_DSP_MIX_IMPL=LLE` and
+`-DSNESRECOMP_INTERP_READ_IMPL=REFERENCE`. Neither disables the CPU interpreter
+or promotes an unqualified routine. See the
+[upgrade qualification](FRAMEWORK-UPGRADE-2026-10-31.md).
+
 Build CompanionLauncher 0.2.0's local NuGet packages, then:
 
 ```powershell

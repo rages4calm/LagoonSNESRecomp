@@ -7,6 +7,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef SERVICE_WAIT_PROBE
+#define SERVICE_WAIT_PROBE 0
+#endif
 #undef assert
 #define assert(v) do { if (!(v)) { fprintf(stderr,"line %d: %s\n",__LINE__,#v);exit(2); } } while(0)
 static uint8 rom[0x100000], ram[0x20000], before[0x20000], expected[0x20000];
@@ -47,7 +50,7 @@ RecompReturn cpu_unresolved_abandon_balanced(CpuState*c,uint32 site,uint16 s,uin
 uint32_t cpu_region_speed(uint32_t a) {(void)a;return 8;}
 uint8 cpu_read8(CpuState *c,uint8 bank,uint16 addr) {
  int32_t off=cpu_wram_offset(bank,addr);
- if(off>=0){if(off==0x23A&&poll_model&&(ram[off]&0x20)&&++poll_reads==4){ram[off]&=~0x20;poll_reads=0;}return c->open_bus=ram[off];}
+ if(off>=0){unsigned mask=SERVICE_WAIT_PROBE?0xc0:0x20;if(off==0x23A&&poll_model&&(ram[off]&mask)&&++poll_reads==4){ram[off]&=~mask;poll_reads=0;}return c->open_bus=ram[off];}
  if(bank<0x40&&addr>=0x2100&&addr<0x4400)return c->open_bus=io[addr];
  if(addr>=0x8000)return c->open_bus=rom[(bank&31)*0x8000+(addr&0x7fff)];return c->open_bus=0;
 }
@@ -65,7 +68,7 @@ RecompReturn interp_tier_dispatch_tail(CpuState *c,uint32 pc,uint32 site,uint16 
 RecompReturn interp_tier_run_call_frame(CpuState*c,uint32 pc,uint32 site,uint8 n,uint32*out) {(void)c;(void)site;(void)n;(void)out;pending=1;boundary=pc;return (RecompReturn)1;}
 #include "shared_services_under_test.h"
 static uint8 rd(void *ctx,uint32 a) {
- (void)ctx;bus_extra+=2;int32_t off=cpu_wram_offset(a>>16,a);if(off>=0){if(off==0x23A&&poll_model&&(ram[off]&0x20)&&++poll_reads==4){ram[off]&=~0x20;poll_reads=0;}return ram[off];}
+ (void)ctx;bus_extra+=2;int32_t off=cpu_wram_offset(a>>16,a);if(off>=0){unsigned mask=SERVICE_WAIT_PROBE?0xc0:0x20;if(off==0x23A&&poll_model&&(ram[off]&mask)&&++poll_reads==4){ram[off]&=~mask;poll_reads=0;}return ram[off];}
  if((a>>16)<0x40&&(a&65535)>=0x2100&&(a&65535)<0x4400)return io[a&65535];
  if((a&65535)>=32768)return rom[((a>>16)&31)*0x8000+(a&32767)];return 0;
 }
@@ -110,8 +113,8 @@ static void compare(unsigned pc,unsigned state,unsigned hi,unsigned flags,unsign
   ram[q]=(state&1)?0xFF:0x37;ram[q+1]=(state&2)?0xFF:0x33;ram[q+2]=0xB2;ram[q+3]=state&4?0x80:0x7F;ram[q+4]=state&8?0x80:0x7F;}
  inherited_s=initial.S;inherited_hrv=initial.host_return_valid;inherited_pending=SERVICE_OAM_PROBE?1:0;
  initial.master_cycles=early==1?1:0;initial.coprocessor_master_cycles=initial.master_cycles;
- poll_model=(pc==0x8DCE||pc==0x8D82)&&(state&1);poll_reads=0;
- deadline=early==4?850:early==3?700:early==2?100:early==1?1:((pc==0x8DCE||pc==0x8D82)&&!poll_model?1000:0);pending=0;boundary=0;service_entry=pc;
+ poll_model=(pc==0x8DCE||pc==0x8D82||pc==0x81F7)&&(state&1);poll_reads=0;
+ deadline=early==4?850:early==3?700:early==2?100:early==1?1:((pc==0x8DCE||pc==0x8D82||pc==0x81F7)&&!poll_model?1000:0);pending=0;boundary=0;service_entry=pc;
  memcpy(before,ram,sizeof ram);CpuState actual=initial;
  RecompReturn result=service_body(pc,&actual);assert(!g_recomp_stack_top);cpu_mirrors_to_p(&actual);
  assert(result==RECOMP_RETURN_NORMAL||(pending&&boundary));

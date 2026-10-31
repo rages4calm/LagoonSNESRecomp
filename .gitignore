@@ -64,3 +64,4 @@ __pycache__/
 
 # This local feed is rebuilt per developer; Windows release lock stays pinned.
 /launcher/desktop/packages.lock.json
+/framework.local

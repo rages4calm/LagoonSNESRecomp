@@ -21,12 +21,30 @@ if(SNESRECOMP_BUILD_VERSION STREQUAL "")
     endif()
 endif()
 
-set(SNESRECOMP_ROOT "${CMAKE_SOURCE_DIR}/snesrecomp" CACHE PATH
+set(_lagoon_sdk "${CMAKE_SOURCE_DIR}/snesrecomp")
+if(DEFINED ENV{LAGOON_FRAMEWORK_ROOT})
+    set(_lagoon_sdk "$ENV{LAGOON_FRAMEWORK_ROOT}")
+elseif(EXISTS "${CMAKE_SOURCE_DIR}/framework.local")
+    file(READ "${CMAKE_SOURCE_DIR}/framework.local" _lagoon_sdk)
+    string(STRIP "${_lagoon_sdk}" _lagoon_sdk)
+    get_filename_component(_lagoon_sdk "${_lagoon_sdk}" ABSOLUTE BASE_DIR "${CMAKE_SOURCE_DIR}")
+endif()
+set(SNESRECOMP_ROOT "${_lagoon_sdk}" CACHE PATH
     "Path to the snesrecomp checkout used by this game")
 if(NOT EXISTS "${SNESRECOMP_ROOT}/runner/runner.cmake")
     message(FATAL_ERROR
         "snesrecomp submodule missing at ${SNESRECOMP_ROOT}.\n"
         "Run: git submodule update --init --recursive")
+endif()
+if(EXISTS "${SNESRECOMP_ROOT}/.git")
+    find_package(Git REQUIRED)
+    execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${SNESRECOMP_ROOT}" rev-parse HEAD
+        OUTPUT_VARIABLE _lagoon_sdk_head OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+    file(STRINGS "${CMAKE_SOURCE_DIR}/framework_pins.txt" _lagoon_sdk_pin REGEX "^snesrecomp=")
+    string(REPLACE "snesrecomp=" "" _lagoon_sdk_pin "${_lagoon_sdk_pin}")
+    if(NOT _lagoon_sdk_head STREQUAL _lagoon_sdk_pin)
+        message(FATAL_ERROR "Selected SDK ${_lagoon_sdk_head} differs from ${_lagoon_sdk_pin}. Preserve dirty SDKs; select the upgrade worktree and use a separate build directory.")
+    endif()
 endif()
 # Mod packages are part of every project, not an option. The launcher's Mods
 # page, the .snesmod loader, the trusted-plugin registry and netplay's mod-set
@@ -35,6 +53,9 @@ endif()
 # Must precede the include: runner.cmake reads it to add the loader sources.
 set(SNESRECOMP_ENABLE_MODS ON CACHE BOOL
     "Mod package loader + trusted plugins (required for every title)" FORCE)
+# Build-selected exact upstream optimizations; callers can retain references.
+set(SNESRECOMP_DSP_MIX_IMPL "NATIVE" CACHE STRING "DSP mixer implementation")
+set(SNESRECOMP_INTERP_READ_IMPL "FUSED" CACHE STRING "Interpreter immutable ROM reads")
 include(${SNESRECOMP_ROOT}/runner/runner.cmake)
 
 add_executable(LagoonSNESRecomp

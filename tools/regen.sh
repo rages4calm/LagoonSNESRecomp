@@ -47,20 +47,20 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-SNESRECOMP_ROOT="${SNESRECOMP_ROOT:-snesrecomp}"
-CLI="$SNESRECOMP_ROOT/snesrecomp_cli.py"
-if [ ! -f "$CLI" ]; then
-  echo "regen.sh: $CLI missing — run: git submodule update --init --recursive" >&2
-  exit 1
-fi
-
 PYTHON="${PYTHON:-$(command -v python3 || command -v python || true)}"
 if [ -z "$PYTHON" ]; then
   echo "regen.sh: no python3 on PATH" >&2
   exit 1
 fi
 
-"$PYTHON" -P "$ROOT/tools/apply_framework_patch.py"
+SNESRECOMP_ROOT="${SNESRECOMP_ROOT:-$("$PYTHON" -P "$ROOT/tools/apply_framework_patch.py" --print-root)}"
+CLI="$SNESRECOMP_ROOT/snesrecomp_cli.py"
+if [ ! -f "$CLI" ]; then
+  echo "regen.sh: selected SDK $CLI is missing" >&2
+  exit 1
+fi
+
+"$PYTHON" -P "$ROOT/tools/apply_framework_patch.py" --framework "$SNESRECOMP_ROOT"
 
 # The framework parses rom_identity.txt (the same parser CI uses), so this
 # script carries no copy of a digest to forget on a revision bump.

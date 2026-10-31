@@ -6,6 +6,7 @@ it is a test-only source entry, never a production reentry authorization.
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -16,6 +17,7 @@ for key in ('rom', 'gen', 'out'):
 p.add_argument('--compiler', default='clang')
 p.add_argument('--probe-oam', action='store_true')
 p.add_argument('--probe-caller', action='store_true', help='Explicit legacy coarse8C24 full-entry state/frame diagnostic; clock failure remains visible.')
+p.add_argument('--probe-wait', action='store_true', help='Qualify source81F7 queue polling with actual child/deadline boundaries; not a live NMI qualification.')
 a = p.parse_args()
 repo = Path(__file__).resolve().parents[1]
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
@@ -35,9 +37,9 @@ for file in a.gen.glob('bank*_v2.c'):
         if match[1].endswith('_M1X0'):
             by_pc[int(entry[1], 16)] = match[1]
 
-roots = [0x8211] if a.probe_oam else [0x8C24] if a.probe_caller else [0x8C24, 0x8C93, 0x8211, 0x8C96, 0x89EC, 0x8AA4, 0x8DFE, 0x8D82, 0x8DCE, 0x8E2C, 0x8291, 0x8B68, 0x8D0B, 0x01C136, 0x01C156, 0x01C17B, 0x02B2C1]
+roots = [0x81F7] if a.probe_wait else [0x8211] if a.probe_oam else [0x8C24] if a.probe_caller else [0x8C24, 0x8C93, 0x8211, 0x8C96, 0x89EC, 0x8AA4, 0x8DFE, 0x8D82, 0x8DCE, 0x8E2C, 0x8291, 0x8B68, 0x8D0B, 0x01C136, 0x01C156, 0x01C17B, 0x02B2C1]
 # These source-closed children must execute, including genuine nested frames.
-support = [0x8291] if a.probe_oam else [0x8211, 0x8291] if a.probe_caller else [0x8291, 0x8B68, 0x8D0B, 0x8C24]
+support = [] if a.probe_wait else [0x8291] if a.probe_oam else [0x8211, 0x8291] if a.probe_caller else [0x8291, 0x8B68, 0x8D0B, 0x8C24]
 selected = {by_pc[pc] for pc in roots + support if pc in by_pc}
 if a.probe_oam and 0x8211 not in by_pc:
     selected.add(by_pc[0x8C24])
@@ -75,10 +77,10 @@ for pc in roots:
 header += 'default:assert(0);return RECOMP_RETURN_NORMAL;}}\n'
 a.out.mkdir(parents=True, exist_ok=True)
 (a.out / 'shared_services_under_test.h').write_text(header, encoding='utf8')
-runner = repo / 'snesrecomp/runner/src'
+runner = Path(os.environ.get('SNESRECOMP_ROOT', repo / 'snesrecomp')) / 'runner/src'
 harness = repo / 'tests/lagoon_shared_services_oracle_test.c'
 binary = a.out / 'shared-services-oracle.exe'
-subprocess.run([a.compiler, '-DSERVICE_OAM_PROBE=' + str(int(a.probe_oam)), '-DSERVICE_LEGACY_CALLER=' + str(int(a.probe_caller)), '-std=c11', '-O2', '-Wall', '-Wextra', '-Wno-unused-label', '-Wno-unused-parameter', '-Wno-unused-variable', '-I' + str(runner), '-I' + str(a.out.resolve()), str(harness), str(runner / 'snes/interp816.c'), '-o', str(binary)], check=True)
+subprocess.run([a.compiler, '-DSERVICE_OAM_PROBE=' + str(int(a.probe_oam)), '-DSERVICE_LEGACY_CALLER=' + str(int(a.probe_caller)), '-DSERVICE_WAIT_PROBE=' + str(int(a.probe_wait)), '-std=c11', '-O2', '-Wall', '-Wextra', '-Wno-unused-label', '-Wno-unused-parameter', '-Wno-unused-variable', '-I' + str(runner), '-I' + str(a.out.resolve()), str(harness), str(runner / 'snes/interp816.c'), '-o', str(binary)], check=True)
 r = subprocess.run([str(binary.resolve()), str(a.rom.resolve())], capture_output=True, text=True)
 print(r.stdout, end='')
 print(r.stderr, end='')
