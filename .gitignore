@@ -52,8 +52,7 @@ __pycache__/
 
 .DS_Store
 
-# Explicitly requested listening exports; other local audio remains ignored.
-!/soundtrack/listening/*.mp3
+# Listening exports are distributed as release downloads, not source files.
 
 # Private local qualification receipts are outside the public source surface.
 /validation/
@@ -65,3 +64,11 @@ __pycache__/
 # This local feed is rebuilt per developer; Windows release lock stays pinned.
 /launcher/desktop/packages.lock.json
 /framework.local
+
+# Local native/.NET outputs belong in release assets, never the source tree.
+**/bin/
+**/obj/
+*.exe
+*.dll
+*.pdb
+*.nupkg

@@ -7,8 +7,10 @@ needed. The game's lossless 44.1 kHz stereo PCM preserves the VGZ loop points.
 The accompanying MP3 exports are for ordinary music players, while gameplay uses
 PCM so looping does not depend on MP3 encoder delay.
 
-[Browse the 40 MP3s and playlist](../soundtrack/listening) or
-[download the MP3 album ZIP](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.1.0-preview.1/Lagoon-X68000-MP3.zip).
+[Download the 40-track MP3 album and playlist](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.1.0-preview.1/Lagoon-X68000-MP3.zip).
+Listening audio is hosted in release downloads; the source tree retains its
+[conversion metadata and credits](../soundtrack/listening), without requiring
+contributors to check out the MP3 files.
 
 Seventeen source-qualified cues use the matching X68000 themes. Other cues,
 missing or invalid files, run-ahead and netplay keep the SNES soundtrack. SNES
