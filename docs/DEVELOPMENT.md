@@ -125,9 +125,27 @@ history. Publish substantial verified batches with accurate artifact checks.
 
 ## Deferred after v0.3.0
 
-The next map/UI pass should investigate a full-zone map resembling the actual
-area, clear doors/exits and useful landmarks, plus readable map and special-menu
-text styled consistently with Lagoon. Review the user's video around 28 seconds
-when doing that work. This is deferred until release completion; no map redesign
-or new artwork is included now. Broader objective guidance and optional zoom-out
-remain later considerations.
+The owner requests a full-zone scenery map and a consistent, readable map,
+achievements and sound-settings interface after release completion. The current
+map draws explored collision cells; a scenery map needs a separate area renderer,
+not just a smaller copy of that diagram or a stitched live camera capture.
+
+Reference reviewed: [Triforge trailer, 00:32–00:45](https://www.youtube.com/watch?v=0IaGDQ_R-YE&t=32s).
+It pulls back from the player into a scenery-based world map with pan/zoom
+controls and an angled whole-map view. Adapt the useful navigation ideas to
+Lagoon's separate zones; a flat map is the proposed first implementation.
+
+- Render each zone's complete terrain from its own map/tile/layer data, with
+  finite bounds and separate floors where needed. Keep actors and transient
+  effects out of the base image; do not advance gameplay to build the map.
+- Support fit-to-zone, pan, zoom and recenter on Nasir. Keep text and markers
+  readable independently of terrain zoom, with controller and keyboard controls.
+- Overlay Nasir, doors, stairs, exit destinations, treasure and quest guidance.
+  Decide explicitly whether unexplored scenery is visible or obscured; retain
+  discovered/opened progress and story-lock distinctions either way.
+- Restyle all extra menus together using Lagoon-like dialogue frames and a
+  legible font with predictable scaling, spacing and contrast. Prove one town
+  and one multi-room dungeon before expanding across all supported zones.
+
+No map redesign or new artwork is included in v0.3.0. Broader objective guidance
+and optional gameplay zoom-out remain separate later considerations.
