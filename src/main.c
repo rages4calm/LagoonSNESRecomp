@@ -90,6 +90,10 @@ static void LagoonHost_EndingOpcode(CpuState *cpu,uint32_t pc) {
     if(cpu==&g_cpu&&LagoonAchievementEnding_Observe(cpu,pc,RtlStateGeneration())){
         achievement_ending_display=1;
         LagoonAchievements_CompletedEnding(RtlStateGeneration());
+        const char *report=getenv("LAGOON_ACHIEVEMENT_ENDING_REPORT");
+        if(report&&!strcmp(report,"1"))
+            fprintf(stderr,"[ending-witness] completed pc=%06X generation=%llu sp=%04X counter=%u\n",
+                    pc,(unsigned long long)RtlStateGeneration(),cpu->S,cpu->ram[0x1099]);
     }
 }
 static int present(const char *key){const char *p=getenv(key);return p&&*p&&strcmp(p,"0");}

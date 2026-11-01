@@ -1,0 +1,42 @@
+[
+  {
+    "rom_offset": 32925,
+    "original": "20d883",
+    "runtime": "eaeaea"
+  },
+  {
+    "rom_offset": 32970,
+    "original": "20b5a7",
+    "runtime": "20d883"
+  },
+  {
+    "rom_offset": 33752,
+    "original": "64406441ad190530195a0aa8b9f2838526b9f38385277a6c2600fb83528426847d8460",
+    "runtime": "5a9bd016da644120fb83202684205284207d84faad19058d19057a4cb5a7eaeaeaeaea"
+  },
+  {
+    "rom_offset": 33799,
+    "original": "e9c000",
+    "runtime": "e98000"
+  },
+  {
+    "rom_offset": 33841,
+    "original": "a94000",
+    "runtime": "a98000"
+  },
+  {
+    "rom_offset": 33886,
+    "original": "e9b000",
+    "runtime": "e97000"
+  },
+  {
+    "rom_offset": 33928,
+    "original": "a95000",
+    "runtime": "a97000"
+  },
+  {
+    "rom_offset": 34805,
+    "original": "e97000",
+    "runtime": "e98000"
+  }
+]

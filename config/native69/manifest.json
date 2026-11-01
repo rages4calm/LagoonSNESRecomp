@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "abi": "native-blocks69",
+  "original_rom_sha256": "46c811f0cacffe8f20e1d63072d25d7c47e9bb3fd5124851fd05aca9884d21fb",
+  "original_rom_size": 1048576,
+  "sdk_files": {
+    "recompiler/snes65816.py": "15aa5d167c4d5cefbefbf7dbdcff443e48ab14069a3114096461c3731041b005",
+    "recompiler/snes_cycles.py": "3087a3d75a36f8d62f42791011b924d354f65a9b257af88b9e9eb13150ab85f4",
+    "recompiler/v2/__init__.py": "556c33ba8d9bbc9b23223aba0cafe0b7b1084c3e4a502ca40179c71bd77813e9",
+    "recompiler/v2/atomic_output.py": "ab2a5dadae144f8758ff0262e984ec92b9491183d8f021ead6125a6729b0c0a3",
+    "recompiler/v2/brk_rti.py": "5344e79f0f2011f20304f8a0b35ed60c889230aad3476ba1284d0ec586ebb08e",
+    "recompiler/v2/cfg.py": "cd8c8be455ce0dbbec0e1744fbc9ff769ab1f5014f0cbc5138c4f5f452567368",
+    "recompiler/v2/cfg_loader.py": "2af22528c522e6d960b3b2d10065ef126aab22a4a2e55b0021d29e9af11d0b79",
+    "recompiler/v2/codegen.py": "3a0568cf736b6cb4d0528867dfd237e42115393acdf8e5a5a5d372830c4b52c9",
+    "recompiler/v2/coverage_profile.py": "dbba69cdf95e5715e16fa7b23f5b5203a0761b9d687535e8938a9e97a4d464fa",
+    "recompiler/v2/decoder.py": "4bf8720bbc68e8cf3f3e1a33db10c80a7788cb1f2ca6bd3bf2f44906d154c28b",
+    "recompiler/v2/emit_bank.py": "19776b1c794edc15da086a9c2c848fb54d125740893fcc0d400f08c53f4c857d",
+    "recompiler/v2/emit_function.py": "1cf9eba5c952e363ddd124105fba565288e35ee328dd89ccd4b5d88904a4f07a",
+    "recompiler/v2/emit_native_blocks.py": "166e7c2a6c2ccb49a3cefcfc4e4ec1f59df556ad9e668d97d90105991cce98b7",
+    "recompiler/v2/emitter_helpers.py": "2cc02147a9c11eb319132d85ef0a16c1b24af0e05388b1363d6698480e03531a",
+    "recompiler/v2/exit_mx_autoroute.py": "cefeecd2c30de62d1326b38d0dced3da2dfdc2219b9fe8c7a81f81a1d00bbdac",
+    "recompiler/v2/hirom_cfg.py": "ddf208a5fa1bbcc6e6b766ef8fdf7973679ffb856ea89a1691e47731910c2949",
+    "recompiler/v2/ir.py": "3cac7e01da55224f3bbe19346923890df4f919e547ac849b246552eebb092528",
+    "recompiler/v2/link_closure.py": "24a374f15be70498cee780772a78585bdd35b002a709f49ae1b3ae424d5dc5cf",
+    "recompiler/v2/lowering.py": "b3491b6ad753dc21290895afc1e3b0dff02101f5860768973406b43d9697fcc7",
+    "recompiler/v2/naming.py": "fc64a8ac360f49cb2ab25dba44bb4369d036ebda5124ffd042d5d779a28b4bb7",
+    "recompiler/v2/pha_rts_autoroute.py": "aaa1eda0bbd7ce03e5f9fa88fa8befb6a102b40d7531bf13d21bc6b801de0128",
+    "recompiler/v2/pointer_recovery.py": "99b226da7c020d78e09e446e6d9cbe340da95e51d5a96670faf04eebfed24427",
+    "recompiler/v2/program_analysis.py": "8def5ad516267e51bb5b0cc40502a36f5b546b52ba29e407ec4fb88a7c33f3a0",
+    "recompiler/v2/program_emit.py": "1f8ad554cef32f8da18c27ee470fe000352d7db4046cfd41bbb9ac79fd9d9d7a",
+    "recompiler/v2/ram_coverage.py": "ade5cb4a04d3bdfe979029428b977ac6204a3a90f23592f5970df9e8288cac4a",
+    "recompiler/v2/tail_call_autoroute.py": "26fdd94242ea50d20039ce5f8d402cf3d25d7fe5a5ed680a0e5312f83716a7d9",
+    "recompiler/v2/translation_units.py": "949a38d746ba04ce366e44ebef5666b51cafbe9923d2cbfad57c5ba61fc9ad9c",
+    "recompiler/v2/widths.py": "d1ab626e3846b2fcac03ce9937ce77ffc215e1fb8f140a169417acebbee21d3e",
+    "recompiler/v2/wrapper_autoroute.py": "1182db4716a72eee4e1576947e1b9e5326e2c4841ff09d42ccb9412120128af2",
+    "runner/src/native_blocks.h": "cb7ad310ba54a0aa4156356f4623e0dc042e974202da22d7432ab2880172a8c1"
+  },
+  "metadata_files": {
+    "base.keys.json": "4424afaaff9048e403e7bc9bd3ea04dea3f2c1a1634dfc1be82d2e8d27214dac",
+    "camera.keys.json": "3cc8aef85011c11b472a8ae552f886c548f335eb3a6774407ef244cd5cbd6da3",
+    "camera.patches.json": "2c59c18ced480c4c4b38d5562580e09ab619dbc53f974c785ea79371fd7f2b87"
+  },
+  "profiles": [
+    {
+      "id": 0,
+      "symbol": "lagoon_reset69",
+      "keys": "base.keys.json",
+      "count": 28488,
+      "patches": null,
+      "output": "ordinary69.generated.c"
+    },
+    {
+      "id": 1,
+      "symbol": "lagoon_camera69",
+      "keys": "camera.keys.json",
+      "count": 28474,
+      "patches": "camera.patches.json",
+      "output": "camera69.generated.c"
+    }
+  ],
+  "scope": "Finite original-source instruction/mode whitelist plus explicitly approved centered-camera source profile. Keys include conditional static continuation candidates; membership is not evidence of runtime reachability or whole-game completion. Unsupported ISA remains fail-closed. No ROM, generated C, extracted assets, saves or validation capture is distributed in this metadata.",
+  "text_pin_policy": "utf8-crlf-to-lf-only-v1"
+}

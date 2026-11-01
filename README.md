@@ -12,9 +12,10 @@
 
 A desktop port of **Lagoon (USA)** built with
 [SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp).
-Native gameplay runs alongside an interpreter safety net, with
+Published builds run native gameplay alongside an interpreter safety net, with
 widescreen, a custom scene renderer, an exploration map, local achievements
-and optional quality-of-life improvements. This is not a 100% native CPU conversion.
+and optional quality-of-life improvements. Development source also includes an
+[opt-in strict native CPU backend](config/native69/README.md); it is not yet in the downloads above.
 **Bring your own clean USA ROM.** No ROM or extracted Lagoon graphics are bundled.
 
 **Windows 0.2.5 is stable.** Linux x64, Intel Mac and Apple Silicon Mac are
@@ -25,10 +26,10 @@ pending. [Platform requirements and testing limits](docs/PORTING.md).
 
 Development source now uses the October 30 SNESRecomp framework, preserving
 Lagoon's fixes and adding the shared native DSP mixer and fused ROM reads.
-The development follow-up fixes native queue deadline/audio handoff timing and
-bounds diagnostic audio capture across save-state loads.
-Release downloads above retain their existing qualification. The interpreter
-remains supported. [Integration checks and remaining timing work](docs/FRAMEWORK-UPGRADE-2026-10-31.md).
+Development fixes preserve hardware timing and bound diagnostic audio capture
+across save-state loads. Release downloads retain their existing qualification;
+the interpreter remains available as a development/reference control.
+[Framework integration history](docs/FRAMEWORK-UPGRADE-2026-10-31.md).
 
 ![Atland with Enhanced original pixels at 1920 by 1080](docs/screenshots/atland-epx-1920x1080.png)
 
@@ -147,33 +148,32 @@ now use compact top-right notices. The hidden cameo retains Lagoon-style typing
 dialogue, a portrait and uninterrupted music. Use the release
 notes for the exact contents and qualification of each downloadable package.
 
-Native combat, damage, death/revival, boss services and
-endgame routes, display fades and guarded HUD dispatch have focused checks;
-the interpreter remains enabled for paths
-that have not been qualified. Scenery contracts cover all 75 authored room
-descriptors, but that does **not** mean every actor, effect, menu or transition
-supports widescreen. Unsupported content falls back to the original view.
+The unreleased strict native backend executes source-specific compiled CPU
+continuations, including real calls, returns and interrupt frames. It passed
+95 matched native/reference cases covering new-game entry, combat, deaths,
+bosses, endgame, NPC/script services and room loading, with zero general 65816
+interpreter invocations or unqualified guest replay. State, timing, ordered
+frames and offline DSP output matched exactly. All 74 nonempty original rooms
+have resource-entry evidence; that is distinct from testing every transaction,
+quest branch or movement sequence. Earlier qualified menu and save/recovery
+checks remain documented separately rather than being counted as fresh runs.
 
-The owner completed the campaign and explored every map. These reports
-supplement the focused automated checks; they do not prove every native or
-widescreen path is supported.
-Special actor/effect coverage and occasional frame-time spikes remain work in
-progress. Native enemy calculations now cover ordinary areas, including sprite
-packing and direction/velocity commands. A focused busy Elf Field route holds
-the intended 30 game updates per second with approximately 60 displayed frames
-per second; this is not a full-game performance guarantee. A guarded transition
-bridge also covers the brief gap before an area's loading flag appears.
-Incoming mosaic fades now retain the current room's original center and fill
-qualified widescreen margins; completed menus take priority over cached scenery.
-Native table dispatch now covers qualified item, spell, death and boss-script
-contexts, with the full ordinary actor sorting loop also compiled. Unknown
-script contexts continue through the interpreter. All 40 commands in the NPC
-script family now have qualified native entry contexts, with additional dialogue
-continuations and separate assisted state/audio checks. Native music uploads
-preserve actual device timing; initial unmapped boot uploads remain interpreted.
-A read-only map-resource scan also reduces loading work without changing game
-speed. Focused fullscreen measurements distinguish original loading waits from
-host rendering cost; they do not establish locked 60 FPS throughout the game.
+Strict mode stops before an uncovered opcode instead of silently falling back.
+The interpreter stays available for development and reference comparisons.
+SNES graphics, DMA, timers and audio hardware, including the SPC700, still use
+the hardware runtime. This is not a claim that hardware simulation was removed,
+or that the new backend has completed Linux/macOS gameplay qualification.
+[Build and launch strict native execution](config/native69/README.md).
+
+The original Windows release completed the owner's campaign and full map
+exploration. Automated routes supplement that playtest; they are finite checks,
+not a promise of bug-free behavior in every edited save or mod combination.
+Scenery contracts cover all 75 room descriptors, but unsupported widescreen
+content can still use the original view. Special effects and frame pacing remain
+separate from CPU execution coverage. The focused busy Elf Field measurement
+holds the intended 30 game updates and approximately 60 displayed frames per
+second; it does not establish locked 60 FPS throughout the game.
+
 Tablet hints are available;
 a full objective journal, broader route guidance and zoom-out remain later work. See [development scope](docs/DEVELOPMENT.md)
 and [how to report a playtest issue](docs/PLAYING.md#reporting-a-bug).

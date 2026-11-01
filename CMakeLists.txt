@@ -145,6 +145,43 @@ snesrecomp_rom_identity(LagoonSNESRecomp ${CMAKE_SOURCE_DIR}/rom_identity.txt)
 set(LAGOON_GENERATED_DIR "${CMAKE_SOURCE_DIR}/src/gen" CACHE PATH
     "Generated program directory; use a private path for coverage candidates")
 snesrecomp_target_generated_code(LagoonSNESRecomp ${LAGOON_GENERATED_DIR})
+option(LAGOON_GENERATE_NATIVE69_FROM_ROM
+    "Generate the reviewed architectural native profiles privately from your ROM" OFF)
+set(LAGOON_NATIVE69_ROM "" CACHE FILEPATH "Unmodified Lagoon USA ROM for opt-in native69 generation")
+if(LAGOON_GENERATE_NATIVE69_FROM_ROM)
+    if(SNESRECOMP_SETUP_HOST OR NOT EXISTS "${LAGOON_NATIVE69_ROM}")
+        message(FATAL_ERROR "Native69 generation requires a playable build and an explicit LAGOON_NATIVE69_ROM")
+    endif()
+    if(LAGOON_NATIVE_BLOCKS69_SOURCE OR LAGOON_NATIVE_BLOCKS69_CAMERA_SOURCE)
+        message(FATAL_ERROR "Choose native69 generation or explicit generated source paths, not both; use a fresh build directory")
+    endif()
+    # Establish typed cache entries before setting normal generated-path values.
+    # CMake 3.20's CMP0126 OLD otherwise removes those normal bindings below.
+    set(LAGOON_NATIVE_BLOCKS69_SOURCE "" CACHE FILEPATH "Private generated native base source")
+    set(LAGOON_NATIVE_BLOCKS69_CAMERA_SOURCE "" CACHE FILEPATH "Private generated native camera source")
+    find_package(Python3 3.10 COMPONENTS Interpreter REQUIRED)
+    file(GLOB _lagoon_native69_inputs CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/config/native69/*")
+    file(GLOB _lagoon_native69_compiler CONFIGURE_DEPENDS "${SNESRECOMP_ROOT}/recompiler/v2/*.py")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        ${_lagoon_native69_inputs} ${_lagoon_native69_compiler}
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/generate_native_backend69.py"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/lagoon_qol.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/lagoon_follower.c"
+        "${SNESRECOMP_ROOT}/recompiler/snes65816.py"
+        "${SNESRECOMP_ROOT}/recompiler/snes_cycles.py"
+        "${SNESRECOMP_ROOT}/runner/src/native_blocks.h" "${LAGOON_NATIVE69_ROM}")
+    execute_process(COMMAND "${Python3_EXECUTABLE}" -P
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/generate_native_backend69.py"
+        --rom "${LAGOON_NATIVE69_ROM}" --sdk "${SNESRECOMP_ROOT}"
+        --out-dir "${CMAKE_CURRENT_BINARY_DIR}/native69"
+        RESULT_VARIABLE _lagoon_native69_result OUTPUT_VARIABLE _lagoon_native69_output
+        ERROR_VARIABLE _lagoon_native69_error)
+    if(NOT _lagoon_native69_result EQUAL 0)
+        message(FATAL_ERROR "Native69 generation refused: ${_lagoon_native69_error}")
+    endif()
+    set(LAGOON_NATIVE_BLOCKS69_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/native69/ordinary69.generated.c")
+    set(LAGOON_NATIVE_BLOCKS69_CAMERA_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/native69/camera69.generated.c")
+endif()
 set(LAGOON_NATIVE_BLOCKS69_SOURCE "" CACHE FILEPATH
     "Private compiler-generated architectural native blocks; empty keeps the existing execution route")
 if(LAGOON_NATIVE_BLOCKS69_SOURCE)
