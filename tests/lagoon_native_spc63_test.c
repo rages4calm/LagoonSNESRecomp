@@ -26,6 +26,10 @@ static void opcode(Interp816*i,CpuState*c){bus_extra=0;unsigned n=interp816_runO
 
 
 bool interp_bridge_source_read8(CpuState*c,uint32_t address,uint8_t*out){*out=cpu_read8(c,address>>16,address);return true;}
+bool interp_bridge_source_read16(CpuState*c,uint32_t l,uint32_t h,uint16_t*out){unsigned v=cpu_read8(c,l>>16,l);*out=v|cpu_read8(c,h>>16,h)<<8;return true;}
+bool interp_bridge_source_write8(CpuState*c,uint32_t a,uint8_t v){cpu_write8(c,a>>16,a,v);return true;}
+bool interp_bridge_source_write16(CpuState*c,uint32_t l,uint32_t h,uint16_t v){cpu_write8(c,l>>16,l,v);cpu_write8(c,h>>16,h,v>>8);return true;}
+
 static void equal(const CpuState*a,const CpuState*b,const Interp816*i,uint32_t pc){
  if(memcmp(ram,actual_ram,sizeof ram)||memcmp(io,actual_io,sizeof io)||i->pc!=(pc&65535)||i->k!=12||
  a->A!=b->A||a->X!=b->X||a->Y!=b->Y||a->S!=b->S||a->D!=b->D||a->DB!=b->DB||a->P!=b->P||a->open_bus!=b->open_bus||
@@ -35,7 +39,7 @@ static void equal(const CpuState*a,const CpuState*b,const Interp816*i,uint32_t p
 
 static void setup(CpuState*c,unsigned seed){memset(&spc_witness,0,sizeof spc_witness);memset(ram,0,sizeof ram);memset(io,0,sizeof io);memset(c,0,sizeof*c);c->ram=ram;c->PB=12;c->S=0x1fa;c->P=0x24|((seed&1)?1:0)|((seed&2)?0x40:0)|((seed&4)?0x80:0)|((seed&8)?2:0);cpu_p_to_mirrors(c);ram[0x1fb]=0x5b;ram[0x1fc]=0xff;ram[0x1d]=0x80;ram[0x1e]=0x0d;
  if(seed%3){const unsigned packs[]={0xc8000,0xd8d46,0xfa12e,0xfba6b,0xfce57,0xe8000,0xe9d15,0xec0ab,0xf8000,0xfd429};unsigned id=seed%10,p=packs[id];c->DB=seed%3;ram[0x1c]=p;ram[0x1d]=p>>8;ram[0x1e]=p>>16;unsigned ret=id<2?0xfee2:0xff33;ram[0x1fb]=ret;ram[0x1fc]=ret>>8;}
- uint32_t unused;assert(!LagoonNativeSpc63_Process(rom,sizeof rom,c,c,7,7,0xcff69,&unused));assert(spc_witness.armed);c->S--;c->A=(uint16_t)(seed*911);c->X=0x1234;c->Y=0x4321;reply=c->A&255;delay=seed%11;reads=0;}
+ uint32_t unused;assert(!LagoonNativeSpc63_Process(rom,sizeof rom,c,c,7,7,0xcff69,&unused));assert(spc_witness.armed);c->ram[c->S]=spc_witness.saved_p;c->S--;c->A=(uint16_t)(seed*911);c->X=0x1234;c->Y=0x4321;reply=c->A&255;delay=seed%11;reads=0;}
 int main(int argc,char**argv){assert(argc==2);FILE*f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof rom,f)==sizeof rom);fclose(f);assert(LagoonNativeSpc63_Source(rom,sizeof rom));const unsigned pcs[]={0xcff8a,0xcff8d,0xcff9a,0xcff9d,0xcffc3,0xcffc6};const unsigned cuts[]={1,20,40,80,1000};
  for(unsigned seed=0;seed<128;seed++)for(unsigned op=0;op<6;op++)for(unsigned cut=0;cut<5;cut++){
  CpuState c;setup(&c,seed);CpuState ref=c;memcpy(before,ram,sizeof ram);deadline=cuts[cut];uint32_t landing=0;assert(LagoonNativeSpc63_Process(rom,sizeof rom,&c,&c,7,7,pcs[op],&landing));unsigned native_reads=reads;cpu_mirrors_to_p(&c);memcpy(actual_ram,ram,sizeof ram);memcpy(actual_io,io,sizeof io);memcpy(ram,before,sizeof ram);memset(io,0,sizeof io);reads=0;Interp816*i=interp816_init(NULL,rd,wr);from(i,&ref,pcs[op]);while(ref.cycles<c.cycles)opcode(i,&ref);equal(&c,&ref,i,landing);assert(reads==native_reads);cases++;

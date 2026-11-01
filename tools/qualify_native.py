@@ -12,7 +12,14 @@ import time
 
 DIAGNOSTIC_RANGES={'SNESRECOMP_AOTBLK': (10,10000000),
                    'SNESRECOMP_CYC_WATCH': (16,0xffffff)}
-DIAGNOSTIC_BOOLEANS={'SNESRECOMP_HOST_PROFILE','SNESRECOMP_LLE_BOUNCE','SNESRECOMP_DMA_LOG','LAGOON_ACTOR_COMPUTE_REPORT','LAGOON_NATIVE_MUSIC_TRACE','LAGOON_NATIVE_ITERATOR52_REPORT','LAGOON_NATIVE_SCRIPTS53_REPORT','LAGOON_NATIVE_WAIT_REPORT','LAGOON_IDLE_POLL_PROBE','LAGOON_FRAME_WAIT62'}
+DIAGNOSTIC_BOOLEANS={'SNESRECOMP_HOST_PROFILE','SNESRECOMP_LLE_BOUNCE','SNESRECOMP_DMA_LOG','LAGOON_ACTOR_COMPUTE_REPORT','LAGOON_NATIVE_MUSIC_TRACE','LAGOON_NATIVE_ITERATOR52_REPORT','LAGOON_NATIVE_SCRIPTS53_REPORT','LAGOON_NATIVE_WAIT_REPORT','LAGOON_IDLE_POLL_PROBE','LAGOON_FRAME_WAIT62','LAGOON_TIMING64','SNESRECOMP_DSPOUT_DRAIN'}
+
+
+def validate_offline_dsp_drain(real_audio,config_text,overrides):
+    sections=re.findall(r'(?ims)^\[Sound\]\s*$(.*?)(?=^\[|\Z)',config_text or '')
+    lines=re.findall(r'(?im)^EnableAudio\s*=\s*([^\r\n]+)',sections[0]) if len(sections)==1 else []
+    if real_audio or len(lines)!=1 or lines[0].strip()!='0' or not any(x.startswith('SNESRECOMP_DSPOUT=') and len(x.split('=',1)[1]) for x in overrides):
+        raise SystemExit('Offline DSP drain requires explicit disabled host audio and a DSP output capture')
 
 
 def validate_diagnostic_boolean(key,value):
@@ -214,6 +221,8 @@ def main():
         key,sep,value=spec.partition('=')
         if not sep or key not in diagnostic_paths|diagnostic_numbers|diagnostic_booleans|diagnostic_ranges.keys()|{'LAGOON_WIDE_ASPECT','LAGOON_SCENE_RENDERER','LAGOON_ACTOR_COMPUTE','LAGOON_ACTOR_COMMANDS','LAGOON_ACTOR_COMMANDS_REPORT','LAGOON_NATIVE_ITERATOR52','LAGOON_NATIVE_SCRIPTS53','LAGOON_NATIVE_BOOT62','LAGOON_NATIVE_DECODE63','LAGOON_NATIVE_SPC63','LAGOON_NATIVE_RESET63','LAGOON_CAMPAIGN_FIXTURE_ROOM','LAGOON_SCRIPT_FIXTURE','SNESRECOMP_LLE_INTERP_TARGET'}:
             raise SystemExit('Unsupported diagnostic override: '+spec)
+        if key=='SNESRECOMP_DSPOUT_DRAIN' and value=='1':
+            validate_offline_dsp_drain(args.real_audio,args.config.read_text(encoding='utf-8-sig') if args.config else '',args.env)
         if key in diagnostic_paths:
             p=Path(value);p=(p if p.is_absolute() else out/p).resolve()
             if not p.is_relative_to(out) or p.exists():raise SystemExit('Diagnostic outputs must be fresh paths within --out')

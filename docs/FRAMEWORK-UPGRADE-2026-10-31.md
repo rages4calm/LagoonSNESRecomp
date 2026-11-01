@@ -367,3 +367,40 @@ controls disable the host playback device on both sides while continuing SPC,
 DSP and generated-sample capture. This does not qualify physical listening.
 Remaining observed contexts include payload/word-handshake continuations and
 decoder input/raw-copy windows. Existing camera/source/width exclusions remain.
+
+
+## Timing64: remaining decoder and sound-upload bodies
+
+Local only; no publication or installation. Remaining decoder header, input,
+dictionary-table, raw-copy and register cleanup instructions are statically
+translated with source widths and real frame/generation/deadline ownership.
+The upload continuation covers payload and byte/word handshakes through its
+original PLP/RTS boundary, delegating the existing volatile word bus. On the
+opening route,881,081 decoder and696,563 upload interpreted body instructions
+become zero.38,820 new opcode/resume cases and24 new refusals pass. Raw-copy
+content was not observed in the gameplay routes; its complete original
+entry-to-RTL unit fixture is separate evidence. These are source windows,
+not new generated roots or global native-completion percentages.
+
+Callback word/byte bus helpers preserve original observation and synchronization
+and source commit accounts for their real write epochs. A conservative8KiB
+hook filter skips unrelated PCs; exact full-key lookup and512-slot registration
+remain authoritative. Independent helper and registration/filter checks pass.
+
+A diagnostic verification limit was found: unpaced undrained sample files can
+stop at8192 pairs when the playback ring fills. Earlier pictures, full per-field
+ARAM/DSP registers, event timing and CPU checks remain valid; their PCM must not
+be called a full emitted stream. An explicitly guarded offline diagnostic sink
+now consumes delivery after capture and verifies every span against the actual
+producer counter; loss and flush failures invalidate the run. It requires host
+playback disabled and changes no default gameplay setting. Same-executable
+explicit64off/on controls match1,147,983 complete stereo pairs across2151opening
+fields, and98,947 across actual decoder/upload state restores. Every observed
+output remains strict. Executable epochs are recorded in private receipts.
+
+The interpreter remains for real returns, unowned restored continuations and
+other unsupported services. Existing native families and the owner's completed
+campaign were not replayed merely to raise counts. Upstream issue233 is closed
+by merged PR234; Lagoon already contains its core reset/load cursor correction.
+A future SDK refresh must reconcile the overlapping patch and additional
+upstream hardening while preserving the cumulative local SDK changes.
