@@ -352,7 +352,10 @@ class DependencyTextProvenanceTests(unittest.TestCase):
         for folder,key in [('companion_achievements','core_files'),('cjson','cjson_files')]:
             for name,raw in record[key].items():
                 source=ROOT/'third_party'/folder/name;data=source.read_bytes()
-                self.assertEqual(hashlib.sha256(data).hexdigest(),raw)
+                # A target checkout may already contain the admitted LF form.
+                # The historical raw pin remains unchanged in provenance.
+                self.assertTrue(package._inputs.dependency_source_matches(source,raw,
+                    record['canonical_'+key][name],record['text_hash_policy']))
                 self.assertEqual(hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest(),record['canonical_'+key][name])
                 vendors.append(source)
         self.assertEqual(len(vendors),6)
