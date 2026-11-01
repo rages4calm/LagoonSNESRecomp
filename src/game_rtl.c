@@ -40,6 +40,7 @@
 #include "lagoon_native_decode63.h"
 #include "lagoon_native_spc63.h"
 #include "lagoon_native_reset63.h"
+#include "lagoon_native_services65.h"
 #include "lagoon_native_scripts53.h"
 #include "lagoon_menu_close.h"
 #include "lagoon_menu_dma.h"
@@ -64,6 +65,9 @@ void GameRunOneFrame(void)
     LagoonNativeIterator52_BeforeFrame();
     LagoonNativeScripts53_BeforeFrame();
     LagoonMenuClose_BeforeFrame();
+    /* Existing qualified fast menu/door handlers own their entries first.
+     * Source-timed services only handle their original fallback cases. */
+    LagoonServices65_BeforeFrame();
     LagoonMenuDma_BeforeFrame();
     LagoonCampaignDebug_BeforeFrame();
     snes_beam_frame_driver_run_frame();
