@@ -45,6 +45,15 @@
 #include "lagoon_native_scheduler67.h"
 #include "lagoon_native_menu_input67.h"
 #include "lagoon_native_sprites67.h"
+#include "lagoon_native_death_menu68.h"
+#include "lagoon_native_camera68.h"
+#include "lagoon_native_collision68.h"
+#include "lagoon_native_irq_stack68.h"
+#include "lagoon_native_map68.h"
+#include "lagoon_native_player_intent68.h"
+#include "lagoon_native_nmi_prep68.h"
+#include "lagoon_native_tiles68.h"
+#include "lagoon_native_staging68.h"
 #include "lagoon_native_scripts53.h"
 #include "lagoon_menu_close.h"
 #include "lagoon_menu_dma.h"
@@ -73,9 +82,19 @@ void GameRunOneFrame(void)
      * Source-timed services only handle their original fallback cases. */
     LagoonServices65_BeforeFrame();
     LagoonInterrupt66_BeforeFrame();
+    /* Observe real interrupt entry before register-save source redirection. */
+    LagoonNmiPrep68_BeforeFrame();
     LagoonScheduler67_BeforeFrame();
     LagoonMenuInput67_BeforeFrame();
     LagoonSprites67_BeforeFrame();
+    LagoonDeathMenu68_BeforeFrame();
+    LagoonCamera68_BeforeFrame();
+    LagoonCollision68_BeforeFrame();
+    LagoonMap68_BeforeFrame();
+    LagoonPlayerIntent68_BeforeFrame();
+    LagoonTiles68_BeforeFrame();
+    LagoonStaging68_BeforeFrame();
+    LagoonIrqStack68_BeforeFrame();
     LagoonMenuDma_BeforeFrame();
     LagoonCampaignDebug_BeforeFrame();
     snes_beam_frame_driver_run_frame();

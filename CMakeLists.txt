@@ -72,6 +72,16 @@ add_executable(LagoonSNESRecomp
     src/lagoon_native_menu_input67.c
     src/lagoon_native_scheduler67.c
     src/lagoon_native_sprites67.c
+    src/lagoon_native_death_menu68.c
+    src/lagoon_native_camera68.c
+    src/lagoon_native_collision68.c
+    src/lagoon_native_irq_stack68.c
+    src/lagoon_native_dispatch68.c
+    src/lagoon_native_map68.c
+    src/lagoon_native_player_intent68.c
+    src/lagoon_native_nmi_prep68.c
+    src/lagoon_native_tiles68.c
+    src/lagoon_native_staging68.c
     src/lagoon_native_interrupt66.c
     src/lagoon_native_services65.c
     src/lagoon_native_reset63.c

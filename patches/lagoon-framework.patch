@@ -3398,7 +3398,7 @@ index c93840e..72ceecd 100644
  /* Per-voice Gaussian-interpolated sample (canon hardware math). Exposed for the
   * dev-only in-process faithful reference (dsp_shadow) to diff against blargg's
 diff --git a/runner/src/snes/interp_bridge.c b/runner/src/snes/interp_bridge.c
-index af45ff1..338f9b7 100644
+index af45ff1..4b8a8a4 100644
 --- a/runner/src/snes/interp_bridge.c
 +++ b/runner/src/snes/interp_bridge.c
 @@ -1,5 +1,5 @@
@@ -3536,7 +3536,7 @@ index af45ff1..338f9b7 100644
 -enum { kInterpPreOpcodeHookSlots = 256 };
 +/* Stable global entries, with insertion-ordered chains per exact-PC hash.
 + * One-based links reserve zero for an empty bucket, including static init. */
-+enum { kInterpPreOpcodeHookSlots = 1024, kInterpPreOpcodeHookBuckets = 1024 };
++enum { kInterpPreOpcodeHookSlots = 2048, kInterpPreOpcodeHookBuckets = 1024 };
  static struct {
      uint32_t pc24;
      InterpPreOpcodeHook hook;
@@ -7042,7 +7042,7 @@ index 0000000..22b690d
 + assert 'if (s_pre_opcode_hooks[hi].pc24 == key)' in text
 diff --git a/tests/test_pre_opcode_registry67.py b/tests/test_pre_opcode_registry67.py
 new file mode 100644
-index 0000000..4616884
+index 0000000..b4829e0
 --- /dev/null
 +++ b/tests/test_pre_opcode_registry67.py
 @@ -0,0 +1,196 @@
@@ -7160,7 +7160,7 @@ index 0000000..4616884
 +    for(unsigned i=0;i<1024;i++)assert(!s_pre_opcode_hook_low[i]);
 +}
 +int main(void) {
-+    assert(kInterpPreOpcodeHookSlots==1024);
++    assert(kInterpPreOpcodeHookSlots==2048);
 +    assert(!interp_bridge_add_pre_opcode_hook(1,0));
 +    assert(!s_pre_opcode_hook_count);
 +    unsigned key=0x123456, collision=key+1;
@@ -7194,7 +7194,7 @@ index 0000000..4616884
 +    assert(interp_bridge_add_pre_opcode_hook(key,b));
 +    dispatch_pc(key);assert(event_count==1&&events[0]==2);
 +    interp_bridge_set_pre_opcode_hook(0,0);
-+    for(unsigned i=0;i<1024;i++) {
++    for(unsigned i=0;i<kInterpPreOpcodeHookSlots;i++) {
 +        unsigned pc=0x100000+i*127;
 +        assert(interp_bridge_add_pre_opcode_hook(pc,a));
 +        assert(s_pre_opcode_hook_count==(int)i+1);
@@ -7204,14 +7204,14 @@ index 0000000..4616884
 +    assert(!interp_bridge_add_pre_opcode_hook(0x234567,a));
 +    assert(!interp_bridge_add_pre_opcode_hook(0x100000,b));
 +    assert(interp_bridge_add_pre_opcode_hook(0x100000,a));
-+    assert(s_pre_opcode_hook_count==1024);
++    assert(s_pre_opcode_hook_count==kInterpPreOpcodeHookSlots);
 +    interp_bridge_set_pre_opcode_hook(0x234567,b);
-+    assert(s_pre_opcode_hook_count==1024);
++    assert(s_pre_opcode_hook_count==kInterpPreOpcodeHookSlots);
 +    dispatch_pc(0x234567);assert(!event_count);
 +    interp_bridge_set_pre_opcode_hook(0x900000,b);
 +    dispatch_pc(0x100000);assert(event_count==1&&events[0]==2);
 +    filter_check();
-+    for(unsigned i=1;i<1024;i++) {
++    for(unsigned i=1;i<kInterpPreOpcodeHookSlots;i++) {
 +        dispatch_pc(0x100000+i*127);assert(event_count==1&&events[0]==1);
 +    }
 +    interp_bridge_set_pre_opcode_hook(0,0);cleared();filter_check();
@@ -7222,7 +7222,7 @@ index 0000000..4616884
 +    assert(interp_bridge_add_pre_opcode_hook(key,clear));
 +    assert(interp_bridge_add_pre_opcode_hook(key,a));
 +    dispatch_pc(key);assert(event_count==1&&events[0]==5);cleared();
-+    printf("PASS actual 1024-slot registry/dispatch: capacity, aliases, collisions, ordered composition, duplicate, set-first/append/refusal, clear/stale links, redirect, callback scope; %u low-word cases\n",low_filter_cases);
++    printf("PASS actual 2048-slot registry/dispatch: capacity, aliases, collisions, ordered composition, duplicate, set-first/append/refusal, clear/stale links, redirect, callback scope; %u low-word cases\n",low_filter_cases);
 +    return 0;
 +}
 +'''
@@ -7238,7 +7238,7 @@ index 0000000..4616884
 +    print(run.stdout, end='')
 +    (tmp_path / 'receipt.json').write_text(json.dumps({
 +        'passed': True, 'compiler': clang, 'stdout': run.stdout, 'stderr': run.stderr,
-+        'source': str(source), 'registry_capacity': 1024, 'low_word_cases': 262144,
++        'source': str(source), 'registry_capacity': 2048, 'low_word_cases': 262144,
 +        'actual_source': 'runner/src/snes/interp_bridge.c',
 +        'actual_dispatch_block': True,
 +    }, indent=2) + '\n', encoding='utf8')
