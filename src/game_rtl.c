@@ -54,6 +54,7 @@
 #include "lagoon_native_nmi_prep68.h"
 #include "lagoon_native_tiles68.h"
 #include "lagoon_native_staging68.h"
+#include "lagoon_native_backend69.h"
 #include "lagoon_native_scripts53.h"
 #include "lagoon_menu_close.h"
 #include "lagoon_menu_dma.h"
@@ -68,6 +69,7 @@
 
 void GameRunOneFrame(void)
 {
+    LagoonNativeBackend69_BeforeFrame();
     LagoonFollower_BeforeFrame();
     LagoonNativeRecovery_BeforeFrame();
     LagoonNativeActorCommands_BeforeFrame();

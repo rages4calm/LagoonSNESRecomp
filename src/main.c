@@ -27,6 +27,7 @@
 
 #include "host_main.h"
 #include "game_rtl.h"
+#include "lagoon_native_backend69.h"
 #include "lagoon_idle_poll.h"
 #include "snes/cart.h"
 #include "snesrecomp_rom_identity.h"  /* generated from rom_identity.txt */
@@ -254,6 +255,8 @@ static uint8_t LagoonHost_WorldRead(uint32_t address,uint8_t value,
     return LagoonWideAI_FilterRead(address,value,context,ram,RtlStateGeneration());
 }
 static void LagoonHost_OnRom(const uint8_t *rom,size_t size) {
+    /* Authenticate unpatched source before title QoL changes the live image. */
+    LagoonNativeBackend69_OnRom(rom,size);
     LagoonMap_Init(rom,size);
     LagoonQuestGuidance_Init(rom,size);
     LagoonEasterEgg_Init(rom,size);

@@ -82,6 +82,7 @@ add_executable(LagoonSNESRecomp
     src/lagoon_native_nmi_prep68.c
     src/lagoon_native_tiles68.c
     src/lagoon_native_staging68.c
+    src/lagoon_native_backend69.c
     src/lagoon_native_interrupt66.c
     src/lagoon_native_services65.c
     src/lagoon_native_reset63.c
@@ -144,6 +145,24 @@ snesrecomp_rom_identity(LagoonSNESRecomp ${CMAKE_SOURCE_DIR}/rom_identity.txt)
 set(LAGOON_GENERATED_DIR "${CMAKE_SOURCE_DIR}/src/gen" CACHE PATH
     "Generated program directory; use a private path for coverage candidates")
 snesrecomp_target_generated_code(LagoonSNESRecomp ${LAGOON_GENERATED_DIR})
+set(LAGOON_NATIVE_BLOCKS69_SOURCE "" CACHE FILEPATH
+    "Private compiler-generated architectural native blocks; empty keeps the existing execution route")
+if(LAGOON_NATIVE_BLOCKS69_SOURCE)
+    if(SNESRECOMP_SETUP_HOST OR NOT EXISTS "${LAGOON_NATIVE_BLOCKS69_SOURCE}")
+        message(FATAL_ERROR "Architectural native blocks require an existing private generated source and a playable build")
+    endif()
+    target_sources(LagoonSNESRecomp PRIVATE "${LAGOON_NATIVE_BLOCKS69_SOURCE}")
+    target_compile_definitions(LagoonSNESRecomp PRIVATE LAGOON_NATIVE_BLOCKS69_ENABLED=1)
+endif()
+set(LAGOON_NATIVE_BLOCKS69_CAMERA_SOURCE "" CACHE FILEPATH
+    "Private generated approved centered-camera native source profile")
+if(LAGOON_NATIVE_BLOCKS69_CAMERA_SOURCE)
+    if(NOT LAGOON_NATIVE_BLOCKS69_SOURCE OR NOT EXISTS "${LAGOON_NATIVE_BLOCKS69_CAMERA_SOURCE}")
+        message(FATAL_ERROR "Camera native profile requires the base generated native source and an existing camera source")
+    endif()
+    target_sources(LagoonSNESRecomp PRIVATE "${LAGOON_NATIVE_BLOCKS69_CAMERA_SOURCE}")
+    target_compile_definitions(LagoonSNESRecomp PRIVATE LAGOON_NATIVE_BLOCKS69_CAMERA_ENABLED=1)
+endif()
 if(EXISTS "${LAGOON_GENERATED_DIR}/program_manifest.json")
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     add_custom_target(lagoon_camera_patch_safety

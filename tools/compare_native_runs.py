@@ -22,9 +22,10 @@ INPUT_KEYS = ('coverage_mode', 'rom_sha256', 'route_sha256', 'frames', 'input_co
               'visible_display', 'offscreen_gpu', 'input_msu_pack')
 REQUIRED = ('exe_sha256', 'program_manifest_sha256', 'rom_sha256', 'route_sha256',
             'frames', 'effective_config_sha256')
-STRICT_CAPTURE_PATHS = {'SNESRECOMP_APURAM_TRACE_FILE', 'SNESRECOMP_DSPREG_TRACE_FILE',
+STRICT_CAPTURE_PATHS = {'LAGOON_NATIVE_TRACE69','SNESRECOMP_APURAM_TRACE_FILE', 'SNESRECOMP_DSPREG_TRACE_FILE',
                         'SNESRECOMP_DSPOUT', 'SNESRECOMP_APU_QUEUE_TRACE'}
 ADVISORY_REPORT_PATHS = {'LAGOON_NATIVE_RECOVERY_REPORT', 'LAGOON_SCENE_RENDERER_REPORT',
+                         'SNESRECOMP_NATIVE_BLOCK_COVERAGE',
                          'LAGOON_FOLLOWER_REPORT', 'LAGOON_FRAME_PROBE',
                          'LAGOON_TRANSITION_REPORT', 'LAGOON_SWORD_REPORT',
                          'LAGOON_WIDE_ENTITY_REPORT'}
@@ -132,6 +133,11 @@ def load_run(directory):
         if component_tags != tags:
             errors.append(f'checkpoint inventory mismatch: {component}')
     overrides = receipt.get('diagnostic_overrides')
+    if (overrides or {}).get('SNESRECOMP_NATIVE_BLOCK_COVERAGE'):
+        capture=receipt.get('native_block_coverage') or {}
+        path=Path(overrides['SNESRECOMP_NATIVE_BLOCK_COVERAGE']).resolve()
+        if capture.get('passed') is not True or capture.get('path')!=str(path) or not path.is_relative_to(directory) or not path.is_file() or sha(path)!=capture.get('sha256'):
+            errors.append('native generated-block coverage is missing, unvalidated or changed')
     normalized = dict(overrides) if overrides is not None else None
     captures = {}
     # Candidate-only instrumentation may be ignored by a historical executable.
@@ -233,8 +239,18 @@ def source64_control(left,right,old_overrides,new_overrides):
         approved=bool(identities_equal and baseline_mode=='0'and candidate_mode=='1'and old==new))
 
 
-def compare_runs(baseline, candidate, interp_control_target=None, native_iterator_control=False, native_scripts_control=False, idle_poll_control=False, frame_wait_control=False, source64=False):
-    if sum((interp_control_target is not None,bool(native_iterator_control),bool(native_scripts_control),bool(idle_poll_control),bool(frame_wait_control),bool(source64)))>1:
+def backend69_control(left,right,old_overrides,new_overrides):
+    old,new=dict(old_overrides or {}),dict(new_overrides or {})
+    modes=[(old.pop(k,None),new.pop(k,None)) for k in ('SNESRECOMP_NATIVE_ONLY','LAGOON_NATIVE_BACKEND69')]
+    identities_equal=all(isinstance(left.get(k),str) and re.fullmatch(r'[0-9a-f]{64}',left[k]) and left[k]==right.get(k) for k in ('exe_sha256','program_manifest_sha256'))
+    strict=right.get('native_only') or {};backend=right.get('native_backend') or {}
+    proven=strict.get('passed') is True and backend.get('passed') is True and type(backend.get('generated_native_opcodes')) is int and backend['generated_native_opcodes']>0
+    return dict(kind='generated_native_backend69',modes=modes,same_executable_and_manifest=identities_equal,
+                candidate_strict_execution_proven=proven,approved=bool(identities_equal and proven and modes==[('0','1'),('0','1')] and old==new))
+
+
+def compare_runs(baseline, candidate, interp_control_target=None, native_iterator_control=False, native_scripts_control=False, idle_poll_control=False, frame_wait_control=False, source64=False, native_backend69=False):
+    if sum((interp_control_target is not None,bool(native_iterator_control),bool(native_scripts_control),bool(idle_poll_control),bool(frame_wait_control),bool(source64),bool(native_backend69)))>1:
         raise ValueError('Declare exactly one execution control')
     left, right = load_run(baseline), load_run(candidate)
     result = dict(schema='lagoon strict native replay comparison v2',
@@ -308,6 +324,11 @@ def compare_runs(baseline, candidate, interp_control_target=None, native_iterato
         result['execution_control']=control
         if control['approved']:unexpected_inputs.pop('diagnostic_overrides',None)
         else:unexpected_inputs['execution_control']=control
+    if native_backend69:
+        control=backend69_control(left['receipt'],right['receipt'],left['normalized_overrides'],right['normalized_overrides'])
+        result['execution_control']=control
+        if control['approved']:unexpected_inputs.pop('diagnostic_overrides',None)
+        else:unexpected_inputs['execution_control']=control
     result['unapproved_input_differences'] = unexpected_inputs
     a, b = left['presentations'], right['presentations']
     mismatches = [i for i in range(max(len(a), len(b)))
@@ -354,9 +375,10 @@ def main():
     parser.add_argument('--idle-poll-control',action='store_true',help='Only the same-EXE guarded idle declaration0 versus1 may differ; all outputs remain strict.')
     parser.add_argument('--source64-control',action='store_true',help='Only same-EXE/manifest explicit LAGOON_TIMING64=0 to1 may differ; every output stays strict.')
     parser.add_argument('--frame-wait-control',action='store_true',help='Only the same-EXE frame wait declaration0 versus1 may differ; all outputs remain strict.')
+    parser.add_argument('--native-backend69-control',action='store_true',help='Same EXE/manifest: explicit strict/backend 0/0 reference versus proven 1/1 native execution. All other inputs and all outputs remain exact.')
     args = parser.parse_args()
     try:
-        result = compare_runs(args.baseline, args.candidate, args.interp_control_target,args.native_iterator_control,args.native_scripts_control,args.idle_poll_control,args.frame_wait_control,args.source64_control)
+        result = compare_runs(args.baseline, args.candidate, args.interp_control_target,args.native_iterator_control,args.native_scripts_control,args.idle_poll_control,args.frame_wait_control,args.source64_control,args.native_backend69_control)
     except (OSError, ValueError, KeyError, TypeError) as error:
         result = dict(schema='lagoon strict native replay comparison v2', passed=False,
                       valid_evidence=False, error=str(error))

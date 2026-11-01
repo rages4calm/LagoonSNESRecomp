@@ -13,6 +13,118 @@ import time
 DIAGNOSTIC_RANGES={'SNESRECOMP_AOTBLK': (10,10000000),
                    'SNESRECOMP_CYC_WATCH': (16,0xffffff)}
 DIAGNOSTIC_BOOLEANS={'SNESRECOMP_HOST_PROFILE','SNESRECOMP_LLE_BOUNCE','SNESRECOMP_DMA_LOG','LAGOON_ACTOR_COMPUTE_REPORT','LAGOON_NATIVE_MUSIC_TRACE','LAGOON_NATIVE_ITERATOR52_REPORT','LAGOON_NATIVE_SCRIPTS53_REPORT','LAGOON_NATIVE_WAIT_REPORT','LAGOON_IDLE_POLL_PROBE','LAGOON_FRAME_WAIT62','LAGOON_TIMING64','LAGOON_TIMING65','LAGOON_TIMING66','LAGOON_TIMING67','LAGOON_TIMING68','LAGOON_TIMING65_SCENE','LAGOON_TIMING65_VRAM','SNESRECOMP_DSPOUT_DRAIN'}
+DIAGNOSTIC_BOOLEANS.add('SNESRECOMP_NATIVE_ONLY')
+DIAGNOSTIC_BOOLEANS.add('LAGOON_NATIVE_BACKEND69')
+
+
+def native_only_evidence(text,requested):
+    """Require an armed runtime and an unambiguous zero-decoder report.
+
+    Environment variables alone prove nothing: retained executables can ignore
+    unknown options. A missing/ambiguous capability or summary cannot pass.
+    Bypassed accelerations did no guest work and are distinct from replay.
+    """
+    if not requested:return None
+    errors=[]
+    armed=re.findall(r'^\[native-only\] armed schema=1 processor=main65816 strict=1$',text,re.M)
+    if len(armed)!=1:errors.append('expected exactly one main65816 strict guard acknowledgement')
+    reports=re.findall(r'^\[native-only\] summary (.*)$',text,re.M)
+    counters={}
+    if len(reports)!=1:errors.append('expected exactly one strict execution summary')
+    else:
+        for token in reports[0].split():
+            key,sep,value=token.partition('=')
+            if not sep or not re.fullmatch(r'[a-z_]+',key) or not re.fullmatch(r'0|[1-9][0-9]{0,19}',value) or key in counters:
+                errors.append('malformed or duplicate strict execution counter');continue
+            number=int(value)
+            if number>0xffffffffffffffff:errors.append('strict execution counter exceeds uint64');continue
+            counters[key]=number
+    required={'schema','strict','interpreted_opcodes','completed_opcodes','runtime_invocations',
+              'unqualified_replay_activations','generic_accelerations_bypassed','blocked_events',
+              'bridge_uncovered_attempts','source_native_opcodes','interrupt_native_opcodes'}
+    if required-counters.keys():errors.append('missing strict execution counters: '+','.join(sorted(required-counters.keys())))
+    if counters.get('schema')!=1 or counters.get('strict')!=1:errors.append('unsupported or inactive strict execution report')
+    for key in ('interpreted_opcodes','completed_opcodes','runtime_invocations',
+                'unqualified_replay_activations','blocked_events','bridge_uncovered_attempts'):
+        if counters.get(key,0)!=0:errors.append('nonzero '+key)
+    if '[native-only] first-uncovered' in text:errors.append('runtime reported an uncovered instruction or replay')
+    return dict(requested=True,passed=not errors,errors=errors,counters=counters)
+
+
+def native_backend_evidence(text,requested,strict_evidence):
+    """A requested generated backend needs runtime identity and actual execution.
+
+    This is narrower than whole-game native qualification; the strict execution
+    report must independently pass. A registered but unused program proves no
+    execution, and an old executable silently ignoring the option cannot pass.
+    """
+    if not requested:return None
+    errors=[]
+    registrations=re.findall(r'^\[native-blocks69\] registered program=([A-Za-z_]\w*) profile=(0|[1-9][0-9]*) entries=([1-9][0-9]*) source_sha256=([0-9a-f]{64})$',text,re.M)
+    bindings=re.findall(r'^\[native-blocks69\] bound generation=(0|[1-9][0-9]*) profile=(0|[1-9][0-9]*)$',text,re.M)
+    if len(registrations)!=1:errors.append('expected exactly one generated program registration')
+    if not bindings:errors.append('missing generated program runtime binding')
+    if registrations and any(row[1]!=registrations[0][1] for row in bindings):errors.append('generated program profile binding mismatch')
+    if not strict_evidence or not strict_evidence.get('passed'):errors.append('generated backend requires successful strict execution evidence')
+    count=(strict_evidence or {}).get('counters',{}).get('generated_native_opcodes')
+    if type(count) is not int or count<=0:errors.append('no generated native opcode execution evidenced')
+    if '[native-blocks69] contract-refused' in text:errors.append('generated backend contract refused')
+    return dict(requested=True,passed=not errors,errors=errors,registrations=registrations,bindings=bindings,generated_native_opcodes=count)
+
+
+def native_block_coverage_evidence(path,text,strict_evidence):
+    """Validate an optional actual generated-block capture, never a game percentage."""
+    if path is None:return None
+    errors=[];document={};raw=b'';programs=[]
+    def pairs(items):
+        out={}
+        for key,value in items:
+            if key in out:raise ValueError('duplicate JSON field')
+            out[key]=value
+        return out
+    def no_float(value):raise ValueError('non-integer JSON number')
+    def uint(value,maximum=0xffffffffffffffff):
+        if type(value) is not int or not 0<=value<=maximum:raise ValueError('invalid uint counter')
+        return value
+    try:
+        file=Path(path)
+        if file.stat().st_size>32*1024*1024:raise ValueError('coverage manifest exceeds32MiB')
+        raw=file.read_bytes();document=json.loads(raw,object_pairs_hook=pairs,parse_float=no_float,parse_constant=no_float)
+        if type(document) is not dict:raise ValueError('expected manifest object')
+        if uint(document['schema'])!=1 or document['processor']!='main65816' or document['kind']!='generated-native-blocks':raise ValueError('unsupported coverage schema/scope')
+        if document['finalization']!='normal-exit' or document['counter_consistent'] is not True or uint(document['errors'])!=0:raise ValueError('partial or inconsistent coverage')
+        pid=uint(document['pid']);total=uint(document['hits_total']);generated=uint(document['generated_native_opcodes'])
+        armed=re.findall(r'^\[native-block-coverage\] armed schema=1 processor=main65816 kind=generated-native-blocks pid=([1-9][0-9]{0,19})$',text,re.M)
+        finalized=re.findall(r'^\[native-block-coverage\] finalized schema=1 finalization=normal-exit generated_native_opcodes=([0-9]{1,20}) hits_total=([0-9]{1,20}) programs=([0-9]{1,20}) nonzero_keys=([0-9]{1,20}) errors=([0-9]{1,20}) pid=([0-9]{1,20})$',text,re.M)
+        if len(armed)!=1 or len(finalized)!=1:raise ValueError('missing or ambiguous coverage acknowledgements')
+        if uint(int(armed[0]))!=pid:raise ValueError('coverage armed pid mismatch')
+        entries=document['programs']
+        if type(entries) is not list or uint(document['program_count'])!=len(entries):raise ValueError('coverage program inventory mismatch')
+        counted=nonzero=0
+        for program in entries:
+            profile=uint(program['profile'],0xffffffff);compiled=uint(program['compiled_key_count'])
+            if not isinstance(program['name'],str) or not re.fullmatch('[0-9a-f]{64}',program['original_source_sha256']):raise ValueError('invalid coverage program identity')
+            if not compiled or type(program['keys']) is not list or len(program['keys'])>compiled:raise ValueError('invalid key inventory')
+            hits=0;seen=set()
+            for row in program['keys']:
+                key=tuple(uint(row[k],limit)for k,limit in [('pc24',0xffffff),('m',1),('x',1),('e',1),('profile',0xffffffff)])
+                if key in seen or key[4]!=profile or (key[3] and key[1:3]!=(1,1)):raise ValueError('duplicate or invalid native key')
+                seen.add(key);n=uint(row['hits'])
+                if not n:raise ValueError('zero hit row in nonzero inventory')
+                hits+=n
+            if hits!=uint(program['hits_total']):raise ValueError('program hit sum mismatch')
+            counted+=hits;nonzero+=len(seen)
+            programs.append(dict(name=program['name'],profile=profile,original_source_sha256=program['original_source_sha256'],compiled_key_count=compiled,hits_total=hits,nonzero_keys=len(seen)))
+        if counted!=total or total!=generated or nonzero!=uint(document['nonzero_key_count']):raise ValueError('global native hit sum mismatch')
+        if tuple(map(int,finalized[0]))!=(generated,total,len(entries),nonzero,0,pid):raise ValueError('coverage final acknowledgement mismatch')
+        expected=(strict_evidence or {}).get('counters',{}).get('generated_native_opcodes')
+        if strict_evidence is not None and (type(expected) is not int or expected!=generated):raise ValueError('strict execution counter mismatch')
+    except (OSError,ValueError,KeyError,TypeError) as error:
+        errors.append(str(error))
+        if type(document) is not dict:document={}
+    return dict(requested=True,passed=not errors,errors=errors,path=str(path),sha256=hashlib.sha256(raw).hexdigest() if raw else None,
+                hits_total=document.get('hits_total'),nonzero_key_count=document.get('nonzero_key_count'),programs=programs,
+                scope='Actual generated blocks only; excludes legacy AOT/HLE/source-native and is not a game completion percentage')
 
 
 def validate_offline_dsp_drain(real_audio,config_text,overrides):
@@ -73,7 +185,7 @@ def campaign_setup_writes(data):
 
 
 def runtime_failure_lines(text):
-    fatal_markers=('[brk]','[interp_cap]','[interp_low_exec]','[cpu_halt]','[native_contract]', '[dsp_capture]','assertion failed')
+    fatal_markers=('[brk]','[interp_cap]','[interp_low_exec]','[cpu_halt]','[native_contract]', '[dsp_capture]','assertion failed','[native-only] first-uncovered','[native-blocks69] contract-refused')
     return [line.strip() for line in text.splitlines()
             if any(marker in line.lower() for marker in fatal_markers)
             or re.search(r'(?:lagoon\.qol:|\[lagoon-qol\])[^\r\n]*\brefused\b',line,re.IGNORECASE)]
@@ -87,6 +199,7 @@ def main():
     parser.add_argument('--out',required=True,type=Path)
     parser.add_argument('--coverage',action='store_true')
     parser.add_argument('--coverage-summary',action='store_true',help='Export coverage snapshots without a raw event journal; useful for bounded gap scouting.')
+    parser.add_argument('--native-only',action='store_true',help='Require an armed strict runtime, zero interpreter/replay work and a positive execution summary; old executables cannot qualify.')
     parser.add_argument('--campaign-warps',type=Path,help='Development-only scheduled real-descriptor warps; frozen privately and recorded as cheats')
     parser.add_argument('--no-present-log',action='store_true',help='Performance-only: omit per-field CRC/luma logging and fflush; default qualification keeps the log')
     parser.add_argument('--live-input',action='store_true',help='Opt in to merging physical keyboard/gamepads into the script; default uses only scripted guest input')
@@ -106,6 +219,11 @@ def main():
     parser.add_argument('--screenshot-range',nargs=2,type=int,metavar=('FIRST','LAST'),help='Save every presentation in a bounded diagnostic frame range')
     parser.add_argument('--manifest',type=Path,help='Manifest belonging to this executable; required for old retained binaries')
     args=parser.parse_args()
+    native_overrides=[x.partition('=')[2]for x in args.env if x.partition('=')[0]=='SNESRECOMP_NATIVE_ONLY']
+    if len(native_overrides)>1:parser.error('Specify SNESRECOMP_NATIVE_ONLY only once')
+    if args.native_only:
+        if native_overrides and native_overrides!=['1']:parser.error('--native-only conflicts with a disabled native-only override')
+        if not native_overrides:args.env.append('SNESRECOMP_NATIVE_ONLY=1')
     if args.coverage and args.coverage_summary:parser.error('Choose coverage journal OR summary-only capture')
     if args.visible and args.offscreen:parser.error('Choose visible OR offscreen')
     if args.real_audio and not (args.visible or args.offscreen):parser.error('--real-audio requires --visible or --offscreen')
@@ -206,7 +324,7 @@ def main():
         if first<1 or last<first or last-first>1500:parser.error('Display range must contain 1..1501 frames')
         (out/'display-frames').mkdir()
         env.update(SNESRECOMP_DISPLAY_SCREENSHOT_DIR=str(out/'display-frames'),SNESRECOMP_DISPLAY_SCREENSHOT_FROM=str(first),SNESRECOMP_DISPLAY_SCREENSHOT_TO=str(last))
-    diagnostic_paths={'LAGOON_WIDE_ENTITY_REPORT','LAGOON_SOUNDTRACK_PROBE','LAGOON_FRAME_PROBE',
+    diagnostic_paths={'SNESRECOMP_NATIVE_BLOCK_COVERAGE','LAGOON_NATIVE_TRACE69','LAGOON_NATIVE_ENDPOINT69','LAGOON_WIDE_ENTITY_REPORT','LAGOON_SOUNDTRACK_PROBE','LAGOON_FRAME_PROBE',
                       'LAGOON_SCENE_RENDERER_REPORT','LAGOON_TRANSITION_REPORT','LAGOON_SWORD_REPORT',
                       'LAGOON_NATIVE_RECOVERY_REPORT','LAGOON_FOLLOWER_REPORT',
                       'SNESRECOMP_APURAM_TRACE_FILE','SNESRECOMP_DSPREG_TRACE_FILE','SNESRECOMP_DSPOUT',
@@ -219,7 +337,7 @@ def main():
     overrides={}
     for spec in args.env:
         key,sep,value=spec.partition('=')
-        if not sep or key not in diagnostic_paths|diagnostic_numbers|diagnostic_booleans|diagnostic_ranges.keys()|{'LAGOON_WIDE_ASPECT','LAGOON_SCENE_RENDERER','LAGOON_ACTOR_COMPUTE','LAGOON_ACTOR_COMMANDS','LAGOON_ACTOR_COMMANDS_REPORT','LAGOON_NATIVE_ITERATOR52','LAGOON_NATIVE_SCRIPTS53','LAGOON_NATIVE_BOOT62','LAGOON_NATIVE_DECODE63','LAGOON_NATIVE_SPC63','LAGOON_NATIVE_RESET63','LAGOON_CAMPAIGN_FIXTURE_ROOM','LAGOON_SCRIPT_FIXTURE','SNESRECOMP_LLE_INTERP_TARGET'}:
+        if not sep or key not in diagnostic_paths|diagnostic_numbers|diagnostic_booleans|diagnostic_ranges.keys()|{'LAGOON_WIDE_ASPECT','LAGOON_SCENE_RENDERER','LAGOON_ACTOR_COMPUTE','LAGOON_ACTOR_COMMANDS','LAGOON_ACTOR_COMMANDS_REPORT','LAGOON_NATIVE_ITERATOR52','LAGOON_NATIVE_SCRIPTS53','LAGOON_NATIVE_BOOT62','LAGOON_NATIVE_DECODE63','LAGOON_NATIVE_SPC63','LAGOON_NATIVE_RESET63','LAGOON_CAMPAIGN_FIXTURE_ROOM','LAGOON_SCRIPT_FIXTURE','SNESRECOMP_LLE_INTERP_TARGET','LAGOON_NATIVE_ENDPOINT69_PC'}:
             raise SystemExit('Unsupported diagnostic override: '+spec)
         if key=='SNESRECOMP_DSPOUT_DRAIN' and value=='1':
             validate_offline_dsp_drain(args.real_audio,args.config.read_text(encoding='utf-8-sig') if args.config else '',args.env)
@@ -233,7 +351,7 @@ def main():
             validate_diagnostic_number(value)
         elif key in diagnostic_ranges:
             validate_diagnostic_range(key,value)
-        elif key=='SNESRECOMP_LLE_INTERP_TARGET':
+        elif key in {'SNESRECOMP_LLE_INTERP_TARGET','LAGOON_NATIVE_ENDPOINT69_PC'}:
             if not re.fullmatch(r'[0-9a-fA-F]{6}',value):
                 raise SystemExit('Interpreter control target must be one exact six-digit hexadecimal PC')
             value=value.upper()
@@ -323,8 +441,18 @@ def main():
                    dump_tags=sorted(p.name.removesuffix('.wram.bin') for p in (out/'dumps').glob('*.wram.bin')))
     # A bounded guest can hit architectural BRK/step caps yet let the host exit
     # successfully. Such output is diagnostic evidence, never a passing replay.
-    receipt['runtime_failures']=runtime_failure_lines((out/'stderr.log').read_text(encoding='utf-8',errors='replace'))
-    receipt['qualification_passed']=not result.returncode and bool(receipt['dump_tags']) and not receipt['runtime_failures']
+    stderr_text=(out/'stderr.log').read_text(encoding='utf-8',errors='replace')
+    receipt['runtime_failures']=runtime_failure_lines(stderr_text)
+    receipt['native_only']=native_only_evidence(stderr_text,overrides.get('SNESRECOMP_NATIVE_ONLY')=='1')
+    receipt['native_backend']=native_backend_evidence(stderr_text,overrides.get('LAGOON_NATIVE_BACKEND69')=='1',receipt['native_only'])
+    receipt['native_block_coverage']=native_block_coverage_evidence(overrides.get('SNESRECOMP_NATIVE_BLOCK_COVERAGE'),stderr_text,receipt['native_only'])
+    capture=receipt['native_block_coverage'];backend=receipt['native_backend']
+    if capture and capture['passed'] and backend and backend['passed']:
+        name,profile,entries,source=backend['registrations'][0]
+        if not any(p['name']==name and p['profile']==int(profile) and p['compiled_key_count']==int(entries) and p['original_source_sha256']==source and p['hits_total']>0 for p in capture['programs']):
+            capture['passed']=False;capture['errors'].append('selected native program is absent from coverage')
+    receipt['qualification_passed']=not result.returncode and bool(receipt['dump_tags']) and not receipt['runtime_failures'] and (receipt['native_only'] is None or receipt['native_only']['passed']) and (receipt['native_backend'] is None or receipt['native_backend']['passed'])
+    if receipt['native_block_coverage'] is not None:receipt['qualification_passed']=receipt['qualification_passed'] and receipt['native_block_coverage']['passed']
     (out/'receipt.json').write_text(json.dumps(receipt,indent=2),encoding='utf-8')
     summary={k:receipt[k] for k in ('exe_sha256','exit_code','elapsed_seconds')}
     summary['dump_count']=len(receipt['dump_tags'])
