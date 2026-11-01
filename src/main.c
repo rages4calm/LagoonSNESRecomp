@@ -94,13 +94,17 @@ static void LagoonHost_EndingOpcode(CpuState *cpu,uint32_t pc) {
 static int present(const char *key){const char *p=getenv(key);return p&&*p&&strcmp(p,"0");}
 /* Opt-in host evidence only: the bridge reports real compiled-body entries.
  * No CPU/stack mutation, injected events, or change to admission policy. */
-static uint64_t lagoon_wait_native_entries, lagoon_queue_wrapper_entries, lagoon_dma_request_entries, lagoon_dma_drain_entries;
+static uint64_t lagoon_wait_native_entries, lagoon_queue_wrapper_entries, lagoon_dma_request_entries, lagoon_dma_drain_entries, lagoon_redraw_entries;
 static void (*lagoon_previous_bounce_hook)(uint32_t,int,int);
 static void (*lagoon_previous_pc_hook)(uint32_t,int,int);
 static uint64_t lagoon_idle_ops;
+static uint64_t lagoon_framewait_ops[4],lagoon_display_entries,lagoon_framewait_entries;
 static int lagoon_idle_declared;
 static void LagoonHost_IdleOpcode(uint32_t pc,int m,int x) {
     if(pc==0x01814e||pc==0x018151||pc==0x018153)++lagoon_idle_ops;
+    if(pc==0x0084e3||pc==0x0084e6)++lagoon_framewait_ops[((m&1)<<1)|(x&1)];
+    if(pc==0x0084e9&&m==1&&x==1)++lagoon_display_entries;
+    if(pc==0x0084de&&m==1&&x==1)++lagoon_framewait_entries;
     if(lagoon_previous_pc_hook)lagoon_previous_pc_hook(pc,m,x);
 }
 static void LagoonHost_ConfigureIdlePoll(void) {
@@ -132,6 +136,7 @@ static void LagoonHost_WaitBounce(uint32_t pc,int m,int x) {
     if(pc==0x0081be&&m==1&&x==0)++lagoon_queue_wrapper_entries;
     if(pc==0x00899b&&m==1&&x==0)++lagoon_dma_request_entries;
     if(pc==0x008985&&m==1&&x==0)++lagoon_dma_drain_entries;
+    if(pc==0x01a4d6&&m==1&&x==0)++lagoon_redraw_entries;
     if(lagoon_previous_bounce_hook)lagoon_previous_bounce_hook(pc,m,x);
 }
 static void LagoonHost_StartSession(void) {
@@ -370,11 +375,17 @@ static void LagoonHost_Shutdown(void) {
         fprintf(stderr,"[native-wait57] pc=0081BE mode=M1X0 actual_aot_entries=%llu\n",(unsigned long long)lagoon_queue_wrapper_entries);
         fprintf(stderr,"[native-wait57] pc=00899B mode=M1X0 actual_aot_entries=%llu\n",(unsigned long long)lagoon_dma_request_entries);
         fprintf(stderr,"[native-wait57] pc=008985 mode=M1X0 actual_aot_entries=%llu\n",(unsigned long long)lagoon_dma_drain_entries);
+        fprintf(stderr,"[native-wait57] pc=01A4D6 mode=M1X0 actual_aot_entries=%llu\n",(unsigned long long)lagoon_redraw_entries);
     }
     if(present("LAGOON_WIDE_ENTITY_REPORT"))fprintf(stderr,"[lagoon-wide-ai] ai_reads=%llu animation_reads=%llu\n",
         LagoonWideAI_AIReads(),LagoonWideAI_AnimationReads());
     if(getenv("LAGOON_IDLE_POLL_PROBE"))
         fprintf(stderr,"[idle60] declared=%d interpreted_poll_ops=%llu\n",lagoon_idle_declared,(unsigned long long)lagoon_idle_ops);
+    if(getenv("LAGOON_IDLE_POLL_PROBE"))
+        fprintf(stderr,"[timing61] framewait_ops M0X0=%llu M0X1=%llu M1X0=%llu M1X1=%llu display_entry_M1X1=%llu wait_entry_M1X1=%llu\n",
+            (unsigned long long)lagoon_framewait_ops[0],(unsigned long long)lagoon_framewait_ops[1],
+            (unsigned long long)lagoon_framewait_ops[2],(unsigned long long)lagoon_framewait_ops[3],
+            (unsigned long long)lagoon_display_entries,(unsigned long long)lagoon_framewait_entries);
     LagoonMap_Save();LagoonAchievements_Shutdown();LagoonAchievementSound_Shutdown();achievement_session=0;
 }
 

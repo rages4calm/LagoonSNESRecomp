@@ -18,7 +18,7 @@ p.add_argument('--compiler', default='clang')
 p.add_argument('--probe-oam', action='store_true')
 p.add_argument('--probe-caller', action='store_true', help='Explicit legacy coarse8C24 full-entry state/frame diagnostic; clock failure remains visible.')
 p.add_argument('--probe-wait', action='store_true', help='Qualify source81F7 queue polling with actual child/deadline boundaries; not a live NMI qualification.')
-p.add_argument('--probe-service',choices=('0081BE','00899B','008985'),help='Exact queue wrapper or DMA request polling body; genuine child/deadline boundaries only.')
+p.add_argument('--probe-service',choices=('0081BE','00899B','008985','01A4D6'),help='Exact queue wrapper or DMA request polling body; genuine child/deadline boundaries only.')
 
 a = p.parse_args()
 if sum(bool(v)for v in (a.probe_wait,a.probe_oam,a.probe_caller,a.probe_service))>1:p.error('Select one source probe')
@@ -42,7 +42,7 @@ for file in a.gen.glob('bank*_v2.c'):
 
 roots = [int(a.probe_service,16)] if a.probe_service else [0x81F7] if a.probe_wait else [0x8211] if a.probe_oam else [0x8C24] if a.probe_caller else [0x8C24, 0x8C93, 0x8211, 0x8C96, 0x89EC, 0x8AA4, 0x8DFE, 0x8D82, 0x8DCE, 0x8E2C, 0x8291, 0x8B68, 0x8D0B, 0x01C136, 0x01C156, 0x01C17B, 0x02B2C1]
 # These source-closed children must execute, including genuine nested frames.
-support = [] if (a.probe_wait or a.probe_service) else [0x8291] if a.probe_oam else [0x8211, 0x8291] if a.probe_caller else [0x8291, 0x8B68, 0x8D0B, 0x8C24]
+support = [0x01A56A,0x01A5AA] if a.probe_service=='01A4D6'else [] if (a.probe_wait or a.probe_service) else [0x8291] if a.probe_oam else [0x8211, 0x8291] if a.probe_caller else [0x8291, 0x8B68, 0x8D0B, 0x8C24]
 selected = {by_pc[pc] for pc in roots + support if pc in by_pc}
 if a.probe_oam and 0x8211 not in by_pc:
     selected.add(by_pc[0x8C24])
@@ -70,6 +70,10 @@ for name in sorted(selected):
         body = body[:first.start()] + '  if(service_entry==0x8C93)goto L_8C93_M1X0;\n' + body[first.start():]
     bodies.append(body)
 header = '\n'.join('RecompReturn ' + n + '(CpuState*c);' for n in sorted(selected)) + '\n'
+if a.probe_service=='01A4D6':
+    # Decline optional host-computation shortcuts: actual original children run.
+    header += '\n'.join('static bool '+name+'(CpuState*c,uint16_t s,uint8_t h,uint32_t r,RecompReturn*out){(void)c;(void)s;(void)h;(void)r;(void)out;return false;}' for name in ('LagoonActorCompute_Clamp','LagoonActorCompute_Project'))+'\n'
+
 header += '\n'.join(f'RecompReturn {name}(CpuState*c){{(void)c;pending=1;boundary=0x{pc:06X};return (RecompReturn)1;}}' for name, pc in sorted(stubs.items())) + '\n'
 header += '\n'.join(bodies)
 header += '\nstatic const unsigned service_roots[]={' + ','.join(hex(pc) for pc in roots) + '};\n'

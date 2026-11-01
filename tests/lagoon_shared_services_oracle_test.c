@@ -114,6 +114,15 @@ static void compare(unsigned pc,unsigned state,unsigned hi,unsigned flags,unsign
  if((pc>>16)!=0){word(0x3100,0x3200);word(0x3102,0x3200);word(0x3104,0x3200);word(0x3250,0x3200);word(0x3252,0x3200);ram[0x51D]=state;ram[0x51E]=state;ram[0x536]=state&1?0x80:0;ram[0x537]=state&2?0x80:0;word(0x40,0xFFF0+state);word(0x42,0x7FF0+state);initial.Y=state*4;}
  if(pc==0x8C24){initial.Y=(state%3)==2?0xFFFE:state%3;ram[12]=0;ram[13]=0x32;ram[14]=0x7E;unsigned q=0x3200+initial.Y;
   ram[q]=(state&1)?0xFF:0x37;ram[q+1]=(state&2)?0xFF:0x33;ram[q+2]=0xB2;ram[q+3]=state&4?0x80:0x7F;ram[q+4]=state&8?0x80:0x7F;}
+ if(pc==0x01A4D6){
+  initial.X=(state%33)*64;
+  word(0x480,128);word(0x482,96);word(0x492,2048);word(0x494,2048);
+  word(0x48C,state%32);
+  const unsigned positions[]={0,16,127,128,255,383,2048,0xfff0};
+  word(0x502+initial.X,positions[state&7]);word(0x504+initial.X,positions[(state>>2)&7]);
+  ram[0x500+initial.X]=0xc0|(state&63);
+  word(0x50eu + initial.X,0xff00+state);word(0x518+initial.X,state&3);
+ }
  inherited_s=initial.S;inherited_hrv=initial.host_return_valid;inherited_pending=SERVICE_OAM_PROBE?1:0;
  initial.master_cycles=early==1?1:0;initial.coprocessor_master_cycles=initial.master_cycles;
  poll_model=(pc==0x8DCE||pc==0x8D82||pc==0x81F7||pc==0x899B||pc==0x8985)&&(state&1);poll_reads=0;
@@ -145,7 +154,7 @@ int main(int argc,char**argv){
  assert(argc==2);FILE*f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof rom,f)==sizeof rom);fclose(f);
  unsigned counts[5]={0};const unsigned highs[]={0,0x100,0xFF00},stacks[]={0x180,0x1FD0};
  for(unsigned n=0;n<sizeof(service_roots)/sizeof(*service_roots);n++)for(unsigned st=0;st<2;st++)
- for(unsigned hi=0;hi<3;hi++)for(unsigned fl=0;fl<16;fl++)for(unsigned v=0;v<(service_roots[n]==0x8211?256u:32u);v++)for(unsigned early=0;early<(service_roots[n]==0x8985?5u:SERVICE_OAM_PROBE?1u:(service_roots[n]==0x8C93||service_roots[n]==0x8C24)?5u:2u);early++)
+ for(unsigned hi=0;hi<3;hi++)for(unsigned fl=0;fl<16;fl++)for(unsigned v=0;v<(service_roots[n]==0x8211?256u:32u);v++)for(unsigned early=0;early<((service_roots[n]==0x8985||service_roots[n]==0x01A4D6)?5u:SERVICE_OAM_PROBE?1u:(service_roots[n]==0x8C93||service_roots[n]==0x8C24)?5u:2u);early++)
   if(!(service_roots[n]==0x8C93&&early==1))compare(service_roots[n],v,highs[hi],fl,stacks[st],early,counts);
  if((SERVICE_OAM_PROBE||SERVICE_LEGACY_CALLER)&&probe_clock_failures){printf("STATE_PASS_CLOCK_FAIL %u actual source entries; fullRAM/registers/flags/Ahigh/realstack agree; %u coarse clock divergences\n",counts[0],probe_clock_failures);return 3;}
  printf("PASS %u shared-service original-opcode comparisons; complete=%u genuine-boundary-or-poll-deadline=%u entry-deadline=%u saved-child-deadline=%u; full128KiBRAM+IO/registers/flags/Ahigh/realnested+deadstack/CPU-master-copro clocks; constant8master unitbus\n",counts[0],counts[1],counts[2],counts[3],counts[4]);return 0;

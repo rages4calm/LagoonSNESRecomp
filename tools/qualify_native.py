@@ -79,6 +79,7 @@ def main():
     parser.add_argument('--frames',type=int,default=6245)
     parser.add_argument('--out',required=True,type=Path)
     parser.add_argument('--coverage',action='store_true')
+    parser.add_argument('--coverage-summary',action='store_true',help='Export coverage snapshots without a raw event journal; useful for bounded gap scouting.')
     parser.add_argument('--campaign-warps',type=Path,help='Development-only scheduled real-descriptor warps; frozen privately and recorded as cheats')
     parser.add_argument('--no-present-log',action='store_true',help='Performance-only: omit per-field CRC/luma logging and fflush; default qualification keeps the log')
     parser.add_argument('--live-input',action='store_true',help='Opt in to merging physical keyboard/gamepads into the script; default uses only scripted guest input')
@@ -98,6 +99,7 @@ def main():
     parser.add_argument('--screenshot-range',nargs=2,type=int,metavar=('FIRST','LAST'),help='Save every presentation in a bounded diagnostic frame range')
     parser.add_argument('--manifest',type=Path,help='Manifest belonging to this executable; required for old retained binaries')
     args=parser.parse_args()
+    if args.coverage and args.coverage_summary:parser.error('Choose coverage journal OR summary-only capture')
     if args.visible and args.offscreen:parser.error('Choose visible OR offscreen')
     if args.real_audio and not (args.visible or args.offscreen):parser.error('--real-audio requires --visible or --offscreen')
     if args.campaign_warps and (args.visible or args.live_input):
@@ -167,6 +169,10 @@ def main():
     else:env['SDL_VIDEODRIVER']='dummy'
     if args.offscreen:env['SNESRECOMP_HIDDEN_WINDOW']='1'
     if args.coverage:env.update(SNESRECOMP_TIER2_CAPTURE='1',SNESRECOMP_COVERAGE_DIR=str(out/'coverage'))
+    if args.coverage_summary:
+        env.update(SNESRECOMP_TIER2_CAPTURE='1',SNESRECOMP_COVERAGE_DIR=str(out/'coverage'),
+                   SNESRECOMP_TIER2_MANIFEST=str(out/'coverage/final.json'),
+                   SNESRECOMP_TIER2_JOURNAL=os.devnull)
     campaign_plan=None
     if args.campaign_warps:
         plan=args.campaign_warps.resolve()
@@ -251,6 +257,7 @@ def main():
         (catalog/'state.toml').write_text(state,encoding='utf-8')
     sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
     receipt=dict(exe=str(exe),exe_sha256=sha(exe),rom_sha256=sha(rom),route=str(route),route_sha256=hashlib.sha256(route_bytes).hexdigest(),frozen_route=str(frozen_route),frames=args.frames)
+    receipt['coverage_mode']='summary'if args.coverage_summary else 'journal'if args.coverage else None
     receipt['present_log_enabled']=not args.no_present_log
     receipt['present_log_path']=str(out/'presents.csv') if not args.no_present_log else None
     receipt.update(enabled_features=sorted(enabled),enabled_package_features=sorted(selected),

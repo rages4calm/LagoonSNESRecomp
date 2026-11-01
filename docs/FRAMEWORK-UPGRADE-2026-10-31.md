@@ -230,3 +230,31 @@ paths/persistence and 20 package guards in private run `41257655821`. The SDK
 and its previously verified replay guard tests are unchanged. These hosted
 checks are not target gameplay, real-audio or controller campaigns. ROMs and
 seed states were not uploaded; generated C stays in the private build repo.
+
+## Timing61: actor redraw preparation and bounded coverage
+
+The original `$01:A4D6:M1X0` actor redraw preparation now uses precise native
+code. Its clamp, flag reset, screen projection and visibility/sort tail passed
+15,360 new opcode comparisons: 3,072 complete, 9,216 genuine deadline boundaries
+and 3,072 entry deadlines. The fixture executes the actual emitted clamp and
+projection children; their optional host shortcuts decline in the oracle only.
+Production shortcuts and framework source/mode/stack/generation guards are
+unchanged. Other entry widths and `$01:C726` remain interpreted.
+
+A same-executable interpreter/native check witnessed four native entries versus
+zero in its control, with exact pictures, state, clocks, device events, ARAM/DSP
+snapshots and audio samples. Fresh timing60 controls also match the four-door
+transition route and Evil Spirit/Zerah health-rendering fixtures exactly. Old
+completed matrices, bridge suites and campaigns were not repeated. These are
+affected assisted routes, not a full playthrough or a universal FPS claim.
+
+`tools/qualify_native.py --coverage-summary` exports a final coverage snapshot
+without retaining a raw journal. The strict comparator distinguishes summary,
+journal and ordinary runs; all32 comparator and13 qualification-input tests pass.
+The route snapshot is about314KB and reports no overflow, dropped cost samples
+or journal failures. Its runtime ROM contains approved QoL patches, so it is
+scouting evidence and must not be ingested as clean-ROM generator proof.
+Unobserved M1X1 display entries remain excluded. Already guarded native windows
+are not missing work merely because they appear in static LLE inventory.
+Inventory659 AOT/71 analyzed LLE is not a completion rate. The interpreter stays
+supported, and installed/released binaries are unchanged.

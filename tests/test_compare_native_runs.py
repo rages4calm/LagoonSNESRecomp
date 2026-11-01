@@ -339,6 +339,14 @@ class StrictComparisonTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             compare.compare_runs(self.a,self.b,interp_control_target='008985',idle_poll_control=True)
 
+    def test_coverage_capture_mode_cannot_silently_differ(self):
+        self.change_receipt(self.b,coverage_mode='summary')
+        self.assertFalse(compare.compare_runs(self.a,self.b)['passed'])
+        self.change_receipt(self.a,coverage_mode='summary')
+        self.assertTrue(compare.compare_runs(self.a,self.b)['passed'])
+        self.change_receipt(self.b,coverage_mode='journal')
+        self.assertFalse(compare.compare_runs(self.a,self.b)['passed'])
+
     def test_missing_clock_is_not_exact(self):
         for root in (self.a, self.b):
             (root / 'dumps/one.info.json').write_text('{"frame":3}')
