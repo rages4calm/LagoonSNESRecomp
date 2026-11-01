@@ -6,7 +6,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     for name in ('exe','manifest','route','config','seed-save-root','out'):
         p.add_argument('--'+name,type=Path,required=True)
-    p.add_argument('--target',choices=('0081F7','0081BE','00899B'),default='0081F7')
+    p.add_argument('--target',choices=('0081F7','0081BE','00899B','008985'),default='0081F7')
     p.add_argument('--frames',type=int,default=450)
     a=p.parse_args();out=a.out.resolve()
     if out.exists():p.error('Use a fresh private output directory')

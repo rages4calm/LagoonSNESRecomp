@@ -18,7 +18,7 @@ p.add_argument('--compiler', default='clang')
 p.add_argument('--probe-oam', action='store_true')
 p.add_argument('--probe-caller', action='store_true', help='Explicit legacy coarse8C24 full-entry state/frame diagnostic; clock failure remains visible.')
 p.add_argument('--probe-wait', action='store_true', help='Qualify source81F7 queue polling with actual child/deadline boundaries; not a live NMI qualification.')
-p.add_argument('--probe-service',choices=('0081BE','00899B'),help='Exact queue wrapper or DMA request polling body; genuine child/deadline boundaries only.')
+p.add_argument('--probe-service',choices=('0081BE','00899B','008985'),help='Exact queue wrapper or DMA request polling body; genuine child/deadline boundaries only.')
 
 a = p.parse_args()
 if sum(bool(v)for v in (a.probe_wait,a.probe_oam,a.probe_caller,a.probe_service))>1:p.error('Select one source probe')
@@ -83,7 +83,7 @@ a.out.mkdir(parents=True, exist_ok=True)
 runner = Path(os.environ.get('SNESRECOMP_ROOT', repo / 'snesrecomp')) / 'runner/src'
 harness = repo / 'tests/lagoon_shared_services_oracle_test.c'
 binary = a.out / 'shared-services-oracle.exe'
-subprocess.run([a.compiler, '-DSERVICE_OAM_PROBE=' + str(int(a.probe_oam)), '-DSERVICE_LEGACY_CALLER=' + str(int(a.probe_caller)), '-DSERVICE_WAIT_PROBE=' + str(int(a.probe_wait)), '-std=c11', '-O2', '-Wall', '-Wextra', '-Wno-unused-label', '-Wno-unused-parameter', '-Wno-unused-variable', '-I' + str(runner), '-I' + str(a.out.resolve()), str(harness), str(runner / 'snes/interp816.c'), '-o', str(binary)], check=True)
+subprocess.run([a.compiler, '-DSERVICE_OAM_PROBE=' + str(int(a.probe_oam)), '-DSERVICE_LEGACY_CALLER=' + str(int(a.probe_caller)), '-DSERVICE_WAIT_PROBE=' + str(int(a.probe_wait)), '-DSERVICE_POLL_MASK='+str(0x40 if a.probe_service=='008985'else 0xc0 if a.probe_wait else 0x20), '-std=c11', '-O2', '-Wall', '-Wextra', '-Wno-unused-label', '-Wno-unused-parameter', '-Wno-unused-variable', '-I' + str(runner), '-I' + str(a.out.resolve()), str(harness), str(runner / 'snes/interp816.c'), '-o', str(binary)], check=True)
 r = subprocess.run([str(binary.resolve()), str(a.rom.resolve())], capture_output=True, text=True)
 print(r.stdout, end='')
 print(r.stderr, end='')

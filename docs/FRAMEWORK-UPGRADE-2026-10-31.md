@@ -175,3 +175,58 @@ guards in private run `41256092072`. The previously qualified unchanged SDK
 bridge/capture suite was not repeated. This is not target gameplay, real-audio,
 controller or campaign coverage; the DMA service has one positive live entry
 on the measured route. Generated C and fixture states remain private.
+
+## Timing60: queue drain and guarded interrupt-poll replay
+
+The original `$00:8985:M1X0` DMA drain/wait now uses precise native code.
+Its empty-queue branch, ordinary completion, original pending-bit40 polling and
+multiple deadline positions passed 15,360 new ROM-opcode comparisons. Other
+entry widths remain interpreted. A final same-executable device check records
+one actual native entry versus zero in its interpreter control, with exact
+pictures, complete state/clocks, APU/DMA/PPU events, ARAM/DSP snapshots and sound.
+
+The `$01:814E` wait now uses the framework's existing guarded cycle replay when
+eligible. The earlier short probe had no witnessed replay; a longer measured route
+established activation without assuming the earlier non-activation cause. This is an interpreter wait
+acceleration, not new AOT CPU coverage or a substitute for the original NMI.
+The title checks the exact poll/jump, counter-reset and NMI-increment bytes
+and original cartridge mapping every frame, including state loads/mod changes.
+Changed source withdraws its declaration. The framework still requires stable
+register/mode/stack state and read/write epochs, no volatile reads, no relevant
+HDMA/coprocessor mutation, and no unmasked armed H/V IRQ. No guard was relaxed.
+
+Same-executable off/on controls reduce actual interpreted poll opcodes from
+1,817,467 to 10,333 on a 423-field assisted route. Every picture, checkpoint,
+guest clock, device event, ARAM/DSP snapshot and captured audio sample matches.
+Positive activation and fewer actual interpreted opcodes are required; an
+unused declaration cannot pass. `tools/qualify_idle_poll.py` performs that gate.
+`--idle-poll-control` approves only the same EXE/manifest and explicit0-to1
+control input; all output comparisons stay strict. Its refusal/mixed-control
+regressions pass, alongside all existing comparator cases (31 total).
+The source admission test checks the original ROM plus all16 single-byte
+mutations of the guarded windows and three null-pointer refusals.
+
+The final default configuration also matches all1,598 fields and six checkpoints
+of the four-door/state-load route against the retained timing59 control; that
+finished control was reused. The earlier source matrices, SDK bridge suite and
+campaign were not repeated. The unchanged SDK patch retains all prior guards.
+
+A serial control/candidate/candidate/control measurement on one Windows PC,
+without interpreter-counter callbacks or large trace captures, covers363
+post-warmup frames per arm. Mean guest CPU work fell from1.068 to0.700ms (about
+34%); per-arm95th-percentile costs fell from about1.86 to0.92ms. Median costs
+were essentially unchanged. This measures the tested route's guest work, not
+a universal FPS gain, physical presentation pacing or target-system performance.
+
+The guarded replay is enabled by default; `LAGOON_IDLE_POLL_PROBE=0` is an
+isolated developer control. Explicit0/1 plus `tools/qualify_idle_poll.py` enables
+actual-opcode reporting. The display-entry widths remain unqualified. Current
+inventory is658 AOT/71 analyzed LLE variants, not a completion percentage.
+Existing installed game and public release binaries are unchanged.
+
+Linux x64, Intel Mac and Apple Silicon Mac passed native compile/link of the
+new body/title policy, strict-comparator tests, hidden GL draw/readback, POSIX
+paths/persistence and 20 package guards in private run `41257655821`. The SDK
+and its previously verified replay guard tests are unchanged. These hosted
+checks are not target gameplay, real-audio or controller campaigns. ROMs and
+seed states were not uploaded; generated C stays in the private build repo.

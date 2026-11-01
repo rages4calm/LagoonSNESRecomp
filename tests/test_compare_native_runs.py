@@ -309,6 +309,36 @@ class StrictComparisonTests(unittest.TestCase):
                 result = compare.compare_runs(self.a, self.b)
                 self.assertFalse(result['valid_evidence'])
 
+    def idle_receipts(self):
+        self.change_receipt(self.a,diagnostic_overrides={'LAGOON_IDLE_POLL_PROBE':'0'})
+        self.change_receipt(self.b,exe_sha256='a'*64,
+                            diagnostic_overrides={'LAGOON_IDLE_POLL_PROBE':'1'})
+
+    def test_idle_control_requires_explicit_toggle_and_same_identities(self):
+        self.idle_receipts()
+        self.assertFalse(compare.compare_runs(self.a,self.b)['passed'])
+        self.assertTrue(compare.compare_runs(self.a,self.b,idle_poll_control=True)['passed'])
+        for key in ('exe_sha256','program_manifest_sha256'):
+            self.idle_receipts()
+            self.change_receipt(self.b,**{key:'f'*64})
+            self.assertFalse(compare.compare_runs(self.a,self.b,idle_poll_control=True)['passed'])
+
+    def test_idle_control_does_not_allow_other_modes_or_overrides(self):
+        for mode in ('0','auto','off','2',''):
+            self.idle_receipts()
+            self.change_receipt(self.b,diagnostic_overrides={'LAGOON_IDLE_POLL_PROBE':mode})
+            self.assertFalse(compare.compare_runs(self.a,self.b,idle_poll_control=True)['passed'])
+        self.idle_receipts()
+        self.change_receipt(self.b,diagnostic_overrides={'LAGOON_IDLE_POLL_PROBE':'1','SNESRECOMP_INTERP_NOAPU':'1'})
+        self.assertFalse(compare.compare_runs(self.a,self.b,idle_poll_control=True)['passed'])
+
+    def test_idle_control_preserves_guest_differences_and_cannot_mix_controls(self):
+        self.idle_receipts()
+        (self.b/'dumps/one.wram.bin').write_bytes(b'changed')
+        self.assertFalse(compare.compare_runs(self.a,self.b,idle_poll_control=True)['passed'])
+        with self.assertRaises(ValueError):
+            compare.compare_runs(self.a,self.b,interp_control_target='008985',idle_poll_control=True)
+
     def test_missing_clock_is_not_exact(self):
         for root in (self.a, self.b):
             (root / 'dumps/one.info.json').write_text('{"frame":3}')

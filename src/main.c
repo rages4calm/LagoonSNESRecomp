@@ -27,6 +27,8 @@
 
 #include "host_main.h"
 #include "game_rtl.h"
+#include "lagoon_idle_poll.h"
+#include "snes/cart.h"
 #include "snesrecomp_rom_identity.h"  /* generated from rom_identity.txt */
 #include "lagoon_qol.h"               /* opt-in quality-of-life plugins */
 #include "lagoon_widescreen.h"
@@ -92,12 +94,44 @@ static void LagoonHost_EndingOpcode(CpuState *cpu,uint32_t pc) {
 static int present(const char *key){const char *p=getenv(key);return p&&*p&&strcmp(p,"0");}
 /* Opt-in host evidence only: the bridge reports real compiled-body entries.
  * No CPU/stack mutation, injected events, or change to admission policy. */
-static uint64_t lagoon_wait_native_entries, lagoon_queue_wrapper_entries, lagoon_dma_request_entries;
+static uint64_t lagoon_wait_native_entries, lagoon_queue_wrapper_entries, lagoon_dma_request_entries, lagoon_dma_drain_entries;
 static void (*lagoon_previous_bounce_hook)(uint32_t,int,int);
+static void (*lagoon_previous_pc_hook)(uint32_t,int,int);
+static uint64_t lagoon_idle_ops;
+static int lagoon_idle_declared;
+static void LagoonHost_IdleOpcode(uint32_t pc,int m,int x) {
+    if(pc==0x01814e||pc==0x018151||pc==0x018153)++lagoon_idle_ops;
+    if(lagoon_previous_pc_hook)lagoon_previous_pc_hook(pc,m,x);
+}
+static void LagoonHost_ConfigureIdlePoll(void) {
+    const Cart *cart=g_snes?g_snes->cart:NULL;
+    bool enabled=!getenv("LAGOON_IDLE_POLL_PROBE")||present("LAGOON_IDLE_POLL_PROBE");
+    bool source=cart&&cart->rom&&cart->type==CART_LOROM&&cart->romSize>=0x8158;
+    if(source) {
+        for(unsigned i=0;i<10&&source;++i)
+            source=cpu_aot_rom_mapping_matches(0x01814eu + i,0x814eu + i,1)!=0;
+        for(unsigned i=0;i<3&&source;++i)
+            source=cpu_aot_rom_mapping_matches(0x018088+i,0x8088+i,1)&&
+                   cpu_aot_rom_mapping_matches(0x008922+i,0x0922+i,1);
+        source=source&&LagoonIdle_SourceMatches(cart->rom+0x814e,
+                            cart->rom+0x8088,cart->rom+0x0922);
+    }
+    /* This title owns its sole declaration. Recheck each frame, including
+     * state restores and mod commits; no stale source admission persists. */
+    if(!enabled||!source) {
+        if(lagoon_idle_declared)interp_bridge_clear_idle_polls();
+        lagoon_idle_declared=0;
+        return;
+    }
+    lagoon_idle_declared=interp_bridge_set_idle_poll(0x01814e);
+}
+
+
 static void LagoonHost_WaitBounce(uint32_t pc,int m,int x) {
     if(pc==0x0081f7&&m==1&&x==0)++lagoon_wait_native_entries;
     if(pc==0x0081be&&m==1&&x==0)++lagoon_queue_wrapper_entries;
     if(pc==0x00899b&&m==1&&x==0)++lagoon_dma_request_entries;
+    if(pc==0x008985&&m==1&&x==0)++lagoon_dma_drain_entries;
     if(lagoon_previous_bounce_hook)lagoon_previous_bounce_hook(pc,m,x);
 }
 static void LagoonHost_StartSession(void) {
@@ -335,9 +369,12 @@ static void LagoonHost_Shutdown(void) {
             (unsigned long long)lagoon_wait_native_entries);
         fprintf(stderr,"[native-wait57] pc=0081BE mode=M1X0 actual_aot_entries=%llu\n",(unsigned long long)lagoon_queue_wrapper_entries);
         fprintf(stderr,"[native-wait57] pc=00899B mode=M1X0 actual_aot_entries=%llu\n",(unsigned long long)lagoon_dma_request_entries);
+        fprintf(stderr,"[native-wait57] pc=008985 mode=M1X0 actual_aot_entries=%llu\n",(unsigned long long)lagoon_dma_drain_entries);
     }
     if(present("LAGOON_WIDE_ENTITY_REPORT"))fprintf(stderr,"[lagoon-wide-ai] ai_reads=%llu animation_reads=%llu\n",
         LagoonWideAI_AIReads(),LagoonWideAI_AnimationReads());
+    if(getenv("LAGOON_IDLE_POLL_PROBE"))
+        fprintf(stderr,"[idle60] declared=%d interpreted_poll_ops=%llu\n",lagoon_idle_declared,(unsigned long long)lagoon_idle_ops);
     LagoonMap_Save();LagoonAchievements_Shutdown();LagoonAchievementSound_Shutdown();achievement_session=0;
 }
 
@@ -363,6 +400,7 @@ static const SnesDesktopHostGame kGameHost = {
     .display_aspect_supported = 1,
     .native_widescreen    = 1,
     .after_config        = LagoonHost_AfterConfig,
+    .before_run_frame    = LagoonHost_ConfigureIdlePoll,
     .prepare_frame       = LagoonWide_PrepareFrame,
     .begin_sim_frame     = LagoonHost_BeginFrame,
     .end_sim_frame       = LagoonHost_EndFrame,
@@ -383,6 +421,10 @@ static const SnesDesktopHostGame kGameHost = {
 #endif
 int main(int argc, char **argv)
 {
+    if (getenv("LAGOON_IDLE_POLL_PROBE")) {
+        lagoon_previous_pc_hook = g_interp_bridge_pc_hook;
+        g_interp_bridge_pc_hook = LagoonHost_IdleOpcode;
+    }
     if (present("LAGOON_NATIVE_WAIT_REPORT")) {
         lagoon_previous_bounce_hook = g_interp_bridge_bounce_hook;
         g_interp_bridge_bounce_hook = LagoonHost_WaitBounce;
