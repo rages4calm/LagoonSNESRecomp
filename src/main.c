@@ -92,10 +92,12 @@ static void LagoonHost_EndingOpcode(CpuState *cpu,uint32_t pc) {
 static int present(const char *key){const char *p=getenv(key);return p&&*p&&strcmp(p,"0");}
 /* Opt-in host evidence only: the bridge reports real compiled-body entries.
  * No CPU/stack mutation, injected events, or change to admission policy. */
-static uint64_t lagoon_wait_native_entries;
+static uint64_t lagoon_wait_native_entries, lagoon_queue_wrapper_entries, lagoon_dma_request_entries;
 static void (*lagoon_previous_bounce_hook)(uint32_t,int,int);
 static void LagoonHost_WaitBounce(uint32_t pc,int m,int x) {
     if(pc==0x0081f7&&m==1&&x==0)++lagoon_wait_native_entries;
+    if(pc==0x0081be&&m==1&&x==0)++lagoon_queue_wrapper_entries;
+    if(pc==0x00899b&&m==1&&x==0)++lagoon_dma_request_entries;
     if(lagoon_previous_bounce_hook)lagoon_previous_bounce_hook(pc,m,x);
 }
 static void LagoonHost_StartSession(void) {
@@ -328,9 +330,12 @@ static void LagoonHost_EndFrame(const uint8_t *field,unsigned number) {
     LagoonBossHud_ObserveField(g_ppu,g_ram,RtlStateGeneration(),number,g_snesrecomp_last_hdmaen);
 }
 static void LagoonHost_Shutdown(void) {
-    if (present("LAGOON_NATIVE_WAIT_REPORT"))
+    if (present("LAGOON_NATIVE_WAIT_REPORT")) {
         fprintf(stderr,"[native-wait57] pc=0081F7 mode=M1X0 actual_aot_entries=%llu\n",
             (unsigned long long)lagoon_wait_native_entries);
+        fprintf(stderr,"[native-wait57] pc=0081BE mode=M1X0 actual_aot_entries=%llu\n",(unsigned long long)lagoon_queue_wrapper_entries);
+        fprintf(stderr,"[native-wait57] pc=00899B mode=M1X0 actual_aot_entries=%llu\n",(unsigned long long)lagoon_dma_request_entries);
+    }
     if(present("LAGOON_WIDE_ENTITY_REPORT"))fprintf(stderr,"[lagoon-wide-ai] ai_reads=%llu animation_reads=%llu\n",
         LagoonWideAI_AIReads(),LagoonWideAI_AnimationReads());
     LagoonMap_Save();LagoonAchievements_Shutdown();LagoonAchievementSound_Shutdown();achievement_session=0;

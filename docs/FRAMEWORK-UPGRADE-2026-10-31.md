@@ -128,6 +128,50 @@ older compiled object merely because archive timestamps are old. No ROM or
 owner saves are uploaded; generated C remains private. Target gameplay,
 physical audio/controllers and campaigns remain separate qualification work.
 
-Current generated inventory is 655 AOT/73 analyzed LLE variants, not a completion
+The timing58 generated inventory was 655 AOT/73 analyzed LLE variants, not a completion
 percentage. This does not claim 100% translated CPU coverage or remove the
 supported interpreter. Existing installed game/release downloads are unchanged.
+
+## Timing59: reset wrapper and DMA request wait
+
+Two additional exact M1X0 entry contexts now use precise native code:
+
+- `$00:81BE`: the original queue wait/reset wrapper, including real calls to
+  `$00:81F7` and `$00:81C7`. Its opcode comparison stops at the actual child
+  entry with the real JSL frame intact; no child return is invented.
+- `$00:899B`: the original DMA request/wait body. The source test covers both
+  a still-pending request at a real deadline and a deterministic external
+  `$023A` bit20 release on the fourth read, identically on both buses.
+
+Each body passed 6,144 **new** original-opcode comparisons of full WRAM/IO,
+registers/flags/hidden A, actual stack and CPU/master/coprocessor clocks. These
+unit buses use constant eight-master accesses, so real device behavior was
+checked separately. Exact body hashes bind those results to final generation.
+The earlier 81F7 matrix, bridge tests and campaign were not repeated.
+
+The final executable's same-EXE controls report 170 actual reset-wrapper entries
+and one actual DMA-wait entry, versus zero when each target is interpreted.
+Both comparisons preserve every ordered picture, checkpoint state/clock,
+APU/DMA/PPU event, per-frame ARAM/DSP snapshot and captured sound sample.
+A separate final-build/control four-door roundtrip covers Atland, Gold Cave,
+Elf Field and Voloh: all 1,598 fields and six checkpoints match the timing58
+build exactly. This comparison adds no timestamp exception.
+
+`tools/qualify_wait57.py --target 0081BE` or `--target 00899B` selects the
+corresponding strict live check. `tools/test_shared_services_oracle.py
+--probe-service` accepts those same two exact targets. Existing 81F7 usage
+remains available. The diagnostic counters are opt-in and do not alter guest
+memory, input, interrupts, stack or admission guards.
+
+The SDK patch and its qualified bridge are unchanged. Source/mode/stack/
+generation checks and all other interpreter exclusions remain. In particular,
+the M1X1 display setup at `$00:84E9` and the guarded `$01:814E` interrupt wait
+have not been enabled by this batch. New inventory is 657 AOT/71 analyzed LLE
+variants, not a completion percentage. Installed/released binaries stay separate.
+
+Linux x64, Intel Mac and Apple Silicon Mac passed native compile/link of the new
+bodies, hidden real GL draw/readback, POSIX paths/persistence and 20 package
+guards in private run `41256092072`. The previously qualified unchanged SDK
+bridge/capture suite was not repeated. This is not target gameplay, real-audio,
+controller or campaign coverage; the DMA service has one positive live entry
+on the measured route. Generated C and fixture states remain private.

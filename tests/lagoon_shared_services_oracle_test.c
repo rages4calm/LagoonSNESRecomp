@@ -113,8 +113,8 @@ static void compare(unsigned pc,unsigned state,unsigned hi,unsigned flags,unsign
   ram[q]=(state&1)?0xFF:0x37;ram[q+1]=(state&2)?0xFF:0x33;ram[q+2]=0xB2;ram[q+3]=state&4?0x80:0x7F;ram[q+4]=state&8?0x80:0x7F;}
  inherited_s=initial.S;inherited_hrv=initial.host_return_valid;inherited_pending=SERVICE_OAM_PROBE?1:0;
  initial.master_cycles=early==1?1:0;initial.coprocessor_master_cycles=initial.master_cycles;
- poll_model=(pc==0x8DCE||pc==0x8D82||pc==0x81F7)&&(state&1);poll_reads=0;
- deadline=early==4?850:early==3?700:early==2?100:early==1?1:((pc==0x8DCE||pc==0x8D82||pc==0x81F7)&&!poll_model?1000:0);pending=0;boundary=0;service_entry=pc;
+ poll_model=(pc==0x8DCE||pc==0x8D82||pc==0x81F7||pc==0x899B)&&(state&1);poll_reads=0;
+ deadline=early==4?850:early==3?700:early==2?100:early==1?1:((pc==0x8DCE||pc==0x8D82||pc==0x81F7||pc==0x899B)&&!poll_model?1000:0);pending=0;boundary=0;service_entry=pc;
  memcpy(before,ram,sizeof ram);CpuState actual=initial;
  RecompReturn result=service_body(pc,&actual);assert(!g_recomp_stack_top);cpu_mirrors_to_p(&actual);
  assert(result==RECOMP_RETURN_NORMAL||(pending&&boundary));
