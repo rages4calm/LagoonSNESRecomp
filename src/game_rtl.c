@@ -36,6 +36,7 @@
 #include "lagoon_native_recovery.h"
 #include "lagoon_native_actor_commands.h"
 #include "lagoon_native_iterator52.h"
+#include "lagoon_native_boot62.h"
 #include "lagoon_native_scripts53.h"
 #include "lagoon_menu_close.h"
 #include "lagoon_menu_dma.h"
@@ -53,6 +54,7 @@ void GameRunOneFrame(void)
     LagoonFollower_BeforeFrame();
     LagoonNativeRecovery_BeforeFrame();
     LagoonNativeActorCommands_BeforeFrame();
+    LagoonNativeBoot62_BeforeFrame();
     LagoonNativeIterator52_BeforeFrame();
     LagoonNativeScripts53_BeforeFrame();
     LagoonMenuClose_BeforeFrame();

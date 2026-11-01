@@ -18,10 +18,12 @@ p.add_argument('--compiler', default='clang')
 p.add_argument('--probe-oam', action='store_true')
 p.add_argument('--probe-caller', action='store_true', help='Explicit legacy coarse8C24 full-entry state/frame diagnostic; clock failure remains visible.')
 p.add_argument('--probe-wait', action='store_true', help='Qualify source81F7 queue polling with actual child/deadline boundaries; not a live NMI qualification.')
-p.add_argument('--probe-service',choices=('0081BE','00899B','008985','01A4D6'),help='Exact queue wrapper or DMA request polling body; genuine child/deadline boundaries only.')
+p.add_argument('--room-target',action='append',type=lambda v:int(v,16),help='Limit the room-effect matrix to these reviewed source roots.')
+p.add_argument('--probe-room-effects',action='store_true',help='Original room palette/tile/scroll effects, excluding the nonlocal HP handler.')
+p.add_argument('--probe-service',choices=('0081BE','00899B','008985','01A4D6','01C726','01C643','01C654'),help='Exact queue wrapper or DMA request polling body; genuine child/deadline boundaries only.')
 
 a = p.parse_args()
-if sum(bool(v)for v in (a.probe_wait,a.probe_oam,a.probe_caller,a.probe_service))>1:p.error('Select one source probe')
+if sum(bool(v)for v in (a.probe_wait,a.probe_oam,a.probe_caller,a.probe_service,a.probe_room_effects))>1:p.error('Select one source probe')
 repo = Path(__file__).resolve().parents[1]
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 expected = next(s.split('=', 1)[1].strip() for s in
@@ -40,9 +42,13 @@ for file in a.gen.glob('bank*_v2.c'):
         if match[1].endswith('_M1X0'):
             by_pc[int(entry[1], 16)] = match[1]
 
-roots = [int(a.probe_service,16)] if a.probe_service else [0x81F7] if a.probe_wait else [0x8211] if a.probe_oam else [0x8C24] if a.probe_caller else [0x8C24, 0x8C93, 0x8211, 0x8C96, 0x89EC, 0x8AA4, 0x8DFE, 0x8D82, 0x8DCE, 0x8E2C, 0x8291, 0x8B68, 0x8D0B, 0x01C136, 0x01C156, 0x01C17B, 0x02B2C1]
+room_roots=[0x01D98F,0x01D990,0x01D9DE,0x01D9E9,0x01DA66,0x01DA74,0x01DA7F,0x01DB18,0x01DB29,0x01DB37,0x01DBA4,0x01DC2D,0x01DCA9,0x01DCB7,0x01DCDC,0x01DCF9,0x01DD07,0x01DD22,0x01DD39,0x01DD6A,0x01DD7B,0x01DD86,0x01DD97,0x01DDA2,0x01DE65,0x01DE66,0x01DED0,0x01DF7D]
+roots = room_roots if a.probe_room_effects else [int(a.probe_service,16)] if a.probe_service else [0x81F7] if a.probe_wait else [0x8211] if a.probe_oam else [0x8C24] if a.probe_caller else [0x8C24, 0x8C93, 0x8211, 0x8C96, 0x89EC, 0x8AA4, 0x8DFE, 0x8D82, 0x8DCE, 0x8E2C, 0x8291, 0x8B68, 0x8D0B, 0x01C136, 0x01C156, 0x01C17B, 0x02B2C1]
+if a.room_target:
+    if not a.probe_room_effects or any(pc not in room_roots for pc in a.room_target):p.error('Room target requires a reviewed room-effect root')
+    roots=list(dict.fromkeys(a.room_target))
 # These source-closed children must execute, including genuine nested frames.
-support = [0x01A56A,0x01A5AA] if a.probe_service=='01A4D6'else [] if (a.probe_wait or a.probe_service) else [0x8291] if a.probe_oam else [0x8211, 0x8291] if a.probe_caller else [0x8291, 0x8B68, 0x8D0B, 0x8C24]
+support = [0x01C654] if a.probe_service=='01C643' else [0x8E2C] if a.probe_room_effects else [0x01A56A,0x01A5AA] if a.probe_service=='01A4D6'else [] if (a.probe_wait or a.probe_service) else [0x8291] if a.probe_oam else [0x8211, 0x8291] if a.probe_caller else [0x8291, 0x8B68, 0x8D0B, 0x8C24]
 selected = {by_pc[pc] for pc in roots + support if pc in by_pc}
 if a.probe_oam and 0x8211 not in by_pc:
     selected.add(by_pc[0x8C24])
@@ -87,9 +93,9 @@ a.out.mkdir(parents=True, exist_ok=True)
 runner = Path(os.environ.get('SNESRECOMP_ROOT', repo / 'snesrecomp')) / 'runner/src'
 harness = repo / 'tests/lagoon_shared_services_oracle_test.c'
 binary = a.out / 'shared-services-oracle.exe'
-subprocess.run([a.compiler, '-DSERVICE_OAM_PROBE=' + str(int(a.probe_oam)), '-DSERVICE_LEGACY_CALLER=' + str(int(a.probe_caller)), '-DSERVICE_WAIT_PROBE=' + str(int(a.probe_wait)), '-DSERVICE_POLL_MASK='+str(0x40 if a.probe_service=='008985'else 0xc0 if a.probe_wait else 0x20), '-std=c11', '-O2', '-Wall', '-Wextra', '-Wno-unused-label', '-Wno-unused-parameter', '-Wno-unused-variable', '-I' + str(runner), '-I' + str(a.out.resolve()), str(harness), str(runner / 'snes/interp816.c'), '-o', str(binary)], check=True)
+subprocess.run([a.compiler, '-DSERVICE_ROOM_EFFECTS='+str(int(a.probe_room_effects)), '-DSERVICE_OAM_PROBE=' + str(int(a.probe_oam)), '-DSERVICE_LEGACY_CALLER=' + str(int(a.probe_caller)), '-DSERVICE_WAIT_PROBE=' + str(int(a.probe_wait)), '-DSERVICE_POLL_MASK='+str(0x40 if a.probe_service=='008985'else 0xc0 if a.probe_wait else 0x20), '-std=c11', '-O2', '-Wall', '-Wextra', '-Wno-unused-label', '-Wno-unused-parameter', '-Wno-unused-variable', '-I' + str(runner), '-I' + str(a.out.resolve()), str(harness), str(runner / 'snes/interp816.c'), '-o', str(binary)], check=True)
 r = subprocess.run([str(binary.resolve()), str(a.rom.resolve())], capture_output=True, text=True)
 print(r.stdout, end='')
 print(r.stderr, end='')
-(a.out / 'result.json').write_text(json.dumps(dict(status='PASS' if r.returncode == 0 else 'FAIL', probe_oam=a.probe_oam, probe_caller=a.probe_caller, probe_service=a.probe_service, probe_wait=a.probe_wait, generated=bindings, stopped_children=stubs, rom_sha256=expected, manifest_sha256=sha(a.gen / 'program_manifest.json'), harness_sha256=sha(harness), tool_sha256=sha(Path(__file__)), stdout=r.stdout, stderr=r.stderr, limits='Actual source bodies, full128KiBRAM+IO/registers/flags/hiddenA/saved+deadstack/CPU/master/copro clocks. Existing8291/8B68/8D0B child bodies execute. Unknown children and the genuine8985 wait stop at actual entries; no fabricated return. Constant8master unitbus; resource/DMA wait fixtures either retain original polling until deadline or model an external23A-bit20 release (C0 for --probe-wait) on every fourth poll read, identically on both buses. This is not an executedNMI/device-latency claim. Root8C93 is a test-only actual-instruction entry into old8C24, preserving the real incoming owner; it grants no production reentry authority. Real-device scheduling is separate.'), indent=2) + '\n')
+(a.out / 'result.json').write_text(json.dumps(dict(status='PASS' if r.returncode == 0 else 'FAIL', probe_room_effects=a.probe_room_effects, probe_oam=a.probe_oam, probe_caller=a.probe_caller, probe_service=a.probe_service, probe_wait=a.probe_wait, generated=bindings, stopped_children=stubs, declared_source_boundaries=(['01DD1F'] if 0x01DD07 in roots else []), rom_sha256=expected, manifest_sha256=sha(a.gen / 'program_manifest.json'), harness_sha256=sha(harness), tool_sha256=sha(Path(__file__)), stdout=r.stdout, stderr=r.stderr, limits='Actual source bodies, full128KiBRAM+IO/registers/flags/hiddenA/saved+deadstack/CPU/master/copro clocks. Existing8291/8B68/8D0B child bodies execute. Unknown children and the genuine8985 wait stop at actual entries; no fabricated return. Constant8master unitbus; resource/DMA wait fixtures either retain original polling until deadline or model an external23A-bit20 release (C0 for --probe-wait) on every fourth poll read, identically on both buses. This is not an executedNMI/device-latency claim. Root8C93 is a test-only actual-instruction entry into old8C24, preserving the real incoming owner; it grants no production reentry authority. Real-device scheduling is separate.'), indent=2) + '\n')
 r.check_returncode()

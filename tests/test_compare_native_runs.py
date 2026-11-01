@@ -339,6 +339,36 @@ class StrictComparisonTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             compare.compare_runs(self.a,self.b,interp_control_target='008985',idle_poll_control=True)
 
+    def frame_wait_receipts(self):
+        self.change_receipt(self.a,diagnostic_overrides={'LAGOON_FRAME_WAIT62':'0'})
+        self.change_receipt(self.b,exe_sha256='a'*64,
+                            diagnostic_overrides={'LAGOON_FRAME_WAIT62':'1'})
+
+    def test_frame_wait_control_requires_explicit_toggle_and_same_identities(self):
+        self.frame_wait_receipts()
+        self.assertFalse(compare.compare_runs(self.a,self.b)['passed'])
+        self.assertTrue(compare.compare_runs(self.a,self.b,frame_wait_control=True)['passed'])
+        for key in ('exe_sha256','program_manifest_sha256'):
+            self.frame_wait_receipts()
+            self.change_receipt(self.b,**{key:'f'*64})
+            self.assertFalse(compare.compare_runs(self.a,self.b,frame_wait_control=True)['passed'])
+
+    def test_frame_wait_control_does_not_allow_other_modes_or_overrides(self):
+        for mode in ('0','auto','off','2',''):
+            self.frame_wait_receipts()
+            self.change_receipt(self.b,diagnostic_overrides={'LAGOON_FRAME_WAIT62':mode})
+            self.assertFalse(compare.compare_runs(self.a,self.b,frame_wait_control=True)['passed'])
+        self.frame_wait_receipts()
+        self.change_receipt(self.b,diagnostic_overrides={'LAGOON_FRAME_WAIT62':'1','SNESRECOMP_INTERP_NOAPU':'1'})
+        self.assertFalse(compare.compare_runs(self.a,self.b,frame_wait_control=True)['passed'])
+
+    def test_frame_wait_control_preserves_guest_differences_and_cannot_mix_controls(self):
+        self.frame_wait_receipts()
+        (self.b/'dumps/one.wram.bin').write_bytes(b'changed')
+        self.assertFalse(compare.compare_runs(self.a,self.b,frame_wait_control=True)['passed'])
+        with self.assertRaises(ValueError):
+            compare.compare_runs(self.a,self.b,interp_control_target='008985',frame_wait_control=True)
+
     def test_coverage_capture_mode_cannot_silently_differ(self):
         self.change_receipt(self.b,coverage_mode='summary')
         self.assertFalse(compare.compare_runs(self.a,self.b)['passed'])

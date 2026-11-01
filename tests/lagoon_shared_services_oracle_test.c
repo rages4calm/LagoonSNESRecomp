@@ -7,6 +7,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef SERVICE_ROOM_EFFECTS
+#define SERVICE_ROOM_EFFECTS 0
+#endif
 #ifndef SERVICE_WAIT_PROBE
 #define SERVICE_WAIT_PROBE 0
 #endif
@@ -66,7 +69,7 @@ void cpu_write8(CpuState *c,uint8 bank,uint16 addr,uint8 value) {
 uint16 cpu_read16(CpuState *c,uint8 b,uint16 a) {unsigned lo=cpu_read8(c,b,a);return lo|((unsigned)cpu_read8(c,b,a+1)<<8);}
 void cpu_write16(CpuState *c,uint8 b,uint16 a,uint16 v) {cpu_write8(c,b,a,v);cpu_write8(c,b,a+1,v>>8);}
 RecompReturn interp_tier_dispatch_tail(CpuState *c,uint32 pc,uint32 site,uint16 s,uint8 h) {
- (void)c;(void)site;assert((pc>>16)==2);assert(s==inherited_s&&h==2);boundary=pc;return RECOMP_RETURN_NORMAL;
+ (void)c;(void)site;if(service_entry==0x01C643||service_entry==0x01C654){assert(pc==((unsigned)c->PB<<16|ram[0x26]|ram[0x27]<<8));assert(s==inherited_s&&h==3);}else if(SERVICE_ROOM_EFFECTS&&pc==0x01DD1F){assert(s==inherited_s&&h==2);}else{assert((pc>>16)==2);assert(s==inherited_s&&h==2);}boundary=pc;return RECOMP_RETURN_NORMAL;
 }
 RecompReturn interp_tier_run_call_frame(CpuState*c,uint32 pc,uint32 site,uint8 n,uint32*out) {(void)c;(void)site;(void)n;(void)out;pending=1;boundary=pc;return (RecompReturn)1;}
 #include "shared_services_under_test.h"
@@ -83,7 +86,7 @@ static void wr(void *ctx,uint32 a,uint8 v) {
 }
 
 static void word(unsigned addr,unsigned value){ram[addr]=(uint8)value;ram[addr+1]=(uint8)(value>>8);}
-static unsigned frame(unsigned pc){return pc==0x8211||pc==0x8C24||pc==0x8C93||pc==0x8DFE||pc==0x8291||pc==0x8B68||pc==0x8D0B||(pc>>16)==1?2:3;}
+static unsigned frame(unsigned pc){if(pc==0x01C726||pc==0x01C643||pc==0x01C654)return 3;return pc==0x8211||pc==0x8C24||pc==0x8C93||pc==0x8DFE||pc==0x8291||pc==0x8B68||pc==0x8D0B||(pc>>16)==1?2:3;}
 static void compare(unsigned pc,unsigned state,unsigned hi,unsigned flags,unsigned stack,unsigned early,unsigned*counts){
  for(unsigned n=0;n<sizeof ram;n++)ram[n]=(uint8)(n*73+state*17+hi*19+flags);
  memset(io,0,sizeof io);
@@ -123,6 +126,12 @@ static void compare(unsigned pc,unsigned state,unsigned hi,unsigned flags,unsign
   ram[0x500+initial.X]=0xc0|(state&63);
   word(0x50eu + initial.X,0xff00+state);word(0x518+initial.X,state&3);
  }
+ if(SERVICE_ROOM_EFFECTS){
+  ram[0x409]=state%8;ram[0x40a]=state%3;ram[0x40b]=state;ram[0x40c]=state%3;
+  ram[0x496]=(state&1)?0x40:0;ram[0x56c]=state%3;ram[0x501]=state&3;ram[0x536]=(state&4)?0x34:0xff;
+ }
+ if(pc==0x01C726){ram[0x417]=3+(state%6);ram[0x450]=state&1;ram[0x102a]=state;}
+ if(pc==0x01C643||pc==0x01C654){ram[0x417]=state%9;unsigned table=0xC657+2*(state%9);word(0x26,rom[0x8000+(table&32767)]|rom[0x8000+((table+1)&32767)]<<8);}
  inherited_s=initial.S;inherited_hrv=initial.host_return_valid;inherited_pending=SERVICE_OAM_PROBE?1:0;
  initial.master_cycles=early==1?1:0;initial.coprocessor_master_cycles=initial.master_cycles;
  poll_model=(pc==0x8DCE||pc==0x8D82||pc==0x81F7||pc==0x899B||pc==0x8985)&&(state&1);poll_reads=0;
@@ -154,7 +163,7 @@ int main(int argc,char**argv){
  assert(argc==2);FILE*f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof rom,f)==sizeof rom);fclose(f);
  unsigned counts[5]={0};const unsigned highs[]={0,0x100,0xFF00},stacks[]={0x180,0x1FD0};
  for(unsigned n=0;n<sizeof(service_roots)/sizeof(*service_roots);n++)for(unsigned st=0;st<2;st++)
- for(unsigned hi=0;hi<3;hi++)for(unsigned fl=0;fl<16;fl++)for(unsigned v=0;v<(service_roots[n]==0x8211?256u:32u);v++)for(unsigned early=0;early<((service_roots[n]==0x8985||service_roots[n]==0x01A4D6)?5u:SERVICE_OAM_PROBE?1u:(service_roots[n]==0x8C93||service_roots[n]==0x8C24)?5u:2u);early++)
+ for(unsigned hi=0;hi<3;hi++)for(unsigned fl=0;fl<16;fl++)for(unsigned v=0;v<(service_roots[n]==0x8211?256u:32u);v++)for(unsigned early=0;early<((service_roots[n]==0x8985||service_roots[n]==0x01A4D6||SERVICE_ROOM_EFFECTS||service_roots[n]==0x01C726||service_roots[n]==0x01C643||service_roots[n]==0x01C654)?5u:SERVICE_OAM_PROBE?1u:(service_roots[n]==0x8C93||service_roots[n]==0x8C24)?5u:2u);early++)
   if(!(service_roots[n]==0x8C93&&early==1))compare(service_roots[n],v,highs[hi],fl,stacks[st],early,counts);
  if((SERVICE_OAM_PROBE||SERVICE_LEGACY_CALLER)&&probe_clock_failures){printf("STATE_PASS_CLOCK_FAIL %u actual source entries; fullRAM/registers/flags/Ahigh/realstack agree; %u coarse clock divergences\n",counts[0],probe_clock_failures);return 3;}
  printf("PASS %u shared-service original-opcode comparisons; complete=%u genuine-boundary-or-poll-deadline=%u entry-deadline=%u saved-child-deadline=%u; full128KiBRAM+IO/registers/flags/Ahigh/realnested+deadstack/CPU-master-copro clocks; constant8master unitbus\n",counts[0],counts[1],counts[2],counts[3],counts[4]);return 0;

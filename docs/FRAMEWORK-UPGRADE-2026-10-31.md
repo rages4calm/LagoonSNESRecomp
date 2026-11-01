@@ -258,3 +258,74 @@ Unobserved M1X1 display entries remain excluded. Already guarded native windows
 are not missing work merely because they appear in static LLE inventory.
 Inventory659 AOT/71 analyzed LLE is not a completion rate. The interpreter stays
 supported, and installed/released binaries are unchanged.
+
+## Timing62: larger local batch; publication paused
+
+This batch stays local at the owner's request. The installed0.2.5 release and
+published platform binaries are unchanged; no hosted builds were requested.
+Windows compilation and affected software/dummy-audio routes are the evidence
+here, not physical-controller/listening/GPU tests or another campaign.
+
+Twenty-six original room palette/tile/scroll handlers now use precise M1X0
+native bodies. Their real upload child executes in399,360 opcode comparisons;
+each handler also has a matched actual-map device replay with a positive
+interpreted-entry count in its control and none at that entry in the candidate.
+All pictures, checkpoints, clocks, device events, ARAM/DSP and audio samples
+match. Other widths remain original. The damage hazard adds a source prefix at
+01DD07 and continuation at01DD22:30,720 comparisons and a matched room26 route.
+The actual nonlocal HP call at01DD1F remains original; no return mode is guessed.
+
+The static scene path now separates original C643's nine-instruction prefix
+from C654's pointer tail. Its native allowlist contains C726 only; other actual
+table choices and unknown pointers retain the original interpreter and inherited
+three-byte owner frame. The original C726 body passed15,360 new entry/deadline
+cases before its real render/upload children; the dispatcher adds15,360 cases
+with its actual C654 child and original unknown-target handoffs. A source-bound
+same-executable replay witnesses a native dispatcher entry versus zero in its
+control. The complete2,151-field new-game route also matches the previous
+qualified executable exactly, including all5 checkpoints and captured audio.
+A separate bounded snapshot observes C726 interpreted entries fall142 to0.
+Bounce counters alone do not enumerate direct native calls. Early scene probes
+with no actual entry were rejected; their green pixels were not qualification.
+
+Cold boot's original twelve-opcode WRAM clear is now a guarded native source
+window. It witnesses the actual8033..803A forced-blank/NMI-disable instructions,
+requires the primary CPU/RAM/current generation, original mapping and bytes,
+PB/DB/D0, E0/M1X0/I1, S01FF and no invented return frame.384 opcode/resume
+comparisons include complete RAM/IO, registers, flags, open bus and all clocks;
+84 source/mode/stack/generation refusals preserve guest state. A cold start
+witnesses401,410 native source instructions, one completion and29 real field
+deadlines. Loading a gameplay fixture mid-clear correctly retires its witness.
+
+The SDK now exposes callback-scoped source-opcode clock commit and deadline
+queries. They preserve original refresh, beam/copro sync, write epochs and both
+relative boot and mapped absolute APU cadence. Legacy WRAM-progress flushes are
+preserved too. Ordinary AOT ownership/deadline, IRQ, epoch and source guards are
+unchanged. An initial prototype overshot a field because the AOT deadline query
+correctly required a caller frame; another lost legacy progress-flush phase.
+Both were rejected by fresh cold-state/device comparisons and fixed. Actual
+compiled helper tests cover256 cadence/epoch cases,9 immutable refusals and
+callback-scoped bounds. Final20/120-field cold and423-field load/gameplay checks
+match the previous executable; affected four-door checks match1,598 fields and
+six checkpoints. No failed prototype is installed or published.
+
+The remaining original84E3 display wait uses the SDK's existing guarded cycle
+replay. Every frame rechecks the real poll, request and NMI-decrement bytes and
+mapping. The old1814E wait is preserved independently. A same-EXE explicit0/1
+control observes5,744,605 versus72,610 actual interpreted poll opcodes on the
+new-game route (about98.7% fewer), with identical pictures/state/clocks/events,
+ARAM/DSP and audio. This is wait acceleration, not new AOT CPU coverage or a
+universal FPS claim. Source admission rejects all17 single-byte mutations and
+three null inputs. Developer control is LAGOON_FRAME_WAIT62=0; explicit1 enables
+it. Diagnostic LAGOON_IDLE_POLL_PROBE=1 reports actual counts. The comparator
+allows only this exact same-EXE/manifest0-to1 toggle and keeps every output
+strict;35 comparator and13 qualification-input tests pass.
+
+Current inventory690 AOT/68 analyzed LLE is not a completion percentage. Some
+LLE names already contain qualified guarded scanner/iterator windows. Remaining
+resource expansion, SPC-port and patched-camera contexts need their own source
+and timing proof; asynchronous SPC-port polls must never be declared pure NMI
+waits. Interpreter fallback remains supported. Original dirty SDK files, owner
+saves/settings and the installed executable were preserved. Compact local
+receipts and the next-work inventory live in validation/timing62; completed raw
+captures are disposable through the reviewed owner-run cleanup command.

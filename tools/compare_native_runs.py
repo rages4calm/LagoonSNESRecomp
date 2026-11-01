@@ -212,8 +212,19 @@ def idle60_control(left,right,old_overrides,new_overrides):
         approved=bool(identities_equal and baseline_mode=='0'and candidate_mode=='1'and old==new))
 
 
-def compare_runs(baseline, candidate, interp_control_target=None, native_iterator_control=False, native_scripts_control=False, idle_poll_control=False):
-    if sum((interp_control_target is not None,bool(native_iterator_control),bool(native_scripts_control),bool(idle_poll_control)))>1:
+def framewait62_control(left,right,old_overrides,new_overrides):
+    old,new=dict(old_overrides or {}),dict(new_overrides or {})
+    baseline_mode=old.pop('LAGOON_FRAME_WAIT62',None)
+    candidate_mode=new.pop('LAGOON_FRAME_WAIT62',None)
+    identities_equal=all(isinstance(left.get(k),str) and re.fullmatch(r'[0-9a-f]{64}',left[k])
+        and left[k]==right.get(k)for k in ('exe_sha256','program_manifest_sha256'))
+    return dict(kind='guarded_frame_wait62',baseline_mode=baseline_mode,
+        candidate_mode=candidate_mode,same_executable_and_manifest=identities_equal,
+        approved=bool(identities_equal and baseline_mode=='0'and candidate_mode=='1'and old==new))
+
+
+def compare_runs(baseline, candidate, interp_control_target=None, native_iterator_control=False, native_scripts_control=False, idle_poll_control=False, frame_wait_control=False):
+    if sum((interp_control_target is not None,bool(native_iterator_control),bool(native_scripts_control),bool(idle_poll_control),bool(frame_wait_control)))>1:
         raise ValueError('Declare exactly one execution control')
     left, right = load_run(baseline), load_run(candidate)
     result = dict(schema='lagoon strict native replay comparison v2',
@@ -277,6 +288,11 @@ def compare_runs(baseline, candidate, interp_control_target=None, native_iterato
             unexpected_inputs.pop('diagnostic_overrides',None)
         else:
             unexpected_inputs['execution_control']=control
+    if frame_wait_control:
+        control=framewait62_control(left['receipt'],right['receipt'],left['normalized_overrides'],right['normalized_overrides'])
+        result['execution_control']=control
+        if control['approved']:unexpected_inputs.pop('diagnostic_overrides',None)
+        else:unexpected_inputs['execution_control']=control
     result['unapproved_input_differences'] = unexpected_inputs
     a, b = left['presentations'], right['presentations']
     mismatches = [i for i in range(max(len(a), len(b)))
@@ -321,9 +337,10 @@ def main():
     parser.add_argument('--native-iterator-control',action='store_true',help='Declare only iterator52 off versus auto/on with the same EXE/manifest. All guest, clock, audio and picture comparisons remain strict.')
     parser.add_argument('--native-scripts-control',action='store_true',help='Declare only outer-script scanner53 off versus auto/on with the same EXE/manifest. Every other input, picture, clock and audio comparison remains strict.')
     parser.add_argument('--idle-poll-control',action='store_true',help='Only the same-EXE guarded idle declaration0 versus1 may differ; all outputs remain strict.')
+    parser.add_argument('--frame-wait-control',action='store_true',help='Only the same-EXE frame wait declaration0 versus1 may differ; all outputs remain strict.')
     args = parser.parse_args()
     try:
-        result = compare_runs(args.baseline, args.candidate, args.interp_control_target,args.native_iterator_control,args.native_scripts_control,args.idle_poll_control)
+        result = compare_runs(args.baseline, args.candidate, args.interp_control_target,args.native_iterator_control,args.native_scripts_control,args.idle_poll_control,args.frame_wait_control)
     except (OSError, ValueError, KeyError, TypeError) as error:
         result = dict(schema='lagoon strict native replay comparison v2', passed=False,
                       valid_evidence=False, error=str(error))

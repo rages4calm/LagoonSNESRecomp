@@ -16,4 +16,13 @@ static inline bool LagoonIdle_SourceMatches(const uint8_t *poll,
     !memcmp(reset,reset_bytes,sizeof reset_bytes) &&
     !memcmp(increment,increment_bytes,sizeof increment_bytes);
 }
+/* Original display wait: NMI decrements023C while the CPU polls it. */
+static inline bool LagoonFrameWait_SourceMatches(const uint8_t *poll,
+    const uint8_t *request,const uint8_t *decrement) {
+  static const uint8_t p[]={0xad,0x3c,0x02,0xd0,0xfb};
+  static const uint8_t r[]={0xa9,0x01,0x8d,0x3c,0x02};
+  static const uint8_t d[]={0xad,0x3c,0x02,0x3a,0x8d,0x3c,0x02};
+  return poll&&request&&decrement&&!memcmp(poll,p,sizeof p)&&
+    !memcmp(request,r,sizeof r)&&!memcmp(decrement,d,sizeof d);
+}
 #endif
