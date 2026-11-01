@@ -315,5 +315,62 @@ class ReviewedSoundtrackTests(unittest.TestCase):
         with self.assertRaises(ValueError):package.reviewed_soundtrack_inputs(self.directory)
 
 
+class DependencyTextProvenanceTests(unittest.TestCase):
+    def matches(self,data,policy=package._inputs.TEXT_HASH_POLICY,canonical=None):
+        original=b'int value = 1;\r\n// caf\xc3\xa9\r\n'
+        expected=hashlib.sha256(original).hexdigest()
+        if canonical is None:canonical=hashlib.sha256(original.replace(b'\r\n',b'\n')).hexdigest()
+        with patch.object(Path,'read_bytes',return_value=data):
+            return package._inputs.dependency_source_matches(Path('reviewed.c'),expected,canonical,policy)
+
+    def test_raw_original_bytes_keep_legacy_admission(self):
+        self.assertTrue(self.matches(b'int value = 1;\r\n// caf\xc3\xa9\r\n',policy=None))
+
+    def test_lf_and_crlf_text_admit_only_the_declared_policy(self):
+        lf=b'int value = 1;\n// caf\xc3\xa9\n'
+        self.assertTrue(self.matches(lf))
+        self.assertTrue(self.matches(lf.replace(b'\n',b'\r\n')))
+        self.assertFalse(self.matches(lf,policy=None))
+        self.assertFalse(self.matches(lf,policy='normalize-all-whitespace'))
+
+    def test_changed_bytes_whitespace_unicode_and_lone_cr_are_not_normalized(self):
+        for changed in [b'int value = 2;\n// caf\xc3\xa9\n',
+                        b'int value = 1; \n// caf\xc3\xa9\n',
+                        b'int value = 1;\r// caf\xc3\xa9\r',
+                        b'int value = 1;\n// cafe\xcc\x81\n']:
+            with self.subTest(data=changed):self.assertFalse(self.matches(changed))
+
+    def test_invalid_utf8_is_rejected_even_with_its_declared_normalized_hash(self):
+        data=b'\xff\r\n'
+        self.assertFalse(self.matches(data,canonical=hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()))
+
+    def test_all_six_real_vendor_files_and_full_asset_audit_accept_lf_or_crlf(self):
+        original=package.achievement_cameo_inputs()
+        provenance=ROOT/'third_party/companion_achievements/provenance.json'
+        record=json.loads(provenance.read_text(encoding='utf-8'))
+        vendors=[]
+        for folder,key in [('companion_achievements','core_files'),('cjson','cjson_files')]:
+            for name,raw in record[key].items():
+                source=ROOT/'third_party'/folder/name;data=source.read_bytes()
+                self.assertEqual(hashlib.sha256(data).hexdigest(),raw)
+                self.assertEqual(hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest(),record['canonical_'+key][name])
+                vendors.append(source)
+        self.assertEqual(len(vendors),6)
+        selected={Path(name)for name in original}|set(vendors)
+        scratch=ROOT/'build-port-tests';scratch.mkdir(exist_ok=True)
+        for ending in ['lf','crlf']:
+            target=Path(tempfile.mkdtemp(prefix='vendor-'+ending+'-',dir=scratch))
+            for source in selected:
+                path=target/source.relative_to(ROOT);path.parent.mkdir(parents=True,exist_ok=True)
+                data=source.read_bytes()
+                if source in vendors:
+                    data=data.replace(b'\r\n',b'\n')
+                    if ending=='crlf':data=data.replace(b'\n',b'\r\n')
+                path.write_bytes(data)
+            with self.subTest(ending=ending):
+                audited=package.achievement_cameo_inputs(target)
+                self.assertEqual(set(audited.values()),set(original.values()))
+
+
 if __name__ == '__main__':
     unittest.main()

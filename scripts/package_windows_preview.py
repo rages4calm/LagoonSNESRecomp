@@ -13,6 +13,24 @@ ROOT=Path(__file__).resolve().parents[1]
 def digest(path:Path)->str: return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+TEXT_HASH_POLICY='utf8-crlf-to-lf-only-v1'
+
+
+def dependency_source_matches(path:Path,raw_sha256:str,canonical_sha256:str|None,
+                              policy:str|None)->bool:
+    """Admit reviewed raw bytes or their explicitly pinned text checkout form.
+
+    UTF-8 validity is checked before the only allowed transformation: CRLF to
+    LF. Spaces, lone CR bytes and Unicode encodings are otherwise unchanged.
+    """
+    data=path.read_bytes()
+    if hashlib.sha256(data).hexdigest()==raw_sha256:return True
+    if policy!=TEXT_HASH_POLICY or not isinstance(canonical_sha256,str):return False
+    try:data.decode('utf-8',errors='strict')
+    except UnicodeDecodeError:return False
+    return hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()==canonical_sha256
+
+
 def validate_build_metadata(metadata:dict,game:Path,manifest_sha:str,patch_sha:str,
                             version:str,system:str,require_native:bool=False)->None:
     """Require the CMake identity for this binary before admitting release inputs.
@@ -79,8 +97,13 @@ def achievement_cameo_inputs(root:Path=ROOT)->dict[str,str]:
     for folder,key,names in [('companion_achievements','core_files',{'companion_achievements.c','companion_achievements.h','LICENSE'}),('cjson','cjson_files',{'cJSON.c','cJSON.h','LICENSE'})]:
         hashes=record.get(key)
         if not isinstance(hashes,dict) or set(hashes)!=names: raise ValueError('Incomplete achievement dependency provenance: '+folder)
+        canonical=record.get('canonical_'+key,{})
+        if record.get('text_hash_policy')==TEXT_HASH_POLICY and (not isinstance(canonical,dict) or set(canonical)!=names):
+            raise ValueError('Incomplete canonical achievement dependency provenance: '+folder)
         for name,expected in hashes.items():
-            if digest(root/'third_party'/folder/name)!=expected: raise ValueError('Achievement dependency differs from provenance: '+folder+'/'+name)
+            if not dependency_source_matches(root/'third_party'/folder/name,expected,
+                    canonical.get(name) if isinstance(canonical,dict) else None,record.get('text_hash_policy')):
+                raise ValueError('Achievement dependency differs from provenance: '+folder+'/'+name)
     selected[str(provenance)]='licenses/CompanionAchievements-provenance.json'
     selected[str(root/'third_party/companion_achievements/LICENSE')]='licenses/CompanionAchievements-LICENSE'
     selected[str(root/'third_party/cjson/LICENSE')]='licenses/cJSON-LICENSE'
