@@ -114,6 +114,13 @@ def main():
     readiness = out / "mosaic-readiness.exe"
     run(flags + ["tests/lagoon_mosaic_readiness_test.c", "-o", str(readiness)], "readiness-build")
     results["readiness"] = run([str(readiness)], "readiness")
+    transition = out / "transition-temporal.exe"
+    run(flags + ["tests/lagoon_transition_present_test.c", "src/lagoon_transition_present.c",
+                 "-o", str(transition)], "transition-build")
+    results["transition_temporal"] = run([str(transition)], "transition")
+    raster = out / "raster-coordinates.exe"
+    run(flags + ["tests/lagoon_wide_raster70_test.c", "-o", str(raster)], "raster-build")
+    results["raster_coordinates"] = run([str(raster)], "raster")
     if args.menu_prefix:
         panel = out / "actual-menu.exe"
         run(flags + ["tests/lagoon_menu_presentation_test.c", "-o", str(panel)], "panel-build")
@@ -135,8 +142,10 @@ def main():
                "tests/lagoon_mosaic_readiness_test.c", "tests/lagoon_menu_presentation_test.c",
                "tests/lagoon_incoming_mosaic_test.c", "src/lagoon_scene_renderer.c", "src/lagoon_scene_renderer.h",
                "snesrecomp/runner/src/snes/ppu.c", "snesrecomp/runner/src/snes/ppu_legacy.c",
+               "src/lagoon_transition_present.h", "src/lagoon_wide_raster.h",
+               "tests/lagoon_transition_present_test.c", "tests/lagoon_wide_raster70_test.c",
                "tools/test_wide_transition_protocol.py"]
-    receipt = dict(passed=True, scope="source-extracted protocol; resource callbacks synthetic; actual panels/map optional",
+    receipt = dict(passed=True, scope="source-extracted DrawFrame/readiness protocol plus actual transition cache and raster helper; resource callbacks and coordinate vectors synthetic; actual panels/map optional",
                    sources={name: sha(repo/name) for name in sources}, results=results)
     (out/"receipt.json").write_text(json.dumps(receipt, indent=2)+"\n", encoding="utf-8")
     print(json.dumps(receipt, indent=2))

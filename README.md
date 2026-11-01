@@ -163,7 +163,10 @@ The interpreter stays available for development and reference comparisons.
 SNES graphics, DMA, timers and audio hardware, including the SPC700, still use
 the hardware runtime. This is not a claim that hardware simulation was removed,
 or that the new backend has completed Linux/macOS gameplay qualification.
-[Build and launch strict native execution](config/native69/README.md).
+[Build and launch strict native execution](config/native69/README.md). The development
+renderer also handles the original one-field background-scroll phase difference
+without blanking widescreen margins, and keeps outgoing room fades black through
+loader brightness changes. These fixes are not yet in the release downloads.
 
 The original Windows release completed the owner's campaign and full map
 exploration. Automated routes supplement that playtest; they are finite checks,

@@ -2,6 +2,7 @@
  * read-only host lookups, never by moving the guest camera or replaying DMA.
  * No ROM data, graphics, or generated guest code belongs in this source. */
 #include "lagoon_widescreen.h"
+#include "lagoon_wide_raster.h"
 #include "lagoon_wide_entities.h"
 #include "lagoon_wide_spell3.h"
 #include "lagoon_menu_presentation.h"
@@ -26,7 +27,12 @@ static int s_native_fallback;
 static int s_present_fallback;
 static int s_outdoor_frame;
 static int s_outdoor_present;
-static int s_row_world_x[224],s_row_world_y[224];
+/* Read-only presentation diagnostics: distinguish an explicit UI fallback from
+ * a field whose replayed raster never matched its final-state world policy. */
+static unsigned s_native_fallback_reasons;
+static unsigned s_raster_calls,s_raster_not_outdoor,s_raster_not_ready,s_raster_scroll_refused;
+static unsigned s_first_raster_scroll[4],s_last_raster_scroll[4];
+static LagoonWideRasterRow s_rows[224];
 static uint8_t s_row_known[224];
 static unsigned s_extent_width,s_extent_height;
 static LagoonWideSceneGate s_scene_gate;
@@ -427,7 +433,8 @@ static void menu_line(Ppu *ppu,uint y,bool sub,void *context) {
   LagoonWideEntities_BlankMargins(ppu->bgBuffers[sub].data,kPpuExtraLeftRight,
                                   ppu->extraLeftCur,ppu->extraRightCur);
 }
-static void native_ui_frame(void) {
+static void native_ui_frame(unsigned reason) {
+  s_native_fallback_reasons|=reason;
   s_native_fallback=1;
   PpuSetWidescreenLayerMask(g_ppu,0);PpuSetWidescreenLayerClamp(g_ppu,15);
   PpuSetWidescreenShadowNativeExactMask(g_ppu,0);PpuSetExtraObjects(g_ppu,NULL,0);
@@ -453,7 +460,7 @@ void LagoonWide_OnBackgroundDma(unsigned bank,unsigned address,unsigned destinat
   if(begins) {
     LagoonWideTorches_Reset(&s_torches);
     s_world_chars_ready=s_initial_world_authority=0;s_scene_gate.fields=0;
-    native_ui_frame();
+    native_ui_frame(2);
   }
 }
 
@@ -467,11 +474,11 @@ void LagoonWide_OnVramWrite(unsigned byte_address) {
         ((uint8_t*)s_retained.tilemaps)[byte_address-0xE000]=(uint8_t)value;
       return;
     }
-    s_parallax_queue.valid=0;s_retained.valid=0;native_ui_frame();
+    s_parallax_queue.valid=0;s_retained.valid=0;native_ui_frame(4);
   }
   /* A partially replaced static parallax page has no authority this field,
    * even if its first words still resemble the previous complete page. */
-  if(room_parallax() && byte_address>=0xF000)native_ui_frame();
+  if(room_parallax() && byte_address>=0xF000)native_ui_frame(8);
   /* A new character/map upload ends outgoing authority even if bytes happen
    * to resemble a common corridor in the previous room. */
   if(byte_address<kLagoonWideBackgroundBytes || byte_address>=0xE000) {
@@ -501,14 +508,14 @@ void LagoonWide_OnVramWrite(unsigned byte_address) {
       byte_address<kLagoonWideTorchAddress+LagoonWideTorches_Bytes(word(0x48e),pointer(0x57)))return;
   /* Room loading can begin after the frame policy was selected. Catch the
    * first actual graphics write before a changed atlas can reach margins. */
-  if(!audited_room_ready()) { s_scene_gate.fields=0; s_world_chars_ready=0; native_ui_frame(); return; }
+  if(!audited_room_ready()) { s_scene_gate.fields=0; s_world_chars_ready=0; native_ui_frame(16); return; }
   unsigned word_address=byte_address/2;
   /* A text/font DMA does not own the world layers. A changed BG1/2
    * character word does; reject it immediately, and recheck completed maps
    * in EndFrame before the mutable compositor can expose either margin. */
   if(word_address<0x4000 && s_world_char_used[word_address/16] && has_modal_ui() &&
       (!s_world_chars_ready || PpuRenderVram(g_ppu)[word_address]!=s_world_chars[word_address]))
-    native_ui_frame();
+    native_ui_frame(32);
 }
 
 void LagoonWide_OnParallaxQueueDma(unsigned length) {
@@ -525,7 +532,7 @@ void LagoonWide_OnParallaxQueueDma(unsigned length) {
     s_parallax_queue.valid=0;s_retained.valid=0;
     /* Other ordinary scroll queues keep their existing live-world policy.
      * They can never lend an outgoing packet to a later room or loader. */
-    if(was_pending || s_using_retained || word(0x48e)!=7 || g_ram[0x100e])native_ui_frame();
+    if(was_pending || s_using_retained || word(0x48e)!=7 || g_ram[0x100e])native_ui_frame(64);
   }
 }
 
@@ -545,7 +552,10 @@ void LagoonWide_BeginFrame(unsigned number) {
   s_using_retained=0;
   if((g_ram[0x100e] || word(0x48e)!=s_retained.room || g_ppu->inidisp!=15) && retained_scene_matches())
     s_using_retained=1;
-  s_native_fallback=0;
+  s_native_fallback=0;s_native_fallback_reasons=0;
+  s_raster_calls=s_raster_not_outdoor=s_raster_not_ready=s_raster_scroll_refused=0;
+  memset(s_first_raster_scroll,0,sizeof(s_first_raster_scroll));
+  memset(s_last_raster_scroll,0,sizeof(s_last_raster_scroll));
   s_outdoor_frame=0;
   memset(s_row_known,0,sizeof(s_row_known));
   if(!audited_room_resources() || (s_world_chars_ready && s_world_char_key!=world_resource_key()))
@@ -609,7 +619,7 @@ void LagoonWide_BeginFrame(unsigned number) {
   /* Added families require their independent exact descriptor, original
    * ordinary animation source, complete atlas and current native kind/OAM
    * alignment witnesses before any far actor gains presentation authority. */
-  if (!active) { if(g_config.widescreen)native_ui_frame(); return; }
+  if (!active) { if(g_config.widescreen)native_ui_frame(1); return; }
   if(!s_world_chars_ready && !has_modal_ui() && native_world_map())
     capture_world_characters(NULL);
   s_outdoor_frame=room_bounds_enabled(view_room());
@@ -662,6 +672,11 @@ void LagoonWide_BeginFrame(unsigned number) {
 void LagoonWide_ObserveRaster(const Ppu *ppu,unsigned line,void *context) {
   LagoonEasterEgg_ObserveRaster(ppu,line,g_ram,RtlStateGeneration(),g_snesrecomp_last_hdmaen!=0);
   (void)context;
+  if(ppu && line>=1 && line<=224) {
+    unsigned scroll[4]={ppu->hScroll[0],ppu->vScroll[0],ppu->hScroll[1],ppu->vScroll[1]};
+    if(!s_raster_calls)memcpy(s_first_raster_scroll,scroll,sizeof(scroll));
+    memcpy(s_last_raster_scroll,scroll,sizeof(scroll));++s_raster_calls;
+  }
   int mosaic=s_incoming_mosaic_frame && s_initial_world_authority &&
       s_world_chars_ready && !g_snesrecomp_last_hdmaen;
   LagoonSceneRenderer_ObserveRaster(ppu,line,g_ram,g_rom,0x100000,RtlStateGeneration(),
@@ -669,16 +684,17 @@ void LagoonWide_ObserveRaster(const Ppu *ppu,unsigned line,void *context) {
       (word(0x48e)==0 || word(0x48e)==1 || word(0x48e)==2 || word(0x48e)==3 || word(0x48e)==4 ||
        word(0x48e)==5 || word(0x48e)==6 || word(0x48e)==7 || word(0x48e)==8 ||
        LagoonSceneRenderer_AdditionalRoom(g_ram)) && !g_snesrecomp_last_hdmaen));
-  if(!s_outdoor_frame || line<1 || line>224)return;
-  if((s_using_retained ? !s_retained.valid : !audited_room_ready()) || !room_bounds_enabled(view_room()))return;
-  if(view_parallax()) {
-    if(!parallax_raster(ppu))return;
-  } else if(ppu->hScroll[0]!=ppu->hScroll[1] || ppu->vScroll[0]!=ppu->vScroll[1])return;
-  int camera_x=(int)view_camera(0),camera_y=(int)view_camera(1);
-  int sx=ppu->hScroll[0]&1023,sy=ppu->vScroll[0]&1023;
-  s_row_world_x[line-1]=camera_x+((sx-camera_x+512)&1023)-512;
-  s_row_world_y[line-1]=camera_y+((sy-camera_y+512)&1023)-512+(int)line;
-  s_row_known[line-1]=1;
+  if(!s_outdoor_frame || line<1 || line>224){++s_raster_not_outdoor;return;}
+  if((s_using_retained ? !s_retained.valid : !audited_room_ready()) || !room_bounds_enabled(view_room())){++s_raster_not_ready;return;}
+  int parallax=view_parallax();
+  if(parallax&&!parallax_raster(ppu)){++s_raster_scroll_refused;return;}
+  unsigned camera[4],scroll[4]={ppu->hScroll[0],ppu->vScroll[0],ppu->hScroll[1],ppu->vScroll[1]};
+  for(unsigned i=0;i<4;++i)camera[i]=view_camera(i);
+  /* Both ordinary layers already have their own exact map/shadow source.
+   * Replayed NMI fields can legitimately update one scroll before the other;
+   * their disagreement is not a missing raster. Keep each real position. */
+  if(!LagoonWideRaster_SampleRow(camera,scroll,line,&s_rows[line-1]))return;
+  s_row_known[line-1]=(uint8_t)(parallax?1:2);
 }
 
 static void report_outdoor(unsigned frame) {
@@ -691,12 +707,12 @@ static void report_outdoor(unsigned frame) {
   unsigned known=0,xc=0,yc=0;
   for(unsigned y=0;y<224;++y) {
     known+=s_row_known[y]!=0;
-    if(y && s_row_world_x[y]!=s_row_world_x[0])++xc;
-    if(s_row_world_y[y]!=s_row_world_y[0]+(int)y)++yc;
+    if(y && s_rows[y].x[0]!=s_rows[0].x[0])++xc;
+    if(s_rows[y].y[0]!=s_rows[0].y[0]+(int)y)++yc;
   }
   fprintf(f,"%u\t%u\t%d\t%d\t%u\t%u\t%d\t%d\t%d\t%d\t%u\t%u\t%u\t%u\n",
       frame,view_room(),s_present_fallback,s_outdoor_present,s_scene_gate.fields,known,
-      s_row_world_x[0],s_row_world_y[0],s_row_world_x[223],s_row_world_y[223],xc,yc,
+      s_rows[0].x[0],s_rows[0].y[0],s_rows[223].x[0],s_rows[223].y[0],xc,yc,
       s_extent_width,s_extent_height);
   fclose(f);
 }
@@ -705,11 +721,11 @@ static void report_scene(unsigned frame) {
   const char *base=getenv("LAGOON_WIDE_ENTITY_REPORT");if(!base)return;
   char path[1200];if(snprintf(path,sizeof(path),"%s.scene.tsv",base)>=(int)sizeof(path))return;
   FILE *f=fopen(path,"ab");if(!f)return;fseek(f,0,SEEK_END);
-  if(!ftell(f))fprintf(f,"frame\troom\tloading\tbg_complete\tbg_ready\tchars_ready\tearly_authority\tmap_ready\tmodal\tactive\tfallback\tbrightness\ttm\ttorch_seen\ttorch_render\tretained_active\tretained_room\tretained_valid\tparallax_valid\tretained_actor_valid\tretained_invalidation_kind\tretained_invalidation_address\tactor_refusal_kind\tactor_refusal_address\tactor_captured\tactor_current\tactor_native_anchors\n");
+  if(!ftell(f))fprintf(f,"frame\troom\tloading\tbg_complete\tbg_ready\tchars_ready\tearly_authority\tmap_ready\tmodal\tactive\tfallback\tbrightness\ttm\ttorch_seen\ttorch_render\tretained_active\tretained_room\tretained_valid\tparallax_valid\tretained_actor_valid\tretained_invalidation_kind\tretained_invalidation_address\tactor_refusal_kind\tactor_refusal_address\tactor_captured\tactor_current\tactor_native_anchors\tnative_fallback\tnative_fallback_reasons\traster_calls\traster_not_outdoor\traster_not_ready\traster_scroll_refused\tfirst_h0\tfirst_v0\tfirst_h1\tfirst_v1\tlast_h0\tlast_v0\tlast_h1\tlast_v1\n");
   int map_ready=world_scene_geometry() && native_world_map();
   unsigned actor_kind,actor_address,actor_captured,actor_current;
   LagoonWideEntities_RetainedDiagnostic(&actor_kind,&actor_address,&actor_captured,&actor_current);
-  fprintf(f,"%u\t%u\t%u\t%u\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%u\t%u\t%u\t%d\t%d\t%u\t%d\t%d\t%d\t%u\t%u\t%u\t%u\t%u\t%u\t%d\n",frame,
+  fprintf(f,"%u\t%u\t%u\t%u\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%u\t%u\t%u\t%d\t%d\t%u\t%d\t%d\t%d\t%u\t%u\t%u\t%u\t%u\t%u\t%d",frame,
       word(0x48e),g_ram[0x100e],s_background.completed,background_upload_ready(),
       s_world_chars_ready,s_initial_world_authority,map_ready,has_modal_ui(),s_was_active,
       s_present_fallback,g_ppu->inidisp,g_ppu->screenEnabled[0],s_torches.seen,
@@ -718,7 +734,12 @@ static void report_scene(unsigned frame) {
       s_retained.valid,s_retained.parallax.valid,LagoonWideEntities_RetainedSceneValid(),
       s_retained_invalidation_kind,s_retained_invalidation_address,
       actor_kind,actor_address,actor_captured,actor_current,
-      LagoonWideEntities_RetainedNativeAnchors());fclose(f);
+      LagoonWideEntities_RetainedNativeAnchors());
+  fprintf(f,"\t%d\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n",
+      s_native_fallback,s_native_fallback_reasons,s_raster_calls,s_raster_not_outdoor,
+      s_raster_not_ready,s_raster_scroll_refused,
+      s_first_raster_scroll[0],s_first_raster_scroll[1],s_first_raster_scroll[2],s_first_raster_scroll[3],
+      s_last_raster_scroll[0],s_last_raster_scroll[1],s_last_raster_scroll[2],s_last_raster_scroll[3]);fclose(f);
 }
 
 /* Keep the completed field's policy with the presentation boundary. The
@@ -771,14 +792,17 @@ int LagoonWide_DrawFrame(uint8_t *dst,size_t pitch,const uint8_t *field,
   if(s_present_fallback)
     LagoonWideEntities_BlankField(dst,pitch,(unsigned)width,(unsigned)height);
   else if(s_outdoor_present)for(unsigned y=0;y<(unsigned)height && y<224;++y)
-    LagoonWideEntities_MaskRoomRow(dst+y*pitch,(unsigned)width,
-        s_row_world_x[y],s_row_world_y[y],s_extent_width,s_extent_height);
+    LagoonWideRaster_MaskRoomRow(dst+y*pitch,(unsigned)width,
+        &s_rows[y],s_extent_width,s_extent_height,s_row_known[y]);
   LagoonSceneRenderer_TryPresent(dst,pitch,dst,pitch,(unsigned)width,(unsigned)height,RtlStateGeneration());
   /* A proven incoming field owns its original native center. The independent
    * mosaic class writes margins only after exact native-word agreement; a
    * refused candidate retains the real center with safe blank margins. Never
    * let the outgoing room cache paint over either result during fade-in. */
-  if(s_present_incoming_mosaic)return 1;
+  if(s_present_incoming_mosaic) {
+    LagoonTransition_ObserveIncoming(RtlStateGeneration(),s_completed_frame);
+    return 1;
+  }
   /* Loader uploads can invalidate the exact world packet halfway through a
    * field. Keep one coherent full-width outgoing canvas during that interval,
    * using the real fade brightness. Incoming world output still needs every
