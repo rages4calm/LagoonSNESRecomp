@@ -6,12 +6,12 @@ contract. They contain no ROM, generated C, assets or saved games. Some keys are
 conditional static continuations; inclusion does not prove runtime reachability
 or whole-game completion. Unsupported instructions fail generation.
 
-The default build is unchanged. After setting up the ordinary generated project
-and the pinned SDK with this project's cumulative framework patch, a **fresh**
-build directory can opt in:
+Normal v0.3.0 playable builds require both architectural profiles and default
+to strict native execution. Generate the ordinary program from your ROM, apply
+the cumulative patch to the pinned SDK, then use a **fresh** build directory:
 
 ```text
-cmake -S . -B build-native -DLAGOON_GENERATE_NATIVE69_FROM_ROM=ON -DLAGOON_NATIVE69_ROM="/path/to/Lagoon (USA).sfc"
+cmake -S . -B build-native -DLAGOON_GENERATE_NATIVE69_FROM_ROM=ON -DLAGOON_NATIVE69_ROM="/path/to/Lagoon (USA).sfc" -DLAGOON_NATIVE_RELEASE_DEFAULT=ON -DLAGOON_REQUIRE_NATIVE_CPU=ON
 cmake --build build-native --config Release
 ```
 
@@ -32,13 +32,16 @@ python -P tools/generate_native_backend69.py --rom "/path/to/Lagoon (USA).sfc" -
 Generation checks the camera manifest against the actual QoL patch writer and
 follower guards. Changing either contract requires updating and verifying the
 profile together. Original-ROM attestation, runtime patch admission and per-step
-source/mapping checks remain distinct. Generating these files does not disable
-the interpreter safety net or enable strict testing by itself.
+source/mapping checks remain distinct. Generation writes code; release policy
+selects native execution and strict refusal. Keep `LAGOON_NATIVE_RELEASE_DEFAULT=ON`
+and `LAGOON_REQUIRE_NATIVE_CPU=ON` for playable release builds. Explicit 0/0
+backend/strict environment overrides are for debugging/reference comparisons.
 
-## Launch the opt-in native build
+## Launch strict native execution
 
-The ordinary launcher does not enable this development backend automatically.
-Launch the generated build explicitly in strict native mode:
+The v0.3.0 executable starts strict native execution through Companion or direct
+launch; Python is not required to enable it. The developer wrapper can also
+select strict mode explicitly:
 
 ```text
 python -P tools/run_native_backend69.py --exe build-native/LagoonSNESRecomp.exe -- --no-launcher

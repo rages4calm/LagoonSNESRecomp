@@ -201,6 +201,7 @@ def main():
     parser.add_argument('--coverage',action='store_true')
     parser.add_argument('--coverage-summary',action='store_true',help='Export coverage snapshots without a raw event journal; useful for bounded gap scouting.')
     parser.add_argument('--native-only',action='store_true',help='Require an armed strict runtime, zero interpreter/replay work and a positive execution summary; old executables cannot qualify.')
+    parser.add_argument('--native-default',action='store_true',help='Verify release native defaults without supplying native-policy environment variables')
     parser.add_argument('--campaign-warps',type=Path,help='Development-only scheduled real-descriptor warps; frozen privately and recorded as cheats')
     parser.add_argument('--no-present-log',action='store_true',help='Performance-only: omit per-field CRC/luma logging and fflush; default qualification keeps the log')
     parser.add_argument('--live-input',action='store_true',help='Opt in to merging physical keyboard/gamepads into the script; default uses only scripted guest input')
@@ -220,6 +221,8 @@ def main():
     parser.add_argument('--screenshot-range',nargs=2,type=int,metavar=('FIRST','LAST'),help='Save every presentation in a bounded diagnostic frame range')
     parser.add_argument('--manifest',type=Path,help='Manifest belonging to this executable; required for old retained binaries')
     args=parser.parse_args()
+    if args.native_default and (args.native_only or any(x.partition('=')[0] in {'SNESRECOMP_NATIVE_ONLY','LAGOON_NATIVE_BACKEND69','LAGOON_NATIVE_BOOT62'} for x in args.env)):
+        parser.error('--native-default requires absent native-policy overrides')
     native_overrides=[x.partition('=')[2]for x in args.env if x.partition('=')[0]=='SNESRECOMP_NATIVE_ONLY']
     if len(native_overrides)>1:parser.error('Specify SNESRECOMP_NATIVE_ONLY only once')
     if args.native_only:
@@ -444,8 +447,8 @@ def main():
     # successfully. Such output is diagnostic evidence, never a passing replay.
     stderr_text=(out/'stderr.log').read_text(encoding='utf-8',errors='replace')
     receipt['runtime_failures']=runtime_failure_lines(stderr_text)
-    receipt['native_only']=native_only_evidence(stderr_text,overrides.get('SNESRECOMP_NATIVE_ONLY')=='1')
-    receipt['native_backend']=native_backend_evidence(stderr_text,overrides.get('LAGOON_NATIVE_BACKEND69')=='1',receipt['native_only'])
+    receipt['native_only']=native_only_evidence(stderr_text,args.native_default or overrides.get('SNESRECOMP_NATIVE_ONLY')=='1')
+    receipt['native_backend']=native_backend_evidence(stderr_text,args.native_default or overrides.get('LAGOON_NATIVE_BACKEND69')=='1',receipt['native_only'])
     receipt['native_block_coverage']=native_block_coverage_evidence(overrides.get('SNESRECOMP_NATIVE_BLOCK_COVERAGE'),stderr_text,receipt['native_only'])
     capture=receipt['native_block_coverage'];backend=receipt['native_backend']
     if capture and capture['passed'] and backend and backend['passed']:
@@ -454,6 +457,11 @@ def main():
             capture['passed']=False;capture['errors'].append('selected native program is absent from coverage')
     receipt['qualification_passed']=not result.returncode and bool(receipt['dump_tags']) and not receipt['runtime_failures'] and (receipt['native_only'] is None or receipt['native_only']['passed']) and (receipt['native_backend'] is None or receipt['native_backend']['passed'])
     if receipt['native_block_coverage'] is not None:receipt['qualification_passed']=receipt['qualification_passed'] and receipt['native_block_coverage']['passed']
+    if args.native_default:
+        policies=re.findall(r'\[native-blocks69\] execution-policy default=(\d+) backend=(\d+) strict=(\d+) boot=(\S+)',stderr_text)
+        valid=bool(policies) and all(p==('1','1','1','off') for p in policies)
+        receipt['native_default']={'requested':True,'passed':valid,'policies':policies,'explicit_policy_overrides_supplied':False}
+        receipt['qualification_passed']=receipt['qualification_passed'] and valid
     (out/'receipt.json').write_text(json.dumps(receipt,indent=2),encoding='utf-8')
     summary={k:receipt[k] for k in ('exe_sha256','exit_code','elapsed_seconds')}
     summary['dump_count']=len(receipt['dump_tags'])

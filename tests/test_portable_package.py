@@ -77,6 +77,24 @@ class PortablePackageTests(unittest.TestCase):
             self.run_synthetic_setup()
         self.assertFalse((self.stage / 'local').exists())
 
+    def test_native_contract_policy_is_preserved_in_setup_result(self):
+        self.contract.update(native_cpu=True,native_only_default=True)
+        self.save_contract()
+        ready=self.run_synthetic_setup()
+        self.assertIs(ready['native_cpu'],True)
+        self.assertIs(ready['native_only_default'],True)
+
+    def test_malformed_native_contract_is_refused_before_local_writes(self):
+        for policy in [dict(native_cpu=1,native_only_default=True),
+                       dict(native_cpu=True,native_only_default='true'),
+                       dict(native_cpu=False,native_only_default=True)]:
+            with self.subTest(policy=policy):
+                self.contract.update(policy)
+                self.save_contract()
+                with self.assertRaises(ValueError):
+                    self.run_synthetic_setup()
+                self.assertFalse((self.stage/'local').exists())
+
     def test_changed_payload_is_refused_before_local_writes(self):
         (self.stage / 'game/LagoonSNESRecomp').write_bytes(b'changed')
         with self.assertRaises(ValueError):
@@ -223,6 +241,78 @@ class PortablePackageTests(unittest.TestCase):
         response = SimpleNamespace(returncode=0, stdout='libOther.so => not found\n', stderr='')
         with patch.object(package.platform, 'system', return_value='Linux'), patch.object(package.subprocess, 'run', return_value=response), self.assertRaises(ValueError):
             package.dependencies([publish / 'libUnrelated.so'], 'linux-x64')
+
+
+class NativeReleaseMetadataTests(unittest.TestCase):
+    def metadata(self):
+        return dict(format_version=1,playable=True,native_cpu=True,native_only_default=True,
+                    system='Linux',executable='LagoonSNESRecomp',version='0.3.0',
+                    generated_manifest_sha256='a'*64,framework_patch_sha256='b'*64)
+
+    def validate(self,data,require=True):
+        package.validate_build_metadata(data,Path('LagoonSNESRecomp'),'a'*64,'b'*64,
+                                        '0.3.0','Linux',require)
+
+    def test_actual_native_release_metadata_accepted_for_each_target(self):
+        for system,name in [('Linux','LagoonSNESRecomp'),('Darwin','LagoonSNESRecomp'),
+                            ('Windows','LagoonSNESRecomp.exe')]:
+            data=self.metadata();data.update(system=system,executable=name)
+            with self.subTest(system=system):
+                package.validate_build_metadata(data,Path(name),'a'*64,'b'*64,'0.3.0',system,True)
+
+    def test_missing_false_or_nonboolean_native_release_fields_are_refused(self):
+        for key in ('playable','native_cpu','native_only_default'):
+            for value in (None,False,0,1,'true',[],{}):
+                data=self.metadata()
+                if value is None:del data[key]
+                else:data[key]=value
+                with self.subTest(key=key,value=value),self.assertRaises(ValueError):
+                    self.validate(data)
+
+    def test_wrong_build_identity_is_refused_even_with_native_claims(self):
+        for key,value in [('system','Darwin'),('executable','setup-host'),('version','0.2.5'),
+                          ('generated_manifest_sha256','c'*64),('framework_patch_sha256','d'*64),
+                          ('format_version',True)]:
+            data=self.metadata();data[key]=value
+            with self.subTest(key=key),self.assertRaises(ValueError):self.validate(data)
+
+    def test_legacy_playable_metadata_is_only_admitted_without_native_requirement(self):
+        data=self.metadata();del data['native_cpu'];del data['native_only_default']
+        self.validate(data,require=False)
+        with self.assertRaises(ValueError):self.validate(data,require=True)
+
+
+class ReviewedSoundtrackTests(unittest.TestCase):
+    def setUp(self):
+        scratch=ROOT/'build-port-tests';scratch.mkdir(exist_ok=True)
+        self.directory=Path(tempfile.mkdtemp(prefix='synthetic-album-',dir=scratch))
+        self.rows=[]
+        for number in range(1,41):
+            name=f'lagoon-x68000-{number}.pcm';data=b'synthetic audit fixture '+str(number).encode()
+            (self.directory/name).write_bytes(data)
+            self.rows.append(dict(file=name,sha256=hashlib.sha256(data).hexdigest()))
+        (self.directory/'lagoon-x68000.msu').write_bytes(b'MSU1')
+        self.save_pack()
+
+    def save_pack(self):
+        (self.directory/'pack.json').write_text(json.dumps(dict(tracks=self.rows)),encoding='utf-8')
+
+    def test_complete_import_hashes_admit_exactly_the_album(self):
+        files=package.reviewed_soundtrack_inputs(self.directory)
+        self.assertEqual(len(files),42)
+        self.assertEqual(len({p.name for p in files}),42)
+
+    def test_changed_audio_is_rejected(self):
+        (self.directory/'lagoon-x68000-40.pcm').write_bytes(b'not the reviewed import')
+        with self.assertRaises(ValueError):package.reviewed_soundtrack_inputs(self.directory)
+
+    def test_duplicate_or_missing_import_row_is_rejected(self):
+        self.rows[-1]=self.rows[0];self.save_pack()
+        with self.assertRaises(ValueError):package.reviewed_soundtrack_inputs(self.directory)
+
+    def test_unreviewed_extra_track_is_rejected(self):
+        (self.directory/'lagoon-x68000-41.pcm').write_bytes(b'unreviewed audio')
+        with self.assertRaises(ValueError):package.reviewed_soundtrack_inputs(self.directory)
 
 
 if __name__ == '__main__':

@@ -1,12 +1,15 @@
 # Native timing qualification
 
-The interpreter remains part of normal execution. Native promotion must check
-ordered pictures, memory, CPU registers, real saved/dead stack frames and guest
-clocks against original opcodes on matched isolated inputs. A few screenshots or
+Normal v0.3.0 execution is strict native for the main 65816 CPU. The interpreter
+paths below describe explicit debugging/reference execution and legacy compiler
+transfer contracts. Normal resumptions use native continuation entries; uncovered
+instructions stop before execution instead of falling back. Native changes must
+check ordered pictures, memory, CPU registers, real saved/dead stack frames and
+guest clocks against original opcodes on matched isolated inputs. A few screenshots or
 a source compile cannot establish parity. Preserve unexplained differences in
 the result; do not turn a failed strict comparison into an unqualified pass.
 
-## Interpreter-owned timing
+## Legacy/reference interpreter-owned timing
 
 Precise native roots use instruction-level timing. An unresolved terminal indirect
 jump returns its own PC to the interpreter, which fetches and executes it. The

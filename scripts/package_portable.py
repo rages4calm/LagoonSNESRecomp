@@ -21,6 +21,8 @@ _spec = importlib.util.spec_from_file_location('lagoon_windows_package_inputs', 
 _inputs = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_inputs)
 achievement_cameo_inputs = _inputs.achievement_cameo_inputs
+validate_build_metadata = _inputs.validate_build_metadata
+reviewed_soundtrack_inputs = _inputs.reviewed_soundtrack_inputs
 PLATFORMS = {'linux-x64': ('Linux', 62), 'linux-arm64': ('Linux', 183),
              'macos-x64': ('Darwin', 0x1000007), 'macos-arm64': ('Darwin', 0x100000c)}
 
@@ -131,9 +133,11 @@ def main() -> None:
     parser.add_argument('--game', type=Path, required=True)
     parser.add_argument('--launcher', type=Path, required=True, help='Fresh self-contained Avalonia publish output')
     parser.add_argument('--build-metadata', type=Path, required=True, help='lagoon-build.json emitted by CMake')
+    parser.add_argument('--require-native', action='store_true', help='Refuse any build without compiled strict-native release defaults')
     parser.add_argument('--generated-manifest', type=Path, required=True, help='Local input; only its digest is packaged')
     parser.add_argument('--platform', choices=PLATFORMS, required=True)
     parser.add_argument('--companion-root', type=Path, required=True)
+    parser.add_argument('--framework-root',type=Path,default=ROOT/'snesrecomp',help='Qualified SDK checkout supplying the compiled framework licenses/notices')
     parser.add_argument('--sdl-license', type=Path, required=True, help='LICENSE.txt from the exact SDL3 build/source used')
     parser.add_argument('--zlib-license', type=Path, required=True, help='zlib license/notice from the build dependency')
     parser.add_argument('--nuget-packages', type=Path, default=Path(os.environ.get('NUGET_PACKAGES', Path.home() / '.nuget/packages')))
@@ -145,13 +149,14 @@ def main() -> None:
     metadata = json.loads(args.build_metadata.read_text(encoding='utf-8'))
     manifest_sha = digest(args.generated_manifest)
     patch_sha = digest(ROOT / 'patches/lagoon-framework.patch')
-    if (metadata.get('format_version') != 1 or metadata.get('playable') is not True
-            or metadata.get('system') != PLATFORMS[args.platform][0]
-            or metadata.get('generated_manifest_sha256') != manifest_sha
-            or metadata.get('framework_patch_sha256') != patch_sha
-            or metadata.get('version') != (ROOT / 'VERSION').read_text().strip()
-            or metadata.get('executable') != args.game.name):
-        raise SystemExit('Build metadata does not qualify this as the current playable target; setup hosts cannot be packaged')
+    try:
+        validate_build_metadata(metadata,args.game,manifest_sha,patch_sha,
+                                (ROOT/'VERSION').read_text(encoding='utf-8').strip(),
+                                PLATFORMS[args.platform][0],args.require_native)
+    except ValueError as error:
+        raise SystemExit(str(error))
+    native_cpu=metadata.get('native_cpu') is True
+    native_only_default=metadata.get('native_only_default') is True
     check_binary(args.game, args.platform)
     launcher = args.launcher / 'lagoon.Companion'
     if not launcher.is_file() or not (args.launcher / 'libcoreclr.so').is_file() and not (args.launcher / 'libcoreclr.dylib').is_file():
@@ -177,8 +182,8 @@ def main() -> None:
                              (args.companion_root / 'LICENSE', 'licenses/CompanionLauncher-LICENSE'),
                              (args.sdl_license, 'licenses/SDL3-LICENSE.txt'),
                              (args.zlib_license, 'licenses/zlib-LICENSE.txt'),
-                             (ROOT / 'snesrecomp/LICENSE', 'licenses/SNESRecomp-LICENSE'),
-                             (ROOT / 'snesrecomp/THIRD_PARTY_ATTRIBUTION.md', 'licenses/SNESRecomp-THIRD_PARTY_ATTRIBUTION.md')]:
+                             (args.framework_root / 'LICENSE', 'licenses/SNESRecomp-LICENSE'),
+                             (args.framework_root / 'THIRD_PARTY_ATTRIBUTION.md', 'licenses/SNESRecomp-THIRD_PARTY_ATTRIBUTION.md')]:
         selected[source] = relative
     # Include exact framework notices from the target runtime pack, not a Windows
     # runtime or a presumed machine-wide installation.
@@ -201,18 +206,11 @@ def main() -> None:
         if source.is_file() and source.name.upper().startswith(('LICENSE', 'THIRD-PARTY-NOTICES')):
             selected[source] = 'licenses/dotnet/' + source.name
     if args.soundtrack_root:
-        pack = json.loads((args.soundtrack_root / 'pack.json').read_text(encoding='utf-8'))
-        tracks = sorted(args.soundtrack_root.glob('lagoon-x68000-*.pcm'))
-        if len(tracks) != 40 or not (args.soundtrack_root / 'lagoon-x68000.msu').is_file():
-            raise SystemExit('Expected the reviewed complete 40-track X68000 album')
-        # Require source import hashes to match, never package arbitrary local audio.
-        rows = pack.get('tracks', [])
-        recorded = {row.get('pcm_file', row.get('file', '')): row for row in rows}
-        for track in tracks:
-            row = recorded.get(track.name)
-            if row is None or digest(track) not in [row.get('pcm_sha256'), row.get('sha256')]:
-                raise SystemExit('Soundtrack track missing from reviewed import hashes: ' + track.name)
-        for source in [*tracks, args.soundtrack_root / 'lagoon-x68000.msu', args.soundtrack_root / 'pack.json']:
+        try:
+            soundtrack=reviewed_soundtrack_inputs(args.soundtrack_root)
+        except ValueError as error:
+            raise SystemExit(str(error))
+        for source in soundtrack:
             selected[source] = 'soundtrack/x68000/' + source.name
     for source in selected:
         if not source.is_file() or source.is_symlink():
@@ -236,7 +234,7 @@ def main() -> None:
     start.chmod(0o755)
     hashes[start.name] = digest(start)
     package = f"lagoon-{metadata['version']}-{args.platform}"
-    (stage / 'README.txt').write_text('''LAGOON COMPANION — LINUX / macOS
+    readme='''LAGOON COMPANION — LINUX / macOS
 
 Bring your own clean, unheadered USA ROM. No ROM or generated C is included.
 Run Start Lagoon.command (or ./lagoon.Companion). Choose your ROM, run setup,
@@ -244,18 +242,27 @@ then Play. Python 3.11+ is required only for first-run setup; no compiler is nee
 for this prebuilt package. Settings/progress live in local/. Do not copy them
 between running game processes. Linux desktop runtime dependencies and macOS
 Gatekeeper/testing limits are documented in docs/PORTING.md in the source repo.
-The interpreter safety net is intentionally retained. Native routines are not a
-complete matching decompilation. Platform qualification is recorded separately
-from package creation; packaging alone is not a successful gameplay test.
+Platform qualification is recorded separately from package creation;
+packaging alone is not a successful gameplay test.
 The optional Linux LTTng tracing provider is not included; ordinary launcher
 operation does not require LTTng or its legacy tracing-library ABI.
-''', encoding='utf-8')
+'''
+    if native_cpu and native_only_default:
+        readme+='''\nThe main 65816 game CPU runs entirely as native compiled code. Normal play
+uses strict native execution with no CPU interpreter fallback. The interpreter
+remains available only as a deliberate debugging/reference option. SNES graphics,
+DMA, timers and SPC700/DSP audio hardware still use the runtime. This is a native
+CPU port, not a complete matching source decompilation.\n'''
+    else:
+        readme+='\nThis development package retains interpreter/reference execution.\n'
+    (stage / 'README.txt').write_text(readme,encoding='utf-8')
     hashes['README.txt'] = digest(stage / 'README.txt')
     (stage / 'dependency-report.json').write_text(json.dumps(loader_dependencies, indent=2) + '\n', encoding='utf-8')
     hashes['dependency-report.json'] = digest(stage / 'dependency-report.json')
     contract = {'format_version': 1, 'mode': 'prebuilt-own-rom', 'game_id': 'lagoon',
                 'version': metadata['version'], 'platform': args.platform, 'package': package,
-                'playable': True, 'executable': 'game/LagoonSNESRecomp',
+                'playable': True, 'native_cpu':native_cpu,'native_only_default':native_only_default,
+                'executable': 'game/LagoonSNESRecomp',
                 'rom_identity': {'size': 1048576, 'sha256': '46c811f0cacffe8f20e1d63072d25d7c47e9bb3fd5124851fd05aca9884d21fb'},
                 'generated_manifest_sha256': manifest_sha, 'framework_patch_sha256': patch_sha,
                 'game_sha256': hashes['game/LagoonSNESRecomp'], 'files': dict(sorted(hashes.items()))}

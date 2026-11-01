@@ -19,7 +19,7 @@ public sealed class GameAdapter : JsonGameAdapterBase
     private static readonly string EngineName = OperatingSystem.IsWindows() ? "LagoonSNESRecomp.exe" : "LagoonSNESRecomp";
     private static readonly string DefaultBuild = Path.Combine(Project, PreviewPackage ? "game" : "build");
     private static readonly GameDefinition Game = new(
-        "lagoon", "Lagoon", "Native recompilation in progress · interpreter fallback enabled",
+        "lagoon", "Lagoon", "100% native game CPU · widescreen and quality of life",
         new[] { new OptionDefinition("engine.path", "Game", "Native executable", OptionKind.Text,
             OptionValue.From(Path.Combine(DefaultBuild, EngineName)),
             PreviewPackage ? "The bundled native Lagoon executable." : "The locally built Lagoon executable."),

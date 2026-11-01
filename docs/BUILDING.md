@@ -1,130 +1,117 @@
 # Building Lagoon Recomp
 
-The Windows preview release uses Companion's **Game setup** page. Extract the
-whole package into a writable folder, open `Setup Lagoon.cmd`, set the absolute
-path to your clean USA ROM on **Game**, click **Apply**, then **Run setup**.
-The release includes the qualified native game EXE and self-contained Companion
-EXE, each with its own icon. No .NET, Git, Rust, Python, compiler installation,
-generation or download is needed. You supply the clean ROM, which is verified
-and read in place. No ROM, extracted Lagoon graphics, ROM-derived C source or saves
-are distributed. The optional X68000 music is bundled; choose **Original SNES**
-or **X68000** under Audio and Apply. No folder selection is required. First
-setup checks every package file and prepares `local/` for
-settings, mod preferences and saves; the packaged game stays under `game/`.
-Failure cannot publish readiness. Existing local settings and saves are never
-overwritten. Extract upgrades into a fresh folder and preserve your old saves.
+## Prebuilt releases
 
-Maintainers publish Companion with `dotnet publish launcher/Game.Companion.csproj
--c Release -r win-x64 --self-contained true` (set the Companion local package
-feed first), then stage the reviewed source with
-`python -P scripts/package_windows_preview.py --stage <fresh-directory>
---launcher <self-contained-publish-directory> --game-exe <qualified-native-EXE>
---companion-root <Companion-source> --toolchain <qualification-toolchain>
---soundtrack-root <complete-immutable-X68000-pack>
---generated-manifest
-<qualified-local-program_manifest.json> --package-id <preview-version>`.
-Staging copies only explicit runtime inputs, records each file's SHA256, and
-includes dependency licenses. It never copies a developer build directory, ROM,
-private audio, source generation, settings or saves. The local qualification
-manifest is represented only by its SHA256. Audit the complete stage and verify
-clean first-run setup, runtime DLL closure and isolated gameplay before creating
-or publishing its ZIP. Archive only `windows-preview.json` and its `files` list;
-setup's writable `local/` directory must never enter the published archive.
+The v0.3.0 release line targets Windows x64, Linux x64, Intel Mac and Apple
+Silicon Mac with the actual prebuilt game, self-contained Companion and converted
+X68000 album. Check the [main page](../README.md) for publication status and downloads.
+Supply your own clean USA ROM. No game compilation or source generation is needed
+to play these packages. Windows setup needs no Python or .NET installation;
+Linux/macOS first-run setup uses Python 3.11+, with .NET bundled.
 
-When the qualified launcher publish directory is immutable and on the same
-volume, `--hardlink-launcher` reuses those files in the temporary stage without
-another runtime copy. Treat staged binaries as immutable. This does not change
-the ZIP contents or the player's installation requirements.
+Extract the whole package into a writable folder, select/Apply the ROM in
+Companion, then run Game setup. Runtime files stay under `game/`; settings,
+mod preferences and saves use `local/`. Setup verifies the payload and ROM,
+reads the ROM in place and preserves existing local progress. Keep the folder
+together. [Playing](PLAYING.md) · [Platform details](PORTING.md).
 
-The 0.2.2 candidate targets tag `v0.2.2-preview.1`. Its explicit stage also
-includes `game/assets/achievements/catalog.json` (26 definitions), the exact
-CompanionAchievements/cJSON MIT notices and dependency provenance, and four
-small credited Crono GIFs, decoded dance/portrait headers, the owner-selected
-`B1.wav` completion sound and provenance. The Crono
-artwork and sound retain separate original copyright; the software's MIT notices do not
-license it. No Chrono Trigger ROM or whole sprite sheet is included.
-`achievement_cameo_inputs()` in the packager checks catalog identity/definitions
-and provenance hashes before creating the stage. Do not substitute achievement
-progress or a developer profile for this public catalog.
+Normal release execution is strict native for the main 65816 CPU. The interpreter
+is an explicit developer reference mode. Graphics, DMA, timers and SPC700/DSP
+audio still use the hardware runtime.
 
-The legacy multi-platform setup-host workflow is not the Windows Companion
-preview pipeline and must not be used to publish this preview.
+## Source checkout
 
-## Developer checkout
+Install Python 3.11+, Rust, CMake 3.20+, Ninja, a C/C++ compiler, SDL3 and zlib as
+required by the pinned [SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp)
+source. macOS needs the Xcode command-line tools. Commands assume the repository
+root; Windows regeneration uses Git Bash.
 
-Install the Windows toolchain/dependencies documented by
-[SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp): Python 3.11+,
-Rust, CMake, Ninja, a supported C/C++ toolchain, SDL3 and zlib. Use a configured
-build shell. Generate locally from your own original USA ROM:
+For a fresh checkout, initialize submodules before applying the cumulative patch.
+Preserve a dirty existing SDK: never reset or bootstrap it to resolve a mismatch.
+Select a separate reviewed checkout through `framework.local`,
+`LAGOON_FRAMEWORK_ROOT` or CMake's `SNESRECOMP_ROOT` when necessary.
 
 ```sh
 git submodule update --init --recursive
 python -P tools/apply_framework_patch.py
-bash tools/regen.sh --rom "/path/to/Lagoon (USA).sfc"
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
+bash tools/regen.sh --rom "/absolute/path/Lagoon (USA).sfc"
+cmake -S . -B build-native -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DLAGOON_GENERATE_NATIVE69_FROM_ROM=ON \
+  -DLAGOON_NATIVE69_ROM="/absolute/path/Lagoon (USA).sfc" \
+  -DLAGOON_NATIVE_RELEASE_DEFAULT=ON -DLAGOON_REQUIRE_NATIVE_CPU=ON
+cmake --build build-native -j
 ```
 
-On Windows, use Git's Bash rather than an unconfigured WSL stub. `regen.sh` also
-applies/checks the required framework patch. `framework_pins.txt` records the
-upstream baseline; `patches/lagoon-framework.patch` carries the local compatibility
-and precise-root timing changes. The public submodule pin is reachable upstream.
+The ordinary generated program and both architectural native profiles are
+required for a playable release. The profile generator checks the ROM, compiler
+pins and camera contract before writing private C under the build directory.
+[Native profile inputs](../config/native69/README.md). Release defaults enable
+native execution and strict refusal: an uncovered or mismatched instruction
+stops before interpretation. Keep source, mapping, mode, stack and generation guards.
 
-The current pin is `98f41838443a7cd7f9d56bec41387a6ebfc3bcbc` (October 30,
-2026), including the post-0.4.3 shared GPU Mode 7 work. Never update/reset a
-dirty SDK to reach that pin. Keep it intact and select an isolated worktree:
-put its absolute path in the ignored `framework.local`, or set
-`LAGOON_FRAMEWORK_ROOT`. CMake and the patch/regeneration helpers honor that
-selection. An explicit CMake `SNESRECOMP_ROOT` cache entry still takes precedence;
-use a separate build directory for comparisons. Fresh clones use `snesrecomp`.
-The patch helper refuses the wrong revision before writing; `--print-root`
-reports its selection without applying anything.
+`framework_pins.txt` records the baseline; `patches/lagoon-framework.patch` carries
+Lagoon's cumulative changes. The selected revision is
+`98f41838443a7cd7f9d56bec41387a6ebfc3bcbc`. The patch helper refuses other
+revisions; `python -P tools/apply_framework_patch.py --print-root` reports its
+selection without applying changes. A changed compiler/ABI needs review and
+qualification before native metadata pins are updated.
 
-The DSP mixer defaults to `NATIVE` and immutable interpreter ROM reads to
-`FUSED`. Reference builds can select `-DSNESRECOMP_DSP_MIX_IMPL=LLE` and
-`-DSNESRECOMP_INTERP_READ_IMPL=REFERENCE`. Neither disables the CPU interpreter
-or promotes an unqualified routine. See the
-[upgrade qualification](FRAMEWORK-UPGRADE-2026-10-31.md).
+The required ROM is an unheadered 1 MiB USA LoROM, SHA256
+`46c811f0cacffe8f20e1d63072d25d7c47e9bb3fd5124851fd05aca9884d21fb`,
+CRC32 `d2554270`. Patched ROMs are refused. ROMs, generated C, saves, extracted
+Lagoon assets and private validation remain local. Release executables contain
+compiled code; archives do not include generated sources or the ROM.
 
-Build CompanionLauncher 0.2.0's local NuGet packages, then:
+## Companion and sidecars
+
+Build CompanionLauncher's pinned 0.2.0 local packages, then:
 
 ```powershell
 powershell -File scripts/build_launcher.ps1 -CompanionRoot C:\path\to\CompanionLauncher
 ```
 
-The portable CompanionAchievements C core and cJSON are pinned under
-`third_party/`, with unchanged MIT notices and exact hashes in
-`third_party/companion_achievements/provenance.json`; no separate SDK install is
-needed. The game embeds its catalog and tiny cameo pixels. Companion reads the
-public JSON catalog beside the game. Deploy that catalog with the matching
-executable, along with the credited artwork/provenance and dependency notices.
+Windows uses `launcher/Game.Companion.csproj`; Linux/macOS share the adapter
+through `launcher/desktop/Game.Companion.Desktop.csproj`. Publish self-contained
+for the target runtime. [Adapter details](../launcher/README.md).
 
-The game expects SHA256
-`46c811f0cacffe8f20e1d63072d25d7c47e9bb3fd5124851fd05aca9884d21fb`,
-CRC32 `d2554270`, a 1 MiB unheadered USA LoROM. Patched ROMs are deliberately
-rejected by this clean-ROM build. Generated C is ROM-derived and remains local.
+Deploy matching mod manifests, EPX shaders, achievement catalog, credited cameo
+and provenance, icons and dependency notices with the executable. An updated
+EXE with an old catalog can reject valid QoL selections. Check sidecars with:
 
-
-Build commands assume the repository root. For a clean checkout only, initialise
-submodules before applying the patch. In an active development checkout, preserve
-local framework modifications and apply only reviewed changes; never reset the
-framework to resolve a patch mismatch. See [development](DEVELOPMENT.md).
-
-When installing a development build, deploy both package manifests and both EPX
-shader files with the tested executable. An updated EXE with an older catalog
-can make Companion reject valid QoL selections. Before handing off the build:
-
-```powershell
-python -P tools/check_runtime_catalog.py --runtime-root build
+```sh
+python -P tools/check_runtime_catalog.py --runtime-root build-native
 ```
 
-For a configured Windows preview, use `--runtime-root path/to/preview/game
---writable-root path/to/preview/local` to check setup's copies as well. This
-checks public sidecar bytes; it does not modify preferences or qualify gameplay.
+For a package, select `path/to/package/game` and add
+`--writable-root path/to/package/local`. This checks sidecars without modifying
+preferences; it does not qualify gameplay.
 
-## Linux and macOS
+## Target builds and packaging
 
-For prebuilt experimental native packages and hosted test scope, see
-[Porting](PORTING.md). The portable Companion uses the same adapter/settings as
-Windows through launcher/desktop/Game.Companion.Desktop.csproj. The Windows
-Forms host and current stable Windows release remain separate.
+On Linux/macOS, `python3 -P scripts/build_port.py --rom '/absolute/path/Lagoon (USA).sfc'`
+generates both profiles and builds strict native execution in `build-port/`.
+Private builders can use `--native-generated-dir` with reviewed frozen profiles
+and the matching ordinary generated program. The ROM-free `--setup-host` mode
+is compile-only and cannot play Lagoon.
+
+Use explicit runtime inputs with `scripts/package_windows_preview.py` or
+`scripts/package_portable.py`. Their historical filenames do not define the
+release channel. For v0.3.0, pass `--require-native` to both packagers and
+`--build-metadata path/to/lagoon-build.json` for the exact compiled executable.
+Windows native enforcement requires that metadata argument too. They stage
+payload hashes, licenses and runtime files, excluding ROMs, generated source,
+developer configuration and progress. Never publish a
+developer build tree. [Target qualification and package checks](PORTING.md).
+
+## Developer reference execution
+
+Select the interpreter explicitly for a matched comparison:
+
+```sh
+LAGOON_NATIVE_BACKEND69=0 SNESRECOMP_NATIVE_ONLY=0 ./build-native/LagoonSNESRecomp --no-launcher
+```
+
+Use isolated settings/saves and identical source, initial state and input timing.
+A deliberately non-native development build also needs both
+`LAGOON_REQUIRE_NATIVE_CPU=OFF` and `LAGOON_NATIVE_RELEASE_DEFAULT=OFF`.
+[Development and verification](DEVELOPMENT.md).

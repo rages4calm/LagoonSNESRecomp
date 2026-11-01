@@ -25,8 +25,11 @@ Missing bank configs are created automatically; hand-written directives outside
 the generated blocks are preserved. Removing an entry also removes its generated
 directives on the next regen.
 
-- `emit = false` (the default) writes a `symbol` label and `force_lle` boundary:
-  it stays interpreted, with no generated `func` declaration in `funcs.h`.
+- `emit = false` (the default) writes a `symbol` label and legacy `force_lle`
+  analysis boundary, with no legacy `func` declaration in `funcs.h`. Supported
+  architectural continuations still execute natively through the separate
+  native-profile inputs. This directive does not enable automatic interpreter
+  fallback in the normal v0.3.0 release.
 - `emit = true` writes a `func` declaration and requests analysis from that
   entry, even without `--cfg-roots`. Only variants the analyzer proves safe
   become AOT code; others still use the interpreter. Optional `entry_m` and

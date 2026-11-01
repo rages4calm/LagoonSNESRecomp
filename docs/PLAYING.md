@@ -7,9 +7,12 @@ uses the original Lagoon lettering and frame, with a Crono portrait. Music
 continues while the world pauses. Completing it plays a owner-selected Chrono Trigger laugh
 before the achievement chime.
 
-Build from [these instructions](BUILDING.md), open `Start Lagoon.cmd`, select your
-clean USA ROM in Companion Launcher and choose Play. Apply settings before starting
-or restart to use changes. This is an experimental build with interpreter fallback.
+Use the matching v0.3.0 package from the [main page](../README.md), or build from
+[these instructions](BUILDING.md). Select/Apply your clean USA ROM in Companion,
+run Game setup if offered, then Play. Apply settings before starting or restart
+to use changes. Normal release execution is 100% native for the main game CPU;
+the interpreter is an explicit developer reference option. Graphics and audio
+hardware continue through the runtime.
 
 During gameplay, the SNES **B** button swings the sword and **A** jumps. These
 are controller button names, rather than literal keyboard keys; use your input
@@ -32,7 +35,11 @@ world scenery at the existing game scale; it is not a zoom-out feature.
 Ordinary supported dialogue retains the surrounding world, and qualified menu
 frames expand using original artwork. Titles, portrait layouts, finite map edges,
 unsupported effects and unknown resources can retain the original geometry.
-Additional sprites are presentation only: they do not extend enemy AI or collision.
+Additional drawn sprites retain their original collision rules. Ordinary enemies
+in the expanded horizontal view can also run their original AI; rendering and
+simulation coverage are separate checks. Recent fixes preserve side margins
+while moving vertically and prevent the old doorway from flashing back during
+room loading.
 
 ## Quality of life
 
@@ -55,8 +62,8 @@ new games; reward choices affect future enemy and boss rewards, not saved totals
 
 Faster Items/Magic/Equipment transitions and Giles's first aid are built into the
 port. Speak to Giles, choose Yes and follow the escort quest; no Healing Pot is
-required or consumed. The ROM remains clean. These are shared native/interpreter
-hooks rather than applying the supplied BPS at launch. [Credits](../CREDITS.md).
+required or consumed. The ROM remains clean. These are native port features
+rather than applying the supplied BPS at launch. [Credits](../CREDITS.md).
 
 ## Escorts and the map
 
@@ -97,7 +104,7 @@ objective journal, guidance for other quests and zoom-out remain future work.
 Normal in-game saves remain available. **F1 loads slot 1; Shift+F1 saves it.**
 F2–F10 select the other slots, with Shift to save; F11 opens the state browser.
 In a source checkout, settings live in `build/config.ini`, bindings in
-`build/keybinds.ini`, and saves in `build/saves`. The downloadable preview uses
+`build/keybinds.ini`, and saves in `build/saves`. The downloadable release uses
 `local/config.ini` and `local/saves` in its extracted folder; keyboard controls
 remain beside its executable in `game/keybinds.ini`.
 The launcher does not migrate existing saves.
@@ -152,10 +159,10 @@ trim. Notifications wait while panels/dialogue are open.
 
 Progress works offline; there is no account or server. It belongs to the selected
 game save folder and is stored separately at
-`Achievements/lagoon/native-qol/unseeded/progress.json` beneath it. In the preview,
+`Achievements/lagoon/native-qol/unseeded/progress.json` beneath it. In the release,
 that is inside `local/saves`; in the normal source checkout, inside `build/saves`.
 Loading an older game save or state does not erase earned achievements. Extracting
-a separate preview gives it independent local progress unless you transfer your
+a separate package gives it independent local progress unless you transfer your
 save folder yourself.
 
 Loading a save establishes a baseline and does not retroactively award its
@@ -168,7 +175,7 @@ or change guest HP, items, rewards, flags or clocks to award achievements.
 ## Audio
 
 On Companion's **Audio** page, choose **Original SNES** or **X68000**, Apply and
-restart the game. The preview includes the converted X68000 pack; no folder
+restart the game. The release includes the converted X68000 pack; no folder
 selection or conversion is needed. Missing/unmapped cues retain SNES music and
 sound effects remain on the original driver. Save-state loads restart the
 replacement track. Run-ahead uses SNES audio. The supported X68000 cues use

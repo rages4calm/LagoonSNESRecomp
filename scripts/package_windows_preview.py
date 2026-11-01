@@ -1,4 +1,4 @@
-"""Stage the reviewed playable Windows preview, with no ROM/private game data.
+"""Stage the reviewed playable Windows package, with no ROM/private game data.
 
 Explicit runtime inputs only. Never recursively copy a developer build or SDK.
 Output must be fresh. Audit and clean-unpacked test before publishing a ZIP.
@@ -11,6 +11,46 @@ import re
 
 ROOT=Path(__file__).resolve().parents[1]
 def digest(path:Path)->str: return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def validate_build_metadata(metadata:dict,game:Path,manifest_sha:str,patch_sha:str,
+                            version:str,system:str,require_native:bool=False)->None:
+    """Require the CMake identity for this binary before admitting release inputs.
+
+    The native booleans describe the compiled default, not a launcher environment
+    override. Literal booleans prevent values such as 1 or "true" qualifying.
+    """
+    if (not isinstance(metadata,dict) or type(metadata.get('format_version')) is not int
+            or metadata['format_version']!=1 or metadata.get('playable') is not True
+            or metadata.get('system')!=system or metadata.get('executable')!=game.name
+            or metadata.get('generated_manifest_sha256')!=manifest_sha
+            or metadata.get('framework_patch_sha256')!=patch_sha
+            or metadata.get('version')!=version):
+        raise ValueError('Build metadata does not qualify this as the current playable target; setup hosts cannot be packaged')
+    if require_native and (metadata.get('native_cpu') is not True or
+                           metadata.get('native_only_default') is not True):
+        raise ValueError('Native release requires compiled native CPU execution and strict native-only defaults')
+
+
+def reviewed_soundtrack_inputs(directory:Path)->list[Path]:
+    """Admit exactly the complete album described by its reviewed import hashes."""
+    pack_path=directory/'pack.json'
+    metadata=json.loads(pack_path.read_text(encoding='utf-8'))
+    rows=metadata.get('tracks',[])
+    expected={f'lagoon-x68000-{n}.pcm' for n in range(1,41)}
+    if not isinstance(rows,list) or len(rows)!=40 or any(not isinstance(row,dict) for row in rows):
+        raise ValueError('Expected the reviewed complete 40-track X68000 album')
+    recorded={row.get('pcm_file',row.get('file','')):row for row in rows}
+    if set(recorded)!=expected or {p.name for p in directory.glob('lagoon-x68000-*.pcm')}!=expected:
+        raise ValueError('Soundtrack import must identify exactly the 40 approved track files')
+    for name in sorted(expected):
+        source=directory/name;row=recorded[name]
+        if not source.is_file() or source.is_symlink() or digest(source) not in (row.get('pcm_sha256'),row.get('sha256')):
+            raise ValueError('Soundtrack track missing from reviewed import hashes: '+name)
+    files=[directory/'lagoon-x68000.msu',pack_path,*[directory/name for name in sorted(expected)]]
+    if any(not p.is_file() or p.is_symlink() for p in files):
+        raise ValueError('Missing/nonregular soundtrack input')
+    return files
 
 def achievement_cameo_inputs(root:Path=ROOT)->dict[str,str]:
     """Audit the small, explicit public additions before creating a stage.
@@ -72,22 +112,42 @@ def main():
     ap.add_argument('--launcher',type=Path,required=True,help='Self-contained win-x64 Companion publish directory')
     ap.add_argument('--game-exe',type=Path,required=True,help='Final qualified native game EXE; no ROM is embedded')
     ap.add_argument('--generated-manifest',type=Path,required=True,help='LOCAL qualification manifest; only SHA is distributed')
+    ap.add_argument('--build-metadata',type=Path,help='lagoon-build.json emitted for this game executable')
+    ap.add_argument('--require-native',action='store_true',help='Refuse any build without compiled strict-native release defaults')
     ap.add_argument('--package-id',required=True)
     ap.add_argument('--companion-root',type=Path,required=True)
+    ap.add_argument('--framework-root',type=Path,default=ROOT/'snesrecomp',help='Qualified SDK checkout supplying the compiled framework licenses/notices')
     ap.add_argument('--toolchain',type=Path,required=True,help='Qualification toolchain for static dependency license notices only')
     ap.add_argument('--soundtrack-root',type=Path,required=True,help='Immutable complete 40-track X68000 MSU1 PCM pack; staged by hardlink')
     ap.add_argument('--hardlink-launcher',action='store_true',help='Reuse immutable qualified launcher files by hardlink on the same volume; never edit staged binaries')
     ap.add_argument('--nuget-packages',type=Path,default=Path(os.environ.get('NUGET_PACKAGES',Path.home()/'.nuget/packages')))
-    a=ap.parse_args();stage=a.stage.resolve()
+    a=ap.parse_args();stage=a.stage.resolve();framework=a.framework_root.resolve()
     if stage.exists(): raise SystemExit('Stage must not exist. Existing work is preserved.')
+    version=(ROOT/'VERSION').read_text(encoding='utf-8').strip()
+    build_metadata={}
+    if a.require_native and not a.build_metadata:
+        ap.error('--require-native needs --build-metadata')
+    if a.build_metadata:
+        build_metadata=json.loads(a.build_metadata.read_text(encoding='utf-8'))
+        try:
+            validate_build_metadata(build_metadata,a.game_exe,digest(a.generated_manifest),
+                                    digest(ROOT/'patches/lagoon-framework.patch'),version,'Windows',a.require_native)
+        except ValueError as error:
+            raise SystemExit(str(error))
+    native_cpu=build_metadata.get('native_cpu') is True
+    native_only_default=build_metadata.get('native_only_default') is True
     if not a.game_exe.is_file() or not (a.launcher/'lagoon.Companion.exe').is_file() or not (a.launcher/'coreclr.dll').is_file(): raise SystemExit('Qualified game EXE and self-contained Companion are required.')
     selected={str(ROOT/n):n for n in ['Setup Lagoon.cmd','scripts/setup_windows.ps1','scripts/preview-default.ini','rom_identity.txt','LICENSE','CREDITS.md','docs/PLAYING.md','docs/SOUNDTRACK.md']}
     selected.update(achievement_cameo_inputs())
     selected[str(a.game_exe)]='game/LagoonSNESRecomp.exe'
     audio=set()
-    for name in ['lagoon-x68000.msu','pack.json']+[f'lagoon-x68000-{n}.pcm' for n in range(1,41)]:
-        source=str(a.soundtrack_root/name);selected[source]='soundtrack/x68000/'+name
-        if name!='pack.json': audio.add(source)
+    try:
+        soundtrack=reviewed_soundtrack_inputs(a.soundtrack_root)
+    except ValueError as error:
+        raise SystemExit(str(error))
+    for path in soundtrack:
+        source=str(path);selected[source]='soundtrack/x68000/'+path.name
+        if path.name!='pack.json': audio.add(source)
     for n in ['lagoon-game.ico','lagoon-companion.ico']:
         selected[str(ROOT/'assets/icons'/n)]='icons/'+n
     for n in ['lagoon-epx.glsl','lagoon-epx.glslp']:
@@ -99,14 +159,14 @@ def main():
     # settings, saves, downloaded content, arbitrary EXEs or developer paths.
     for p in a.launcher.iterdir():
         if p.is_file() and (p.suffix.lower()=='.dll' or p.name in {'lagoon.Companion.exe','createdump.exe','lagoon.Companion.deps.json','lagoon.Companion.runtimeconfig.json'}): selected[str(p)]=p.name
-    for source,rel in [(ROOT/'launcher/LICENSE','licenses/Lagoon-Companion-LICENSE'),(a.companion_root/'LICENSE','licenses/CompanionLauncher-LICENSE'),(ROOT/'snesrecomp/LICENSE','licenses/SNESRecomp-LICENSE'),(ROOT/'snesrecomp/THIRD_PARTY_ATTRIBUTION.md','licenses/SNESRecomp-THIRD_PARTY_ATTRIBUTION.md'),(a.toolchain/'deps/share/licenses/SDL3/LICENSE.txt','licenses/SDL3-LICENSE.txt')]: selected[str(source)]=rel
+    for source,rel in [(ROOT/'launcher/LICENSE','licenses/Lagoon-Companion-LICENSE'),(a.companion_root/'LICENSE','licenses/CompanionLauncher-LICENSE'),(framework/'LICENSE','licenses/SNESRecomp-LICENSE'),(framework/'THIRD_PARTY_ATTRIBUTION.md','licenses/SNESRecomp-THIRD_PARTY_ATTRIBUTION.md'),(a.toolchain/'deps/share/licenses/SDL3/LICENSE.txt','licenses/SDL3-LICENSE.txt')]: selected[str(source)]=rel
     selected[str(a.toolchain/'LICENSE.TXT')]='licenses/LLVM-LICENSE.TXT'
     for p in (a.toolchain/'x86_64-w64-mingw32/share/mingw32').glob('COPYING*'):
         if p.is_file(): selected[str(p)]='licenses/MinGW/'+p.name
-    sdk_files=subprocess.check_output(['git','-C',str(ROOT/'snesrecomp'),'ls-files','--recurse-submodules','-z']).decode().split('\0')
+    sdk_files=subprocess.check_output(['git','-C',str(framework),'ls-files','--recurse-submodules','-z']).decode().split('\0')
     for name in sdk_files:
         p=Path(name)
-        if p.name.upper().startswith(('LICENSE','COPYING','NOTICE')) and (ROOT/'snesrecomp'/p).is_file(): selected[str(ROOT/'snesrecomp'/p)]='licenses/framework/'+p.as_posix()
+        if p.name.upper().startswith(('LICENSE','COPYING','NOTICE')) and (framework/p).is_file(): selected[str(framework/p)]='licenses/framework/'+p.as_posix()
     runtime=json.loads((a.launcher/'lagoon.Companion.runtimeconfig.json').read_text())['runtimeOptions']['includedFrameworks']
     for framework in runtime:
         folder=a.nuget_packages/(framework['name'].lower()+'.runtime.win-x64')/framework['version']
@@ -133,12 +193,12 @@ def main():
     # The provider puts zlib's complete notice in its public header.
     zlib=(a.toolchain/'deps/include/zlib.h').read_text(encoding='utf-8').split('*/',1)[0]+'*/\n'
     (stage/'licenses/zlib-LICENSE.txt').write_text(zlib,encoding='utf-8');hashes['licenses/zlib-LICENSE.txt']=digest(stage/'licenses/zlib-LICENSE.txt')
-    text='''LAGOON COMPANION — WINDOWS PREVIEW
+    text='''LAGOON COMPANION — WINDOWS
 
-This playable work in progress requires Windows 10/11 x64 and your own clean,
+This playable package requires Windows 10/11 x64 and your own clean,
 unheadered Lagoon USA ROM (1 MiB). No ROM, extracted Lagoon graphics, saves or
 ROM-derived generated C source are included. The native game and self-contained Companion
-EXEs are included. The interpreter safety net remains enabled.
+EXEs are included.
 
 1. Extract the entire ZIP into a writable folder.
 2. Open Setup Lagoon.cmd (or lagoon.Companion.exe).
@@ -149,7 +209,7 @@ No compiler, Python, .NET installation, first-run compilation or download is
 needed. Your ROM is checked and read in place; it is never copied into the pack.
 The game EXE is game/LagoonSNESRecomp.exe. Companion supplies its ROM, settings
 and save paths. Keep local/ for your settings, mod preferences, saves and map.
-Extract a new preview into a separate folder and keep your previous saves.
+Extract a new release into a separate folder and keep your previous saves.
 
 M or controller L2 opens the exploration map. Esc/B closes it; left/right select
 visited areas. Early tablet objectives include next-step hints and map markers.
@@ -171,17 +231,26 @@ shop prices, quest rewards or your existing saved totals.
 Some widescreen/special actor paths retain the original view. Audio's Soundtrack
 dropdown switches between Original SNES and the bundled X68000 music. Choose
 one, Apply and restart the game. No folder selection or conversion is needed.
-The owner completed a campaign and explored every map. Native and widescreen
-fallbacks remain; report room, actions/settings and whether a new game reproduces
-a problem. This preview fixes reports from that playthrough.
+The owner completed a campaign and explored every map. Report room,
+actions/settings and the save or state that reproduces a problem.
 
 Source and updates: https://github.com/rages4calm/LagoonSNESRecomp
 See docs/PLAYING.md for controls, CREDITS.md and licenses/ for notices.
 The tiny credited Chrono Trigger cameo artwork and selected B1 sound have separate original copyright;
 it is not covered by the MIT licenses for Companion/CompanionAchievements.
 '''
+    if native_cpu and native_only_default:
+        text+='''\nThe main 65816 game CPU runs entirely as native compiled code. Normal play
+uses strict native execution with no CPU interpreter fallback. The interpreter
+remains available only as a deliberate debugging/reference option. SNES graphics,
+DMA, timers and SPC700/DSP audio hardware still use the runtime. This is a native
+CPU port, not a complete matching source decompilation.\n'''
+    else:
+        text+='\nThis development package retains interpreter/reference execution.\n'
     (stage/'READ ME.txt').write_text(text,encoding='utf-8');hashes['READ ME.txt']=digest(stage/'READ ME.txt')
-    contract={'format':1,'mode':'prebuilt-own-rom','package':a.package_id,'game_sha256':digest(a.game_exe),'generated_manifest_sha256':digest(a.generated_manifest),'source_commit':subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip(),'framework_patch_sha256':digest(ROOT/'patches/lagoon-framework.patch'),'files':dict(sorted(hashes.items()))}
+    contract={'format':1,'mode':'prebuilt-own-rom','package':a.package_id,'version':version,
+              'playable':True,'native_cpu':native_cpu,'native_only_default':native_only_default,
+              'game_sha256':digest(a.game_exe),'generated_manifest_sha256':digest(a.generated_manifest),'source_commit':subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip(),'framework_patch_sha256':digest(ROOT/'patches/lagoon-framework.patch'),'files':dict(sorted(hashes.items()))}
     (stage/'windows-preview.json').write_text(json.dumps(contract,indent=2)+'\n',encoding='utf-8')
     print(json.dumps({'stage':str(stage),'files':len(hashes)+1,'bytes':sum(p.stat().st_size for p in stage.rglob('*') if p.is_file()),'game_sha256':contract['game_sha256'],'generated_manifest_sha256':contract['generated_manifest_sha256']}))
 if __name__=='__main__': main()

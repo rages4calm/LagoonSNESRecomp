@@ -1,17 +1,58 @@
-/* Opt-in architectural native executor. The generated source stays private;
- * a build without it must never pretend the requested backend is available. */
+/* Architectural native executor. Release builds select strict native execution
+ * before the SDK caches its policy. Generated source always stays private. */
+#if !defined(_WIN32) && !defined(_POSIX_C_SOURCE)
+#define _POSIX_C_SOURCE 200809L
+#endif
 #include "lagoon_native_backend69.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "snes/interp816.h"
+#ifndef LAGOON_NATIVE_RELEASE_DEFAULT
+#define LAGOON_NATIVE_RELEASE_DEFAULT 0
+#endif
+#if LAGOON_NATIVE_RELEASE_DEFAULT != 0 && LAGOON_NATIVE_RELEASE_DEFAULT != 1
+#error "LAGOON_NATIVE_RELEASE_DEFAULT must be literal0 or1"
+#endif
 static int requested69;
 static void backend_failure69(const char*reason){fprintf(stderr,"[native-blocks69] contract-refused reason=%s\n",reason);fflush(stderr);_Exit(87);}
+#if LAGOON_NATIVE_RELEASE_DEFAULT
+static void default_policy69(const char *name,const char *value) {
+ /* Do not erase an explicit development choice, including literal0. */
+ if(getenv(name))return;
+#ifdef _WIN32
+ if(_putenv_s(name,value))backend_failure69("native-release-policy-default");
+#else
+ if(setenv(name,value,0))backend_failure69("native-release-policy-default");
+#endif
+}
+#endif
+void LagoonNativeBackend69_ConfigureExecution(void){
+#if LAGOON_NATIVE_RELEASE_DEFAULT
+ default_policy69("LAGOON_NATIVE_BACKEND69","1");
+ default_policy69("SNESRECOMP_NATIVE_ONLY","1");
+ default_policy69("LAGOON_NATIVE_BOOT62","off");
+#endif
+ /* Read after both environment updates: putenv may invalidate old pointers. */
+ const char *backend=getenv("LAGOON_NATIVE_BACKEND69");
+ if(backend&&strcmp(backend,"0")&&strcmp(backend,"1"))backend_failure69("invalid-policy-value");
+ requested69=backend&&!strcmp(backend,"1");
+ const char *strict=getenv("SNESRECOMP_NATIVE_ONLY");
+ if(strict&&strcmp(strict,"0")&&strcmp(strict,"1"))backend_failure69("invalid-native-only-policy-value");
+ int wanted=strict&&!strcmp(strict,"1");
+ /* The SDK policy is intentionally process-latched. Catch an earlier wrong
+  * query instead of silently running a release with its safety guard off. */
+ if(interp816_native_only_enabled()!=wanted)backend_failure69("native-only-policy-already-latched");
+ const char *boot=getenv("LAGOON_NATIVE_BOOT62");
+ fprintf(stderr,"[native-blocks69] execution-policy default=%d backend=%d strict=%d boot=%s\n",
+     LAGOON_NATIVE_RELEASE_DEFAULT,requested69,wanted,boot?boot:"unset");
+}
+
 #ifdef LAGOON_NATIVE_BLOCKS69_ENABLED
 #include "common_rtl.h"
 #include "native_blocks.h"
 #include "lagoon_native_camera68.h"
 #include "snes/interp_bridge.h"
-#include "snes/interp816.h"
 #include "snes/snes.h"
 #include "state_dump.h"
 extern Snes *g_snes;
@@ -66,8 +107,10 @@ static const uint8_t*image69;
 static size_t image_size69;
 #endif
 void LagoonNativeBackend69_OnRom(const uint8_t*rom,size_t size){
- const char*v=getenv("LAGOON_NATIVE_BACKEND69");requested69=v&&!strcmp(v,"1");
- if(v&&strcmp(v,"0")&&strcmp(v,"1"))backend_failure69("invalid-policy-value");
+ LagoonNativeBackend69_ConfigureExecution();
+#if LAGOON_NATIVE_RELEASE_DEFAULT && !defined(LAGOON_NATIVE_BLOCKS69_ENABLED)
+ backend_failure69("native-release-program-not-built");
+#endif
 #ifdef LAGOON_NATIVE_BLOCKS69_ENABLED
  interp_bridge_clear_native_program();
  if(trace69){fclose(trace69);trace69=NULL;}

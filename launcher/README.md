@@ -4,7 +4,7 @@ Uses the shared Companion Launcher 0.2.0 packages; no shared UI source is copied
 Build with `powershell -File scripts/build_launcher.ps1 -CompanionRoot <checkout>`
 from the game repository. The build script finds the local package feed and
 restores the pinned lock file. Developer builds need .NET 8 Windows Desktop
-Runtime. The public Windows preview is self-contained and needs no .NET install.
+Runtime. The public Windows release is self-contained and needs no .NET install.
 
 For a release package, open `Setup Lagoon.cmd`, enter your own clean USA ROM's
 absolute path on Game and Apply, then run Game setup. The game EXE is bundled
@@ -39,10 +39,10 @@ files must accompany the selected executable. Restart after Apply. This is a
 pixel treatment, not replacement artwork or smoother gameplay motion. See
 [display settings](../docs/PLAYING.md#display).
 
-Experimental widescreen defaults off and offers 16:9, 16:10, 21:9, 32:9 and follow
+Widescreen defaults off and offers 16:9, 16:10, 21:9, 32:9 and follow
 window choices through `[Graphics] Widescreen` and `[Lagoon] WideAspect`. It expands
-backgrounds; off-screen NPC/enemy rendering and some rooms remain unfinished.
-Unsupported scenes retain their original view.
+qualified scenery and actors. Unusual effects/layouts retain separate coverage
+requirements; unsupported visual content keeps its original view.
 
 Audio has one **Soundtrack** dropdown: **Original SNES** (default) or **X68000**.
 Choose one, Apply and restart. The release's complete X68000 pack is selected
@@ -55,7 +55,7 @@ The selection persists in the matching `lagoon.soundtrack` native mod
 feature/resource. See [soundtrack details](../docs/SOUNDTRACK.md).
 
 The Quality of life page changes the matching native package's feature selections
-in `local/mods/preloaded/state.toml` for previews, or beside the executable for
+in `local/mods/preloaded/state.toml` for release packages, or beside the executable for
 development builds. Gameplay toggles default off: walking speed, opening balance,
 camera centering, sword reach with modest lateral cleave, follower speed, recovery
 time, jump peak hold and magic strength. Separate EXP and gold dropdowns offer
@@ -79,7 +79,10 @@ same atomic-write rollback transaction. Changed
 files use atomic replacement, with rollback if a later commit fails. This does not
 provide filesystem-wide atomicity during power loss. Unreadable settings and invalid
 known values are rejected rather than replaced with defaults. Unknown launcher JSON,
-INI and mod-state fields survive. The interpreter fallback is always retained.
+INI and mod-state fields survive. The v0.3.0 executable defaults to strict native
+main-CPU execution, stopping before an uncovered instruction instead of using
+an automatic interpreter fallback. Explicit developer overrides can select
+the reference interpreter. Graphics/audio hardware still use the runtime.
 
 `--smoke-test <fresh-directory>` renders all declared pages and exercises draft/Revert
 behavior without launching the game. `tests/Lagoon.Launcher.Tests.csproj` checks

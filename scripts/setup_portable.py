@@ -39,6 +39,11 @@ def setup(root: Path, rom: Path) -> dict:
             or contract.get('platform') not in ('linux-x64', 'linux-arm64', 'macos-x64', 'macos-arm64')
             or contract.get('executable') != 'game/LagoonSNESRecomp'):
         raise ValueError('Not a playable Lagoon Linux/macOS package')
+    for key in ('native_cpu','native_only_default'):
+        if key in contract and type(contract[key]) is not bool:
+            raise ValueError('Invalid native build policy in package contract: '+key)
+    if contract.get('native_only_default') is True and contract.get('native_cpu') is not True:
+        raise ValueError('Strict native package is missing native CPU execution')
     files = contract.get('files')
     if not isinstance(files, dict) or not files or contract['executable'] not in files:
         raise ValueError('Incomplete package contract')
@@ -84,6 +89,8 @@ def setup(root: Path, rom: Path) -> dict:
     # The selected ROM path may change; game progress and config never do here.
     (local / 'rom.cfg').write_text(str(rom) + '\n', encoding='utf-8')
     ready = {'package': contract['package'], 'platform': contract['platform'],
+             'native_cpu':contract.get('native_cpu') is True,
+             'native_only_default':contract.get('native_only_default') is True,
              'game_sha256': files[contract['executable']],
              'generated_manifest_sha256': contract['generated_manifest_sha256'],
              'executable': str(safe_path(root, contract['executable'])),
