@@ -329,3 +329,41 @@ waits. Interpreter fallback remains supported. Original dirty SDK files, owner
 saves/settings and the installed executable were preserved. Compact local
 receipts and the next-work inventory live in validation/timing62; completed raw
 captures are disposable through the reviewed owner-run cleanup command.
+
+
+## Timing63: decoder, volatile upload acknowledgements and new-game clear
+
+Local development batch only; publication and installation remain paused.
+New source windows preserve actual source bytes, primary CPU, physical stack,
+generation and callback deadlines. They leave the supported interpreter intact.
+The existing menu/door expansion fast path and complete mapped sound uploader
+retain their separate guards. No new generated AOT roots are claimed.
+
+The decoder witnesses its real9143 entry, including native entries that later
+yield into the original body. It executes dictionary clear, traversal, output
+and real stack-data instructions with precise timing. Original return and input
+boundaries remain. Cold/unmapped sound uploads keep real FF69 JSR/PHP ownership;
+the three byte acknowledgment loops read every actual volatile APU reply using
+the original callback bus and pending-clock synchronization. This is never an
+idle/NMI replay. Source-proven direct native children also register their real
+frame before yielding. The independent9304 RAM clear witnesses the original
+frameless80AF jump and yields through27 field boundaries, without inventing a
+caller from stale return-width metadata.
+
+On the observed opening route,4,975,463 source instructions execute in these
+native windows. This is an activation count, not a speed or completion claim.
+31,392 original-opcode/deadline/resume cases and4,297 immutable guard refusals
+pass. The callback bus helper has18 actual-helper read cases and10 authority
+refusals. Matched opening/cold/load, item/magic/equipment and four-door routes
+retain exact ordered pictures, checkpoint state/clocks/events and device/audio
+outputs. Private receipts preserve the exact executable epochs per comparison.
+No complete campaign or new target-platform qualification was performed.
+
+An affected audio-enabled fast recipe also exposed a pre-existing diagnostic
+repeatability limit: the old executable differs from itself when the SDL dummy
+consumer drains an overflowing playback ring on wall time. The failed sample
+comparison remains recorded; no audio waiver was added. Deterministic affected
+controls disable the host playback device on both sides while continuing SPC,
+DSP and generated-sample capture. This does not qualify physical listening.
+Remaining observed contexts include payload/word-handshake continuations and
+decoder input/raw-copy windows. Existing camera/source/width exclusions remain.

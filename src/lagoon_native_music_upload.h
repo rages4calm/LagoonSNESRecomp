@@ -57,6 +57,11 @@ bool LagoonNativeMusic_UploadTry(const uint8_t*rom,size_t size,CpuState*c,const 
   * DB1/2 are the source-proven lowWRAM/IO mirror contexts. */
  if(c->DB==0&&(host!=0x0cff5c||pointer!=0x0d8000))return false;
  if(!upload_resource(rom,pointer))return false;
+#ifndef LAGOON_NATIVE_MUSIC_TEST
+ /* A source-owned parent can enter this child directly, then yield inside
+  * its real PHP frame. Preserve that same entry witness for later polls. */
+ if(service==2){extern void LagoonNativeSpc63_ObserveEntry(CpuState*,uint16_t,uint8_t,uint32_t);LagoonNativeSpc63_ObserveEntry(c,entry_s,hrv,host);}
+#endif
  LagoonNativeEndgameConsumeMusic(service+3);
  unsigned pc=target[service],base=pc;unsigned v;RecompReturn r;
 #define UB(at,n) do{if(!upload_begin(rom,c,(at),(n),out))return true;}while(0)

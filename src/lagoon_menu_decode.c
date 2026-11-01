@@ -124,12 +124,15 @@ int LagoonMenuDecode_Expand(const uint8_t *rom,size_t size,uint8_t *ram,CpuState
 }
 
 #ifndef LAGOON_MENU_DECODE_TEST
+/* Optional timing observer; standalone decoder tests need no host service. */
+void (*g_lagoon_decode_source_observer)(CpuState*,uint16_t,uint8_t,uint32_t);
 #include "common_rtl.h"
 static uint64_t hash(const uint8_t*p,size_t n){uint64_t h=UINT64_C(14695981039346656037);while(n--)h=(h^*p++)*UINT64_C(1099511628211);return h;}
 static uint32_t triple(const uint8_t*r,unsigned q){return r[q]|r[q+1]<<8|r[q+2]<<16;}
 /* Called only at the original native entry after its deadline/refresh seam.
  * Refusal is read-only. The original native decoder remains the fallback. */
 bool LagoonMenuDecode_TryNative(CpuState*cpu,uint16_t entry_s,uint8_t hrv,uint32_t host_return_pc24,RecompReturn*out) {
+  if(g_lagoon_decode_source_observer)g_lagoon_decode_source_observer(cpu,entry_s,hrv,host_return_pc24);
   if(!cpu||!out||cpu->S!=entry_s||hrv!=3||cpu->host_return_valid!=3||
       entry_s<0x140||entry_s>0x1ec||!cpu->m_flag||cpu->x_flag||cpu->emulation||cpu->D||cpu->PB||
       !(g_ram[0x23d]&0x80)||g_ram[0x275]!=0x81||(g_ram[0x100e]&&g_ram[0x100e]!=255)||g_ram[0xe4]||

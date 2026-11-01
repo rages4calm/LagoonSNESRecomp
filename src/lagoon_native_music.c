@@ -119,6 +119,7 @@ static bool upload_run(CpuState*c,uint16_t s,uint8_t h,uint32_t host,RecompRetur
  static const unsigned targets[]={0x0cfe9b,0x0cfeec,0x0cff69};
  if(!c||!out)return false;
  if(music_timeline_valid(c)&&LagoonNativeMusic_UploadTry(g_rom,0x100000,c,&g_cpu,RtlStateGeneration(),frame_generation,frame_registered,service,s,h,host,out))return true;
+ if(service==2){extern void LagoonNativeSpc63_ObserveEntry(CpuState*,uint16_t,uint8_t,uint32_t);LagoonNativeSpc63_ObserveEntry(c,s,h,host);}
  refusal_trace(c,s,h,host,service+3);LagoonNativeEndgameRefuseMusic(service+3);*out=interp_tier_dispatch_tail(c,targets[service],targets[service],s,h);return true;
 }
 bool LagoonNativeMusic_Bank(CpuState*c,uint16_t s,uint8_t h,uint32_t p,RecompReturn*out){return upload_run(c,s,h,p,out,0);}
