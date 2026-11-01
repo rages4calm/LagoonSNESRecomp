@@ -41,7 +41,7 @@ The ordinary launcher does not enable this development backend automatically.
 Launch the generated build explicitly in strict native mode:
 
 ```text
-python tools/run_native_backend69.py --exe build-native/LagoonSNESRecomp.exe -- --no-launcher
+python -P tools/run_native_backend69.py --exe build-native/LagoonSNESRecomp.exe -- --no-launcher
 ```
 
 Use the actual executable location for your platform/build configuration. All

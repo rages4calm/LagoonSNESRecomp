@@ -27,7 +27,7 @@ class NativeLauncher(unittest.TestCase):
             environment.update(LAGOON_NATIVE_BACKEND69='0', SNESRECOMP_NATIVE_ONLY='0', LAGOON_NATIVE_BOOT62='auto')
             original = dict(os.environ)
             arguments = ['two words', '--unknown-game-option', 'é', 'quote"literal']
-            result = subprocess.run([sys.executable, '-P', str(WRAPPER), '--exe', sys.executable,
+            result = subprocess.run([sys.executable, str(WRAPPER), '--exe', sys.executable,
                                      '--', str(child), str(output), *arguments], env=environment)
             self.assertEqual(result.returncode, 87)
             observed = json.loads(output.read_text(encoding='utf-8'))
@@ -37,6 +37,13 @@ class NativeLauncher(unittest.TestCase):
                                                   LAGOON_NATIVE_BOOT62='off'))
             self.assertEqual(dict(os.environ), original)
             self.assertEqual(environment['SNESRECOMP_NATIVE_ONLY'], '0')
+
+    def test_plain_script_help_does_not_import_local_dis(self):
+        result = subprocess.run([sys.executable, str(WRAPPER), '--help'],
+                                cwd=PROJECT, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('--exe', result.stdout)
+        self.assertNotIn('Traceback', result.stderr)
 
     def test_missing_executable_refuses(self):
         with tempfile.TemporaryDirectory() as directory:

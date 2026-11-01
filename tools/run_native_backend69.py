@@ -1,4 +1,11 @@
 """Launch an opt-in native69 build in strict mode without changing settings."""
+import sys
+
+# Direct script launches otherwise put tools/dis.py ahead of Python's dis.
+# Keep stdlib imports safe even when a caller omits Python's -P option.
+if __name__ == '__main__' and not getattr(sys.flags, 'safe_path', False) and sys.path:
+    sys.path.pop(0)
+
 import argparse
 import os
 from pathlib import Path
