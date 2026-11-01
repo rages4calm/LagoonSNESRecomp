@@ -69,6 +69,9 @@ add_executable(LagoonSNESRecomp
     src/lagoon_native_boot62.c
     src/lagoon_native_decode63.c
     src/lagoon_native_spc63.c
+    src/lagoon_native_menu_input67.c
+    src/lagoon_native_scheduler67.c
+    src/lagoon_native_sprites67.c
     src/lagoon_native_interrupt66.c
     src/lagoon_native_services65.c
     src/lagoon_native_reset63.c

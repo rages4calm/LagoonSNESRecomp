@@ -42,6 +42,9 @@
 #include "lagoon_native_reset63.h"
 #include "lagoon_native_services65.h"
 #include "lagoon_native_interrupt66.h"
+#include "lagoon_native_scheduler67.h"
+#include "lagoon_native_menu_input67.h"
+#include "lagoon_native_sprites67.h"
 #include "lagoon_native_scripts53.h"
 #include "lagoon_menu_close.h"
 #include "lagoon_menu_dma.h"
@@ -70,6 +73,9 @@ void GameRunOneFrame(void)
      * Source-timed services only handle their original fallback cases. */
     LagoonServices65_BeforeFrame();
     LagoonInterrupt66_BeforeFrame();
+    LagoonScheduler67_BeforeFrame();
+    LagoonMenuInput67_BeforeFrame();
+    LagoonSprites67_BeforeFrame();
     LagoonMenuDma_BeforeFrame();
     LagoonCampaignDebug_BeforeFrame();
     snes_beam_frame_driver_run_frame();
