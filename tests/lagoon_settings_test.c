@@ -18,11 +18,11 @@ int LagoonItemGuide_GetAt(size_t index,LagoonItemGuideEntry *entry){
  *entry=(LagoonItemGuideEntry){.id=(uint8_t)(0x20+index),.name=index==2?"Shiny Ball":"Healing Pot",.kind="Consumable",.description=index==2?"A special item with an original shop price. This reference does not select or purchase an item.":"Restores health. The reference guide explains items without using anything in your inventory.",.atland_price=index==2?0:100,.voloh_price=index==2?10000:100};return 1;
 }
 int LagoonItemGuide_Owned(const uint8_t *r,size_t size,unsigned id){owned_reads++;return r&&size>=LAGOON_ITEM_GUIDE_RAM_BYTES&&id>=0x20&&id<=0x38&&!!(r[0x4d0+id/8]&(0x80u>>(id&7)));}
-static void write(const char *path,const char *text){FILE*f=file_open(path,"wb");assert(f);assert(fwrite(text,1,strlen(text),f)==strlen(text));assert(!fclose(f));}
+static void write_file(const char *path,const char *text){FILE*f=file_open(path,"wb");assert(f);assert(fwrite(text,1,strlen(text),f)==strlen(text));assert(!fclose(f));}
 int main(int argc,char**argv){
  assert(argc==2||argc==3);const char *path=argv[1];
  const char *original="\xef\xbb\xbf# keep comment\r\n[Sound]\r\nVolume = 73\r\n[Unknown]\r\nPrivate = keep\r\n[Lagoon]\r\nOther = retain\r\nSoundtrackVolume = 60 # old\r\n[KeyMap]\r\nPause = Shift+p\r\n";
- write(path,original);LagoonSettings_Configure(path);assert(music==60&&!LagoonSettings_IsOpen());
+ write_file(path,original);LagoonSettings_Configure(path);assert(music==60&&!LagoonSettings_IsOpen());
  LagoonSettings_Open();assert(LagoonSettings_PollOpen(SNES_PAD_RIGHT));LagoonSettings_Tick(SNES_PAD_RIGHT,100);assert(master==73);
  LagoonSettings_Tick(0,110);LagoonSettings_Tick(SNES_PAD_RIGHT,120);assert(master==78&&master_calls==1);
  LagoonSettings_Tick(SNES_PAD_RIGHT,460);assert(master==78);LagoonSettings_Tick(SNES_PAD_RIGHT,470);assert(master==83);
@@ -32,17 +32,17 @@ int main(int argc,char**argv){
  LagoonSettings_Open();LagoonSettings_PollOpen(0);LagoonSettings_Tick(SNES_PAD_B,500);assert(!LagoonSettings_IsOpen());
  /* Insert into an existing Lagoon section and then create an absent one,
   * preserving LF/CRLF, BOM and all unrelated bytes in each case. */
- write(path,"[Lagoon]\nOther=42\n[Sound]\nVolume=73\n");LagoonSettings_Configure(path);assert(music==100);
+ write_file(path,"[Lagoon]\nOther=42\n[Sound]\nVolume=73\n");LagoonSettings_Configure(path);assert(music==100);
  LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_DOWN);LagoonSettings_Command(LAGOON_SETTINGS_LEFT);assert(music==95&&!save_failed);
  result=file_read(path,&n);assert(!strcmp(result,"[Lagoon]\nOther=42\nSoundtrackVolume = 95\n[Sound]\nVolume=73\n"));free(result);
- write(path,"[Sound]\nVolume=73");LagoonSettings_Configure(path);LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_DOWN);LagoonSettings_Command(LAGOON_SETTINGS_LEFT);
+ write_file(path,"[Sound]\nVolume=73");LagoonSettings_Configure(path);LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_DOWN);LagoonSettings_Command(LAGOON_SETTINGS_LEFT);
  result=file_read(path,&n);assert(!strcmp(result,"[Sound]\nVolume=73\n[Lagoon]\nSoundtrackVolume = 95\n"));free(result);
  const char *bad[]={"[Lagoon]\nSoundtrackVolume=20\nSoundtrackVolume=30\n","[Lagoon]\r\nSoundtrackVolume=20\n","[Lagoon]\nSoundtrackVolume=101\n","[Lagoon]\nSoundtrackVolume=\n20\n"};
  for(unsigned i=0;i<sizeof bad/sizeof *bad;i++){
-  write(path,bad[i]);LagoonSettings_Configure(path);assert(music==100);LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_DOWN);LagoonSettings_Command(LAGOON_SETTINGS_LEFT);assert(music==95&&save_failed);
+  write_file(path,bad[i]);LagoonSettings_Configure(path);assert(music==100);LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_DOWN);LagoonSettings_Command(LAGOON_SETTINGS_LEFT);assert(music==95&&save_failed);
   result=file_read(path,&n);assert(!strcmp(result,bad[i]));free(result);
  }
- write(path,"[Lagoon]\nSoundtrackVolume=0\n");LagoonSettings_Configure(path);LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_DOWN);LagoonSettings_Command(LAGOON_SETTINGS_LEFT);assert(music==0);
+ write_file(path,"[Lagoon]\nSoundtrackVolume=0\n");LagoonSettings_Configure(path);LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_DOWN);LagoonSettings_Command(LAGOON_SETTINGS_LEFT);assert(music==0);
  const uint32_t *pixels=NULL;int width=0,height=0;assert(LagoonSettings_Image(&pixels,&width,&height)&&pixels&&width==640&&height==360);
  assert(pixels[2*width+2]==LAGOON_UI_FG);
  if(argc>2){FILE*f=fopen(argv[2],"wb");assert(f);fprintf(f,"P6\n%d %d\n255\n",width,height);for(int i=0;i<width*height;i++){unsigned c=pixels[i];fputc((c>>16)&255,f);fputc((c>>8)&255,f);fputc(c&255,f);}assert(!fclose(f));}
@@ -96,7 +96,7 @@ int main(int argc,char**argv){
  LagoonSettings_Close();LagoonSettings_Command(LAGOON_SETTINGS_NEXT_TAB);assert(active_tab==TAB_ITEMS);
  /* The optional range cue is OFF until a deliberate Display-page action.
   * Viewing, tab/navigation and preference reload never write the document. */
- write(path,original);LagoonSettings_Configure(path);assert(!LagoonSettings_SwordRangeEnabled()&&music==60);
+ write_file(path,original);LagoonSettings_Configure(path);assert(!LagoonSettings_SwordRangeEnabled()&&music==60);
  unchanged=file_read(path,&n);old_calls=master_calls;
  LagoonSettings_Open();for(unsigned i=0;i<3;i++)LagoonSettings_Command(LAGOON_SETTINGS_NEXT_TAB);assert(active_tab==TAB_DISPLAY);
  LagoonSettings_Command(LAGOON_SETTINGS_UP);LagoonSettings_Command(LAGOON_SETTINGS_DOWN);assert(!LagoonSettings_SwordRangeEnabled());
@@ -116,13 +116,13 @@ int main(int argc,char**argv){
  result=file_read(path,&n);assert(music==55&&strstr(result,"ShowSwordRange = 1\r\n"));free(result);
  const char *bad_range[]={"[Lagoon]\nShowSwordRange=0\nShowSwordRange=1\n","[Lagoon]\nShowSwordRange=2\n","[Lagoon]\nShowSwordRange=true\n","[Lagoon]\r\nShowSwordRange=0\n"};
  for(unsigned i=0;i<sizeof bad_range/sizeof *bad_range;i++){
-  write(path,bad_range[i]);LagoonSettings_Configure(path);assert(!LagoonSettings_SwordRangeEnabled());LagoonSettings_Open();for(unsigned t=0;t<3;t++)LagoonSettings_Command(LAGOON_SETTINGS_NEXT_TAB);
+  write_file(path,bad_range[i]);LagoonSettings_Configure(path);assert(!LagoonSettings_SwordRangeEnabled());LagoonSettings_Open();for(unsigned t=0;t<3;t++)LagoonSettings_Command(LAGOON_SETTINGS_NEXT_TAB);
   LagoonSettings_Command(LAGOON_SETTINGS_LEFT);assert(LagoonSettings_SwordRangeEnabled()&&range_save_failed);
   result=file_read(path,&n);assert(!strcmp(result,bad_range[i]));free(result);
  }
  /* Travel is a host request only. Eligibility text is owned by this panel;
   * entry/confirmation/navigation never touches guest RAM or preferences. */
- write(path,original);LagoonSettings_Configure(path);assert(!travel_available&&!travel_confirming&&!LagoonSettings_TakeReturnRequest());
+ write_file(path,original);LagoonSettings_Configure(path);assert(!travel_available&&!travel_confirming&&!LagoonSettings_TakeReturnRequest());
  LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_PREVIOUS_TAB);assert(active_tab==TAB_TRAVEL);
  old_calls=master_calls;old_music=music;old_master=master;unchanged=file_read(path,&n);memcpy(source_before,source,sizeof source);
  LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);assert(opened&&!travel_confirming&&!LagoonSettings_TakeReturnRequest());

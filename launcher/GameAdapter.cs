@@ -134,7 +134,7 @@ public sealed class GameAdapter : JsonGameAdapterBase
             using var stream = File.OpenRead(rom);
             var hash = Convert.ToHexString(SHA256.HashData(stream));
             return hash.Equals("46C811F0CACFFE8F20E1D63072D25D7C47E9BB3FD5124851FD05ACA9884D21FB", StringComparison.Ordinal)
-                ? new(true, "Ready · original USA ROM verified. Interpreter fallback remains enabled.")
+                ? new(true, "Ready · original USA ROM verified. Native CPU execution.")
                 : new(false, "ROM revision does not match this build. Select the clean USA ROM.");
         }
         catch (IOException ex) { return new(false, $"Cannot read ROM: {ex.Message}"); }
