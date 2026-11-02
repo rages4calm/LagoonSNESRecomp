@@ -256,7 +256,7 @@ def main():
             parser.error('Seed save root must be an existing directory outside this output')
         for original in sorted(source.iterdir()):
             if original.is_file() and (original.suffix.lower() in {'.sav','.srm','.bak'}
-                                       or original.name == 'lagoon-exploration.map'):
+                                       or original.name in {'lagoon-exploration.map','lagoon-scenery.maps'}):
                 target=out/'saves'/original.name
                 shutil.copy2(original,target)
                 digest=hashlib.sha256(original.read_bytes()).hexdigest()
@@ -335,7 +335,7 @@ def main():
                       'SNESRECOMP_APU_QUEUE_TRACE',
                       'SNESRECOMP_FRAME_TIMING','SNESRECOMP_GL_TIMING','SNESRECOMP_TITLE_OVERLAY_DUMP',
                       'SNESRECOMP_TITLE_OVERLAY_DISPLAY_SCREENSHOT'}
-    diagnostic_numbers={'SNESRECOMP_HOST_PROFILE_START_FRAME','SNESRECOMP_PPU_HEARTBEAT','LAGOON_MAP_SELFTEST_FRAME','LAGOON_MENU_SELFTEST_FRAME','LAGOON_MENU_SELFTEST_PAGE','LAGOON_RETURN_SELFTEST_FRAME'}
+    diagnostic_numbers={'SNESRECOMP_HOST_PROFILE_START_FRAME','SNESRECOMP_PPU_HEARTBEAT','LAGOON_MAP_SELFTEST_FRAME','LAGOON_MAP_SELFTEST_BROWSE','LAGOON_MENU_SELFTEST_FRAME','LAGOON_MENU_SELFTEST_PAGE','LAGOON_RETURN_SELFTEST_FRAME'}
     diagnostic_booleans=DIAGNOSTIC_BOOLEANS
     diagnostic_ranges=DIAGNOSTIC_RANGES
     overrides={}

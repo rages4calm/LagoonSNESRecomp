@@ -35,7 +35,8 @@ an anchored view; they are not stretched to fill the area.
 Whole-zone scenery is visible in the supported current area. Discovery remains
 separate: only discovered exits get matching map/list numbers, destinations are
 unnamed until visited, and chests appear after discovery. Busy destination lists
-have pages. Browsed areas or unavailable scenery use a labeled explored layout.
+have pages. Browsed scenery uses the same map view with a quiet "Last mapped
+visit" label and survives restarts. Missing scenery uses a labeled explored layout.
 No map view grants items, exploration credit, access through a lock or story progress.
 
 D-pad/arrows pan, A/X or +/- zoom, Y/Home recenters on Nasir, Start/0 fits the

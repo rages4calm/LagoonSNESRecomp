@@ -58,9 +58,12 @@ frame expands. The early inventory is mostly empty. [Metadata](captures.json).
 
 Actual **1920×1080 hidden OpenGL readbacks** of the new map. Full scenery uses
 the current area's own tiles and palette, with fixed-size labels and markers.
-**M / L2** opens it; arrows pan, A/X or +/- zoom, L/R browse visited areas,
-Y recenters and Start fits the area. Previously visited areas and unavailable
-scenery use the labeled explored-layout view. Only discovered exits receive
+**M / L2** opens it; arrows pan, A/X or +/- zoom, L/R browse retained visited scenery,
+Y recenters and Start fits the area. The Atland image is browsed while in Gold
+Cave; the Gold Cave image is browsed from another area after a process restart.
+"Last mapped visit" identifies retained terrain. Older exploration-only areas
+gain scenery on a fresh visit; unavailable scenery retains the labeled layout.
+Only discovered exits receive
 numbered destination entries; seeing terrain does not grant exploration or items.
 
 ![Readable in-game adventure journal](journal-1920x1080.png)

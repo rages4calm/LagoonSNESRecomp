@@ -12,6 +12,8 @@
 *.cdl
 lagoon-exploration.map
 lagoon-exploration.map.tmp
+lagoon-scenery.maps
+lagoon-scenery.maps.tmp
 *.bps
 *.vgm
 *.vgz

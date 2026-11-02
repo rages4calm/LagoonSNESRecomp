@@ -23,12 +23,12 @@ def main():
     suffix='.exe' if os.name=='nt' else ''
     result={'scope':'Exact raster eligibility and source-only observation microbenchmark; actual SDK policy/pixels. No ROM, runtime timing, GPU or whole-campaign guarantee.',
             'reference_change':'Only later-line policy gate forced to original full derivation; same current source otherwise.',
-            'sources':{f.relative_to(repo).as_posix():hashlib.sha256(f.read_bytes()).hexdigest() for f in [source,repo/'tests/lagoon_scene_policy_test.c',repo/'tools/test_scene_policy.py',repo/'snesrecomp/runner/src/snes/ppu.c']},
+            'sources':{f.relative_to(repo).as_posix():hashlib.sha256(f.read_bytes()).hexdigest() for f in [source,repo/'tests/lagoon_scene_policy_test.c',repo/'tools/test_scene_policy.py',repo/'snesrecomp/runner/src/snes/ppu.c',repo/'snesrecomp/runner/src/sha256.c',repo/'snesrecomp/runner/src/crc32.c']},
             'reference_source_sha256':hashlib.sha256(reference.read_bytes()).hexdigest(),'runs':[],'passed':False}
     try:
         for name,flags in [('reference',['-DLAGOON_SCENE_POLICY_SOURCE="'+reference.as_posix()+'"']),('candidate',[])]:
             exe=out/(name+suffix)
-            cmd=common+flags+[str(repo/'tests/lagoon_scene_policy_test.c'),str(repo/'snesrecomp/runner/src/snes/ppu_legacy.c'),'-o',str(exe)]
+            cmd=common+flags+[str(repo/'tests/lagoon_scene_policy_test.c'),str(repo/'snesrecomp/runner/src/sha256.c'),str(repo/'snesrecomp/runner/src/crc32.c'),str(repo/'snesrecomp/runner/src/snes/ppu_legacy.c'),'-o',str(exe)]
             build=subprocess.run(cmd,cwd=repo,capture_output=True,text=True)
             if build.returncode:raise RuntimeError(build.stderr)
             times=[];data=None

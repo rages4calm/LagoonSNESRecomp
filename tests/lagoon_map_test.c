@@ -11,6 +11,7 @@ unsigned char g_ram[0x20000];
 #define ram g_ram
 #include "../src/lagoon_map.c"
 int LagoonSceneRenderer_MapImage(unsigned room,uint64_t generation,const uint32_t **p,unsigned*w,unsigned*h,unsigned*ww,unsigned*wh){(void)room;(void)generation;if(p)*p=NULL;if(w)*w=0;if(h)*h=0;if(ww)*ww=0;if(wh)*wh=0;return 0;}
+#include "lagoon_map_archive_stub.h"
 
 static void word(unsigned at,unsigned v){ram[at]=v;ram[at+1]=v>>8;}
 static void ptr(unsigned at,unsigned v){word(at,v);ram[at+2]=v>>16;}

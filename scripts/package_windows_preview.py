@@ -266,7 +266,9 @@ Extract a new release into a separate folder and keep your previous saves.
 M or controller L2 opens the full-zone scenery map. Arrows/D-pad pan; +/- or A/X
 zoom; Home/Y recenters on Nasir; 0/Start fits the area. Brackets or controller L/R
 browse visited areas; Tab/Select pages numbered discovered exits. M/L2 or Esc/B
-closes. Unavailable scenery uses the labeled explored layout. Full terrain does
+closes. Last mapped scenery remains browsable after room changes and restarts.
+Older explored areas gain scenery on a fresh visit; unavailable scenery uses the
+labeled explored layout. Full terrain does
 not grant discovery, reveal unseen treasure or unlock doors. Early tablet
 objectives retain their hints and markers.
 R2 or Ctrl+comma opens Options. L/R or PageUp/PageDown changes the five tabs:

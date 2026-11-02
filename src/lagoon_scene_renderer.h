@@ -41,4 +41,25 @@ void LagoonSceneRenderer_GetStats(LagoonSceneRendererStats *out);
 int LagoonSceneRenderer_MapImage(unsigned room,uint64_t generation,
     const uint32_t **pixels,unsigned *width,unsigned *height,
     unsigned *world_width,unsigned *world_height);
+/* UI-only visited terrain archive. Authenticate the original clean ROM before
+ * title patches, once per ROM/session; ordinary renderer/state resets retain
+ * this archive. It never grants current-world packet/render authority. */
+int LagoonSceneRenderer_ArchiveOnRomInit(const uint8_t *rom,size_t size);
+/* Call only after a committed live host frame, never speculative/runahead or
+ * rollback replay. The exact latest completed packet/source/identity must match
+ * this room and generation. Returns1accepted(including unchanged),0refused. */
+int LagoonSceneRenderer_ArchiveCommit(unsigned room,uint64_t generation);
+/* Lazy load at map opening; save only on modal close or normal quit. Load merges
+ * untouched rooms without replacing newer qualified terrain from this session.
+ * Returns1 loaded/saved,0 missing/unchanged,-1 refused/error. Corrupt or foreign
+ * files are preserved and disable writes for this session. UTF8 path, one file. */
+int LagoonSceneRenderer_ArchiveLoad(const char *path);
+int LagoonSceneRenderer_ArchiveSave(const char *path);
+unsigned LagoonSceneRenderer_ArchivedRoomCount(void);
+int LagoonSceneRenderer_ArchivePersistenceBlocked(void);
+/* Same dimensions/ARGB contract as MapImage, but explicitly last-seen terrain.
+ * No generation/current-room claim. Never calls guest code or disk I/O. */
+int LagoonSceneRenderer_VisitedMapImage(unsigned room,
+    const uint32_t **pixels,unsigned *width,unsigned *height,
+    unsigned *world_width,unsigned *world_height);
 #endif

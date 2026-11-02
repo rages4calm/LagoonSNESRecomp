@@ -141,8 +141,18 @@ world simulation or a claim that every room has had a new live playthrough.
 Room, resource and state-generation identity must match the completed field.
 A presentation-only refusal may reuse current-room terrain only after fresh exact
 terrain/resource equality. Another room, generation, loading field, fade or changed
-art cannot reuse it. Scenery refusal and browsing a different visited area fall
-back to the labeled explored layout rather than stale artwork.
+art cannot reuse it. These live-world guards are independent of the UI archive.
+
+Only a committed, non-speculative host field can add its qualified terrain source
+to the visited-area archive. Browsing uses a separate decoder/image buffer and
+does not grant world-render authority. Up to 75 bounded terrain-only records use
+about 5.3 MiB; explicit little-endian serialization binds clean ROM identity,
+resource descriptors/definitions, dimensions and CRCs. Loading merges older
+records without replacing fresher session data. Disk I/O occurs only at map
+opening/closing or quit. Corrupt, foreign or concurrently changed files are
+preserved. The local `lagoon-scenery.maps` file is never a release input.
+Missing archived scenery retains the labeled explored layout; older exploration
+files gain scenery on a fresh qualified visit.
 
 The 960×540 map supports pan, four zoom levels, fit and recenter controls with
 fixed-size labels. Full scenery visibility is independent of persisted discovery.

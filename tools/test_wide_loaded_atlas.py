@@ -69,7 +69,7 @@ def main():
             "-I" + str(args.sdl_include.resolve(strict=True)), "-ffunction-sections",
             "-fdata-sections", "-Wl,--gc-sections"],
             ["tools/test_wide_loaded_atlas_producer.c", "src/lagoon_wide_multipart.c",
-             "src/lagoon_wide_spell3.c", "src/lagoon_scene_renderer.c",
+             "src/lagoon_wide_spell3.c", "src/lagoon_scene_renderer.c", "snesrecomp/runner/src/sha256.c", "snesrecomp/runner/src/crc32.c",
              "snesrecomp/runner/src/snes/ppu.c", "snesrecomp/runner/src/snes/ppu_legacy.c"],
             [args.rom, prefix])
     (args.out / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")

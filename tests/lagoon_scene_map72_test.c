@@ -263,7 +263,10 @@ static void owned_parallax(const char *path){
   }
 }
 #endif
-int main(int argc,char **argv){
+#ifndef LAGOON_SCENERY72_ENTRY
+#define LAGOON_SCENERY72_ENTRY main
+#endif
+int LAGOON_SCENERY72_ENTRY(int argc,char **argv){
   source_cases();guards();retained();parallax_vectors();
 #ifdef LAGOON_SCENERY_SOURCE_TEST
   assert(argc==2);owned_parallax(argv[1]);

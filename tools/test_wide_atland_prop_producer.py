@@ -21,7 +21,7 @@ sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 assert sha(a.rom) == '46c811f0cacffe8f20e1d63072d25d7c47e9bb3fd5124851fd05aca9884d21fb'
 a.out.mkdir(parents=True, exist_ok=True)
 files = ['tools/test_wide_atland_prop_producer.c', 'src/lagoon_wide_multipart.c',
-         'src/lagoon_wide_spell3.c', 'src/lagoon_scene_renderer.c',
+         'src/lagoon_wide_spell3.c', 'src/lagoon_scene_renderer.c', 'snesrecomp/runner/src/sha256.c', 'snesrecomp/runner/src/crc32.c',
          'snesrecomp/runner/src/snes/ppu.c',
          'snesrecomp/runner/src/snes/ppu_legacy.c',
          'snesrecomp/runner/src/snes/interp816.c']

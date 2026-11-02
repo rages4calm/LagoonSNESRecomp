@@ -26,6 +26,7 @@
  */
 
 #include "host_main.h"
+#include "desktop/host_api.h"
 #include "game_rtl.h"
 #include "lagoon_native_backend69.h"
 #include "lagoon_idle_poll.h"
@@ -35,6 +36,7 @@
 #include "lagoon_widescreen.h"
 #include "lagoon_frame_probe.h"
 #include "lagoon_map.h"
+#include "lagoon_scene_renderer.h"
 #include "lagoon_follower.h"
 #include "lagoon_quest_guidance.h"
 #include "lagoon_settings.h"
@@ -362,6 +364,8 @@ static void LagoonHost_AfterFrame(const SnesDesktopHostFrameStats *stats) {
     }
     LagoonFrameProbe_Record(stats);
     LagoonMap_Observe(g_ram,RtlStateGeneration());
+    if(ready&&snesrecomp_host_frame_is_live())
+        LagoonSceneRenderer_ArchiveCommit(g_ram[0x48e],generation);
     LagoonReturnRuntime_AfterFrame();
     if((g_ram[0x500]&0xc0)==0xc0&&(g_ram[0x520]||g_ram[0x521]))LagoonSettings_Observe(g_ram,sizeof g_ram);
     else LagoonSettings_Observe(NULL,0);

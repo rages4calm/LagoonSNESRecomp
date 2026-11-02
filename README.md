@@ -40,8 +40,9 @@ the ROM, saves or private test captures are included.
 - **Scenery map (0.4.0):** **M / L2** opens the current area's full terrain,
   with pan, zoom, fit-to-area and recenter controls. Numbered discovered exits,
   destination pages, treasure and early tablet-quest hints help with navigation.
-  Visited areas can be browsed; an explored-layout view remains available when
-  scenery is unavailable.
+  Visited scenery stays available while browsing and after a restart. Older
+  exploration-only areas gain scenery on a fresh visit; unavailable scenery
+  retains the labeled explored-layout view.
 - **Readable extra menus (0.4.0):** Lagoon-style black panels, ivory frames and
   clear lettering across the map, achievements and **R2 / Ctrl+comma** Options.
   Five tabs cover **Sound, Journal, Items, Display and Travel**.
@@ -82,6 +83,8 @@ does not mark it explored, reveal an undiscovered chest or unlock a door.
 Pan and zoom independently of readable labels, fit the whole area, or recenter
 on Nasir. Discovered exits receive matching numbers on the map and destination
 list, with pages for busier areas. Destinations remain unnamed until visited.
+L/R browsing retains each area's last mapped scenery across room changes, state
+loads and restarts. It stores only local terrain data, without actors or progress.
 
 The new Options tabs bring story guidance, item help and optional sword-range
 display into the game. Travel supports the main entrances of **Gold Cave,

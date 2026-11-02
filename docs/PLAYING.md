@@ -86,8 +86,10 @@ the back-and-forth stall caused by applying the follower speed boost to that rou
 Press **M** or controller **L2** to open the map. Gameplay pauses while it is open.
 The current area's complete scenery is shown when available. This is terrain
 drawn from your own game, including its background layers, rather than a camera
-screenshot. It excludes moving characters, enemies and the HUD. Browsing another
-visited area without available scenery shows its labeled explored-layout view.
+screenshot. It excludes moving characters, enemies and the HUD. L/R browsing
+keeps each area's last mapped scenery, including after a restart. Areas from
+older exploration-only files gain scenery when you visit them once with 0.4.0;
+areas without captured scenery retain their labeled explored-layout view.
 
 | Map action | Keyboard | Controller |
 | --- | --- | --- |
@@ -105,9 +107,11 @@ marker does not mean its story gate is unlocked. Treasure markers appear after
 discovery, and opened chests are dimmed. Complete scenery visibility does not
 add exploration credit, grant treasure or guarantee every tile is walkable.
 
-Exploration saves separately in `saves/lagoon-exploration.map`; loading an earlier
-state retains places already explored. No map artwork is downloaded or included
-with the port. Scenery covers the current supported area, including the layered
+Exploration saves separately in `saves/lagoon-exploration.map`; local terrain is
+stored in `saves/lagoon-scenery.maps` (at most about 5.3 MiB). Both belong with your
+saves when upgrading. Loading an earlier state retains mapped places without
+changing that state's story or inventory. No map artwork is downloaded or included
+with the port. Scenery covers supported areas, including the layered
 backgrounds in Gold Cave, Philips Castle, Dwarf Cave, Phantom Hill and the Cloud;
 loading or unsupported views can use the explored layout instead.
 During the early tablet quest, the map also shows the next step for the Tablets

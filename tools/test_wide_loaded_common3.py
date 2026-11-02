@@ -31,7 +31,7 @@ def main():
                     'tools/test_wide_loaded_common3.py', 'tools/test_wide_parallax_sources.c',
                     'tools/test_wide_additional_producer.c', 'src/lagoon_wide_entities.c',
                     'src/lagoon_wide_entities.h', 'src/lagoon_wide_multipart.c',
-                    'src/lagoon_wide_spell3.c', 'src/lagoon_scene_renderer.c',
+                    'src/lagoon_wide_spell3.c', 'src/lagoon_scene_renderer.c', 'snesrecomp/runner/src/sha256.c', 'snesrecomp/runner/src/crc32.c',
                     'snesrecomp/runner/src/snes/interp816.c', 'snesrecomp/runner/src/snes/ppu.c',
                     'snesrecomp/runner/src/snes/ppu_legacy.c']
 
@@ -60,7 +60,7 @@ def main():
              '-Isnesrecomp/runner/src/snes', '-Isnesrecomp/runner/src/desktop',
              '-I' + str(args.sdl_include.resolve(strict=True)), '-ffunction-sections',
              '-fdata-sections', '-Wl,--gc-sections', 'tools/test_wide_loaded_common3_producer.c',
-             'src/lagoon_wide_multipart.c', 'src/lagoon_wide_spell3.c', 'src/lagoon_scene_renderer.c',
+             'src/lagoon_wide_multipart.c', 'src/lagoon_wide_spell3.c', 'src/lagoon_scene_renderer.c', 'snesrecomp/runner/src/sha256.c', 'snesrecomp/runner/src/crc32.c',
              'snesrecomp/runner/src/snes/ppu.c', 'snesrecomp/runner/src/snes/ppu_legacy.c',
              'snesrecomp/runner/src/snes/interp816.c', '-o', producer], 'producer-build')
         result = run([producer, rom, args.producer_prefix.resolve()], 'producer')

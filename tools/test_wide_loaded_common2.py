@@ -62,7 +62,7 @@ def main():
                    "-Isnesrecomp/runner/src/desktop", "-I" + str(args.sdl_include.resolve(strict=True)),
                    "-ffunction-sections", "-fdata-sections", "-Wl,--gc-sections",
                    "tools/test_wide_loaded_common2_producer.c", "src/lagoon_wide_multipart.c",
-                   "src/lagoon_wide_spell3.c", "src/lagoon_scene_renderer.c",
+                   "src/lagoon_wide_spell3.c", "src/lagoon_scene_renderer.c", "snesrecomp/runner/src/sha256.c", "snesrecomp/runner/src/crc32.c",
                    "snesrecomp/runner/src/snes/ppu.c", "snesrecomp/runner/src/snes/ppu_legacy.c",
                    "-o", str(producer)]
         build = subprocess.run(command, cwd=repo, text=True, capture_output=True)

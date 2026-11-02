@@ -22,7 +22,7 @@ src=a.out/'endgame-source.exe'
 subprocess.run([a.compiler,*common,'-DLAGOON_WIDE_ENTITIES_DECODER_ONLY',str(repo/'tools/test_wide_endgame_multipart_source.c'),str(repo/'src/lagoon_wide_multipart.c'),str(repo/'src/lagoon_wide_entities.c'),str(repo/'snesrecomp/runner/src/snes/interp816.c'),'-o',str(src)],check=True)
 flags=['-DSDL_MAIN_HANDLED=1','-DSNESRECOMP_SDL3=1','-DSNESRECOMP_REVERSE_DEBUG=0','-I'+str(repo/'snesrecomp/runner/src/snes'),'-I'+str(repo/'snesrecomp/runner/src/desktop'),'-I'+str(a.sdl_include),'-ffunction-sections','-fdata-sections','-Wl,--gc-sections']
 prod=a.out/'endgame-producer.exe'
-files=['tools/test_wide_endgame_multipart_producer.c','src/lagoon_wide_multipart.c','src/lagoon_wide_spell3.c','src/lagoon_scene_renderer.c','snesrecomp/runner/src/snes/ppu.c','snesrecomp/runner/src/snes/ppu_legacy.c','snesrecomp/runner/src/snes/interp816.c']
+files=['tools/test_wide_endgame_multipart_producer.c','src/lagoon_wide_multipart.c','src/lagoon_wide_spell3.c','src/lagoon_scene_renderer.c', 'snesrecomp/runner/src/sha256.c', 'snesrecomp/runner/src/crc32.c','snesrecomp/runner/src/snes/ppu.c','snesrecomp/runner/src/snes/ppu_legacy.c','snesrecomp/runner/src/snes/interp816.c']
 subprocess.run([a.compiler,*common,*flags,*[str(repo/f) for f in files],'-o',str(prod)],check=True)
 def run(args):
     r=subprocess.run([str(x.resolve()) if isinstance(x,Path) else x for x in args],capture_output=True,text=True)
@@ -33,7 +33,7 @@ if a.moving_prefix:
     moving_files=['tools/test_wide_draw_producer_pose.c',*files[1:]]
     subprocess.run([a.compiler,*common,*flags,*[str(repo/f) for f in moving_files],'-o',str(moving)],check=True)
     outputs['moving_NPC_producer']=run([moving,a.rom,a.moving_prefix])
-source_files=['src/lagoon_wide_multipart.c','src/lagoon_wide_multipart.h','src/lagoon_wide_entities.c','src/lagoon_wide_entities.h','tools/test_wide_endgame_multipart_source.c','tools/test_wide_endgame_multipart_producer.c','tools/test_wide_endgame_multipart.py','tools/test_wide_multipart_source.c','tools/test_wide_multipart_producer.c','tools/test_wide_projectile_producer.c','tools/test_wide_additional_producer.c','snesrecomp/runner/src/snes/interp816.c']
+source_files=['src/lagoon_scene_renderer.c','snesrecomp/runner/src/sha256.c','snesrecomp/runner/src/crc32.c','src/lagoon_wide_multipart.c','src/lagoon_wide_multipart.h','src/lagoon_wide_entities.c','src/lagoon_wide_entities.h','tools/test_wide_endgame_multipart_source.c','tools/test_wide_endgame_multipart_producer.c','tools/test_wide_endgame_multipart.py','tools/test_wide_multipart_source.c','tools/test_wide_multipart_producer.c','tools/test_wide_projectile_producer.c','tools/test_wide_additional_producer.c','snesrecomp/runner/src/snes/interp816.c']
 if a.moving_prefix:source_files.append('tools/test_wide_draw_producer_pose.c')
 fixtures={name:{suffix:sha(Path(str(prefix)+'.'+suffix)) for suffix in ['wram.bin','vram.bin','cgram.bin']} for name,prefix in [('Thor11_orbs13',a.thor_prefix),('Bird12',a.bird_prefix)]}
 if a.moving_prefix:fixtures['moving_NPC']={suffix:sha(Path(str(a.moving_prefix)+'.'+suffix)) for suffix in ['wram.bin','vram.bin','cgram.bin']}

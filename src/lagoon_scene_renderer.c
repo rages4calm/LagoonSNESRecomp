@@ -3,9 +3,22 @@
 #include "lagoon_scene_renderer.h"
 #include "lagoon_wide_entities.h"
 #include "snes/ppu.h"
+#include "sha256.h"
+#include "crc32.h"
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <wchar.h>
+/* These two public Win32 ABI declarations keep the renderer independent of
+ * windows.h's unrelated extern-inline TEB/fiber definitions under MinGW. */
+__declspec(dllimport) int __stdcall MultiByteToWideChar(unsigned int,unsigned long,const char *,int,wchar_t *,int);
+__declspec(dllimport) int __stdcall MoveFileExW(const wchar_t *,const wchar_t *,unsigned long);
+enum { ARCHIVE_CP_UTF8=65001,ARCHIVE_MB_ERR_INVALID_CHARS=8,
+       ARCHIVE_MOVEFILE_REPLACE_EXISTING=1,ARCHIVE_MOVEFILE_WRITE_THROUGH=8 };
+#endif
 
 enum { W=800,H=224,OBJECTS=512,OBJECT_SIDE=48 };
 typedef struct SceneObject {
@@ -76,6 +89,7 @@ static SceneMapSource s_map_source;
 static unsigned s_map_identity_valid,s_map_identity_lines,s_map_identity_room;
 static unsigned s_map_identity_seen;
 static uint64_t s_map_identity_generation;
+static int archive_remember(const SceneMapSource *source);
 /* Source-decoded BG1/BG2 only. Moving objects still compose afresh, and the
  * normal whole-field reference comparison still runs before presentation.
  * Keep complete input bytes: neither a room/resource label nor a hash grants
@@ -869,3 +883,247 @@ int LagoonSceneRenderer_TryPresent(uint8_t *dst,size_t pitch,const uint8_t *ref,
       (s_mode==2?"replaced":"verified"),s->frame,width);return s_mode==2;
 }
 void LagoonSceneRenderer_GetStats(LagoonSceneRendererStats *out){if(out)*out=s_stats;}
+
+/* Visited-map storage is deliberately separate from both live packet admission
+ * and live decoded-row caches. Records carry only terrain, never actors, CPU,
+ * pointers, generations or C struct padding. I/O occurs only through explicit
+ * Load/Save calls made by the paused map/normal shutdown owner. */
+enum { ARCHIVE_ROOMS=75,ARCHIVE_HEADER=80,ARCHIVE_DATA=73984,
+       ARCHIVE_RECORD=36+ARCHIVE_DATA+4,ARCHIVE_MAX=ARCHIVE_HEADER+ARCHIVE_ROOMS*ARCHIVE_RECORD };
+typedef struct ArchiveRoomContract {
+  unsigned width,height,parallax;uint32_t descriptor_crc;uint8_t defs_sha[32];
+} ArchiveRoomContract;
+static ArchiveRoomContract s_archive_contract[ARCHIVE_ROOMS];
+static SceneMapSource *s_archive;
+static const uint8_t *s_archive_rom;
+static unsigned s_archive_ready,s_archive_count,s_archive_dirty,s_archive_revision;
+static unsigned s_archive_loaded,s_archive_blocked,s_archive_disk_present;
+static uint32_t s_archive_catalog_crc;
+static char s_archive_path[1024];
+static uint8_t s_archive_disk_sha[32];
+static uint16_t s_archive_page_check[32768];
+static uint32_t s_visited_pixels[1024*1024];
+static unsigned s_visited_valid,s_visited_room,s_visited_revision,s_visited_width,s_visited_height;
+static const uint8_t archive_rom_sha[32]={
+  0x46,0xc8,0x11,0xf0,0xca,0xcf,0xfe,0x8f,0x20,0xe1,0xd6,0x30,0x72,0xd2,0x5d,0x7c,
+  0x47,0xe9,0xbb,0x3f,0xd5,0x12,0x48,0x51,0xfd,0x05,0xac,0xa9,0x88,0x4d,0x21,0xfb};
+static unsigned archive_u32(const uint8_t *p){return (unsigned)p[0]|(unsigned)p[1]<<8|(unsigned)p[2]<<16|(unsigned)p[3]<<24;}
+static void archive_put32(uint8_t *p,uint32_t v){for(unsigned i=0;i<4;++i)p[i]=(uint8_t)(v>>(i*8));}
+static int archive_i32(uint32_t v){return v<=INT_MAX?(int)v:-1-(int)(UINT32_MAX-v);}
+static void archive_words_out(uint8_t **at,const uint16_t *p,size_t count){
+  while(count--){*(*at)++=(uint8_t)*p;*(*at)++=(uint8_t)(*p++>>8);}
+}
+static void archive_words_in(const uint8_t **at,uint16_t *p,size_t count){
+  while(count--){*p++=(uint16_t)((*at)[0]|(*at)[1]<<8);*at+=2;}
+}
+#ifdef _WIN32
+static wchar_t *archive_wide(const char *s){
+  int n=MultiByteToWideChar(ARCHIVE_CP_UTF8,ARCHIVE_MB_ERR_INVALID_CHARS,s,-1,NULL,0);if(!n)return NULL;
+  wchar_t *p=malloc((size_t)n*sizeof *p);if(p&&!MultiByteToWideChar(ARCHIVE_CP_UTF8,ARCHIVE_MB_ERR_INVALID_CHARS,s,-1,p,n)){free(p);p=NULL;}return p;
+}
+static FILE *archive_open(const char *path,const char *mode){
+  wchar_t *p=archive_wide(path),m[8];unsigned n=0;while(mode[n]&&n<7){m[n]=(wchar_t)mode[n];++n;}m[n]=0;
+  FILE *f=p?_wfopen(p,m):NULL;free(p);return f;
+}
+static int archive_replace(const char *from,const char *to){
+  wchar_t *a=archive_wide(from),*b=archive_wide(to);int good=a&&b&&MoveFileExW(a,b,ARCHIVE_MOVEFILE_REPLACE_EXISTING|ARCHIVE_MOVEFILE_WRITE_THROUGH);free(a);free(b);return good;
+}
+static void archive_remove(const char *path){wchar_t*p=archive_wide(path);if(p){_wremove(p);free(p);}}
+#else
+static FILE *archive_open(const char *path,const char *mode){return fopen(path,mode);}
+static int archive_replace(const char *from,const char *to){return rename(from,to)==0;}
+static void archive_remove(const char *path){(void)remove(path);}
+#endif
+static void archive_changed(void){s_archive_dirty=1;if(!++s_archive_revision)s_archive_revision=1;s_visited_valid=0;}
+int LagoonSceneRenderer_ArchiveOnRomInit(const uint8_t *rom,size_t size){
+  free(s_archive);s_archive=NULL;s_archive_rom=NULL;
+  s_archive_ready=s_archive_count=s_archive_dirty=s_archive_revision=0;
+  s_archive_loaded=s_archive_blocked=s_archive_disk_present=s_visited_valid=0;s_archive_path[0]=0;
+  memset(s_archive_contract,0,sizeof s_archive_contract);memset(s_archive_disk_sha,0,sizeof s_archive_disk_sha);
+  if(!rom||size!=0x100000)return 0;uint8_t hash[32];sha256_compute(rom,size,hash);
+  if(memcmp(hash,archive_rom_sha,32))return 0;
+  for(unsigned room=0;room<ARCHIVE_ROOMS;++room){
+    const uint8_t *r=rom+0x2b2df+room*56;ArchiveRoomContract *c=&s_archive_contract[room];
+    c->width=word(r,3)*8;c->height=word(r,5)*8;c->parallax=r[0]!=0;
+    unsigned definitions=ptr(r,0x19),other=ptr(r,0x25);
+    size_t offset=(definitions>>16)*32768+(definitions&32767);
+    if(!c->width||c->width>2048||!c->height||c->height>2048||definitions!=other||offset>size||size-offset<2048)return 0;
+    c->descriptor_crc=crc32_compute(r,56);sha256_compute(rom+offset,2048,c->defs_sha);
+  }
+  s_archive=calloc(ARCHIVE_ROOMS,sizeof *s_archive);if(!s_archive)return 0;
+  s_archive_catalog_crc=crc32_compute(rom+0x2b2df,ARCHIVE_ROOMS*56);
+  s_archive_rom=rom;s_archive_ready=1;init_tables();return 1;
+}
+unsigned LagoonSceneRenderer_ArchivedRoomCount(void){return s_archive_ready?s_archive_count:0;}
+int LagoonSceneRenderer_ArchivePersistenceBlocked(void){return s_archive_blocked!=0;}
+static int archive_source_valid(const SceneMapSource *s){
+  if(!s_archive_ready||!s||!s->valid||s->room>=ARCHIVE_ROOMS)return 0;
+  const ArchiveRoomContract *c=&s_archive_contract[s->room];
+  if(s->world_width!=(int)c->width||s->world_height!=(int)c->height||s->parallax!=c->parallax||
+      memcmp(s->defs[0],s->defs[1],sizeof s->defs[0]))return 0;
+  uint8_t definitions[2048],*at=definitions,hash[32];archive_words_out(&at,s->defs[0],1024);
+  sha256_compute(definitions,sizeof definitions,hash);if(memcmp(hash,c->defs_sha,32))return 0;
+  for(unsigned i=0;i<128;++i)if(s->pal[i]&0x8000)return 0;
+  if(s->parallax){
+    if(s->wx<0||s->wx>=2048||s->wy<1||s->wy>2048||
+        s->bg2_x!=(unsigned)s->wx/4||s->bg2_y!=(unsigned)(s->wy-1)/4+1)return 0;
+    memcpy(s_archive_page_check+0x7800,s->pages,sizeof s->pages);
+    if(!LagoonWideEntities_ParallaxMapForRoom(s_archive_page_check,s_archive_rom,0x100000,s->room))return 0;
+  }
+  return 1;
+}
+static int archive_same(const SceneMapSource *a,const SceneMapSource *b){
+  return a->valid&&a->room==b->room&&a->world_width==b->world_width&&a->world_height==b->world_height&&
+    a->parallax==b->parallax&&(!a->parallax||(a->wx==b->wx&&a->wy==b->wy&&a->bg2_x==b->bg2_x&&a->bg2_y==b->bg2_y&&
+      !memcmp(a->pages,b->pages,sizeof a->pages)))&&
+    !memcmp(a->maps,b->maps,sizeof a->maps)&&!memcmp(a->defs,b->defs,sizeof a->defs)&&
+    !memcmp(a->patterns,b->patterns,sizeof a->patterns)&&!memcmp(a->pal,b->pal,sizeof a->pal);
+}
+static int archive_remember(const SceneMapSource *s){
+  if(!s_archive_ready||!s||s->room>=ARCHIVE_ROOMS)return 0;
+  if(archive_same(&s_archive[s->room],s))return 1;if(!archive_source_valid(s))return 0;
+  SceneMapSource *dest=&s_archive[s->room];if(!dest->valid)++s_archive_count;
+  memcpy(dest,s,sizeof *dest);dest->serial=0;dest->generation=0;
+  if(!dest->parallax){dest->wx=dest->wy=0;dest->bg2_x=dest->bg2_y=0;memset(dest->pages,0,sizeof dest->pages);}
+  archive_changed();return 1;
+}
+int LagoonSceneRenderer_ArchiveCommit(unsigned room,uint64_t generation){
+  const ScenePacket *p=&s_packets[s_complete];const SceneMapSource *s=&s_map_source;
+  if(!s_archive_ready||room>=ARCHIVE_ROOMS||!p->valid||p->lines!=H||p->incoming_mosaic||
+      p->room!=room||p->generation!=generation||!s->valid||s->room!=room||s->generation!=generation||
+      s->serial!=p->serial||!s_map_identity_valid||s_map_identity_lines!=H||
+      s_map_identity_room!=room||s_map_identity_generation!=generation)return 0;
+  return archive_remember(s);
+}
+static void archive_encode(uint8_t *data,const SceneMapSource *s){
+  archive_put32(data,s->room);archive_put32(data+4,s->parallax);
+  archive_put32(data+8,(unsigned)s->world_width);archive_put32(data+12,(unsigned)s->world_height);
+  archive_put32(data+16,(uint32_t)s->wx);archive_put32(data+20,(uint32_t)s->wy);
+  archive_put32(data+24,s->bg2_x);archive_put32(data+28,s->bg2_y);
+  archive_put32(data+32,s_archive_contract[s->room].descriptor_crc);
+  uint8_t *at=data+36;memcpy(at,s->maps,sizeof s->maps);at+=sizeof s->maps;
+  archive_words_out(&at,s->defs[0],1024);archive_words_out(&at,s->defs[1],1024);
+  archive_words_out(&at,s->patterns,16384);archive_words_out(&at,s->pages,2048);archive_words_out(&at,s->pal,128);
+  archive_put32(at,crc32_compute(data,ARCHIVE_RECORD-4));
+}
+static int archive_decode(const uint8_t *data,SceneMapSource *s){
+  unsigned room=archive_u32(data);if(room>=ARCHIVE_ROOMS||
+      archive_u32(data+32)!=s_archive_contract[room].descriptor_crc||
+      archive_u32(data+ARCHIVE_RECORD-4)!=crc32_compute(data,ARCHIVE_RECORD-4))return 0;
+  memset(s,0,sizeof *s);s->room=room;s->valid=1;s->parallax=archive_u32(data+4);
+  s->world_width=archive_i32(archive_u32(data+8));s->world_height=archive_i32(archive_u32(data+12));
+  s->wx=archive_i32(archive_u32(data+16));s->wy=archive_i32(archive_u32(data+20));
+  s->bg2_x=archive_u32(data+24);s->bg2_y=archive_u32(data+28);
+  const uint8_t *at=data+36;memcpy(s->maps,at,sizeof s->maps);at+=sizeof s->maps;
+  archive_words_in(&at,s->defs[0],1024);archive_words_in(&at,s->defs[1],1024);
+  archive_words_in(&at,s->patterns,16384);archive_words_in(&at,s->pages,2048);archive_words_in(&at,s->pal,128);
+  if(!s->parallax){if(s->wx||s->wy||s->bg2_x||s->bg2_y)return 0;
+    for(unsigned i=0;i<2048;++i)if(s->pages[i])return 0;}
+  return archive_source_valid(s);
+}
+/* 0=missing,1=validated immutable bytes,-1=foreign/corrupt/I/O error. Entire
+ * bounded file validates before ANY room is imported, so a bad late record
+ * cannot partially poison the in-memory UI archive. */
+static int archive_read(const char *path,uint8_t **bytes,size_t *size,uint8_t hash[32]){
+  *bytes=NULL;*size=0;errno=0;FILE *f=archive_open(path,"rb");if(!f)return errno==ENOENT?0:-1;
+  uint8_t header[ARCHIVE_HEADER];int good=fread(header,1,sizeof header,f)==sizeof header;
+  unsigned count=good?archive_u32(header+56):ARCHIVE_ROOMS+1;
+  size_t length=ARCHIVE_HEADER+(size_t)count*ARCHIVE_RECORD;
+  good=good&&count<=ARCHIVE_ROOMS&&!memcmp(header,"LGSCN001",8)&&archive_u32(header+8)==1&&
+    archive_u32(header+12)==ARCHIVE_HEADER&&!memcmp(header+16,archive_rom_sha,32)&&
+    archive_u32(header+48)==0x100000&&archive_u32(header+52)==ARCHIVE_RECORD&&
+    archive_u32(header+60)==count*ARCHIVE_RECORD&&archive_u32(header+68)==s_archive_catalog_crc&&
+    !archive_u32(header+72)&&archive_u32(header+76)==crc32_compute(header,76)&&length<=ARCHIVE_MAX;
+  uint8_t *data=good?malloc(length):NULL;good=good&&data;
+  if(good){memcpy(data,header,sizeof header);good=fread(data+ARCHIVE_HEADER,1,length-ARCHIVE_HEADER,f)==length-ARCHIVE_HEADER&&fgetc(f)==EOF&&!ferror(f);}
+  if(fclose(f))good=0;
+  if(good)good=archive_u32(header+64)==crc32_compute(data+ARCHIVE_HEADER,length-ARCHIVE_HEADER);
+  SceneMapSource *decoded=good?malloc(sizeof *decoded):NULL;good=good&&decoded;
+  unsigned previous=ARCHIVE_ROOMS;
+  for(unsigned i=0;good&&i<count;++i){
+    good=archive_decode(data+ARCHIVE_HEADER+(size_t)i*ARCHIVE_RECORD,decoded)&&
+      (i==0||decoded->room>previous);if(good)previous=decoded->room;
+  }
+  free(decoded);if(!good){free(data);return -1;}
+  sha256_compute(data,length,hash);*bytes=data;*size=length;return 1;
+}
+static int archive_path(const char *path){
+  if(!s_archive_ready||!path||!*path||strlen(path)>=sizeof s_archive_path)return 0;
+  if(s_archive_loaded)return !strcmp(path,s_archive_path);
+  memcpy(s_archive_path,path,strlen(path)+1);return 1;
+}
+int LagoonSceneRenderer_ArchiveLoad(const char *path){
+  if(s_archive_blocked)return -1;if(!archive_path(path)){s_archive_blocked=1;return -1;}
+  if(s_archive_loaded)return s_archive_disk_present?1:0;s_archive_loaded=1;
+  uint8_t *data=NULL,hash[32];size_t size=0;int status=archive_read(path,&data,&size,hash);
+  if(status<0){s_archive_blocked=1;return -1;}s_archive_disk_present=status==1;
+  if(status==1){
+    SceneMapSource *decoded=malloc(sizeof *decoded);if(!decoded){free(data);s_archive_blocked=1;return -1;}
+    unsigned count=archive_u32(data+56);
+    for(unsigned i=0;i<count;++i){
+      (void)archive_decode(data+ARCHIVE_HEADER+(size_t)i*ARCHIVE_RECORD,decoded);
+      if(!s_archive[decoded->room].valid){memcpy(&s_archive[decoded->room],decoded,sizeof *decoded);++s_archive_count;}
+    }
+    free(decoded);memcpy(s_archive_disk_sha,hash,32);if(!++s_archive_revision)s_archive_revision=1;s_visited_valid=0;
+  }
+  free(data);return status;
+}
+static int archive_disk_unchanged(void){
+  uint8_t *data=NULL,hash[32];size_t size=0;int status=archive_read(s_archive_path,&data,&size,hash);free(data);
+  if(status<0||(status==1)!=s_archive_disk_present||(status==1&&memcmp(hash,s_archive_disk_sha,32))){s_archive_blocked=1;return 0;}return 1;
+}
+int LagoonSceneRenderer_ArchiveSave(const char *path){
+  if(LagoonSceneRenderer_ArchiveLoad(path)<0)return -1;if(!s_archive_dirty)return 0;
+  if(!archive_disk_unchanged())return -1;
+  size_t size=ARCHIVE_HEADER+(size_t)s_archive_count*ARCHIVE_RECORD;
+  uint8_t *data=calloc(1,size);if(!data)return -1;
+  memcpy(data,"LGSCN001",8);archive_put32(data+8,1);archive_put32(data+12,ARCHIVE_HEADER);
+  memcpy(data+16,archive_rom_sha,32);archive_put32(data+48,0x100000);archive_put32(data+52,ARCHIVE_RECORD);
+  archive_put32(data+56,s_archive_count);archive_put32(data+60,s_archive_count*ARCHIVE_RECORD);
+  archive_put32(data+68,s_archive_catalog_crc);unsigned count=0;
+  for(unsigned room=0;room<ARCHIVE_ROOMS;++room)if(s_archive[room].valid)
+    archive_encode(data+ARCHIVE_HEADER+(size_t)count++*ARCHIVE_RECORD,&s_archive[room]);
+  if(count!=s_archive_count){free(data);return -1;}
+  archive_put32(data+64,crc32_compute(data+ARCHIVE_HEADER,size-ARCHIVE_HEADER));archive_put32(data+76,crc32_compute(data,76));
+  char temporary[1040];if(snprintf(temporary,sizeof temporary,"%s.tmp",path)>=(int)sizeof temporary){free(data);return -1;}
+  FILE *f=archive_open(temporary,"wbx");if(!f){free(data);return -1;}
+  int good=fwrite(data,1,size,f)==size;if(fclose(f))good=0;
+  if(good)good=archive_disk_unchanged();if(good)good=archive_replace(temporary,path);
+  if(!good){archive_remove(temporary);free(data);return -1;}
+  sha256_compute(data,size,s_archive_disk_sha);free(data);s_archive_disk_present=1;s_archive_dirty=0;return 1;
+}
+/* Independent row cache: browsing old sources cannot pollute a live packet's
+ * serial-keyed decoder. Rebuilt only for this one offline image, while paused. */
+static uint64_t s_visited_rows[16384];static uint8_t s_visited_row_valid[16384];
+static uint64_t visited_row(const SceneMapSource *s,unsigned tile,unsigned y){
+  if(tile&0x8000)y=7-y;unsigned adr=(tile&1023)*16+y;
+  if(!s_visited_row_valid[adr]){unsigned a=s->patterns[adr],b=s->patterns[adr+8];
+    s_visited_rows[adr]=s_spread[a&255]|s_spread[a>>8]<<1|s_spread[b&255]<<2|s_spread[b>>8]<<3;s_visited_row_valid[adr]=1;}
+  return s_visited_rows[adr];
+}
+int LagoonSceneRenderer_VisitedMapImage(unsigned room,const uint32_t **pixels,
+    unsigned *width,unsigned *height,unsigned *world_width,unsigned *world_height){
+  if(pixels)*pixels=NULL;if(width)*width=0;if(height)*height=0;
+  if(world_width)*world_width=0;if(world_height)*world_height=0;
+  if(!pixels||!width||!height||!s_archive_ready||room>=ARCHIVE_ROOMS||!s_archive[room].valid)return 0;
+  const SceneMapSource *s=&s_archive[room];unsigned scale=s->world_width>1024||s->world_height>1024?2:1;
+  unsigned w=((unsigned)s->world_width+scale-1)/scale,h=((unsigned)s->world_height+scale-1)/scale;
+  if(!s_visited_valid||s_visited_room!=room||s_visited_revision!=s_archive_revision){
+    memset(s_visited_row_valid,0,sizeof s_visited_row_valid);
+    for(unsigned y=0;y<h;++y)for(unsigned x=0;x<w;++x){
+      unsigned qx=x*scale,qy=y*scale,depth=0,color=s->pal[0];
+      for(unsigned layer=0;layer<2;++layer){unsigned tx=qx,ty=qy,tile;
+        if(layer&&s->parallax){tx=(unsigned)((int)qx+(int)s->bg2_x-s->wx);ty=(unsigned)((int)qy+(int)s->bg2_y-s->wy);
+          tile=s->pages[((ty>>8)&1)*1024+((ty>>3)&31)*32+((tx>>3)&31)];
+        }else{unsigned meta=s->maps[layer][(qy>>4)*128+(qx>>4)];tile=s->defs[layer][meta*4+((qx&8)>>3)+((qy&8)>>2)];}
+        if(layer&&!s->parallax)tile&=0xdfff;unsigned px=tile&0x4000?7-(tx&7):tx&7;
+        unsigned c=(unsigned)(visited_row(s,tile,ty&7)>>(px*8))&255,z=(tile&0x2000?12:8)-layer;
+        if(c&&z>depth){depth=z;color=s->pal[((tile>>10)&7)*16+c];}
+      }
+      s_visited_pixels[y*w+x]=0xff000000u|s_rgb15[color&32767];
+    }
+    s_visited_valid=1;s_visited_room=room;s_visited_revision=s_archive_revision;s_visited_width=w;s_visited_height=h;
+  }
+  *pixels=s_visited_pixels;*width=s_visited_width;*height=s_visited_height;
+  if(world_width)*world_width=(unsigned)s->world_width;if(world_height)*world_height=(unsigned)s->world_height;return 1;
+}

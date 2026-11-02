@@ -39,7 +39,7 @@ static void clamp_view(void){if(selected>=75)return;double scale=map_scale(),hw=
  double w=rooms[selected].w,h=rooms[selected].h;
  if(hw*2>=w)center_x=w/2;else {if(center_x<hw)center_x=hw;if(center_x>w-hw)center_x=w-hw;}
  if(hh*2>=h)center_y=h/2;else {if(center_y<hh)center_y=hh;if(center_y>h-hh)center_y=h-hh;}}
-static char save_path[1024];static int save_loaded,save_invalid;
+static char save_path[1024],scenery_path[1024];static int save_loaded,save_invalid;
 static int selftest_frame=-2,selftest_opened;static unsigned selftest_pumps;
 static unsigned rd16(const uint8_t *p){return p[0]|p[1]<<8;}
 static unsigned rd24(const uint8_t *p){return rd16(p)|p[2]<<16;}
@@ -56,6 +56,7 @@ static uint32_t checksum(const uint8_t *p,size_t n){uint32_t h=2166136261u;while
 static void load_save(void){
  if(save_loaded)return;save_loaded=1;
  const char *root=RtlSaveRoot();
+ if(root&&snprintf(scenery_path,sizeof scenery_path,"%s/lagoon-scenery.maps",root)>=(int)sizeof(scenery_path))scenery_path[0]=0;
  if(!root||snprintf(save_path,sizeof(save_path),"%s/lagoon-exploration.map",root)>=(int)sizeof(save_path)){save_invalid=1;return;}
  FILE *f=fopen(save_path,"rb");if(!f)return;
  uint8_t header[16],*data=malloc(sizeof(cells));
@@ -70,6 +71,9 @@ static void load_save(void){
  free(data);
 }
 void LagoonMap_Save(void){
+ /* Terrain persistence is independent of exploration changes. Its archive
+  * performs no I/O during live fields, only here at modal close/normal quit. */
+ if(scenery_path[0])LagoonSceneRenderer_ArchiveSave(scenery_path);
  if(!dirty||!save_loaded||save_invalid||!save_path[0])return;
  char tmp[1040];if(snprintf(tmp,sizeof(tmp),"%s.tmp",save_path)>=(int)sizeof(tmp))return;
  uint32_t sum=checksum((uint8_t*)cells,sizeof(cells));
@@ -85,10 +89,11 @@ void LagoonMap_Save(void){
  dirty=0;
 }
 void LagoonMap_Init(const uint8_t *rom,size_t size){
+ LagoonSceneRenderer_ArchiveOnRomInit(rom,size);
  source=rom;source_size=size;available=open=pending=0;current=selected=75;zoom=0;center_x=center_y=0;nav_repeat=0;
  memset(rooms,0,sizeof(rooms));memset(cells,0,sizeof(cells));
  memset(chests,0,sizeof(chests));chest_count=0;
- save_loaded=save_invalid=dirty=0;save_path[0]=0;prior_human=prior_nav=0;
+ save_loaded=save_invalid=dirty=0;save_path[0]=scenery_path[0]=0;prior_human=prior_nav=0;
  if(!rom||size!=0x100000)return;
  for(unsigned r=0;r<75;r++){
   size_t at;if(!rom_at(0x05b2df+r*0x38,56,&at))return;
@@ -180,6 +185,11 @@ int LagoonMap_IsOpen(void){return open!=0;}
 int LagoonMap_PollOpen(uint32_t human){
  prior_human=human;
  if(pending&&current<75){pending=0;open=1;selected=current;prior_nav=human;nav_repeat=0;fit_view();selftest_pumps=0;
+  if(scenery_path[0])LagoonSceneRenderer_ArchiveLoad(scenery_path);
+  /* Optional integration diagnostic uses the real next-area command. It
+   * changes only the frozen browser, never exploration or guest progress. */
+  if(selftest_opened){const char *v=getenv("LAGOON_MAP_SELFTEST_BROWSE");unsigned steps=v?(unsigned)atoi(v):0;
+   if(steps<75)while(steps--)LagoonMap_Command(LAGOON_MAP_NEXT);}
   fprintf(stderr,"[lagoon_map] open room%02X position%u,%u\n",current,px,py);}
  return open;
 }
@@ -228,7 +238,10 @@ int LagoonMap_Image(const uint32_t **image,int *width,int *height){
  LagoonUI_Frame(panel,MW,MH,12,76,684,388);LagoonUI_Frame(panel,MW,MH,708,76,240,388);
  const uint32_t *terrain=NULL;unsigned tw=0,th=0,ww=0,wh=0;
  int scenery=LagoonSceneRenderer_MapImage(selected,last_generation,&terrain,&tw,&th,&ww,&wh);
+ int last_seen=0;
+ if(!scenery)last_seen=scenery=LagoonSceneRenderer_VisitedMapImage(selected,&terrain,&tw,&th,&ww,&wh);
  if(scenery&&(ww!=rooms[selected].w||wh!=rooms[selected].h))scenery=0;
+ if(selftest_opened&&!selftest_pumps)fprintf(stderr,"[lagoon_map] view current=%02X selected=%02X scenery=%d last_seen=%d size=%ux%u archived=%u\n",current,selected,scenery,last_seen,tw,th,LagoonSceneRenderer_ArchivedRoomCount());
  clamp_view();double scale=map_scale();
  unsigned cw=rooms[selected].w/16,ch=rooms[selected].h/16,seen=0;
  for(unsigned y=0;y<ch;y++)for(unsigned x=0;x<cw;x++)seen+=cells[selected][y*128+x]!=0;
@@ -277,7 +290,8 @@ int LagoonMap_Image(const uint32_t **image,int *width,int *height){
  }
  text(728,91,scenery?"Scenery map":"Explored layout",gold);
  if(!scenery)text(728,115,"Scenery unavailable",dim);
- int ly=scenery?126:150;
+ else if(last_seen)text(728,115,"Last mapped visit",dim);
+ int ly=scenery&&!last_seen?126:150;
  rect(730,ly+6,7,7,ink);text(750,ly,"Nasir",ink);
  door_icon(733,ly+37,gold);text(750,ly+28,"Door / exit",ink);
  rect(729,ly+63,9,7,gold);text(750,ly+56,"Treasure found",ink);
