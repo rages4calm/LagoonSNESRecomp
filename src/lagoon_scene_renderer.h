@@ -29,4 +29,16 @@ int LagoonSceneRenderer_TryPresent(uint8_t *dst,size_t pitch,
     const uint8_t *reference,size_t reference_pitch,unsigned width,unsigned height,
     uint64_t generation);
 void LagoonSceneRenderer_GetStats(LagoonSceneRendererStats *out);
+/* Full finite terrain from the latest immutable qualified ordinary room source. Opaque
+ * ARGB, no actors/HUD, at original resolution or an integer2x reduction so
+ * neither side exceeds1024. The returned image is owned here, valid until the
+ * next call/reset. All outputs clear on refusal; room and generation must match
+ * the current completed field's verified identity. A presentation-only refusal
+ * may reuse the last source only after fresh exact terrain/resource equality;
+ * another room/generation, changed art, fades or loading cannot reuse it.
+ * Parallax BG2 retains its actual qualified quarter-scroll anchor and32x64 page
+ * layout over full BG1 terrain. No guest state is read or advanced here. */
+int LagoonSceneRenderer_MapImage(unsigned room,uint64_t generation,
+    const uint32_t **pixels,unsigned *width,unsigned *height,
+    unsigned *world_width,unsigned *world_height);
 #endif

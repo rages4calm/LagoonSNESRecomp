@@ -10,6 +10,8 @@ int LagoonSceneRenderer_ExactRoom(const unsigned char*r){return r[0x1fffe]==0xa5
 unsigned char g_ram[0x20000];
 #define ram g_ram
 #include "../src/lagoon_map.c"
+int LagoonSceneRenderer_MapImage(unsigned room,uint64_t generation,const uint32_t **p,unsigned*w,unsigned*h,unsigned*ww,unsigned*wh){(void)room;(void)generation;if(p)*p=NULL;if(w)*w=0;if(h)*h=0;if(ww)*ww=0;if(wh)*wh=0;return 0;}
+
 static void word(unsigned a,unsigned v){ram[a]=v;ram[a+1]=v>>8;}
 static void observe(unsigned room,unsigned x,unsigned y,unsigned generation){
  word(0x48e,room);word(0x53,rooms[room].w/8);word(0x55,rooms[room].h/8);
@@ -33,14 +35,12 @@ int main(int argc,char**argv){
  ram[0x4c0+c->flag/8]|=0x80u>>(c->flag&7);observe(r,rooms[r].w-16,rooms[r].h-16,1);
  assert(c->opened&&!chest_seen(c));LagoonMap_Command(LAGOON_MAP_TOGGLE);assert(LagoonMap_PollOpen(0));
  const uint32_t*image;int w,h;assert(LagoonMap_Image(&image,&w,&h));
- unsigned cw=rooms[r].w/16,ch=rooms[r].h/16;double scale=416.0/cw;if(296.0/ch<scale)scale=296.0/ch;
- int ox=24+(416-(int)(cw*scale))/2,oy=92+(296-(int)(ch*scale))/2;
- int mx=ox+(int)(c->x*scale/16),my=oy+(int)(c->y*scale/16);
- assert(image[my*MW+mx-1]==0xff0b121cu);
+ int mx,my;assert(marker(c->x,c->y,map_scale(),&mx,&my));
+ assert(image[my*MW+mx-1]==LAGOON_UI_BG);
  ram[0x4c0+c->flag/8]&=~(0x80u>>(c->flag&7));observe(r,c->x+48,c->y,1);assert(!c->opened&&chest_seen(c));
- assert(LagoonMap_Image(&image,&w,&h)&&image[my*MW+mx-1]==GOLD);
+ assert(LagoonMap_Image(&image,&w,&h)&&image[my*MW+mx-1]==0xffedc977u);
  ram[0x4c0+c->flag/8]|=0x80u>>(c->flag&7);observe(r,c->x+48,c->y,1);
- assert(LagoonMap_Image(&image,&w,&h)&&image[my*MW+mx-1]==BG);
+ assert(LagoonMap_Image(&image,&w,&h)&&image[my*MW+mx-1]==0xffbdb8a7u);
  for(unsigned i=0;i<chest_count;i++){
   MapChest*t=chests+i;ram[0x4c0+t->flag/8]|=0x80u>>(t->flag&7);observe(r,c->x+48,c->y,1);assert(t->opened);
   ram[0x4c0+t->flag/8]&=~(0x80u>>(t->flag&7));observe(r,c->x+48,c->y,1);assert(!t->opened);

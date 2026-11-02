@@ -375,5 +375,43 @@ class DependencyTextProvenanceTests(unittest.TestCase):
                 self.assertEqual(set(audited.values()),set(original.values()))
 
 
+class UIFontPackageInputsTests(unittest.TestCase):
+    def fixture(self):
+        scratch=ROOT/'build-port-tests';scratch.mkdir(exist_ok=True)
+        target=Path(tempfile.mkdtemp(prefix='font-',dir=scratch))
+        for rel in ('assets/fonts/atkinson-hyperlegible/OFL.txt',
+                    'assets/fonts/atkinson-hyperlegible/AtkinsonHyperlegibleNext.ttf',
+                    'assets/fonts/atkinson-hyperlegible/provenance.json',
+                    'src/lagoon_ui_font.generated.h'):
+            p=target/rel;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes((ROOT/rel).read_bytes())
+        return target
+
+    def test_shared_windows_and_portable_font_notice_selection_excludes_build_assets(self):
+        selected=package.ui_font_inputs()
+        self.assertEqual(set(selected.values()),{'licenses/AtkinsonHyperlegibleNext-OFL.txt',
+                                                 'licenses/AtkinsonHyperlegibleNext-provenance.json'})
+        self.assertEqual(selected,package._inputs.ui_font_inputs())
+        self.assertFalse(any(Path(path).suffix in {'.ttf','.h','.py'} for path in selected))
+
+    def test_font_license_and_embedded_glyph_mutations_are_refused(self):
+        target=self.fixture()
+        for rel in ('assets/fonts/atkinson-hyperlegible/OFL.txt',
+                    'assets/fonts/atkinson-hyperlegible/AtkinsonHyperlegibleNext.ttf',
+                    'src/lagoon_ui_font.generated.h'):
+            path=target/rel;original=path.read_bytes();path.write_bytes(original+b'changed')
+            with self.subTest(path=rel),self.assertRaises(ValueError):package.ui_font_inputs(target)
+            path.write_bytes(original)
+        package.ui_font_inputs(target)
+
+    def test_reviewed_text_endings_are_portable_but_missing_or_altered_notices_fail(self):
+        target=self.fixture()
+        for rel in ('assets/fonts/atkinson-hyperlegible/OFL.txt','src/lagoon_ui_font.generated.h'):
+            path=target/rel;path.write_bytes(path.read_bytes().replace(b'\r\n',b'\n').replace(b'\n',b'\r\n'))
+        self.assertEqual(set(package.ui_font_inputs(target).values()),set(package.ui_font_inputs().values()))
+        path=target/'assets/fonts/atkinson-hyperlegible/OFL.txt'
+        path.write_bytes(path.read_bytes().replace(b'\r\n',b'\r'))
+        with self.assertRaises(ValueError):package.ui_font_inputs(target)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -6,14 +6,15 @@
 #include "lagoon_quest_guidance.h"
 #include "common_rtl.h"
 #include "snes_overlay_draw.h"
+#include "lagoon_ui.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #ifdef _WIN32
 #include <windows.h>
 #endif
-#define MW 640
-#define MH 520
+#define MW 960
+#define MH 540
 #define DOORS 64
 #define CHESTS 128
 #define BG 0xff101a28u
@@ -30,7 +31,14 @@ static uint8_t cells[LAGOON_MAP_ROOMS][LAGOON_MAP_CELLS];
 static uint32_t panel[MW*MH];
 static const uint8_t *source;static size_t source_size;
 static unsigned current=75,selected=75,px,py,available,open,pending,dirty;
-static uint32_t prior_human,prior_nav;static uint64_t last_generation;
+static uint32_t prior_human,prior_nav,nav_repeat;static uint64_t last_generation;
+static unsigned zoom,exit_page;static double center_x,center_y;
+static void fit_view(void){zoom=exit_page=0;if(selected<75){center_x=rooms[selected].w/2.0;center_y=rooms[selected].h/2.0;}}
+static double map_scale(void){double a=668.0/rooms[selected].w,b=372.0/rooms[selected].h;return (a<b?a:b)*(1u<<zoom);}
+static void clamp_view(void){if(selected>=75)return;double scale=map_scale(),hw=334.0/scale,hh=186.0/scale;
+ double w=rooms[selected].w,h=rooms[selected].h;
+ if(hw*2>=w)center_x=w/2;else {if(center_x<hw)center_x=hw;if(center_x>w-hw)center_x=w-hw;}
+ if(hh*2>=h)center_y=h/2;else {if(center_y<hh)center_y=hh;if(center_y>h-hh)center_y=h-hh;}}
 static char save_path[1024];static int save_loaded,save_invalid;
 static int selftest_frame=-2,selftest_opened;static unsigned selftest_pumps;
 static unsigned rd16(const uint8_t *p){return p[0]|p[1]<<8;}
@@ -77,7 +85,7 @@ void LagoonMap_Save(void){
  dirty=0;
 }
 void LagoonMap_Init(const uint8_t *rom,size_t size){
- source=rom;source_size=size;available=open=pending=0;current=selected=75;
+ source=rom;source_size=size;available=open=pending=0;current=selected=75;zoom=0;center_x=center_y=0;nav_repeat=0;
  memset(rooms,0,sizeof(rooms));memset(cells,0,sizeof(cells));
  memset(chests,0,sizeof(chests));chest_count=0;
  save_loaded=save_invalid=dirty=0;save_path[0]=0;prior_human=prior_nav=0;
@@ -148,27 +156,50 @@ void LagoonMap_Observe(const uint8_t *r,uint64_t generation){
   if(value!=cells[room][i]){cells[room][i]=value;dirty=1;}
  }
 }
-static void browse(int dir){if(selected>=75)return;unsigned at=selected;for(unsigned i=0;i<75;i++){at=(at+75+dir)%75;if(visited(at)){selected=at;return;}}}
+static void browse(int dir){if(selected>=75)return;unsigned at=selected;for(unsigned i=0;i<75;i++){at=(at+75+dir)%75;if(visited(at)){selected=at;fit_view();return;}}}
 void LagoonMap_Command(unsigned cmd){
- if(cmd==LAGOON_MAP_TOGGLE){if(open){open=0;return;}if(current<75){pending=1;}return;}
+ if(cmd==LAGOON_MAP_TOGGLE){if(open){open=0;LagoonMap_Save();return;}if(current<75)pending=1;return;}
  if(!open)return;
- if(cmd==LAGOON_MAP_CLOSE)open=0;
- else if(cmd==LAGOON_MAP_PREVIOUS)browse(-1);
- else if(cmd==LAGOON_MAP_NEXT)browse(1);
- else if(cmd==LAGOON_MAP_HOME)selected=current;
+ if(cmd==LAGOON_MAP_CLOSE){open=0;LagoonMap_Save();return;}
+ if(cmd==LAGOON_MAP_PREVIOUS){browse(-1);return;}
+ if(cmd==LAGOON_MAP_NEXT){browse(1);return;}
+ if(cmd==LAGOON_MAP_NEXT_EXITS){exit_page++;return;}
+ if(cmd==LAGOON_MAP_HOME){if(current<75){selected=current;center_x=px;center_y=py;}}
+ else if(cmd==LAGOON_MAP_FIT)fit_view();
+ else if(cmd==LAGOON_MAP_ZOOM_IN){if(zoom<3)zoom++;}
+ else if(cmd==LAGOON_MAP_ZOOM_OUT){if(zoom)zoom--;}
+ else {double step=24.0/map_scale();
+  if(cmd==LAGOON_MAP_PAN_LEFT)center_x-=step;
+  if(cmd==LAGOON_MAP_PAN_RIGHT)center_x+=step;
+  if(cmd==LAGOON_MAP_PAN_UP)center_y-=step;
+  if(cmd==LAGOON_MAP_PAN_DOWN)center_y+=step;
+ }
+ clamp_view();
 }
 int LagoonMap_IsOpen(void){return open!=0;}
 int LagoonMap_PollOpen(uint32_t human){
- prior_human=human; /* Map opener is the host L2 trigger or M key. */
- if(pending&&current<75){pending=0;open=1;selected=current;prior_nav=human;selftest_pumps=0;fprintf(stderr,"[lagoon_map] open room%02X position%u,%u\n",current,px,py);}
+ prior_human=human;
+ if(pending&&current<75){pending=0;open=1;selected=current;prior_nav=human;nav_repeat=0;fit_view();selftest_pumps=0;
+  fprintf(stderr,"[lagoon_map] open room%02X position%u,%u\n",current,px,py);}
  return open;
 }
 void LagoonMap_Tick(uint32_t human,uint32_t ticks){
- (void)ticks;uint32_t edge=human&~prior_nav;prior_nav=human;
- if(edge&SNES_PAD_B)open=0;
- if(edge&(SNES_PAD_LEFT|SNES_PAD_L))browse(-1);
- if(edge&(SNES_PAD_RIGHT|SNES_PAD_R))browse(1);
- if(edge&SNES_PAD_Y)selected=current;
+ uint32_t edge=human&~prior_nav,nav=human&(SNES_PAD_LEFT|SNES_PAD_RIGHT|SNES_PAD_UP|SNES_PAD_DOWN);
+ if(edge&nav)nav_repeat=ticks+250;
+ else if(nav&&nav_repeat&&(int32_t)(ticks-nav_repeat)>=0){edge|=nav;nav_repeat=ticks+45;}
+ if(!nav)nav_repeat=0;
+ if(edge&SNES_PAD_B)LagoonMap_Command(LAGOON_MAP_CLOSE);
+ if(edge&SNES_PAD_L)browse(-1);if(edge&SNES_PAD_R)browse(1);
+ if(edge&SNES_PAD_LEFT)LagoonMap_Command(LAGOON_MAP_PAN_LEFT);
+ if(edge&SNES_PAD_RIGHT)LagoonMap_Command(LAGOON_MAP_PAN_RIGHT);
+ if(edge&SNES_PAD_UP)LagoonMap_Command(LAGOON_MAP_PAN_UP);
+ if(edge&SNES_PAD_DOWN)LagoonMap_Command(LAGOON_MAP_PAN_DOWN);
+ if(edge&SNES_PAD_A)LagoonMap_Command(LAGOON_MAP_ZOOM_IN);
+ if(edge&SNES_PAD_X)LagoonMap_Command(LAGOON_MAP_ZOOM_OUT);
+ if(edge&SNES_PAD_Y)LagoonMap_Command(LAGOON_MAP_HOME);
+ if(edge&SNES_PAD_START)LagoonMap_Command(LAGOON_MAP_FIT);
+ if(edge&SNES_PAD_SELECT)LagoonMap_Command(LAGOON_MAP_NEXT_EXITS);
+ prior_nav=human;
  if(selftest_opened&&++selftest_pumps==12){open=0;selftest_opened=0;}
  if(!open)LagoonMap_Save();
 }
@@ -176,73 +207,97 @@ void LagoonMap_AfterFrame(unsigned frame){
  if(selftest_frame==-2){const char *v=getenv("LAGOON_MAP_SELFTEST_FRAME");selftest_frame=v?atoi(v):-1;}
  if(selftest_frame>=0&&frame>=(unsigned)selftest_frame&&current<75){selftest_frame=-1;selftest_opened=1;LagoonMap_Command(LAGOON_MAP_TOGGLE);}
 }
-static void rect(int x,int y,int w,int h,uint32_t c){snes_ovl_fill_rect(panel,MW,MH,x,y,w,h,c);}
-static void text(int x,int y,const char *s,uint32_t c){snes_ovl_draw_text(panel,MW,MH,x,y,s,c,1);}
+static void rect(int x,int y,int w,int h,uint32_t c){LagoonUI_Fill(panel,MW,MH,x,y,w,h,c);}
+static void text(int x,int y,const char *s,uint32_t c){LagoonUI_Text(panel,MW,MH,x,y,s,c,1);}
 static const char *area(unsigned r){return r<75&&rooms[r].name[0]?rooms[r].name:"EXPLORED AREA";}
+static void area_title(unsigned r,char *out,size_t cap){
+ const char *p=area(r);unsigned n=0,start=1;while(*p&&n+1<cap){char c=*p++;if(!start&&c>='A'&&c<='Z')c+=32;out[n++]=c;start=c==' ';}out[n]=0;
+}
+static int marker(double x,double y,double scale,int *sx,int *sy){
+ *sx=354+(int)((x-center_x)*scale);*sy=270+(int)((y-center_y)*scale);
+ return *sx>=26&&*sx<682&&*sy>=90&&*sy<450;
+}
+static void door_icon(int x,int y,uint32_t c){rect(x-4,y-5,9,11,0xff080808);rect(x-3,y-4,7,9,c);rect(x-1,y-2,3,7,0xff080808);}
 int LagoonMap_Image(const uint32_t **image,int *width,int *height){
  if(!open||selected>=75)return 0;
- for(unsigned i=0;i<MW*MH;i++)panel[i]=BG;
- rect(0,0,MW,4,TEAL);text(24,22,"LAGOON  /  FIELD NOTES",TEAL);
- char label[80];snprintf(label,sizeof(label),"%s   -   AREA %02X",area(selected),selected);text(24,46,label,FG);
- text(24,65,selected==current?"CURRENT LOCATION":"PREVIOUSLY EXPLORED",DIM);
- const int bx=24,by=92,bw=416,bh=296;rect(bx-1,by-1,bw+2,bh+2,0xff314357u);rect(bx,by,bw,bh,0xff0b121cu);
- unsigned cw=rooms[selected].w/16,ch=rooms[selected].h/16;
- double scale=(double)bw/cw;if((double)bh/ch<scale)scale=(double)bh/ch;
- int ox=bx+(bw-(int)(cw*scale))/2,oy=by+(bh-(int)(ch*scale))/2;
- unsigned seen=0;
- for(unsigned y=0;y<ch;y++)for(unsigned x=0;x<cw;x++){
-  unsigned v=cells[selected][y*128+x];if(!v)continue;seen++;
-  int x0=ox+(int)(x*scale),y0=oy+(int)(y*scale),x1=ox+(int)((x+1)*scale),y1=oy+(int)((y+1)*scale);
-  uint32_t col=(v&3)==2?0xff5b6b7cu:(v&3)==3?0xff3d6270u:0xff28444fu;
-  if(v&0x80)col=0xff4fa793u;rect(x0,y0,x1-x0,y1-y0,col);
+ const uint32_t ink=0xfff5f1df,dim=0xffbdb8a7,gold=0xffedc977,dark=0xff080808;
+ for(unsigned i=0;i<MW*MH;i++)panel[i]=dark;
+ LagoonUI_Frame(panel,MW,MH,12,12,936,52);
+ char label[100],name[40];area_title(selected,name,sizeof name);LagoonUI_TextFit(panel,MW,MH,30,18,name,ink,2,650);
+ text(714,28,"Area map",gold);
+ LagoonUI_Frame(panel,MW,MH,12,76,684,388);LagoonUI_Frame(panel,MW,MH,708,76,240,388);
+ const uint32_t *terrain=NULL;unsigned tw=0,th=0,ww=0,wh=0;
+ int scenery=LagoonSceneRenderer_MapImage(selected,last_generation,&terrain,&tw,&th,&ww,&wh);
+ if(scenery&&(ww!=rooms[selected].w||wh!=rooms[selected].h))scenery=0;
+ clamp_view();double scale=map_scale();
+ unsigned cw=rooms[selected].w/16,ch=rooms[selected].h/16,seen=0;
+ for(unsigned y=0;y<ch;y++)for(unsigned x=0;x<cw;x++)seen+=cells[selected][y*128+x]!=0;
+ if(scenery){
+  for(int y=84;y<456;y++){
+   double wy=center_y+(y-270)/scale;if(wy<0||wy>=wh)continue;unsigned ty=(unsigned)(wy*th/wh);
+   for(int x=20;x<688;x++){
+    double wx=center_x+(x-354)/scale;if(wx<0||wx>=ww)continue;unsigned tx=(unsigned)(wx*tw/ww);
+    panel[y*MW+x]=terrain[ty*tw+tx];
+   }
+  }
+ }else{
+  for(unsigned y=0;y<ch;y++)for(unsigned x=0;x<cw;x++){
+   unsigned v=cells[selected][y*128+x];if(!v)continue;
+   int x0=354+(int)((x*16-center_x)*scale),y0=270+(int)((y*16-center_y)*scale);
+   int x1=354+(int)(((x+1)*16-center_x)*scale),y1=270+(int)(((y+1)*16-center_y)*scale);
+   if(x0<20)x0=20;if(y0<84)y0=84;if(x1>688)x1=688;if(y1>456)y1=456;
+   uint32_t col=(v&3)==2?0xff777466:(v&3)==3?0xff4e6656:0xff293d2e;
+   if(x1>x0&&y1>y0)rect(x0,y0,x1-x0,y1-y0,col);
+  }
  }
- unsigned known=0;
+ unsigned exit_count=0;uint8_t exit_number[75]={0};
+ for(unsigned i=0;i<rooms[selected].count;i++){MapDoor*d=&rooms[selected].door[i];
+  if(cells[selected][(d->y/16)*128+d->x/16]&&!exit_number[d->room])exit_number[d->room]=(uint8_t)++exit_count;
+ }
+ int sx,sy;
  for(unsigned i=0;i<rooms[selected].count;i++){
-  MapDoor *d=rooms[selected].door+i;
-  if(!cells[selected][(d->y/16)*128+d->x/16])continue;known++;
-  int x=ox+(int)(d->x*scale/16),y=oy+(int)(d->y*scale/16);rect(x-3,y-3,7,7,GOLD);rect(x-1,y-1,3,3,BG);
+  MapDoor *d=&rooms[selected].door[i];int found=cells[selected][(d->y/16)*128+d->x/16]!=0;
+  if((scenery||found)&&marker(d->x,d->y,scale,&sx,&sy)){
+   door_icon(sx,sy,gold);
+   if(found&&sx+27<688&&sy+15<456){snprintf(label,sizeof label,"%u",exit_number[d->room]);rect(sx+6,sy-5,LagoonUI_TextWidth(label,1)+5,20,dark);text(sx+9,sy-5,label,gold);}
+  }
  }
  unsigned treasure_seen=0;
  for(unsigned i=0;i<chest_count;i++){
-  MapChest *c=chests+i;if(c->room!=selected||!chest_seen(c))continue;
-  treasure_seen++;int x=ox+(int)(c->x*scale/16),y=oy+(int)(c->y*scale/16);
-  rect(x-3,y-2,7,5,c->opened?DIM:GOLD);rect(x-2,y-1,5,3,c->opened?BG:GOLD);rect(x,y,1,1,BG);
+  MapChest *c=&chests[i];if(c->room!=selected||!chest_seen(c))continue;treasure_seen++;
+  if(marker(c->x,c->y,scale,&sx,&sy)){rect(sx-5,sy-4,11,9,dark);rect(sx-4,sy-3,9,7,c->opened?dim:gold);rect(sx-4,sy-1,9,1,dark);}
  }
  LagoonQuestGuidance objective;int has_objective=LagoonQuestGuidance_Get(g_ram,&objective);
- if(has_objective&&objective.marker&&objective.room==selected){
-  int x=ox+(int)(objective.x*scale/16),y=oy+(int)(objective.y*scale/16);
-  snes_ovl_fill_disc(panel,MW,MH,x,y,5,0xffda8becu);rect(x-1,y-3,3,7,BG);
+ if(has_objective&&objective.marker&&objective.room==selected&&marker(objective.x,objective.y,scale,&sx,&sy)){
+  snes_ovl_fill_disc(panel,MW,MH,sx,sy,7,dark);snes_ovl_fill_disc(panel,MW,MH,sx,sy,5,0xffd9a7e8);
  }
- if(selected==current){int x=ox+(int)(px*scale/16),y=oy+(int)(py*scale/16);
-  snes_ovl_fill_disc(panel,MW,MH,x,y,5,0xff101a28u);snes_ovl_fill_disc(panel,MW,MH,x,y,3,0xffffffffu);}
- text(464,98,"LEGEND",TEAL);rect(464,123,7,7,0xffffffff);text(480,122,"NASIR",FG);
- rect(464,147,7,7,GOLD);text(480,146,"EXIT",FG);rect(464,171,7,7,0xff4fa793);text(480,170,"TRAIL",FG);
- rect(464,195,7,7,0xff5b6b7c);text(480,194,"SOLID",FG);
- rect(464,218,7,5,GOLD);text(476,216,"CHEST",FG);rect(524,218,7,5,DIM);rect(525,219,5,3,BG);text(536,216,"OPENED",FG);
- snprintf(label,sizeof(label),"%u EXITS SEEN",known);text(464,232,label,DIM);
- snprintf(label,sizeof(label),"%u%% EXPLORED",cw*ch?seen*100/(cw*ch):0);text(464,250,label,DIM);
- snprintf(label,sizeof(label),"%u TREASURES SEEN",treasure_seen);text(464,268,label,DIM);
- text(464,280,"EXIT LINKS",TEAL);
- unsigned listed=0;uint8_t dest_seen[75]={0};
- for(unsigned i=0;i<rooms[selected].count&&listed<4;i++){
-  MapDoor *d=rooms[selected].door+i;
-  if(!cells[selected][(d->y/16)*128+d->x/16]||dest_seen[d->room])continue;
-  dest_seen[d->room]=1;
-  if(visited(d->room))snprintf(label,sizeof(label),"%02X %.14s",d->room,area(d->room));
-  else snprintf(label,sizeof(label),"?? UNEXPLORED");
-  text(464,300+listed*14,label,FG);listed++;
+ if(selected==current&&marker(px,py,scale,&sx,&sy)){
+  snes_ovl_fill_disc(panel,MW,MH,sx,sy,7,dark);snes_ovl_fill_disc(panel,MW,MH,sx,sy,4,ink);
+  rect(sx-1,sy-8,3,3,ink);
  }
- if(!listed)text(464,300,"NONE DISCOVERED",DIM);
- text(464,365,"EXITS MAY BE",DIM);text(464,379,"STORY LOCKED",DIM);
- if(has_objective){
-  text(24,405,objective.title,0xffda8becu);
-  const char *p=objective.detail;char line[73];unsigned row=0;
-  while(*p&&row<3){unsigned n=0;while(p[n]&&n<72)n++;
-   if(p[n]){unsigned b=n;while(b&&p[b]!=' ')b--;if(b)n=b;}
-   memcpy(line,p,n);line[n]=0;text(24,423+row*14,line,FG);p+=n;while(*p==' ')p++;row++;
-  }
- }else text(24,405,"NO ACTIVE TABLET OBJECTIVE",DIM);
- text(24,480,"LEFT/RIGHT: AREAS   Y: NASIR   M / L2 / B / ESC: CLOSE",FG);
- text(24,500,"L2: MAP   R2 / CTRL+COMMA: SETTINGS   -   AUTO-SAVED EXPLORATION",DIM);
- *image=panel;*width=MW;*height=MH;return 1;
+ text(728,91,scenery?"Scenery map":"Explored layout",gold);
+ if(!scenery)text(728,115,"Scenery unavailable",dim);
+ int ly=scenery?126:150;
+ rect(730,ly+6,7,7,ink);text(750,ly,"Nasir",ink);
+ door_icon(733,ly+37,gold);text(750,ly+28,"Door / exit",ink);
+ rect(729,ly+63,9,7,gold);text(750,ly+56,"Treasure found",ink);
+ snprintf(label,sizeof label,"%u%% explored",cw*ch?seen*100/(cw*ch):0);text(728,ly+91,label,dim);
+ snprintf(label,sizeof label,"%u treasures seen",treasure_seen);text(728,ly+113,label,dim);
+ text(728,ly+148,"Discovered exits",gold);
+ unsigned pages=(exit_count+2)/3;if(pages)exit_page%=pages;else exit_page=0;
+ unsigned first=exit_page*3,listed=0;
+ for(unsigned n=first+1;n<=exit_count&&listed<3;n++)for(unsigned destination=0;destination<75;destination++){
+  if(exit_number[destination]!=n)continue;
+  if(visited(destination))area_title(destination,name,sizeof name);else snprintf(name,sizeof name,"Unexplored area");
+  snprintf(label,sizeof label,"%u. %s",n,name);
+  LagoonUI_TextFit(panel,MW,MH,728,ly+172+listed*22,label,ink,1,202);listed++;
+ }
+ if(!listed)text(728,ly+172,"None discovered",dim);
+ if(pages>1){snprintf(label,sizeof label,"Exits %u-%u of %u",first+1,first+listed,exit_count);text(728,390,label,dim);text(728,410,"Select / Tab: more",gold);}
+ if(has_objective){LagoonUI_TextFit(panel,MW,MH,728,430,objective.title,0xffd9a7e8,1,200);}
+ else if(scenery)text(728,430,"Exits may be locked",dim);
+ LagoonUI_Frame(panel,MW,MH,12,476,936,52);
+ text(28,483,"D-pad / arrows: pan    A / +: zoom in    X / -: zoom out    Y / Home: Nasir",ink);
+ text(28,505,"L/R or [ ]: areas   Start/0: fit   Select/Tab: exits   M/L2/B/Esc: close",dim);
+ if(image)*image=panel;if(width)*width=MW;if(height)*height=MH;return 1;
 }

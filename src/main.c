@@ -39,6 +39,9 @@
 #include "lagoon_quest_guidance.h"
 #include "lagoon_settings.h"
 #include "lagoon_sword_visual.h"
+#include "lagoon_journal.h"
+#include "lagoon_item_guide.h"
+#include "lagoon_return_runtime.h"
 #include "lagoon_achievements.h"
 #include "lagoon_host_path.h"
 #include "lagoon_achievement_ui.h"
@@ -185,6 +188,24 @@ static void LagoonHost_OpenAchievements(void) {
     LagoonMap_Command(LAGOON_MAP_CLOSE);LagoonSettings_Close();LagoonEasterEgg_Close();
     LagoonAchievementUI_Open();
 }
+/* Bounded opt-in UI integration check; the normal host/input path still opens,
+ * draws and closes the panel. No guest time, progress or settings are written. */
+static unsigned menu_test_pumps;
+static void LagoonHost_ReturnSelftest(unsigned frame);
+static void LagoonHost_MenuSelftest(unsigned frame) {
+    static int at=-2;
+    if(at==-2){const char *v=getenv("LAGOON_MENU_SELFTEST_FRAME");at=v?atoi(v):-1;}
+    if(at<0||frame<(unsigned)at||!LagoonHost_GameplayReady())return;
+    at=-1;const char *value=getenv("LAGOON_MENU_SELFTEST_PAGE");int page=value?atoi(value):0;
+    if(page<0||page>6)return;
+    LagoonMap_Command(LAGOON_MAP_CLOSE);
+    if(page==3)LagoonHost_OpenAchievements();
+    else {LagoonSettings_Open();for(int i=0;i<(page>=5?4:page==4?3:page);i++)LagoonSettings_Command(LAGOON_SETTINGS_NEXT_TAB);
+        if(page>=5){LagoonReturnStatus status;LagoonReturnRuntime_GetStatus(&status);
+            LagoonSettings_SetTravelStatus(status.message,status.reason==LAGOON_RETURN_READY);
+            if(page==6)LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);}}
+    menu_test_pumps=1;
+}
 /* Opt-in read-only integration observation. Normal sessions do no file I/O. */
 static void LagoonHost_TestObserve(unsigned frame) {
     static unsigned last_frame;static uint32_t last_at;
@@ -201,6 +222,29 @@ static void LagoonHost_TestObserve(unsigned frame) {
 }
 static void LagoonHost_SettingsRequest(void) {
     if(LagoonSettings_TakeAchievementsRequest())LagoonHost_OpenAchievements();
+    if(LagoonSettings_TakeReturnRequest()){
+        LagoonReturnStatus status;
+        if(!LagoonReturnRuntime_Request(&status)){
+            LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_PREVIOUS_TAB);
+            LagoonSettings_SetTravelStatus(status.message,0);
+        }
+    }
+}
+static void LagoonHost_TravelStatus(void){
+    LagoonReturnStatus status;LagoonReturnRuntime_GetStatus(&status);
+    LagoonSettings_SetTravelStatus(status.message,status.reason==LAGOON_RETURN_READY);
+}
+static void LagoonHost_ReturnSelftest(unsigned frame){
+    static int at=-2;
+    if(at==-2){const char*v=getenv("LAGOON_RETURN_SELFTEST_FRAME");at=v?atoi(v):-1;}
+    if(at<0||frame<(unsigned)at)return;at=-1;
+    LagoonReturnStatus status;LagoonReturnRuntime_GetStatus(&status);
+    fprintf(stderr,"[lagoon-return-test] frame=%u reason=%u %s\n",frame,status.reason,status.message);
+    LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_PREVIOUS_TAB);
+    LagoonHost_TravelStatus();LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);
+    LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);LagoonHost_SettingsRequest();
+    /* A refused request leaves no modal running in an unattended fixture. */
+    if(LagoonSettings_IsOpen())LagoonSettings_Close();
 }
 static void LagoonHost_AfterConfig(void) {
     LagoonWide_AfterConfig();
@@ -222,6 +266,7 @@ static int LagoonHost_Gamepad(int button,int pressed) {
 }
 static int LagoonHost_PollOverlay(uint32_t human) {
     LagoonHost_StartSession();LagoonHost_Generation();LagoonHost_SettingsRequest();
+    if(LagoonSettings_IsOpen())LagoonHost_TravelStatus();
     LagoonEasterCollision_BeforeFrame();
     if(LagoonAchievementUI_IsOpen())return LagoonAchievementUI_PollOpen(human);
     if(LagoonEasterEgg_IsOpen())return LagoonEasterEgg_PollOpen(human);
@@ -230,6 +275,7 @@ static int LagoonHost_PollOverlay(uint32_t human) {
     return LagoonSettings_IsOpen()?LagoonSettings_PollOpen(human):LagoonMap_PollOpen(human);
 }
 static void LagoonHost_TickOverlay(uint32_t human,uint32_t ticks) {
+    if(LagoonSettings_IsOpen())LagoonHost_TravelStatus();
     LagoonAchievementSound_SetVolume((unsigned)snesrecomp_desktop_get_volume());
     LagoonAchievementUI_PauseToast(1,ticks);
     if(LagoonAchievementUI_IsOpen())LagoonAchievementUI_Tick(human,ticks);
@@ -241,6 +287,7 @@ static void LagoonHost_TickOverlay(uint32_t human,uint32_t ticks) {
         cameo_laugh_until=ticks+LagoonAchievementSound_LaughDurationMs()+100;
     }
     LagoonHost_SettingsRequest();LagoonHost_TestObserve(~0u);
+    if(menu_test_pumps&&++menu_test_pumps>12){LagoonSettings_Close();LagoonAchievementUI_Close();menu_test_pumps=0;}
 }
 static int LagoonHost_OverlayImage(const uint32_t **pixels,int *width,int *height) {
     if(LagoonAchievementUI_IsOpen())return LagoonAchievementUI_Image(pixels,width,height);
@@ -256,13 +303,17 @@ static void LagoonHost_WideActorOpcode(CpuState *cpu,uint32_t pc) {
 static uint8_t LagoonHost_WorldRead(uint32_t address,uint8_t value,
     const CpuWramReadContext *context,const uint8_t *ram) {
     value=LagoonEasterCollision_FilterRead(address,value,context,ram);
-    return LagoonWideAI_FilterRead(address,value,context,ram,RtlStateGeneration());
+    value=LagoonWideAI_FilterRead(address,value,context,ram,RtlStateGeneration());
+    return LagoonReturnRuntime_FilterRead(address,value,context,ram);
 }
 static void LagoonHost_OnRom(const uint8_t *rom,size_t size) {
     /* Authenticate unpatched source before title QoL changes the live image. */
     LagoonNativeBackend69_OnRom(rom,size);
     LagoonMap_Init(rom,size);
     LagoonQuestGuidance_Init(rom,size);
+    LagoonJournal_Init(rom,size);
+    LagoonItemGuide_Init(rom,size);
+    LagoonReturnRuntime_OnRom(rom,size);
     LagoonEasterEgg_Init(rom,size);
     LagoonAchievementEnding_Init(rom,size);
     interp_bridge_add_pre_opcode_hook(0x02e99d,LagoonHost_EndingOpcode);
@@ -280,6 +331,9 @@ static unsigned long long sword_appends;
 static const char *sword_report_path;
 static void LagoonHost_SwordReport(void){if(sword_report_path){FILE*f=fopen(sword_report_path,"w");if(f){fprintf(f,"{\"source_qualified_sword_frames\":%llu}\n",sword_appends);fclose(f);}}}
 static void LagoonHost_BeginFrame(unsigned frame) {
+    static uint64_t travel_tick;
+    LagoonReturnRuntime_BeforeFrame(++travel_tick,LagoonMap_IsOpen()||LagoonAchievementUI_IsOpen()||LagoonEasterEgg_IsOpen());
+    LagoonSwordVisual_SetRangeCue(LagoonSettings_SwordRangeEnabled());
     static int initialized;if(!initialized){initialized=1;sword_report_path=getenv("LAGOON_SWORD_REPORT");if(sword_report_path&&*sword_report_path)atexit(LagoonHost_SwordReport);}
     LagoonWide_BeginFrame(frame);
     LagoonWideAI_BeginFrame(RtlStateGeneration(),g_ppu?g_ppu->extraLeftRight:0,LagoonHost_GameplayReady());
@@ -308,7 +362,12 @@ static void LagoonHost_AfterFrame(const SnesDesktopHostFrameStats *stats) {
     }
     LagoonFrameProbe_Record(stats);
     LagoonMap_Observe(g_ram,RtlStateGeneration());
+    LagoonReturnRuntime_AfterFrame();
+    if((g_ram[0x500]&0xc0)==0xc0&&(g_ram[0x520]||g_ram[0x521]))LagoonSettings_Observe(g_ram,sizeof g_ram);
+    else LagoonSettings_Observe(NULL,0);
     LagoonMap_AfterFrame(stats->frame);
+    LagoonHost_MenuSelftest(stats->frame);
+    LagoonHost_ReturnSelftest(stats->frame);
     LagoonHost_TestObserve(stats->frame);
 }
 static int LagoonHost_MapKey(int key,int modifiers,int pressed) {
@@ -349,7 +408,9 @@ static int LagoonHost_MapKey(int key,int modifiers,int pressed) {
     }
     if(LagoonSettings_IsOpen()){
         if(pressed)switch(key){
-        case SDLK_ESCAPE:case SDLK_B:LagoonSettings_Close();break;
+        case SDLK_PAGEUP:LagoonSettings_Command(LAGOON_SETTINGS_PREVIOUS_TAB);break;
+        case SDLK_PAGEDOWN:case SDLK_TAB:LagoonSettings_Command(LAGOON_SETTINGS_NEXT_TAB);break;
+        case SDLK_ESCAPE:case SDLK_B:LagoonSettings_Command(LAGOON_SETTINGS_CLOSE);break;
         case SDLK_UP:case SDLK_KP_8:LagoonSettings_Command(LAGOON_SETTINGS_UP);break;
         case SDLK_DOWN:case SDLK_KP_2:LagoonSettings_Command(LAGOON_SETTINGS_DOWN);break;
         case SDLK_LEFT:case SDLK_KP_4:LagoonSettings_Command(LAGOON_SETTINGS_LEFT);break;
@@ -364,9 +425,17 @@ static int LagoonHost_MapKey(int key,int modifiers,int pressed) {
     if(!opened||!pressed)return 0;
     switch(key){
     case SDLK_ESCAPE:case SDLK_B:LagoonMap_Command(LAGOON_MAP_CLOSE);break;
-    case SDLK_LEFT:LagoonMap_Command(LAGOON_MAP_PREVIOUS);break;
-    case SDLK_RIGHT:LagoonMap_Command(LAGOON_MAP_NEXT);break;
-    case SDLK_Y:LagoonMap_Command(LAGOON_MAP_HOME);break;
+    case SDLK_LEFT:LagoonMap_Command(LAGOON_MAP_PAN_LEFT);break;
+    case SDLK_RIGHT:LagoonMap_Command(LAGOON_MAP_PAN_RIGHT);break;
+    case SDLK_UP:LagoonMap_Command(LAGOON_MAP_PAN_UP);break;
+    case SDLK_DOWN:LagoonMap_Command(LAGOON_MAP_PAN_DOWN);break;
+    case SDLK_LEFTBRACKET:case SDLK_PAGEUP:LagoonMap_Command(LAGOON_MAP_PREVIOUS);break;
+    case SDLK_RIGHTBRACKET:case SDLK_PAGEDOWN:LagoonMap_Command(LAGOON_MAP_NEXT);break;
+    case SDLK_PLUS:case SDLK_EQUALS:case SDLK_A:LagoonMap_Command(LAGOON_MAP_ZOOM_IN);break;
+    case SDLK_MINUS:case SDLK_X:LagoonMap_Command(LAGOON_MAP_ZOOM_OUT);break;
+    case SDLK_Y:case SDLK_HOME:LagoonMap_Command(LAGOON_MAP_HOME);break;
+    case SDLK_0:case SDLK_RETURN:LagoonMap_Command(LAGOON_MAP_FIT);break;
+    case SDLK_TAB:LagoonMap_Command(LAGOON_MAP_NEXT_EXITS);break;
     default:break;
     }return 1;
 }

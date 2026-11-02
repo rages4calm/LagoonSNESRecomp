@@ -22,6 +22,12 @@
   hashes are recorded in that directory's `provenance.json`.
 - **Dave Gamble and cJSON contributors** — JSON parsing, under the unchanged MIT
   notice in `third_party/cjson/LICENSE`.
+- **The Atkinson Hyperlegible Next Project Authors** — readable host-menu
+  lettering, under the SIL Open Font License 1.1. The original font, copyright
+  notice and pinned source provenance are in `assets/fonts/atkinson-hyperlegible/`.
+  The game embeds a small derived ASCII glyph atlas; playable packages retain
+  its OFL and provenance under `licenses/`. This separate font license is
+  unchanged by the port's software licenses.
 - **Square and the respective Chrono Trigger rights holders** — the small Crono
   cameo artwork. Three front-arm poses and the status portrait were sourced from
   [VideoGameSprites.net's Crono page](https://www.videogamesprites.net/ChronoTrigger/Party/Crono/)

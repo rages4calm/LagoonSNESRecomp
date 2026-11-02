@@ -1,12 +1,12 @@
 # Lagoon Recomp
 
-[![Windows x64 download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.3.0/Lagoon-Companion-0.3.0-win-x64.zip)
-[![Linux x64 download](docs/badges/linux.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.3.0/Lagoon-Companion-0.3.0-linux-x64.tar.gz)
+[![Windows x64 download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.0/Lagoon-Companion-0.4.0-win-x64.zip)
+[![Linux x64 download](docs/badges/linux.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.0/Lagoon-Companion-0.4.0-linux-x64.tar.gz)
 
-[![macOS Apple Silicon download](docs/badges/macos-arm64.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.3.0/Lagoon-Companion-0.3.0-macos-arm64.tar.gz)
-[![macOS Intel download](docs/badges/macos-intel.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.3.0/Lagoon-Companion-0.3.0-macos-x64.tar.gz)
+[![macOS Apple Silicon download](docs/badges/macos-arm64.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.0/Lagoon-Companion-0.4.0-macos-arm64.tar.gz)
+[![macOS Intel download](docs/badges/macos-intel.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.0/Lagoon-Companion-0.4.0-macos-x64.tar.gz)
 
-[Release notes & checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.3.0) · [Screenshots](docs/screenshots/README.md) · [Controls](docs/PLAYING.md) · [Build & mod](docs/BUILDING.md)
+[Release notes & checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.4.0) · [Screenshots](docs/screenshots/README.md) · [Controls](docs/PLAYING.md) · [Build & mod](docs/BUILDING.md)
 
 **Lagoon for Windows, Linux and macOS, with 100% native execution of the game's
 main 65816 CPU.** Built with [SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp),
@@ -37,9 +37,21 @@ the ROM, saves or private test captures are included.
 - **Better escorts:** first aid for Giles without consuming a Healing Pot,
   followers that navigate walls and stairs at Nasir's pace, and Thor's bridge
   crossing. The cloud-to-castle landing is more forgiving too.
-- **Exploration map:** **M / L2** shows Nasir, discovered doors, visited-area
-  links and treasure, with hints and markers for the early tablet quest.
-- **In-game settings:** **R2 / Ctrl+comma** opens sound settings and achievements.
+- **Scenery map (0.4.0):** **M / L2** opens the current area's full terrain,
+  with pan, zoom, fit-to-area and recenter controls. Numbered discovered exits,
+  destination pages, treasure and early tablet-quest hints help with navigation.
+  Visited areas can be browsed; an explored-layout view remains available when
+  scenery is unavailable.
+- **Readable extra menus (0.4.0):** Lagoon-style black panels, ivory frames and
+  clear lettering across the map, achievements and **R2 / Ctrl+comma** Options.
+  Five tabs cover **Sound, Journal, Items, Display and Travel**.
+- **Adventure help (0.4.0):** a journal follows your actual story progress;
+  25 item explanations include carried status and Atland/Voloh shop prices.
+- **Optional sword range cue (0.4.0):** see the active reach and cleave while
+  attacking. It defaults off and does not change combat.
+- **Dungeon return (0.4.0):** after defeating its boss, return inside a supported
+  dungeon's main entrance through **Options → Travel**. Stand safely still,
+  away from nearby threats and outside an escort; confirm before returning.
 - **26 local achievements:** bosses, exploration, the ending and a hidden guest.
   Compact notifications and a chime; **Ctrl+J** opens the browser. Progress works offline.
 - **Two soundtracks:** choose **Original SNES** or the bundled **X68000** album
@@ -58,6 +70,28 @@ No compiler or first-run game recompilation is needed. Windows needs no separate
 .NET or Python installation; Linux/macOS bundle .NET and use Python 3.11+ for
 first-run ROM setup. Keep `local/` for your saves, settings, map and achievements.
 [Controls and upgrading](docs/PLAYING.md) · [Linux/macOS requirements](docs/PORTING.md) · [Soundtrack details](docs/SOUNDTRACK.md).
+
+## What's new in 0.4.0
+
+The map now draws complete zone terrain from the game's own scenery instead of
+using only collision-cell diagrams. It keeps the original art, including the
+layered backgrounds in Gold Cave, Philips Castle, Dwarf Cave, Phantom Hill and
+the Cloud. Actors and the HUD stay out of the terrain image. Seeing the terrain
+does not mark it explored, reveal an undiscovered chest or unlock a door.
+
+Pan and zoom independently of readable labels, fit the whole area, or recenter
+on Nasir. Discovered exits receive matching numbers on the map and destination
+list, with pages for busier areas. Destinations remain unnamed until visited.
+
+The new Options tabs bring story guidance, item help and optional sword-range
+display into the game. Travel supports the main entrances of **Gold Cave,
+Philips Castle, Dwarf Cave, Siegfried Castle, Ice Cave and Lagoon Castle** after
+the corresponding boss is defeated. It uses the game's normal room-loading
+sequence and checks safety again when you confirm. It does not bypass a boss,
+escort or story gate.
+
+These additions passed focused source, UI and affected-route checks.
+They do not represent another complete playthrough or a new Linux/macOS campaign.
 
 ## What's new in 0.3.0
 
@@ -91,8 +125,8 @@ Native CPU profile generation stays local; generated ROM-derived C is never
 committed to the public repository. ROM code patches need matching native
 profiles. Incompatible code changes stop instead of reverting to interpretation.
 
-An illustrated full-zone map and a more cohesive, readable in-game UI are
-planned enhancements, separate from this release. [Development guide](docs/DEVELOPMENT.md).
+The scenery map, journal, item guide and extra-menu presentation are title-owned
+code available to extend. [Development guide](docs/DEVELOPMENT.md).
 
 ## Credits and licensing
 
@@ -104,6 +138,8 @@ Retain the included licenses: the SNESRecomp foundation and derivatives use
 **PolyForm Noncommercial**; Companion Launcher and the Lagoon launcher adapter
 use **MIT**, as do CompanionAchievements and cJSON under their own included
 notices. Public source availability does not remove the noncommercial terms.
+The readable extra-menu font is **Atkinson Hyperlegible Next**, under the
+separate **SIL Open Font License 1.1**; its notices accompany playable packages.
 ROMs, extracted Lagoon assets, saves and private validation captures are not
 uploaded or distributed. Generated ROM-derived code is excluded from public
 source and downloads; authorized platform builds use private build inputs.

@@ -21,6 +21,7 @@ _spec = importlib.util.spec_from_file_location('lagoon_windows_package_inputs', 
 _inputs = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_inputs)
 achievement_cameo_inputs = _inputs.achievement_cameo_inputs
+ui_font_inputs = _inputs.ui_font_inputs
 validate_build_metadata = _inputs.validate_build_metadata
 reviewed_soundtrack_inputs = _inputs.reviewed_soundtrack_inputs
 PLATFORMS = {'linux-x64': ('Linux', 62), 'linux-arm64': ('Linux', 183),
@@ -163,6 +164,7 @@ def main() -> None:
         raise SystemExit('A self-contained Avalonia Companion publish is required')
     check_binary(launcher, args.platform)
     selected = {Path(source): relative for source, relative in achievement_cameo_inputs().items()}
+    selected.update({Path(source): relative for source, relative in ui_font_inputs().items()})
     selected[args.game] = 'game/LagoonSNESRecomp'
     published = launcher_files(args.launcher)
     for source in published:
@@ -246,6 +248,33 @@ Platform qualification is recorded separately from package creation;
 packaging alone is not a successful gameplay test.
 The optional Linux LTTng tracing provider is not included; ordinary launcher
 operation does not require LTTng or its legacy tracing-library ABI.
+
+M or controller L2 opens the full-zone scenery map. Arrows/D-pad pan; +/- or A/X
+zoom; Home/Y recenters on Nasir; 0/Start fits the area. Brackets or controller L/R
+browse visited areas; Tab/Select pages numbered discovered exits. M/L2 or Esc/B
+closes. Unavailable scenery uses the labeled explored layout. Full terrain does
+not grant discovery, reveal unseen treasure or unlock doors.
+
+R2 or Ctrl+comma opens Options. L/R or PageUp/PageDown changes Sound, Journal,
+Items, Display and Travel tabs. Sound adjusts master and X68000 music volume
+with Left/Right, and opens Achievements with A/Enter. Ctrl+J opens achievements
+directly. Journal follows your actual story progress. Items explains 25 recovery,
+equipment and quest items, carried state and Atland/Voloh prices; Up/Down browses.
+Display's optional sword-range cue defaults off and appears only during attacks;
+Left/Right or A/Enter toggles it without changing combat.
+Travel can return inside a cleared dungeon's main entrance: Gold Cave, Philips
+Castle, Dwarf Cave, Siegfried Castle, Ice Cave or Lagoon Castle. Stop safely away
+from threats and finish any escort. A/Enter opens confirmation; a second press
+requests return. B/Esc cancels confirmation first. The game checks safety again.
+These panels pause gameplay. Alt+Enter toggles fullscreen. F1 loads slot1;
+Shift+F1 saves slot1. Companion offers bindings, QoL and EXP/gold rates up to8x.
+Choose Original SNES or the bundled X68000 soundtrack in Companion, Apply and
+restart. No music conversion or extra folder selection is required.
+
+Source, updates and full controls: https://github.com/rages4calm/LagoonSNESRecomp
+See CREDITS.md and licenses/ for notices. The readable extra-menu font, Atkinson
+Hyperlegible Next, uses the separate SIL Open Font License 1.1, retained with its
+provenance in licenses/. The credited cameo artwork/sound retain original copyright.
 '''
     if native_cpu and native_only_default:
         readme+='''\nThe main 65816 game CPU runs entirely as native compiled code. Normal play

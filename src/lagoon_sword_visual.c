@@ -3,12 +3,16 @@
  * 01C156 places their native2x2 OAM block throughE2D4. Never infer a weapon
  * from white framebuffer pixels, redraw Nasir, or modify a collision box. */
 #include "lagoon_sword_visual.h"
+#include "lagoon_sword_range.h"
 #include "snes/ppu.h"
 #include <string.h>
 
 enum { OBJECT_CAP=512, SIDE=48, BLADE=16 };
-static PpuExtraObject objects[OBJECT_CAP+1];
+static PpuExtraObject objects[OBJECT_CAP+2];
 static uint16_t pixels[SIDE*SIDE];
+static LagoonSwordRangeImage range_image;
+static int range_cue;
+void LagoonSwordVisual_SetRangeCue(int enabled){range_cue=enabled!=0;}
 static unsigned word(const uint8_t*r,unsigned p){return r[p]|r[p+1]<<8;}
 static uint64_t source_hash(const uint8_t*r,size_t size,unsigned a,unsigned n){
   size_t p=(a>>16)*32768+(a&32767);uint64_t h=UINT64_C(14695981039346656037);
@@ -55,13 +59,24 @@ static int extend(const uint16_t blade[256],int hero_x,int hero_y,int*origin_x,i
   *origin_x=-16;*origin_y=-16;return 1;
 }
 static void remove_previous(Ppu*p){
-  if(p&&p->extraObjects==objects&&p->extraObjectCount&&p->extraObjectCount<=OBJECT_CAP+1&&
-    objects[p->extraObjectCount-1].pixels==pixels)
-    PpuSetExtraObjects(p,objects,p->extraObjectCount-1);
+  if(!p||!p->extraObjects||!p->extraObjectCount||p->extraObjectCount>OBJECT_CAP+2||
+      (p->extraObjectCount>OBJECT_CAP&&p->extraObjects!=objects))return;
+  unsigned found=0;
+  for(size_t i=0;i<p->extraObjectCount;++i)
+    found|=p->extraObjects[i].pixels==pixels||p->extraObjects[i].pixels==range_image.pixels;
+  if(!found)return;
+  /* Another presentation producer may have copied our previous objects.
+   * Strip only these private pixel payloads; retain every other object/order. */
+  size_t kept=0;
+  for(size_t i=0;i<p->extraObjectCount;++i){
+    const PpuExtraObject *o=&p->extraObjects[i];
+    if(o->pixels!=pixels&&o->pixels!=range_image.pixels)objects[kept++]=*o;
+  }
+  PpuSetExtraObjects(p,objects,kept);
 }
 int LagoonSwordVisual_Prepare(Ppu*p,const uint8_t*rom,size_t size,const uint8_t*r,int enabled){
   if(!p)return 0;remove_previous(p);
-  if(!enabled||!rom||!r||!source(rom,size)||p->inidisp!=15||p->obsel!=2||
+  if((!enabled&&!range_cue)||!rom||!r||!source(rom,size)||p->inidisp!=15||p->obsel!=2||
     PPU_objPriority(p)||PPU_mode(p)!=1||r[0x100e]||r[0x41b]||r[0x417]>1||
     (r[0x500]&0xc1)!=0xc0||r[0x501]!=0x10||r[0x518]||r[0x515]||
     r[0x51d]>=12||r[0x50a]!=r[0x51d]/3||r[0x51c]!=0x24+r[0x51d]||
@@ -100,10 +115,15 @@ int LagoonSwordVisual_Prepare(Ppu*p,const uint8_t*rom,size_t size,const uint8_t*
   unsigned primary=0;while(!(opaque_tiles&(1u<<primary)))primary++;
   for(unsigned q=0;q<4;q++)if(slots[q]!=slots[0]+q||
     ((opaque_tiles&(1u<<q))&&((tags[q]^tags[primary])&0x3e00)))return 0;
-  int ax,ay;if(!extend(blade,hero_x-ox,hero_y-oy,&ax,&ay))return 0;
+  int ax=0,ay=0,has_blade=enabled&&extend(blade,hero_x-ox,hero_y-oy,&ax,&ay);
+  int has_range=range_cue&&LagoonSwordRange_Build(rom,size,r[0x50a],hero_x,hero_y,&range_image);
+  if((!has_blade&&!has_range)||p->extraObjectCount>=OBJECT_CAP)return 0;
   if(p->extraObjectCount)memmove(objects,p->extraObjects,p->extraObjectCount*sizeof(*objects));
   size_t count=p->extraObjectCount;
-  objects[count]=(PpuExtraObject){ox+ax,oy+ay,SIDE,SIDE,SIDE,
-    (uint8_t)((tags[primary]>>12)&3),(uint8_t)!!(tags[primary]&0x800),(uint8_t)slots[primary],1,pixels};
-  PpuSetExtraObjects(p,objects,count+1);return 1;
+  if(has_blade)objects[count++]=(PpuExtraObject){ox+ax,oy+ay,SIDE,SIDE,SIDE,
+      (uint8_t)((tags[primary]>>12)&3),(uint8_t)!!(tags[primary]&0x800),(uint8_t)slots[primary],1,pixels};
+  if(has_range&&count<OBJECT_CAP)objects[count++]=(PpuExtraObject){range_image.x,range_image.y,
+      (uint16_t)range_image.width,(uint16_t)range_image.height,SIDE,
+      (uint8_t)((tags[primary]>>12)&3),(uint8_t)!!(tags[primary]&0x800),(uint8_t)slots[primary],2,range_image.pixels};
+  PpuSetExtraObjects(p,objects,count);return 1;
 }

@@ -123,29 +123,67 @@ Public source contains reusable code, build inputs and important guides. Keep
 per-run handoffs and long chronological lab reports local; Git preserves source
 history. Publish substantial verified batches with accurate artifact checks.
 
-## Deferred after v0.3.0
+## 0.4.0 map and navigation features — final checks in progress
 
-The owner requests a full-zone scenery map and a consistent, readable map,
-achievements and sound-settings interface after release completion. The current
-map draws explored collision cells; a scenery map needs a separate area renderer,
-not just a smaller copy of that diagram or a stitched live camera capture.
+The new full-zone map renders terrain from the latest immutable, qualified area
+source: both map layers, metatile definitions, tile patterns and palette. It does
+not stitch screenshots or advance gameplay to uncover art. A finite area can be
+up to 2048×2048 world pixels; the cached image uses original resolution or an
+integer twofold reduction so neither side exceeds 1024 pixels. Actors, the HUD
+and transient effects are excluded.
 
-Reference reviewed: [Triforge trailer, 00:32–00:45](https://www.youtube.com/watch?v=0IaGDQ_R-YE&t=32s).
-It pulls back from the player into a scenery-based world map with pan/zoom
-controls and an angled whole-map view. Adapt the useful navigation ideas to
-Lagoon's separate zones; a flat map is the proposed first implementation.
+Scenery resource contracts cover original area IDs 00–4A. Parallax handling is
+explicit for 07, 0C, 12, 13, 28, 29 and 2A: Gold Cave, Philips Castle, Dwarf Cave,
+Phantom Hill and the Cloud. Full BG1 geometry is combined with the original BG2
+page layout and priority at the qualified scroll anchor. This is not an animated
+world simulation or a claim that every room has had a new live playthrough.
 
-- Render each zone's complete terrain from its own map/tile/layer data, with
-  finite bounds and separate floors where needed. Keep actors and transient
-  effects out of the base image; do not advance gameplay to build the map.
-- Support fit-to-zone, pan, zoom and recenter on Nasir. Keep text and markers
-  readable independently of terrain zoom, with controller and keyboard controls.
-- Overlay Nasir, doors, stairs, exit destinations, treasure and quest guidance.
-  Decide explicitly whether unexplored scenery is visible or obscured; retain
-  discovered/opened progress and story-lock distinctions either way.
-- Restyle all extra menus together using Lagoon-like dialogue frames and a
-  legible font with predictable scaling, spacing and contrast. Prove one town
-  and one multi-room dungeon before expanding across all supported zones.
+Room, resource and state-generation identity must match the completed field.
+A presentation-only refusal may reuse current-room terrain only after fresh exact
+terrain/resource equality. Another room, generation, loading field, fade or changed
+art cannot reuse it. Scenery refusal and browsing a different visited area fall
+back to the labeled explored layout rather than stale artwork.
 
-No map redesign or new artwork is included in v0.3.0. Broader objective guidance
-and optional gameplay zoom-out remain separate later considerations.
+The 960×540 map supports pan, four zoom levels, fit and recenter controls with
+fixed-size labels. Full scenery visibility is independent of persisted discovery.
+Numbers associate discovered exits with their paged destination list; an unknown
+destination remains unnamed. Chest visibility/opened state, early tablet guidance
+and exploration persistence retain their existing authority. Opening, rendering
+and navigating the map do not write guest progress.
+
+Options and achievements use the shared independent font/frame renderer in
+`src/lagoon_ui.c`. The licensed font generator and provenance are in
+`assets/fonts/atkinson-hyperlegible/`; playable packages include the OFL and
+provenance. Readable host text is composed separately from the gameplay EPX pass.
+Compact achievement-toast dimensions, timing and progress behavior are retained.
+[Design record](../DESIGN.md) · [Player controls](PLAYING.md).
+
+Options has five tabs. Sound preserves its three existing actions. Journal uses
+bounded read-only story/item views, and Items has 25 original-name/effect entries
+with actual Atland/Voloh prices. Display persists `ShowSwordRange`, default off;
+the attack cue is a presentation of the active reach and cleave, not an added hit.
+
+Travel is a separate guarded action, not a generic warp. It supports the original
+main entrances of Gold Cave, Philips Castle, Dwarf Cave, Siegfried Castle, Ice Cave
+and Lagoon Castle after their original boss-victory flag. It requires a stationary,
+safe ordinary scene, no nearby threats or active escort, and a valid entrance and
+room path. Boss arenas, unsupported host modes and incomplete transitions refuse.
+The panel requires two activations and emits a one-shot request; the live adapter
+revalidates before the game resumes. The original door scanner and room loader
+perform the transition using the authenticated original entrance payload. It does
+not manufacture a CPU call/return, directly assign the room or grant quest flags.
+
+Source/model fixtures, input/persistence tests, GPU readback and live affected-route
+checks have separate scopes. Live map checks cover Atland, the Gold Cave entrance,
+an interior and its parallax area, including exact 1080p UI readback and matched
+post-menu state. The other parallax areas have source/geometry fixture coverage,
+not a new live GPU claim. Loaded-save returns from Gold Cave's entrance area and
+a deeper room reached the original entrance with health, inventory and story
+flags unchanged and zero CPU interpretation. All six entrance groups have
+source-backed model tests; this is not an all-dungeon live campaign or new target-OS
+playthrough is implied. Preserve refused/failing cases until explained rather than
+counting a synthetic model pass as an executed native room load.
+
+The [Triforge map reference](https://www.youtube.com/watch?v=0IaGDQ_R-YE&t=32s)
+informed map navigation; Lagoon uses its own original terrain and a flat map.
+Gameplay zoom-out and broader optional quest guidance remain later considerations.

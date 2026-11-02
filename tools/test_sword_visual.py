@@ -18,9 +18,9 @@ source=repo/'src/lagoon_sword_visual.c';test=repo/'tests/lagoon_sword_visual_tes
 # Keep strict warning treatment scoped to the new module, not upstream PPU C.
 subprocess.run([a.compiler,'-std=c11','-O2','-Wall','-Wextra','-Werror','-I'+str(sdk),'-c',str(source),'-o',str(a.out/'sword-visual.obj')],check=True)
 exe=a.out/'sword-visual-test.exe'
-subprocess.run([a.compiler,'-std=c11','-O2','-DSNESRECOMP_REVERSE_DEBUG=0','-I'+str(sdk),'-I'+str(sdk/'snes'),str(test),str(sdk/'snes/ppu.c'),str(sdk/'snes/ppu_legacy.c'),'-o',str(exe)],check=True)
+subprocess.run([a.compiler,'-std=c11','-O2','-DSNESRECOMP_REVERSE_DEBUG=0','-I'+str(sdk),'-I'+str(sdk/'snes'),str(test),str(repo/'src/lagoon_sword_range.c'),str(sdk/'snes/ppu.c'),str(sdk/'snes/ppu_legacy.c'),'-o',str(exe)],check=True)
 r=subprocess.run([str(exe.resolve()),str(a.rom.resolve())],capture_output=True,text=True)
 print(r.stdout,end='');print(r.stderr,end='')
-files=[source,repo/'src/lagoon_sword_visual.h',test,Path(__file__),sdk/'snes/ppu.c',sdk/'snes/ppu_legacy.c']
+files=[source,repo/'src/lagoon_sword_visual.h',repo/'src/lagoon_sword_range.c',repo/'src/lagoon_sword_range.h',test,Path(__file__),sdk/'snes/ppu.c',sdk/'snes/ppu_legacy.c']
 result=dict(passed=r.returncode==0,rom_sha256=identity,sources={str(f.relative_to(repo)):sha(f)for f in files},stdout=r.stdout,stderr=r.stderr,scope='12 original sword staging/OAM poses, source/atlas/scene guards, real legacy+fast PPU background priority and windows. Synthetic pose construction, no live gameplay or display certification.')
 (a.out/'result.json').write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8');r.check_returncode()

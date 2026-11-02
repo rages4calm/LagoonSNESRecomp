@@ -48,21 +48,29 @@ The upper black region lies outside the authored cave corridor.
 Actual fullscreen OpenGL output. Text/icons retain original artwork while the
 frame expands. The early inventory is mostly empty. [Metadata](captures.json).
 
-## Explored map — Atland and Gold Cave
+## Scenery maps and journal — 0.4.0
 
-![Atland map with Nasir, explored streets, trail and exits](atland-map-1920x1080.png)
+![Atland full-zone scenery map](atland-map-1920x1080.png)
 
-![Gold Cave map with corridors, Nasir, discovered exits and treasure markers](gold-cave-map-1920x1080.png)
+![Gold Cave full-zone scenery map](gold-cave-map-1920x1080.png)
 
-Actual **1920×1080 desktop-fullscreen OpenGL captures**. The map shows Nasir,
-observed terrain, visited positions, discovered exits and treasure markers.
-Unvisited destinations stay unknown. Open with **M** or **L2**; browse
-visited areas with Left/Right and return to Nasir with Y. Gameplay pauses while
-browsing, and exploration saves automatically.
+![Gold Cave layered scenery map](gold-cave-layered-map-1920x1080.png)
 
-These private development routes used assisted movement to reveal nearby
-geometry through the running game. They do not represent a natural playthrough.
-[Capture metadata](map-captures.json).
+Actual **1920×1080 hidden OpenGL readbacks** of the new map. Full scenery uses
+the current area's own tiles and palette, with fixed-size labels and markers.
+**M / L2** opens it; arrows pan, A/X or +/- zoom, L/R browse visited areas,
+Y recenters and Start fits the area. Previously visited areas and unavailable
+scenery use the labeled explored-layout view. Only discovered exits receive
+numbered destination entries; seeing terrain does not grant exploration or items.
+
+![Readable in-game adventure journal](journal-1920x1080.png)
+
+The **R2 / Ctrl+comma** Options menu uses the same readable frame and font.
+The journal follows actual story flags; it does not write quest progress.
+
+These bounded development routes use retained states; the layered area uses an
+assisted original door-loader destination. They do not represent a new campaign
+or physical fullscreen test. [Capture metadata](map-captures.json).
 
 ## Later areas — Enhanced pixels
 

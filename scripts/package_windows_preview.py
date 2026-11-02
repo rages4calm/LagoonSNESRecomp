@@ -129,6 +129,34 @@ def achievement_cameo_inputs(root:Path=ROOT)->dict[str,str]:
     selected[str(provenance)]='game/assets/easter_egg/provenance.json'
     return selected
 
+def ui_font_inputs(root:Path=ROOT)->dict[str,str]:
+    """Keep the embedded OFL glyph subset's license and reviewed source identity.
+
+    TTF, generator and glyph C remain build inputs, not runtime payloads. Only
+    the original copyright/license and small provenance record enter licenses/.
+    """
+    folder=root/'assets/fonts/atkinson-hyperlegible'
+    provenance=folder/'provenance.json'
+    record=json.loads(provenance.read_text(encoding='utf-8'))
+    files=record.get('files',{})
+    if (record.get('license')!='SIL Open Font License 1.1' or
+            record.get('source_commit')!='95f4904fc8bcf26d3420fe315560c96417c6dec7' or
+            not isinstance(files,dict) or set(files)!={'AtkinsonHyperlegibleNext.ttf','OFL.txt'}):
+        raise ValueError('Incomplete or unknown UI font provenance')
+    for name in ('AtkinsonHyperlegibleNext.ttf','OFL.txt'):
+        path=folder/name;row=files[name]
+        if not isinstance(row,dict) or not path.is_file() or path.is_symlink() or not dependency_source_matches(
+                path,row.get('sha256'),row.get('canonical_sha256'),record.get('text_hash_policy')):
+            raise ValueError('UI font source/license differs from provenance: '+name)
+    header=root/'src/lagoon_ui_font.generated.h'
+    if not header.is_file() or header.is_symlink() or not dependency_source_matches(
+            header,record.get('generated_header_sha256'),
+            record.get('canonical_generated_header_sha256'),record.get('text_hash_policy')):
+        raise ValueError('Embedded UI font glyphs differ from provenance')
+    return {str(folder/'OFL.txt'):'licenses/AtkinsonHyperlegibleNext-OFL.txt',
+            str(provenance):'licenses/AtkinsonHyperlegibleNext-provenance.json'}
+
+
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--stage',type=Path,required=True)
@@ -162,6 +190,7 @@ def main():
     if not a.game_exe.is_file() or not (a.launcher/'lagoon.Companion.exe').is_file() or not (a.launcher/'coreclr.dll').is_file(): raise SystemExit('Qualified game EXE and self-contained Companion are required.')
     selected={str(ROOT/n):n for n in ['Setup Lagoon.cmd','scripts/setup_windows.ps1','scripts/preview-default.ini','rom_identity.txt','LICENSE','CREDITS.md','docs/PLAYING.md','docs/SOUNDTRACK.md']}
     selected.update(achievement_cameo_inputs())
+    selected.update(ui_font_inputs())
     selected[str(a.game_exe)]='game/LagoonSNESRecomp.exe'
     audio=set()
     try:
@@ -234,10 +263,23 @@ The game EXE is game/LagoonSNESRecomp.exe. Companion supplies its ROM, settings
 and save paths. Keep local/ for your settings, mod preferences, saves and map.
 Extract a new release into a separate folder and keep your previous saves.
 
-M or controller L2 opens the exploration map. Esc/B closes it; left/right select
-visited areas. Early tablet objectives include next-step hints and map markers.
-R2 or Ctrl+comma opens quick settings: master volume and X68000 music volume.
-Select Achievements there and press A/Y or Enter, or use Ctrl+J directly.
+M or controller L2 opens the full-zone scenery map. Arrows/D-pad pan; +/- or A/X
+zoom; Home/Y recenters on Nasir; 0/Start fits the area. Brackets or controller L/R
+browse visited areas; Tab/Select pages numbered discovered exits. M/L2 or Esc/B
+closes. Unavailable scenery uses the labeled explored layout. Full terrain does
+not grant discovery, reveal unseen treasure or unlock doors. Early tablet
+objectives retain their hints and markers.
+R2 or Ctrl+comma opens Options. L/R or PageUp/PageDown changes the five tabs:
+Sound, Journal, Items, Display and Travel. Sound retains master and X68000 music
+volume; select Achievements and press A/Y or Enter, or use Ctrl+J directly.
+Journal follows actual story progress. Items explains 25 recovery, equipment and
+quest items, carried state and Atland/Voloh shop prices; Up/Down browses entries.
+Display offers an optional sword-range cue, off by default and visible only while
+attacking. Left/Right or A/Enter toggles it without changing combat.
+Travel can return inside a cleared dungeon's main entrance: Gold Cave, Philips
+Castle, Dwarf Cave, Siegfried Castle, Ice Cave or Lagoon Castle. Stop safely away
+from threats and finish any escort. A/Enter opens confirmation; a second press
+requests return. B/Esc cancels confirmation first. The game checks safety again.
 The 26-entry achievement browser is also available in Companion. Progress is
 offline and local to this package's saves, independent of game saves/states.
 Unlocks have a compact top-right notification and original chime, following master volume.
@@ -259,6 +301,8 @@ actions/settings and the save or state that reproduces a problem.
 
 Source and updates: https://github.com/rages4calm/LagoonSNESRecomp
 See docs/PLAYING.md for controls, CREDITS.md and licenses/ for notices.
+The readable extra-menu font is Atkinson Hyperlegible Next, separately licensed
+under the SIL Open Font License 1.1; its notice and provenance are in licenses/.
 The tiny credited Chrono Trigger cameo artwork and selected B1 sound have separate original copyright;
 it is not covered by the MIT licenses for Companion/CompanionAchievements.
 '''

@@ -114,7 +114,12 @@ add_executable(LagoonSNESRecomp
     src/lagoon_scene_renderer.c
     src/lagoon_transition_present.c
     src/lagoon_quest_guidance.c
+    src/lagoon_journal.c
+    src/lagoon_item_guide.c
+    src/lagoon_return.c
+    src/lagoon_return_runtime.c
     src/lagoon_settings.c
+    src/lagoon_ui.c
     src/lagoon_achievements.c
     src/lagoon_achievement_ui.c
     src/lagoon_achievement_sound.c
@@ -125,6 +130,7 @@ add_executable(LagoonSNESRecomp
     third_party/companion_achievements/companion_achievements.c
     third_party/cjson/cJSON.c
     src/lagoon_sword_visual.c
+    src/lagoon_sword_range.c
     src/lagoon_campaign_debug.c
 )
 

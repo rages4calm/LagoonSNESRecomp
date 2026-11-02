@@ -3,6 +3,9 @@
  * all other bytes remain exact, with a concurrent-edit check before replace. */
 #include "lagoon_settings.h"
 #include "lagoon_soundtrack.h"
+#include "lagoon_ui.h"
+#include "lagoon_journal.h"
+#include "lagoon_item_guide.h"
 #include "snes_overlay_draw.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,10 +19,18 @@
 extern int snesrecomp_desktop_get_volume(void);
 extern void snesrecomp_desktop_set_volume(int volume);
 enum {WIDTH=640,HEIGHT=360};
+enum {TAB_SOUND,TAB_JOURNAL,TAB_ITEMS,TAB_DISPLAY,TAB_TRAVEL,TAB_COUNT,CONTEXT_BYTES=8192};
 static uint32_t panel[WIDTH*HEIGHT],prior_input,repeat_at;
 static unsigned opened,selected,primed,repeat_armed,achievements_requested;
+static unsigned active_tab;
+static size_t item_selected,context_size;
+static uint8_t context[CONTEXT_BYTES];
 static char config_file[1024];
 static int save_failed;
+static unsigned sword_range_enabled;
+static int range_save_failed;
+static char travel_status[256];
+static unsigned travel_available,travel_confirming,return_requested;
 #ifdef _WIN32
 static wchar_t *wide(const char *text){
  int count=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,text,-1,NULL,0);if(!count)return NULL;
@@ -53,8 +64,8 @@ static int same_name(const char *start,const char *end,const char *name){
 }
 /* Locate a single owned key. Duplicates, NULs and mixed newlines cannot be
  * safely normalized during play, so persistence refuses those documents. */
-static int locate(const char *text,size_t bytes,size_t *begin,size_t *end,size_t *insert,unsigned *value,int *has_section,const char **newline){
- unsigned section=0,found=0,crlf=0,lf=0;*begin=*end=*insert=bytes;*has_section=0;*value=100;
+static int locate(const char *text,size_t bytes,const char *key,unsigned default_value,unsigned limit,size_t *begin,size_t *end,size_t *insert,unsigned *value,int *has_section,const char **newline){
+ unsigned section=0,found=0,crlf=0,lf=0;*begin=*end=*insert=bytes;*has_section=0;*value=default_value;
  if(memchr(text,0,bytes))return 0;
  for(size_t i=0;i<bytes;i++)if(text[i]=='\n'){if(i&&text[i-1]=='\r')crlf++;else lf++;}else if(text[i]=='\r'&&(i+1==bytes||text[i+1]!='\n'))return 0;
  if(crlf&&lf)return 0;*newline=crlf?"\r\n":"\n";
@@ -71,10 +82,10 @@ static int locate(const char *text,size_t bytes,size_t *begin,size_t *end,size_t
    *insert=next;
    if(a<b&&*a!='#'&&*a!=';'){
     const char *equal=memchr(a,'=',(size_t)(b-a));
-    if(equal&&same_name(a,equal,"SoundtrackVolume")){
+    if(equal&&same_name(a,equal,key)){
      if(found++)return 0;*begin=at;*end=next;
      const char *v=equal+1;while(v<b&&isspace((unsigned char)*v))v++;
-     char *tail;if(v>=b)return 0;unsigned long number=strtoul(v,&tail,10);if(tail==v||tail>b||number>100)return 0;
+     char *tail;if(v>=b)return 0;unsigned long number=strtoul(v,&tail,10);if(tail==v||tail>b||number>limit)return 0;
      while(tail<b&&isspace((unsigned char)*tail))tail++;
      if(tail<b&&*tail!='#'&&*tail!=';')return 0;*value=(unsigned)number;
     }
@@ -84,11 +95,11 @@ static int locate(const char *text,size_t bytes,size_t *begin,size_t *end,size_t
  }
  return 1;
 }
-static int persist_music(unsigned volume){
+static int persist_setting(const char *key,unsigned value,unsigned default_value,unsigned limit){
  size_t bytes=0;char *before=file_read(config_file,&bytes);if(!before)return 0;
  size_t begin,end,insert;unsigned old;int section;const char *nl;
- if(!locate(before,bytes,&begin,&end,&insert,&old,&section,&nl)){free(before);return 0;}
- char line[96];snprintf(line,sizeof line,"SoundtrackVolume = %u%s",volume,nl);
+ if(!locate(before,bytes,key,default_value,limit,&begin,&end,&insert,&old,&section,&nl)){free(before);return 0;}
+ char line[96];snprintf(line,sizeof line,"%s = %u%s",key,value,nl);
  const char *prefix="";char heading[32];size_t replace_begin=begin,replace_end=end;
  if(begin==bytes){
   replace_begin=replace_end=section?insert:bytes;
@@ -112,18 +123,64 @@ static int persist_music(unsigned volume){
 }
 void LagoonSettings_Configure(const char *path){
  opened=selected=primed=repeat_armed=achievements_requested=0;prior_input=repeat_at=0;save_failed=0;config_file[0]=0;
+ sword_range_enabled=0;range_save_failed=0;
+ travel_status[0]=0;travel_available=travel_confirming=return_requested=0;
+ active_tab=TAB_SOUND;item_selected=context_size=0;memset(context,0,sizeof context);
  if(path&&strlen(path)<sizeof config_file)memcpy(config_file,path,strlen(path)+1);
  size_t bytes=0;char *text=file_read(config_file,&bytes);unsigned value=100;size_t a,b,c;int section;const char *nl;
- if(text&&!locate(text,bytes,&a,&b,&c,&value,&section,&nl))value=100;free(text);LagoonSoundtrack_SetVolume(value);
+ if(text&&!locate(text,bytes,"SoundtrackVolume",100,100,&a,&b,&c,&value,&section,&nl))value=100;
+ LagoonSoundtrack_SetVolume(value);value=0;
+ if(text&&!locate(text,bytes,"ShowSwordRange",0,1,&a,&b,&c,&value,&section,&nl))value=0;
+ sword_range_enabled=value;free(text);
 }
-void LagoonSettings_Open(void){opened=1;selected=0;primed=repeat_armed=achievements_requested=0;repeat_at=prior_input=0;}
-void LagoonSettings_Close(void){opened=0;primed=repeat_armed=0;}
+void LagoonSettings_Observe(const uint8_t *ram,size_t size){
+ if(!ram||size<LAGOON_JOURNAL_RAM_BYTES||size<LAGOON_ITEM_GUIDE_RAM_BYTES){context_size=0;memset(context,0,sizeof context);return;}
+ context_size=size<sizeof context?size:sizeof context;memcpy(context,ram,context_size);
+ if(context_size<sizeof context)memset(context+context_size,0,sizeof context-context_size);
+}
+void LagoonSettings_SetTravelStatus(const char *message,int available){
+ char next[sizeof travel_status];size_t i=0;
+ if(!message||!*message)message=available?"Ready to return to the dungeon entrance.":"Return is unavailable here.";
+ for(;i<sizeof next-1&&message[i];i++){unsigned char c=(unsigned char)message[i];next[i]=c<32||c==127?' ':message[i];}next[i]=0;
+ if(!available||travel_available!=(available!=0)||strcmp(next,travel_status))travel_confirming=0;
+ memcpy(travel_status,next,i+1);travel_available=available!=0;
+}
+void LagoonSettings_Open(void){opened=1;selected=0;active_tab=TAB_SOUND;item_selected=0;primed=repeat_armed=achievements_requested=travel_confirming=return_requested=0;repeat_at=prior_input=0;}
+void LagoonSettings_Close(void){opened=0;primed=repeat_armed=travel_confirming=0;}
 int LagoonSettings_IsOpen(void){return opened!=0;}
+int LagoonSettings_SwordRangeEnabled(void){return sword_range_enabled!=0;}
 int LagoonSettings_PollOpen(uint32_t human){if(opened&&!primed){prior_input=human;primed=1;}return opened!=0;}
 int LagoonSettings_TakeAchievementsRequest(void){unsigned requested=achievements_requested;achievements_requested=0;return requested!=0;}
+int LagoonSettings_TakeReturnRequest(void){unsigned requested=return_requested;return_requested=0;return requested!=0;}
 void LagoonSettings_Command(unsigned command){
  if(!opened)return;
- if(command==LAGOON_SETTINGS_CLOSE){LagoonSettings_Close();return;}
+ if(command==LAGOON_SETTINGS_CLOSE){if(travel_confirming){travel_confirming=repeat_armed=0;return;}LagoonSettings_Close();return;}
+ if(command==LAGOON_SETTINGS_NEXT_TAB||command==LAGOON_SETTINGS_PREVIOUS_TAB){
+  active_tab=(active_tab+(command==LAGOON_SETTINGS_NEXT_TAB?1:TAB_COUNT-1))%TAB_COUNT;
+  travel_confirming=repeat_armed=0;return;
+ }
+ if(active_tab==TAB_TRAVEL){
+  if(command==LAGOON_SETTINGS_ACTIVATE&&travel_available){
+   if(travel_confirming){return_requested=1;LagoonSettings_Close();}
+   else travel_confirming=1;
+  }
+  return;
+ }
+ if(active_tab==TAB_JOURNAL)return;
+ if(active_tab==TAB_DISPLAY){
+  if(command==LAGOON_SETTINGS_ACTIVATE||command==LAGOON_SETTINGS_LEFT||command==LAGOON_SETTINGS_RIGHT){
+   sword_range_enabled=!sword_range_enabled;
+   range_save_failed=!persist_setting("ShowSwordRange",sword_range_enabled,0,1);
+  }
+  return;
+ }
+ if(active_tab==TAB_ITEMS){
+  size_t count=LagoonItemGuide_Count();if(!count){item_selected=0;return;}
+  if(item_selected>=count)item_selected=count-1;
+  if(command==LAGOON_SETTINGS_UP)item_selected=item_selected?item_selected-1:count-1;
+  else if(command==LAGOON_SETTINGS_DOWN)item_selected=(item_selected+1)%count;
+  return;
+ }
  if(command==LAGOON_SETTINGS_ACTIVATE){if(selected==2){achievements_requested=1;LagoonSettings_Close();}return;}
  if(command==LAGOON_SETTINGS_UP){selected=selected?selected-1:2;return;}
  if(command==LAGOON_SETTINGS_DOWN){selected=(selected+1)%3;return;}
@@ -131,37 +188,124 @@ void LagoonSettings_Command(unsigned command){
  if(command!=LAGOON_SETTINGS_LEFT&&command!=LAGOON_SETTINGS_RIGHT)return;
  int value=selected?(int)LagoonSoundtrack_GetVolume():snesrecomp_desktop_get_volume();
  int next=value+(command==LAGOON_SETTINGS_LEFT?-5:5);if(next<0)next=0;if(next>100)next=100;if(next==value)return;
- if(selected){LagoonSoundtrack_SetVolume((unsigned)next);save_failed=!persist_music((unsigned)next);}
+ if(selected){LagoonSoundtrack_SetVolume((unsigned)next);save_failed=!persist_setting("SoundtrackVolume",(unsigned)next,100,100);}
  else snesrecomp_desktop_set_volume(next);
 }
 void LagoonSettings_Tick(uint32_t human,uint32_t ticks){
  if(!opened)return;if(!primed){prior_input=human;primed=1;return;}
  uint32_t edge=human&~prior_input,nav=human&(SNES_PAD_UP|SNES_PAD_DOWN|SNES_PAD_LEFT|SNES_PAD_RIGHT);
- if(edge&SNES_PAD_B){LagoonSettings_Close();return;}
- if(edge&(SNES_PAD_A|SNES_PAD_Y)){LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);if(!opened)return;}
+ if(edge&SNES_PAD_B){LagoonSettings_Command(LAGOON_SETTINGS_CLOSE);prior_input=human;return;}
+ if(edge&SNES_PAD_L)LagoonSettings_Command(LAGOON_SETTINGS_PREVIOUS_TAB);
+ else if(edge&SNES_PAD_R)LagoonSettings_Command(LAGOON_SETTINGS_NEXT_TAB);
+ unsigned display_activated=0;
+ if(edge&(SNES_PAD_A|SNES_PAD_Y)){display_activated=active_tab==TAB_DISPLAY;LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);if(!opened)return;}
  if(edge&nav){repeat_at=ticks+SNES_OVL_REPEAT_DELAY;repeat_armed=1;}
  else if(nav&&repeat_armed&&(int32_t)(ticks-repeat_at)>=0){edge|=nav;repeat_at=ticks+SNES_OVL_REPEAT_RATE;}
  if(!nav)repeat_armed=0;
+ if(display_activated)edge&=~(SNES_PAD_LEFT|SNES_PAD_RIGHT);
  if(edge&SNES_PAD_UP)LagoonSettings_Command(LAGOON_SETTINGS_UP);else if(edge&SNES_PAD_DOWN)LagoonSettings_Command(LAGOON_SETTINGS_DOWN);
  if(edge&SNES_PAD_LEFT)LagoonSettings_Command(LAGOON_SETTINGS_LEFT);else if(edge&SNES_PAD_RIGHT)LagoonSettings_Command(LAGOON_SETTINGS_RIGHT);
  prior_input=human;
 }
 static void rect(int x,int y,int w,int h,uint32_t c){snes_ovl_fill_rect(panel,WIDTH,HEIGHT,x,y,w,h,c);}
-static void text(int x,int y,const char *s,uint32_t c){snes_ovl_draw_text(panel,WIDTH,HEIGHT,x,y,s,c,1);}
-int LagoonSettings_Image(const uint32_t **pixels,int *width,int *height){
- if(!opened)return 0;const uint32_t bg=0xff101a28,fg=0xffe2ecf1,dim=0xff91a3b6,accent=0xff65ddc3;
- for(unsigned n=0;n<WIDTH*HEIGHT;n++)panel[n]=bg;
- rect(0,0,WIDTH,4,accent);text(28,25,"LAGOON  /  QUICK SETTINGS",accent);
- text(28,52,"GAME PAUSED - CHANGES APPLY IMMEDIATELY",dim);
- for(unsigned row=0;row<3;row++){
-  int y=91+(int)row*64;char label[48];
-  if(row==selected){rect(16,y-10,608,54,0xff203548);text(28,y,">",accent);}
-  text(48,y,row==2?"ACHIEVEMENTS":row?"X68000 MUSIC":"MASTER VOLUME",fg);
-  if(row<2){int v=row?(int)LagoonSoundtrack_GetVolume():snesrecomp_desktop_get_volume();snprintf(label,sizeof label,"%d%%",v);text(552,y,label,fg);rect(48,y+23,548,6,0xff314357);rect(48,y+23,548*v/100,6,accent);}
-  else{text(552,y,"OPEN",accent);text(48,y+23,"VIEW YOUR JOURNEY AND LOCAL UNLOCKS",dim);}
+static void text(int x,int y,const char *s,uint32_t c){LagoonUI_TextFit(panel,WIDTH,HEIGHT,x,y,s,c,1,WIDTH-x-26);}
+static void wrapped(int x,int y,const char *source,uint32_t colour,int width,unsigned lines){
+ if(!source)return;
+ for(unsigned row=0;row<lines&&*source;row++){
+  while(*source==' ')source++;if(!*source)break;
+  char part[192];unsigned n=0,space=0;int pixels=0;
+  while(source[n]&&n<sizeof part-1){char glyph[2]={source[n],0};int step=LagoonUI_TextWidth(glyph,1);if(n&&pixels+step>width)break;pixels+=step;if(source[n]==' ')space=n;part[n]=source[n];n++;}
+  if(source[n]&&space)n=space;part[n]=0;source+=n;while(*source==' ')source++;
+  if(row+1==lines&&*source&&n>3){part[n-3]='.';part[n-2]='.';part[n-1]='.';}
+  LagoonUI_TextFit(panel,WIDTH,HEIGHT,x,y+(int)row*20,part,colour,1,width);
  }
- text(28,282,"UP/DOWN: SELECT     LEFT/RIGHT: ADJUST",fg);
- text(28,307,selected==2?"A / ENTER: OPEN     B / ESC: CLOSE":"B / ESC: CLOSE     R2 / CTRL+COMMA: TOGGLE",dim);
- text(28,333,save_failed?"MUSIC LEVEL IS SESSION ONLY - CONFIG COULD NOT BE SAVED":"PREFERENCES AND ACHIEVEMENTS STAY OUTSIDE GAME SAVES.",save_failed?0xffffbf69:dim);
+}
+static void tabs(void){
+ static const char *names[]={"Sound","Journal","Items","Display","Travel"};static const int x[]={200,280,360,440,520};
+ for(unsigned i=0;i<TAB_COUNT;i++){
+  LagoonUI_Text(panel,WIDTH,HEIGHT,x[i],30,names[i],i==active_tab?LAGOON_UI_GOLD:LAGOON_UI_DIM,1);
+  if(i==active_tab)rect(x[i],53,LagoonUI_TextWidth(names[i],1),2,LAGOON_UI_GOLD);
+ }
+}
+static void journal_image(void){
+ LagoonJournalEntry entry;
+ if(!context_size||!LagoonJournal_Get(context,context_size,&entry)){
+  wrapped(28,106,"Load or begin an adventure to view your journal.",LAGOON_UI_DIM,584,3);return;
+ }
+ text(28,88,entry.chapter,LAGOON_UI_GOLD);text(28,114,entry.title,LAGOON_UI_FG);
+ wrapped(28,142,entry.detail,LAGOON_UI_FG,584,3);
+ for(unsigned i=0;i<entry.milestone_count&&i<4;i++){
+  int y=210+(int)i*18;uint32_t c=entry.completed_mask&(1u<<i)?LAGOON_UI_GOLD:LAGOON_UI_DIM;
+  rect(30,y+3,9,9,c);rect(31,y+4,7,7,LAGOON_UI_BG);
+  if(entry.completed_mask&(1u<<i)){rect(32,y+6,2,3,c);rect(34,y+7,2,3,c);rect(36,y+4,2,5,c);}
+  LagoonUI_SmallFit(panel,WIDTH,HEIGHT,48,y+1,entry.milestone[i],c,560);
+ }
+}
+static void items_image(void){
+ size_t count=LagoonItemGuide_Count();if(!count){wrapped(28,106,"The item guide is not available in this session.",LAGOON_UI_DIM,584,3);return;}
+ if(item_selected>=count)item_selected=count-1;size_t first=item_selected/5*5;
+ for(size_t i=first;i<count&&i<first+5;i++){
+  LagoonItemGuideEntry e;if(!LagoonItemGuide_GetAt(i,&e))continue;int y=94+(int)(i-first)*34;
+  if(i==item_selected){rect(20,y-4,244,32,LAGOON_UI_SELECT);LagoonUI_Cursor(panel,WIDTH,HEIGHT,28,y+5,LAGOON_UI_GOLD);}
+  LagoonUI_TextFit(panel,WIDTH,HEIGHT,46,y-1,e.name,LAGOON_UI_FG,1,204);
+  LagoonUI_TextSmall(panel,WIDTH,HEIGHT,46,y+18,e.kind,LAGOON_UI_DIM);
+ }
+ rect(276,88,1,194,LAGOON_UI_LINE);LagoonItemGuideEntry e;
+ if(LagoonItemGuide_GetAt(item_selected,&e)){
+  LagoonUI_TextFit(panel,WIDTH,HEIGHT,294,92,e.name,LAGOON_UI_GOLD,1,310);
+  LagoonUI_TextSmall(panel,WIDTH,HEIGHT,294,116,e.kind,LAGOON_UI_DIM);
+  if(context_size)LagoonUI_TextSmall(panel,WIDTH,HEIGHT,294,135,LagoonItemGuide_Owned(context,context_size,e.id)?"Carried":"Not carried",LAGOON_UI_DIM);
+  wrapped(294,156,e.description,LAGOON_UI_FG,310,4);
+  char label[80];if(e.atland_price)snprintf(label,sizeof label,"Atland: %u G",e.atland_price);else snprintf(label,sizeof label,"Not sold in Atland");
+  LagoonUI_TextSmall(panel,WIDTH,HEIGHT,294,254,label,LAGOON_UI_DIM);
+  if(e.voloh_price)snprintf(label,sizeof label,"Voloh: %u G",e.voloh_price);else snprintf(label,sizeof label,"Not sold in Voloh");
+  LagoonUI_TextSmall(panel,WIDTH,HEIGHT,294,271,label,LAGOON_UI_DIM);
+ }
+ char page[64];snprintf(page,sizeof page,"Items %zu-%zu of %zu",first+1,first+5<count?first+5:count,count);
+ LagoonUI_TextSmall(panel,WIDTH,HEIGHT,28,274,page,LAGOON_UI_DIM);
+}
+static void display_image(void){
+ rect(20,87,600,48,LAGOON_UI_SELECT);LagoonUI_Cursor(panel,WIDTH,HEIGHT,29,101,LAGOON_UI_GOLD);
+ text(50,94,"Sword range cue",LAGOON_UI_FG);
+ const char *state=sword_range_enabled?"On":"Off";
+ text(602-LagoonUI_TextWidth(state,1),94,state,LAGOON_UI_GOLD);
+ wrapped(50,149,"Shows the sword's reach and cleave area only while you attack.",LAGOON_UI_FG,548,3);
+ wrapped(50,222,"This is a visual guide. It doesn't change damage or hit detection.",LAGOON_UI_DIM,548,2);
+}
+static void travel_image(void){
+ if(travel_confirming){
+  LagoonUI_Frame(panel,WIDTH,HEIGHT,28,90,584,188);
+  wrapped(50,106,"Return to the dungeon entrance?",LAGOON_UI_FG,540,2);
+  wrapped(50,158,"You'll arrive inside the entrance.",LAGOON_UI_DIM,540,2);
+  LagoonUI_Cursor(panel,WIDTH,HEIGHT,50,235,LAGOON_UI_GOLD);
+  text(72,227,"A / Enter: return",LAGOON_UI_GOLD);
+  return;
+ }
+ rect(20,87,600,48,LAGOON_UI_SELECT);
+ if(travel_available)LagoonUI_Cursor(panel,WIDTH,HEIGHT,29,101,LAGOON_UI_GOLD);
+ text(50,94,"Return to dungeon entrance",travel_available?LAGOON_UI_FG:LAGOON_UI_DIM);
+ wrapped(50,151,*travel_status?travel_status:"Return is unavailable here.",LAGOON_UI_DIM,548,4);
+}
+int LagoonSettings_Image(const uint32_t **pixels,int *width,int *height){
+ if(!opened)return 0;const uint32_t bg=LAGOON_UI_BG,fg=LAGOON_UI_FG,dim=LAGOON_UI_DIM,accent=LAGOON_UI_GOLD;
+ for(unsigned n=0;n<WIDTH*HEIGHT;n++)panel[n]=bg;
+ LagoonUI_Frame(panel,WIDTH,HEIGHT,0,0,WIDTH,HEIGHT);
+ LagoonUI_Text(panel,WIDTH,HEIGHT,28,14,"Options",fg,2);
+ tabs();LagoonUI_TextSmall(panel,WIDTH,HEIGHT,28,60,active_tab==TAB_SOUND?"Changes apply immediately. The game is paused.":active_tab==TAB_JOURNAL?"Your current journey":active_tab==TAB_ITEMS?"Item reference and shop prices":active_tab==TAB_DISPLAY?"Optional visual guides":"Return to a known dungeon entrance",dim);
+ rect(28,76,584,1,LAGOON_UI_LINE);
+ if(active_tab==TAB_JOURNAL)journal_image();else if(active_tab==TAB_ITEMS)items_image();else if(active_tab==TAB_DISPLAY)display_image();else if(active_tab==TAB_TRAVEL)travel_image();else for(unsigned row=0;row<3;row++){
+  int y=94+(int)row*66;char label[48];
+  if(row==selected){rect(20,y-7,600,58,LAGOON_UI_SELECT);LagoonUI_Cursor(panel,WIDTH,HEIGHT,29,y+5,accent);}
+  text(50,y,row==2?"Achievements":row?"X68000 music":"Master volume",fg);
+  if(row<2){int v=row?(int)LagoonSoundtrack_GetVolume():snesrecomp_desktop_get_volume();snprintf(label,sizeof label,"%d%%",v);text(602-LagoonUI_TextWidth(label,1),y,label,fg);rect(50,y+25,550,5,LAGOON_UI_LINE);rect(50,y+25,550*v/100,5,accent);
+   LagoonUI_TextSmall(panel,WIDTH,HEIGHT,50,y+36,row?"Adjust the optional soundtrack's music level.":"Adjust the game's overall sound level.",dim);}
+  else{text(565,y,"Open",accent);LagoonUI_TextSmall(panel,WIDTH,HEIGHT,50,y+24,"Browse your journey and earned achievements.",dim);}
+ }
+ rect(28,292,584,1,LAGOON_UI_LINE);
+ LagoonUI_TextSmall(panel,WIDTH,HEIGHT,28,305,active_tab==TAB_SOUND?"Up/Down: select    Left/Right: adjust":active_tab==TAB_ITEMS?"Up/Down: browse items":active_tab==TAB_DISPLAY?"Left/Right or A / Enter: toggle":active_tab==TAB_TRAVEL?travel_confirming?"A / Enter: confirm return":travel_available?"A / Enter: choose return":"Return is not available at this moment.":"Progress follows your current adventure.",fg);
+ LagoonUI_TextSmall(panel,WIDTH,HEIGHT,28,322,travel_confirming?"L / R or PageUp / PageDown: tabs    B / Esc: cancel":"L / R or PageUp / PageDown: tabs    B / Esc: close",dim);
+ if(active_tab==TAB_SOUND&&selected==2)LagoonUI_TextSmall(panel,WIDTH,HEIGHT,28,341,"A / Enter: open achievements",accent);
+ if(active_tab==TAB_SOUND&&save_failed)LagoonUI_SmallFit(panel,WIDTH,HEIGHT,28,341,"Music volume couldn't be saved. Try again from the launcher.",accent,582);
+ if(active_tab==TAB_DISPLAY&&range_save_failed)LagoonUI_SmallFit(panel,WIDTH,HEIGHT,28,341,"Setting couldn't be saved. The range cue applies for this session.",accent,582);
  if(pixels)*pixels=panel;if(width)*width=WIDTH;if(height)*height=HEIGHT;return 1;
 }

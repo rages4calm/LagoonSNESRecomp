@@ -8,7 +8,7 @@
     {
       "id": "boss.samson",
       "title": "Beyond Samson",
-      "description": "Defeat Samson and complete the original victory sequence.",
+      "description": "Defeat Samson.",
       "event": "boss.0",
       "rule": "milestone",
       "target": 1
@@ -16,7 +16,7 @@
     {
       "id": "boss.natela",
       "title": "Beyond Natela",
-      "description": "Defeat Natela and complete the original victory sequence.",
+      "description": "Defeat Natela.",
       "event": "boss.1",
       "rule": "milestone",
       "target": 1
@@ -24,7 +24,7 @@
     {
       "id": "boss.eardon",
       "title": "Beyond Eardon",
-      "description": "Defeat Eardon and complete the original victory sequence.",
+      "description": "Defeat Eardon.",
       "event": "boss.2",
       "rule": "milestone",
       "target": 1
@@ -32,7 +32,7 @@
     {
       "id": "boss.duma",
       "title": "Beyond Duma",
-      "description": "Defeat Duma and complete the original victory sequence.",
+      "description": "Defeat Duma.",
       "event": "boss.3",
       "rule": "milestone",
       "target": 1
@@ -40,7 +40,7 @@
     {
       "id": "boss.thimale",
       "title": "Beyond Thimale",
-      "description": "Defeat Thimale and complete the original victory sequence.",
+      "description": "Defeat Thimale.",
       "event": "boss.4",
       "rule": "milestone",
       "target": 1
@@ -48,7 +48,7 @@
     {
       "id": "boss.ella",
       "title": "Beyond Ella",
-      "description": "Defeat Ella and complete the original victory sequence.",
+      "description": "Defeat Ella.",
       "event": "boss.5",
       "rule": "milestone",
       "target": 1
@@ -56,7 +56,7 @@
     {
       "id": "boss.battler",
       "title": "Beyond Battler",
-      "description": "Defeat Battler and complete the original victory sequence.",
+      "description": "Defeat Battler.",
       "event": "boss.6",
       "rule": "milestone",
       "target": 1
@@ -64,7 +64,7 @@
     {
       "id": "level.2",
       "title": "Finding Your Feet",
-      "description": "Reach level 2 through a completed level-up.",
+      "description": "Reach level 2.",
       "event": "player.level",
       "rule": "milestone",
       "target": 2
@@ -72,7 +72,7 @@
     {
       "id": "level.5",
       "title": "Seasoned Adventurer",
-      "description": "Reach level 5 through a completed level-up.",
+      "description": "Reach level 5.",
       "event": "player.level",
       "rule": "milestone",
       "target": 5
@@ -80,7 +80,7 @@
     {
       "id": "level.10",
       "title": "Growing Stronger",
-      "description": "Reach level 10 through a completed level-up.",
+      "description": "Reach level 10.",
       "event": "player.level",
       "rule": "milestone",
       "target": 10
@@ -88,7 +88,7 @@
     {
       "id": "level.20",
       "title": "Hero of Lakeland",
-      "description": "Reach level 20 through a completed level-up.",
+      "description": "Reach level 20.",
       "event": "player.level",
       "rule": "milestone",
       "target": 20
@@ -96,7 +96,7 @@
     {
       "id": "level.30",
       "title": "Beyond the Legend",
-      "description": "Reach level 30 through a completed level-up.",
+      "description": "Reach level 30.",
       "event": "player.level",
       "rule": "milestone",
       "target": 30
@@ -200,7 +200,7 @@
     {
       "id": "story.finished",
       "title": "A World Beyond Darkness",
-      "description": "Complete the ending, credits and final artwork.",
+      "description": "Complete Nasir's adventure.",
       "event": "story.finished",
       "rule": "milestone",
       "target": 1

@@ -29,7 +29,7 @@ typedef struct ScenePacket {
   uint16_t defs[2][1024],vram[32768],pal[256],oam[256];
   uint8_t high[32];
   SceneObject objects[OBJECTS];
-  unsigned count,lines,frame,serial,valid;
+  unsigned count,lines,frame,serial,valid,room;
   uint32_t vram_writes,oam_writes;
   int wx,wy,world_width,world_height;
   unsigned map_fill,fill_meta;
@@ -56,6 +56,26 @@ typedef struct SceneMismatch {
 static SceneMismatch s_mismatch[64];
 static unsigned s_mismatch_count;
 static uint32_t s_pixels[W*H];
+/* One current-area image, not an album of extracted room art. A frozen modal
+ * can reuse this image without decoding terrain on every UI presentation. */
+static uint32_t s_map_pixels[1024*1024];
+static unsigned s_map_valid,s_map_room,s_map_serial,s_map_width,s_map_height;
+static uint64_t s_map_generation;
+/* One terrain-only source, not another multi-megabyte actor packet. Keeping the
+ * last fully qualified field avoids losing the map when an OAM or scroll change
+ * refuses world replacement. Every refused field must independently prove the
+ * same current room/generation and exact terrain bytes before this is usable. */
+typedef struct SceneMapSource {
+  uint8_t maps[2][16384];
+  uint16_t defs[2][1024],patterns[16384],pages[2048],pal[128];
+  unsigned valid,room,serial,parallax,bg2_x,bg2_y;
+  int wx,wy,world_width,world_height;
+  uint64_t generation;
+} SceneMapSource;
+static SceneMapSource s_map_source;
+static unsigned s_map_identity_valid,s_map_identity_lines,s_map_identity_room;
+static unsigned s_map_identity_seen;
+static uint64_t s_map_identity_generation;
 /* Source-decoded BG1/BG2 only. Moving objects still compose afresh, and the
  * normal whole-field reference comparison still runs before presentation.
  * Keep complete input bytes: neither a room/resource label nor a hash grants
@@ -291,6 +311,7 @@ void LagoonSceneRenderer_Reset(void) {
   init_tables();
   memset(s_packets,0,sizeof(s_packets));s_build=0;s_complete=1;
   s_background.valid=0;
+  s_map_valid=s_map_source.valid=s_map_identity_valid=s_map_identity_lines=s_map_identity_seen=0;
   s_cache_serial=0;s_cache_width=0;++s_stats.resets;
   const char *m=getenv("LAGOON_SCENE_RENDERER");
   s_mode=m&&!strcmp(m,"off")?0:!m||!strcmp(m,"auto")?2:1;
@@ -328,6 +349,61 @@ static int supported(const Ppu *p,const uint8_t *r,const uint8_t *rom,size_t siz
       (p->hScroll[0]==p->hScroll[1]&&p->vScroll[0]==p->vScroll[1]))&&
     !p->hScroll[2]&&!p->vScroll[2]&&!(p->oamaddh&0x80)&&p->extraObjectCount<=OBJECTS&&
     (!p->extraObjectCount||p->extraObjects);
+}
+/* This grants only reuse of immutable terrain already qualified by supported().
+ * It never authorizes a new world packet, actor, raster or framebuffer. Ignore
+ * OAM and the camera's partial circular tilemap; neither is used in the map. */
+static int map_identity_matches(const Ppu *p,const uint8_t *r,const uint8_t *rom,
+    size_t size,uint64_t generation,int authority) {
+  const SceneMapSource *m=&s_map_source;unsigned definitions=0;
+  if(!m->valid||!p||!r||!rom||size!=0x100000||authority!=LAGOON_SCENE_WORLD||
+      generation!=m->generation||word(r,0x48e)!=m->room||
+      !LagoonSceneRenderer_ExactRoom(r)||!scene_resources(r,&definitions)||
+      word(r,0x53)*8!=(unsigned)m->world_width||word(r,0x55)*8!=(unsigned)m->world_height||
+      r[0x100e]||p->inidisp!=15||p->mosaic||p->bgmode!=9||p->obsel!=2||p->setini||
+      p->bgXsc[0]!=0x71||p->bgXsc[1]!=(m->parallax?0x7a:0x79)||
+      p->bgXsc[2]!=0x3c||p->bgTileAdr!=0x600||p->cgadsub||(p->cgwsel&1)||
+      p->windowsel||p->screenWindowed[0]||p->screenWindowed[1]||p->screenEnabled[0]!=31||
+      p->hScroll[2]||p->vScroll[2]||
+      (unsigned)LagoonSceneRenderer_ParallaxRoom(r)!=m->parallax)return 0;
+  const uint16_t *v=PpuRenderVram(p);
+  return !memcmp(m->maps[0],r+0x10000,sizeof(m->maps[0]))&&
+    !memcmp(m->maps[1],r+0x14000,sizeof(m->maps[1]))&&
+    !memcmp(m->defs[0],rom+definitions,sizeof(m->defs[0]))&&
+    !memcmp(m->defs[1],rom+definitions,sizeof(m->defs[1]))&&
+    !memcmp(m->patterns,v,sizeof(m->patterns))&&
+    !memcmp(m->pal,p->cgram,sizeof(m->pal))&&
+    (!m->parallax||(!memcmp(m->pages,v+0x7800,sizeof(m->pages))&&
+      LagoonWideEntities_ParallaxRoomScroll(m->room,word(r,0x480),word(r,0x482),word(r,0x484),word(r,0x486))&&
+      LagoonWideEntities_ParallaxMapForRoom(v,rom,size,m->room)));
+}
+static void map_observe_identity(const Ppu *p,unsigned line,const uint8_t *r,
+    const uint8_t *rom,size_t size,uint64_t generation,int authority) {
+  if(line==1) {
+    s_map_identity_seen=1;
+    s_map_identity_room=r?word(r,0x48e):75;s_map_identity_generation=generation;
+    if(s_map_source.valid&&(s_map_source.room!=s_map_identity_room||s_map_source.generation!=generation))
+      s_map_source.valid=s_map_valid=0;
+    s_map_identity_lines=1;
+    s_map_identity_valid=map_identity_matches(p,r,rom,size,generation,authority);
+  }else if(s_map_identity_valid) {
+    if(!p||!r||line!=s_map_identity_lines+1||generation!=s_map_identity_generation||
+        word(r,0x48e)!=s_map_identity_room||authority!=LAGOON_SCENE_WORLD)s_map_identity_valid=0;
+    else {
+      s_map_identity_lines=line;
+      if(line==H&&!map_identity_matches(p,r,rom,size,generation,authority))s_map_identity_valid=0;
+    }
+  }
+}
+static void remember_map_source(const ScenePacket *s) {
+  SceneMapSource *m=&s_map_source;
+  memcpy(m->maps,s->maps,sizeof(m->maps));memcpy(m->defs,s->defs,sizeof(m->defs));
+  memcpy(m->patterns,s->vram,sizeof(m->patterns));
+  if(s->parallax)memcpy(m->pages,s->vram+0x7800,sizeof(m->pages));
+  memcpy(m->pal,s->pal,sizeof(m->pal));
+  m->valid=1;m->room=s->room;m->generation=s->generation;m->serial=s->serial;
+  m->parallax=s->parallax;m->bg2_x=s->bg2_x;m->bg2_y=s->bg2_y;
+  m->wx=s->wx;m->wy=s->wy;m->world_width=s->world_width;m->world_height=s->world_height;
 }
 static int objects_equal(const ScenePacket *s,const Ppu *p) {
   if(s->count!=p->extraObjectCount||(s->count&&!p->extraObjects))return 0;
@@ -380,11 +456,12 @@ static int object_policy_inputs_equal(const SceneOamPolicyInputs *s,const Ppu *p
 void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t *r,
     const uint8_t *rom,size_t size,uint64_t generation,int authority) {
   if(!s_mode||line<1||line>H)return;
+  map_observe_identity(p,line,r,rom,size,generation,authority);
   ScenePacket *s=&s_packets[s_build];
   if(line==1) {
     s->valid=0;s->lines=0;s->generation=generation;
     if(!p||!supported(p,r,rom,size,authority))return;
-    s->valid=1;s->lines=1;
+    s->valid=1;s->lines=1;s->room=word(r,0x48e);
     s->incoming_mosaic=authority==LAGOON_SCENE_INCOMING_MOSAIC;
     s->mosaic_size=PPU_mosaicSize(p);s->brightness=p->inidisp&15;
     s->mosaic_backend=!!(p->renderFlags&kPpuRenderFlags_NewRenderer);
@@ -448,26 +525,92 @@ void LagoonSceneRenderer_EndFrame(unsigned frame,uint64_t generation,int authori
   ScenePacket *s=&s_packets[s_build];
   s->valid=s->valid&&s->lines==H&&s->generation==generation&&authority&&
       ((authority==LAGOON_SCENE_INCOMING_MOSAIC)==s->incoming_mosaic);
-  if(!++s_serial){memset(s_plane_keys,0,sizeof(s_plane_keys));s_serial=1;s_cache_serial=0;}
+  if(!++s_serial){memset(s_plane_keys,0,sizeof(s_plane_keys));s_serial=1;s_cache_serial=0;
+    s_map_valid=s_map_source.valid=s_map_identity_valid=0;}
   s->frame=frame;s->serial=s_serial;
   if(s->valid)++s_stats.packets;else ++s_stats.refused_packets;
+  if(s->valid&&!s->incoming_mosaic&&s->brightness==15&&s->room<75&&
+      s->world_width>0&&s->world_width<=2048&&s->world_height>0&&s->world_height<=2048) {
+    remember_map_source(s);
+    s_map_identity_valid=1;s_map_identity_lines=H;
+    s_map_identity_room=s->room;s_map_identity_generation=s->generation;
+  }else if(!s_map_identity_seen||s_map_identity_lines!=H||s_map_identity_generation!=generation||
+      authority!=LAGOON_SCENE_WORLD)s_map_identity_valid=0;
+  s_map_identity_seen=0;
   s_complete=s_build;s_build^=1;s_packets[s_build].valid=0;
 }
-static uint64_t graphics_row(const ScenePacket *s,unsigned tile,unsigned y,unsigned base,unsigned bpp) {
+static uint64_t graphics_row_source(const uint16_t *vram,unsigned serial,unsigned tile,unsigned y,unsigned base,unsigned bpp) {
   if(tile&0x8000)y=7-y;
   unsigned adr=(base+(tile&1023)*(bpp==2?8:16)+y)&32767;
   unsigned kind=bpp==4;
-  if(s_plane_keys[kind][adr]!=s->serial) {
-    unsigned planes=s->vram[adr];
+  if(s_plane_keys[kind][adr]!=serial) {
+    unsigned planes=vram[adr];
     uint64_t row=s_spread[planes&255]|(s_spread[planes>>8]<<1);
-    if(kind){planes=s->vram[(adr+8)&32767];row|=(s_spread[planes&255]<<2)|(s_spread[planes>>8]<<3);}
-    s_plane_rows[kind][adr]=row;s_plane_keys[kind][adr]=s->serial;
+    if(kind){planes=vram[(adr+8)&32767];row|=(s_spread[planes&255]<<2)|(s_spread[planes>>8]<<3);}
+    s_plane_rows[kind][adr]=row;s_plane_keys[kind][adr]=serial;
   }
   return s_plane_rows[kind][adr];
+}
+static uint64_t graphics_row(const ScenePacket *s,unsigned tile,unsigned y,unsigned base,unsigned bpp) {
+  return graphics_row_source(s->vram,s->serial,tile,y,base,bpp);
 }
 static unsigned graphics(const ScenePacket *s,unsigned tile,unsigned x,unsigned y,unsigned base,unsigned bpp) {
   if(tile&0x4000)x=7-x;
   return (unsigned)(graphics_row(s,tile,y,base,bpp)>>(x*8))&255;
+}
+int LagoonSceneRenderer_MapImage(unsigned room,uint64_t generation,
+    const uint32_t **pixels,unsigned *width,unsigned *height,
+    unsigned *world_width,unsigned *world_height) {
+  if(pixels)*pixels=NULL;
+  if(width)*width=0;if(height)*height=0;
+  if(world_width)*world_width=0;if(world_height)*world_height=0;
+  const SceneMapSource *s=&s_map_source;
+  if(!pixels||!width||!height||!s_mode||!s->valid||
+      !s_map_identity_valid||s_map_identity_lines!=H||room>=75||
+      s_map_identity_room!=room||s_map_identity_generation!=generation||
+      s->room!=room||s->generation!=generation||
+      s->world_width<=0||s->world_width>2048||
+      s->world_height<=0||s->world_height>2048) {
+    s_map_valid=0;return 0;
+  }
+  unsigned scale=s->world_width>1024||s->world_height>1024?2:1;
+  unsigned w=((unsigned)s->world_width+scale-1)/scale;
+  unsigned h=((unsigned)s->world_height+scale-1)/scale;
+  if(!s_map_valid||s_map_room!=room||s_map_generation!=generation||
+      s_map_serial!=s->serial||s_map_width!=w||s_map_height!=h) {
+    for(unsigned y=0;y<h;++y)for(unsigned x=0;x<w;++x) {
+      unsigned qx=x*scale,qy=y*scale,depth=0,color=s->pal[0];
+      for(unsigned layer=0;layer<2;++layer) {
+        unsigned tx=qx,ty=qy,tile;
+        if(layer&&s->parallax) {
+          /* A parallax scene has no single camera-independent BG2 placement.
+           * Freeze the actual qualified quarter-scroll view: every point in
+           * its live window samples exactly the original BG2 equation. BG1
+           * stays full-size terrain; neither layer's art is stretched. */
+          tx=(unsigned)((int)qx+(int)s->bg2_x-s->wx);
+          ty=(unsigned)((int)qy+(int)s->bg2_y-s->wy);
+          tile=s->pages[((ty>>8)&1)*0x400+((ty>>3)&31)*32+((tx>>3)&31)];
+        }else {
+          unsigned meta=s->maps[layer][(qy>>4)*128+(qx>>4)];
+          tile=s->defs[layer][meta*4+((qx&8)>>3)+((qy&8)>>2)];
+        }
+        /* Match the original ordinary-world metatile uploader's BG2 priority,
+         * not the camera's partially streamed circular VRAM tilemap. */
+        if(layer&&!s->parallax)tile&=0xdfff;
+        unsigned px=(tile&0x4000)?7-(tx&7):tx&7;
+        unsigned c=(unsigned)(graphics_row_source(s->patterns,s->serial,tile,ty&7,0,4)>>(px*8))&255;
+        unsigned z=((tile&0x2000)?12:8)-layer;
+        if(c&&z>depth){depth=z;color=s->pal[((tile>>10)&7)*16+c];}
+      }
+      s_map_pixels[y*w+x]=0xff000000u|s_rgb15[color&32767];
+    }
+    s_map_valid=1;s_map_room=room;s_map_generation=generation;
+    s_map_serial=s->serial;s_map_width=w;s_map_height=h;
+  }
+  *pixels=s_map_pixels;*width=w;*height=h;
+  if(world_width)*world_width=(unsigned)s->world_width;
+  if(world_height)*world_height=(unsigned)s->world_height;
+  return 1;
 }
 /* The guest streams its native circular tilemap independently of retained world
  * definitions. In particular its last visible row can intentionally still carry
@@ -663,7 +806,7 @@ static void render(const ScenePacket *s,unsigned width) {
   ++s_stats.renders;s_stats.independent_pixels+=(uint64_t)width*H;
 }
 static int same_source(const ScenePacket *a,const ScenePacket *b) {
-  if(a->generation!=b->generation||a->wx!=b->wx||a->wy!=b->wy||a->native_x!=b->native_x||a->native_y!=b->native_y||
+  if(a->generation!=b->generation||a->room!=b->room||a->wx!=b->wx||a->wy!=b->wy||a->native_x!=b->native_x||a->native_y!=b->native_y||
     a->incoming_mosaic!=b->incoming_mosaic||a->mosaic_y_phase!=b->mosaic_y_phase||a->mosaic_backend!=b->mosaic_backend||
     a->mosaic_y_size!=b->mosaic_y_size||
     a->world_width!=b->world_width||a->world_height!=b->world_height||a->count!=b->count||

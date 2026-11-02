@@ -35,7 +35,10 @@ static void scan(unsigned fast){
  memset(rendered,0,sizeof rendered);PpuBeginDrawing(&p,(uint8_t*)rendered,256*4,fast?kPpuRenderFlags_NewRenderer:0);
  ppu_runLine(&p,0);for(unsigned line=1;line<=224;line++)ppu_runLine(&p,line);
 }
-int main(int argc,char**argv){
+#ifndef LAGOON_SWORD_VISUAL_TEST_ENTRY
+#define LAGOON_SWORD_VISUAL_TEST_ENTRY main
+#endif
+int LAGOON_SWORD_VISUAL_TEST_ENTRY(int argc,char**argv){
  assert(argc==2);FILE*f=fopen(argv[1],"rb");assert(f&&fread(rom,1,sizeof rom,f)==sizeof rom);fclose(f);assert(source(rom,sizeof rom));
  unsigned forms=0,mutants=0,refused=0;
  static uint16_t sentinel_pixel=0x83e0;

@@ -7,12 +7,14 @@ uses the original Lagoon lettering and frame, with a Crono portrait. Music
 continues while the world pauses. Completing it plays a owner-selected Chrono Trigger laugh
 before the achievement chime.
 
-Use the matching v0.3.0 package from the [main page](../README.md), or build from
+Use the matching v0.4.0 package from the [main page](../README.md), or build from
 [these instructions](BUILDING.md). Select/Apply your clean USA ROM in Companion,
 run Game setup if offered, then Play. Apply settings before starting or restart
 to use changes. Normal release execution is 100% native for the main game CPU;
 the interpreter is an explicit developer reference option. Graphics and audio
 hardware continue through the runtime.
+
+The scenery map and five-tab Options menu are included in **0.4.0**.
 
 During gameplay, the SNES **B** button swings the sword and **A** jumps. These
 are controller button names, rather than literal keyboard keys; use your input
@@ -81,23 +83,39 @@ ordinary simulation so speculative frames cannot discard navigation state.
 Thor's scripted walk to the second tablet keeps its original step size, fixing
 the back-and-forth stall caused by applying the follower speed boost to that route.
 
-Press **M** or controller **L2** to open the explored map. Gameplay pauses while it is
-open. Left/Right or the shoulder buttons browse visited areas; **Y** returns to
-Nasir's area. **M**, **L2**, **Escape** or controller **B** closes it.
+Press **M** or controller **L2** to open the map. Gameplay pauses while it is open.
+The current area's complete scenery is shown when available. This is terrain
+drawn from your own game, including its background layers, rather than a camera
+screenshot. It excludes moving characters, enemies and the HUD. Browsing another
+visited area without available scenery shows its labeled explored-layout view.
 
-The map reveals nearby observed terrain, Nasir's trail, exits and discovered
-chests. Hollow chest markers mean opened. Exit links name destinations you have
-visited; unexplored destinations stay hidden. An exit marker does not mean its
-story gate is unlocked. Area IDs distinguish rooms with the same location name.
-The map is a record of exploration, not a guarantee that every ground tile is
-walkable. Exploration saves separately in `saves/lagoon-exploration.map`; loading
-an earlier state retains places already explored. No map artwork is downloaded.
+| Map action | Keyboard | Controller |
+| --- | --- | --- |
+| Pan | Arrow keys | D-pad |
+| Zoom in / out | + / - or A / X | A / X |
+| Recenter on Nasir | Home or Y | Y |
+| Fit the whole area | 0 or Enter | Start |
+| Browse visited areas | [ / ] or PageUp / PageDown | L / R |
+| Next discovered-exit page | Tab | Select |
+| Close | M or Escape | L2 or B |
+
+Doors are landmarks. Discovered exits receive numbers that match the paged
+destination list; destinations stay unnamed until you visit them. An exit
+marker does not mean its story gate is unlocked. Treasure markers appear after
+discovery, and opened chests are dimmed. Complete scenery visibility does not
+add exploration credit, grant treasure or guarantee every tile is walkable.
+
+Exploration saves separately in `saves/lagoon-exploration.map`; loading an earlier
+state retains places already explored. No map artwork is downloaded or included
+with the port. Scenery covers the current supported area, including the layered
+backgrounds in Gold Cave, Philips Castle, Dwarf Cave, Phantom Hill and the Cloud;
+loading or unsupported views can use the explored layout instead.
 During the early tablet quest, the map also shows the next step for the Tablets
 of Faith, Wish and Hope, then the return to Voloh's elder. Purple markers identify
 applicable objective locations. Thor provides the first two tablets through his
 original dialogue; the third requires Nasir to reach the chest near Philips
-Castle. Hints do not grant items, reveal terrain or change quest flags. A full
-objective journal, guidance for other quests and zoom-out remain future work.
+Castle. Hints do not grant items or change quest flags. Options also has a
+chapter journal; the map's pan/zoom changes only the map, not gameplay zoom.
 
 ## Saves and states
 
@@ -125,13 +143,14 @@ bindings are retained.
 
 | Default shortcut | Action |
 | --- | --- |
-| M / controller L2 | Open or close the explored map. |
+| M / controller L2 | Open or close the scenery/exploration map. |
 | Ctrl+comma / controller R2 | Open or close quick settings. |
 | Ctrl+J | Open or close achievements. |
-| Arrow keys / D-pad | Navigate a map or settings panel. |
-| Left/Right in quick settings | Adjust the selected volume by 5%. |
-| Enter / controller A or Y on Achievements | Open the achievement browser from quick settings. |
-| Escape / controller B | Close a panel. |
+| Arrow keys / D-pad | Pan the map or navigate the selected Options tab. |
+| PageUp / PageDown, Tab / controller L or R in Options | Switch Sound, Journal, Items, Display and Travel tabs. |
+| Left/Right in Sound | Adjust the selected volume by 5%. |
+| Enter / controller A or Y on Achievements | Open the achievement browser from Sound. |
+| Escape / controller B | Close a panel; cancel Travel confirmation first. |
 | Keypad + / Keypad - | Raise or lower master volume during gameplay. |
 | Alt+Enter | Toggle fullscreen. |
 | F | Toggle the performance display. |
@@ -142,6 +161,29 @@ battle or escort. Master volume affects all audio. X68000 music volume trims onl
 the optional replacement soundtrack; its sound effects retain the master level.
 These settings persist without returning to Companion. Changing the soundtrack
 itself still requires Companion and a restart.
+
+The **Journal** follows current story, boss and item progress. It gives a chapter
+recap, the next suggested step and relevant milestones; it is not a log of every
+conversation or a promise that every optional quest is tracked.
+
+The **Items** reference has 25 consumable, equipment and quest-item entries.
+Up/Down browses their effects or purpose, whether Nasir carries them, and their
+Atland/Voloh shop prices where sold. It does not select, use, buy or grant an item.
+
+Under **Display**, **Sword range cue** defaults **Off**. Left/Right or Enter/A
+toggles a visual guide during attacks, following the active sword reach and
+cleave. It changes neither damage nor hit detection and persists with settings.
+
+Under **Travel**, **Return to dungeon entrance** is available after the dungeon's
+boss is defeated in Gold Cave, Philips Castle, Dwarf Cave, Siegfried Castle,
+Ice Cave and Lagoon Castle. Stop on safe ground, away from nearby enemies or
+effects, and finish any escort first. Boss arenas, transitions and incompatible
+play settings refuse the action. It returns just inside the main entrance using
+the game's room-loading sequence, rather than unlocking a route ahead.
+
+Press Enter/A once to open the confirmation and again to return. Escape/B
+cancels the confirmation and keeps Options open. Eligibility is checked again
+when the request reaches gameplay, so an unavailable return will show a reason.
 
 ## Achievements
 

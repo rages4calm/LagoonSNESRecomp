@@ -3,7 +3,9 @@
 #include <stddef.h>
 #include <stdint.h>
 enum { LAGOON_MAP_ROOMS=75, LAGOON_MAP_SIDE=128, LAGOON_MAP_CELLS=16384 };
-enum { LAGOON_MAP_TOGGLE=1,LAGOON_MAP_CLOSE,LAGOON_MAP_PREVIOUS,LAGOON_MAP_NEXT,LAGOON_MAP_HOME };
+enum { LAGOON_MAP_TOGGLE=1,LAGOON_MAP_CLOSE,LAGOON_MAP_PREVIOUS,LAGOON_MAP_NEXT,LAGOON_MAP_HOME,
+ LAGOON_MAP_PAN_LEFT,LAGOON_MAP_PAN_RIGHT,LAGOON_MAP_PAN_UP,LAGOON_MAP_PAN_DOWN,
+ LAGOON_MAP_ZOOM_IN,LAGOON_MAP_ZOOM_OUT,LAGOON_MAP_FIT,LAGOON_MAP_NEXT_EXITS };
 /* Title-owned exploration only: no guest writes, no ROM graphics in the save. */
 void LagoonMap_Init(const uint8_t *rom,size_t size);
 void LagoonMap_Observe(const uint8_t *ram,uint64_t generation);
