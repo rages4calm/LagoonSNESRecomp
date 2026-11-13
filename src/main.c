@@ -1,5 +1,5 @@
 /*
- * Lagoon — desktop host shim.
+ * Lagoon â€” desktop host shim.
  *
  * Identity and hooks, nothing else. The host itself is the framework's
  * (snesrecomp/runner/src/desktop/host_main.h): the pre-boot launcher, ROM
@@ -325,10 +325,9 @@ static void LagoonHost_OnRom(const uint8_t *rom,size_t size) {
     LagoonWideAI_Init(rom,size,&g_cpu);
     LagoonBossHud_Init(rom,size);
     interp_bridge_add_pre_opcode_hook(0x02973a,LagoonHost_WideActorOpcode);
+    interp_bridge_add_pre_opcode_hook(0x029744,LagoonHost_WideActorOpcode);
     interp_bridge_add_pre_opcode_hook(0x01ab31,LagoonHost_WideActorOpcode);
     interp_bridge_add_pre_opcode_hook(0x01ac4f,LagoonHost_WideActorOpcode);
-    interp_bridge_add_pre_opcode_hook(0x02a30b,LagoonHost_WideActorOpcode);
-    interp_bridge_add_pre_opcode_hook(0x02a2ec,LagoonHost_WideActorOpcode);
     LagoonEasterCollision_Init(rom,size,LagoonHost_CameoBody);
     LagoonQol_SetWorldReadFilter(LagoonHost_WorldRead);
     LagoonFollower_Reset(rom,size);

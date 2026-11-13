@@ -10,6 +10,7 @@ static uint8_t rom[0x100000],ram[0x20000],fixture[0x20000],before[0x20000];
 static CpuState cpu;
 static CpuWramReadContext context;
 static unsigned checks,opcodes,gate_actor;
+static uint8_t divider[3];
 static int use_filter;
 int LagoonWide_ViewExtraX(int extra){return extra;}
 int LagoonWide_ViewExtraY(void){return 0;}
@@ -19,7 +20,7 @@ void LagoonWide_ViewBounds(const uint8_t *r,int extra,int *l,int *t,int *right,i
 #define CHECK(x) do{assert(x);checks++;}while(0)
 static void put(unsigned a,unsigned v){ram[a]=(uint8_t)v;ram[a+1]=(uint8_t)(v>>8);}
 static void setup(int ai){
-  memcpy(ram,fixture,sizeof ram);memset(&cpu,0,sizeof cpu);
+  memset(divider,0,sizeof divider);memcpy(ram,fixture,sizeof ram);memset(&cpu,0,sizeof cpu);
   cpu.ram=ram;cpu.P=0x20;cpu.m_flag=1;cpu.PB=cpu.DB=ai?2:1;
   cpu.X=ai?0x1c0:0x200;cpu.Y=0x1234;cpu.S=0x1d0;
   put(cpu.S+1,ai?0x9572:0x80cc);put(cpu.S+3,0x806e);ram[cpu.S+5]=2;put(0x3b0,0x180);gate_actor=0x700;
@@ -37,11 +38,16 @@ static void accept(void){CHECK(read_gate()==(ram[gate_actor]|8));}
 static uint8_t bus_read(void *unused,uint32_t address){
   (void)unused;int32_t offset=cpu_wram_offset(address>>16,(uint16_t)address);
   if(offset>=0){uint8_t v=ram[offset];return use_filter?LagoonWideAI_FilterRead(offset,v,&context,ram,9):v;}
+  if((address&0xffff)==0x4214||(address&0xffff)==0x4215){
+    unsigned q=divider[2]?(divider[0]|divider[1]<<8)/divider[2]:65535;
+    return (uint8_t)(q>>(((address&0xffff)-0x4214)*8));
+  }
   CHECK((address>>16)<32&&(address&0xffff)>=0x8000);
   return rom[(address>>16)*32768+(address&32767)];
 }
 static void bus_write(void *unused,uint32_t address,uint8_t value){
   (void)unused;int32_t offset=cpu_wram_offset(address>>16,(uint16_t)address);
+  if(offset<0&&(address&0xffff)>=0x4204&&(address&0xffff)<=0x4206){divider[(address&0xffff)-0x4204]=value;return;}
   CHECK(offset>=0);ram[offset]=value;
 }
 static void sync_cpu(const Interp816 *i){
@@ -73,12 +79,13 @@ static void original_kind3(int filtered,unsigned distance,int awareness){
   i->mf=1;i->xf=i->e=i->d=0;
   unsigned steps=0;
   while(i->k!=2||i->pc!=0x9573){
-    CHECK(++steps<200);sync_cpu(i);
+    CHECK(++steps<512);sync_cpu(i);
     context=(CpuWramReadContext){((uint32_t)i->k<<16)|i->pc,i->sp,i->y,i->k,i->mf,i->xf,i->e,1};
-    if(i->pc==0x973a||(awareness&&(i->pc==0xa30b||i->pc==0xa2ec)))LagoonWideAI_ObserveOpcode(&cpu,context.instruction_pc,9);
+    if(i->pc==0x973a||(awareness&&i->pc==0x9744))LagoonWideAI_ObserveOpcode(&cpu,context.instruction_pc,9);
     interp816_runOpcode(i);opcodes++;
   }
-  CHECK(i->sp==cpu.S+2);CHECK(ram[0x73f]==(distance<=(awareness?325:112)?2:0));
+  CHECK(i->sp==cpu.S+2);if(awareness)CHECK(ram[0x73f]==1||ram[0x73f]==2||ram[0x73f]==4||ram[0x73f]==8);
+  else CHECK(ram[0x73f]==(distance<=112?2:0));
   /* Normalize only the deliberately different original flag byte, then
    * compare every actual AI write, stack residue, scratch byte and queue. */
   ram[0x700]=0xc0;
@@ -166,6 +173,12 @@ int main(int argc,char **argv){
   /* Authored aggro remains untouched: kind3's original distance is112. */
   CHECK(rom[0x117b6]==0x70&&rom[0x117b7]==0);
   original_kind3(1,200,1);original_kind3(1,336,1);
+  setup(1);context.instruction_pc=0x029744;arm();
+  CHECK(LagoonWideAI_FilterRead(0x71b,ram[0x71b],&context,ram,9)==0);
+  setup(1);put(0x480,704);context.instruction_pc=0x029744;arm();
+  CHECK(LagoonWideAI_FilterRead(0x71b,ram[0x71b],&context,ram,9)==ram[0x71b]);
+  setup(1);context.instruction_pc=0x02a30b;cpu.m_flag=0;cpu.P=0;context.m=0;arm();
+  CHECK(LagoonWideAI_FilterRead(0x1050,ram[0x1050],&context,ram,9)==ram[0x1050]);
   centered_patch();setup(1);CHECK(source_ok());arm();accept();
   setup(0);context.interpreter=0;context.instruction_pc=UINT32_MAX;accept();
   const unsigned patched[]={0x809d,0x80cb,0x83d8,0x8408,0x8432,0x845f,0x8489};

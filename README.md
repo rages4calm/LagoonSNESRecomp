@@ -26,11 +26,11 @@ the ROM, saves or private test captures are included.
 
 ![Atland with Enhanced original pixels at 1920 by 1080](docs/screenshots/atland-epx-1920x1080.png)
 
-**D3D11 Enhanced pixels, 1.5x zoom out — 1920×1080**
+**D3D11 MMPX Enhanced pixels, 1.5x zoom out â€” 1920Ã—1080**
 
-![Atland at 1.5x world extent](docs/screenshots/atland-d3d11-zoom150-1920x1080.png)
+![Atland at 1.5x world extent](docs/screenshots/atland-mmpx-zoom150-1920x1080.png)
 
-![Elf Field at 1.5x world extent](docs/screenshots/elf-field-d3d11-zoom150-1920x1080.png)
+![Elf Field at 1.5x world extent](docs/screenshots/elf-field-mmpx-zoom150-1920x1080.png)
 
 ## Features
 
@@ -48,8 +48,9 @@ the ROM, saves or private test captures are included.
   scenery. Original authored scenes keep their original composition.
 - **Game Over framing:** the original overlay keeps the expanded world and zoom
   instead of snapping back to a larger 4:3 image.
-- **Active wider world:** visible ordinary enemies continue their AI, with
-  awareness extended to the expanded view. Neutral NPC animation also extends
+- **Active wider world:** newly revealed ordinary enemies wander with the
+  original random-walk routine, without extending aggression or attack ranges.
+  Their authored AI resumes in the original viewport. Neutral NPC animation extends
   beyond the old viewport; quest scripts and conversations retain their triggers.
 - **Combat and balance options:** longer sword reach and matching sword artwork,
   modest cleave, extra hit protection, a gentler opening and stronger magic.

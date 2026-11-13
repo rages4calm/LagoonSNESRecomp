@@ -29,10 +29,10 @@ internal static partial class NativeSettings
             Choices: new[] {new ChoiceItem("1","1x (original scale)"),new ChoiceItem("1.25","1.25x zoom out"),new ChoiceItem("1.5","1.5x zoom out")})),
         new("video.pixel-filter", "Lagoon", "PixelFilter", new("video.pixel-filter", "Display", "Enhanced pixel style", OptionKind.Choice,
             OptionValue.From("epx"), "Used when Enhanced pixels is enabled. EPX keeps a crisp retro look; MMPX refines diagonal and curved sprite edges without whole-image blur. HUD and extra menus stay sharp. Restart after Apply.",
-            Choices: new[]{new ChoiceItem("epx","EPX — crisp"),new ChoiceItem("mmpx","MMPX — refined")})),
+            Choices: new[]{new ChoiceItem("epx","EPX â€” crisp"),new ChoiceItem("mmpx","MMPX â€” refined")})),
         Boolean("video.vsync", "Display", "Vertical sync", "Graphics", "VSync", true),
         Boolean("video.widescreen", "Display", "Widescreen (experimental)", "Graphics", "Widescreen", false,
-            "Expanded backgrounds; off-screen NPC/enemy rendering and some rooms remain unfinished. Unsupported scenes retain their original view."),
+            "Expands the playable world to the selected aspect. Special visual states retain their original composition when the renderer cannot safely expand them."),
         new("video.wide-aspect", "Lagoon", "WideAspect", new("video.wide-aspect", "Display", "Widescreen aspect", OptionKind.Choice,
             OptionValue.From("16:9"), "Used when experimental widescreen is enabled. Window follows the current window or monitor dimensions.", Choices: new[] {
                 new ChoiceItem("16:9", "16:9"), new ChoiceItem("16:10", "16:10"), new ChoiceItem("21:9", "21:9 ultrawide"),

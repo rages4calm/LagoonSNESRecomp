@@ -10,9 +10,9 @@ void LagoonWideAI_Init(const uint8_t *rom,size_t size,const struct CpuState *act
 /* Call before each real/speculative simulation frame, using the actual native
  * horizontal extension per side. A load/reset invalidates old read witnesses. */
 void LagoonWideAI_BeginFrame(uint64_t generation,int extra,int world_ready);
-/* Register pre-opcode hooks at02:973A,01:AB31,01:AC4F and the two source-bound
- * ordinary-enemy awareness loads02:A30B/02:A2EC. The bridge synchronizes the
- * actual CPU here; its public CPU container can lag between interpreter ops. */
+/* Register source-bound hooks at02:973A/9744 and01:AB31/AC4F. Far enemies
+ * select the original random-walk routine without changing stored AI/range.
+ * The bridge synchronizes the CPU at these exact source opcode boundaries. */
 void LagoonWideAI_ObserveOpcode(struct CpuState *cpu,uint32_t pc,uint64_t generation);
 /* Compose through LagoonQol's existing world read filter. Does not own hooks. */
 uint8_t LagoonWideAI_FilterRead(uint32_t address,uint8_t value,

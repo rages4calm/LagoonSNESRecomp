@@ -18,7 +18,7 @@ static const Span source[]={
 };
 static struct {
   const uint8_t *rom;size_t size;const CpuState *cpu;
-  uint8_t descriptors[63][56];
+  uint8_t descriptors[75][56];
   uint64_t generation;int extra,native_extra,enabled;
   unsigned long long ai_reads,animation_reads;
   struct {const uint8_t *ram;uint32_t pc;uint16_t x,s,y;uint8_t pb,armed;} op;
@@ -53,20 +53,15 @@ static int mode(const CpuState *c,unsigned pb){
   return c&&c==wide.cpu&&c->ram&&c->PB==pb&&c->DB==pb&&!c->D&&!c->emulation&&
     c->m_flag&&!c->x_flag&&!c->_flag_D&&(c->P&0x38)==0x20;
 }
-static int range_mode(const CpuState *c){
-  return c&&c==wide.cpu&&c->ram&&c->PB==2&&c->DB==2&&!c->D&&!c->emulation&&
-    !c->m_flag&&!c->x_flag&&!c->_flag_D&&(c->P&0x38)==0;
-}
 void LagoonWideAI_ObserveOpcode(CpuState *c,uint32_t pc,uint64_t generation){
   wide.op.armed=0;
-  int range=(pc==0x02a30b||pc==0x02a2ec);
   if(!wide.enabled||generation!=wide.generation||
-      (range?!range_mode(c):(pc!=0x02973a&&pc!=0x01ab31&&pc!=0x01ac4f)||!mode(c,pc>>16)))return;
+      ((pc!=0x02973a&&pc!=0x029744&&pc!=0x01ab31&&pc!=0x01ac4f)||!mode(c,pc>>16)))return;
   wide.op.ram=c->ram;wide.op.pc=pc;wide.op.x=c->X;wide.op.s=c->S;
   wide.op.y=c->Y;wide.op.pb=c->PB;wide.op.armed=1;
 }
 static int ordinary(const uint8_t *r){
-  unsigned room=word(r,0x48e);if(room>=63||r[0x406]||r[0x100e]||r[0x23d]!=15||r[0x275]!=0x81||
+  unsigned room=word(r,0x48e);if(room>=75||r[0x406]||r[0x100e]||r[0x23d]!=15||r[0x275]!=0x81||
     (r[0x500]&0xc0)!=0xc0||r[0x518]||!r[0x520]||r[0x521])return 0;
   const uint8_t *d=wide.descriptors[room];
   if(memcmp(d,wide.rom+0x2b2df+room*56,56))return 0;
@@ -78,27 +73,23 @@ static int ordinary(const uint8_t *r){
 }
 uint8_t LagoonWideAI_FilterRead(uint32_t address,uint8_t value,const CpuWramReadContext *c,
     const uint8_t *r,uint64_t generation){
-  /* These loads control ordinary enemy awareness, not attack collision/range.
-   * Extending only the visibility bit still leaves e.g. Elf Field beetles
-   * asleep at their original112px awareness boundary. Never write the shared
-   * scratch word or change a boss/NPC's scripted targeting. */
-  if(wide.enabled&&generation==wide.generation&&r&&c&&address>=0x1050&&address<=0x1051&&
-      !c->m&&!c->x&&!c->e&&c->pb==2&&c->interpreter&&wide.op.armed&&
-      (wide.op.pc==0x02a30b||wide.op.pc==0x02a2ec)&&c->instruction_pc==wide.op.pc&&
-      wide.op.ram==r&&wide.op.s==c->stack&&wide.op.y==c->y&&
-      wide.op.x<=0x7c0&&!(wide.op.x&63)&&c->stack>=0x100&&c->stack<=0x1f9&&
-      value==r[address]&&word(r,c->stack+3)==0x806e&&r[c->stack+5]==2&&ordinary(r)){
+  /* Newly revealed enemies use the game's own type0 random-walk routine
+   * instead of pursuing/attacking from beyond the original viewport. The
+   * real AI selector stays in RAM and resumes unchanged on entering that
+   * viewport. Never extend a detection radius or write a target/direction. */
+  if(wide.enabled&&generation==wide.generation&&r&&c&&c->m&&!c->x&&!c->e&&
+      c->pb==2&&c->interpreter&&wide.op.armed&&wide.op.pc==0x029744&&
+      c->instruction_pc==wide.op.pc&&wide.op.ram==r&&wide.op.s==c->stack&&wide.op.y==c->y&&
+      wide.op.x<=0x7c0&&!(wide.op.x&63)&&c->stack>=0x100&&c->stack<=0x1f9&&ordinary(r)) {
     unsigned actor=0x540+wide.op.x;
     int x=(int16_t)(word(r,actor+2)-word(r,0x480)),y=(int16_t)(word(r,actor+4)-word(r,0x482));
-    int ey=LagoonWide_ViewExtraY(),left,top,right,bottom;
-    LagoonWide_ViewBounds(r,wide.native_extra,&left,&top,&right,&bottom);
-    if((r[actor]&0xc1)==0xc0&&r[actor+0x18]==2&&!(r[actor+1]&7)&&!r[actor+0x1e]&&
-        x>=left&&x<right&&y>=top&&y<bottom&&
-        (word(r,c->stack+1)==0x954a||word(r,c->stack+1)==0x9572)){
-      unsigned radius=word(r,0x1050)+(unsigned)(wide.extra>ey?wide.extra:ey);
-      if(radius>2048)radius=2048;
-      if(address==0x1051)wide.op.armed=0;
-      return (uint8_t)(radius>>((address-0x1050)*8));
+    int left,top,right,bottom;LagoonWide_ViewBounds(r,wide.native_extra,&left,&top,&right,&bottom);
+    if(address==actor+0x1b&&value==r[address]&&(r[actor]&0xc1)==0xc0&&
+        r[actor+0x18]==2&&!(r[actor+1]&7)&&!r[actor+0x1e]&&
+        (x<0||x>=256||y<0||y>=224)&&x>=left&&x<right&&y>=top&&y<bottom&&
+        (word(r,c->stack+1)==0x954a||word(r,c->stack+1)==0x9572)&&
+        word(r,c->stack+3)==0x806e&&r[c->stack+5]==2) {
+      wide.op.armed=0;return 0;
     }
   }
   if(!wide.enabled||generation!=wide.generation||!r||!c||!c->m||c->x||c->e||
