@@ -36,7 +36,7 @@ if (Directory.Exists(output)) throw new IOException("Use a fresh test output dir
 Directory.CreateDirectory(output);
 SettingsChecks.Run(Path.Combine(output, "settings-checks"));
 var config = Path.Combine(output, "config.ini");
-File.WriteAllText(config, "[General]\nDisableFrameDelay=1\nAutosave=0\n[Sound]\nEnableAudio=0\n");
+File.WriteAllText(config, "[General]\nDisableFrameDelay=1\nAutosave=0\n[Graphics]\nRenderer=software\nOutputMethod=SDL\n[Sound]\nEnableAudio=0\n");
 var adapter = new GameAdapter(Path.Combine(output, "launcher-data"));
 var profile = adapter.Profiles[0];
 var values = adapter.Definition.Options.ToDictionary(x => x.Id, x => x.DefaultValue.Clone());
