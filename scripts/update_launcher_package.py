@@ -22,6 +22,8 @@ def main():
     parser.add_argument('--launcher', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--source-commit', required=True)
+    parser.add_argument('--engine-source-commit', required=True,
+                        help='Original engine source from the verified input release manifest')
     parser.add_argument('--version', required=True)
     args = parser.parse_args()
     if args.output.exists():
@@ -94,7 +96,12 @@ def main():
         '#!/bin/sh\ncd -- "$(dirname -- "$0")" || exit 1\nexec ./lagoon.Companion --rom-setup\n').encode()
     for name, data in replacements.items():
         contract['files'][name] = sha(data)
-    contract['engine_source_commit'] = contract.get('engine_source_commit', contract['source_commit'])
+    recorded_engine = contract.get('engine_source_commit', contract.get('source_commit'))
+    if recorded_engine is not None and recorded_engine != args.engine_source_commit:
+        raise ValueError('Engine source differs from the input release manifest')
+    if len(args.engine_source_commit) != 40 or any(c not in '0123456789abcdef' for c in args.engine_source_commit):
+        raise ValueError('Engine source must be a full commit identity')
+    contract['engine_source_commit'] = args.engine_source_commit
     contract['engine_version'] = contract.get('engine_version', contract['version'])
     contract['source_commit'] = args.source_commit
     contract['version'] = args.version
