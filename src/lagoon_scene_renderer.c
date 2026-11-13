@@ -49,7 +49,7 @@ typedef struct ScenePacket {
   uint32_t vram_writes,oam_writes;
   int wx,wy,world_width,world_height;
   unsigned map_fill,fill_meta;
-  unsigned native_x,native_y,bg2_x,bg2_y,parallax,finite_clip;
+  unsigned native_x,native_y,bg2_x,bg2_y,parallax,finite_clip,gameover;
   unsigned incoming_mosaic,mosaic_size,brightness,mosaic_y_phase,mosaic_backend,mosaic_y_size;
   SceneOamPolicy policy;
   SceneOamPolicyInputs policy_inputs;
@@ -490,6 +490,7 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
     if(!p||!supported(p,r,rom,size,authority))return;
     s->valid=1;s->lines=1;s->room=word(r,0x48e);
     s->incoming_mosaic=authority==LAGOON_SCENE_INCOMING_MOSAIC;
+    s->gameover=LagoonSceneRenderer_GameOver(r,rom,size);
     s->mosaic_size=PPU_mosaicSize(p);s->brightness=p->inidisp&15;
     s->mosaic_backend=!!(p->renderFlags&kPpuRenderFlags_NewRenderer);
     s->mosaic_y_phase=s->mosaic_backend?0:p->mosaicStartLine;
@@ -951,6 +952,11 @@ int LagoonSceneRenderer_DrawView(uint8_t *dst,size_t pitch,unsigned width,unsign
      * wins exactly. The HUD is relocated once below, at original pixel size. */
     if(ny>=0&&ny<190)for(unsigned x=0;x<sw;x++){
       int dx=left+(int)x-source_left;
+      int nx=(int)x-source_left;
+      if(s->gameover&&nx>=46&&nx<208&&ny>=86&&ny<170) {
+        unsigned yy=(unsigned)ny+1,t=s->vram[0x3c00+(yy/8)*32+(unsigned)nx/8];
+        if(graphics(s,t,(unsigned)nx&7,yy&7,0x6000,2))continue;
+      }
       if(dx>=0&&dx<(int)width)memcpy(dst+y*pitch+dx*4,source+ny*sp+x*4,4);
     }
   }
@@ -978,6 +984,16 @@ int LagoonSceneRenderer_DrawView(uint8_t *dst,size_t pitch,unsigned width,unsign
   }
   for(unsigned y=0;y<34;y++)for(unsigned x=0;x<256;x++)if(mask[y*256+x])
     memcpy(dst+(height-34+y)*pitch+((width-256)/2+x)*4,source+(190+y)*sp+(source_left+x)*4,4);
+  if(s->gameover) {
+    /* The Game Over panel belongs to the screen, never the camera/map edge.
+     * Its original complete frame (including shadow) is copied unchanged. */
+    const unsigned bw=162,bh=84,ox=(width-bw)/2,oy=(height-33)/2;
+    for(unsigned y=0;y<bh;y++)for(unsigned x=0;x<bw;x++) {
+      unsigned sx=46+x,sy=86+y,yy=sy+1,t=s->vram[0x3c00+(yy/8)*32+sx/8];
+      if(graphics(s,t,sx&7,yy&7,0x6000,2))memcpy(dst+(oy+y)*pitch+(ox+x)*4,
+          source+sy*sp+(source_left+sx)*4,4);
+    }
+  }
   return 1;
 }
 

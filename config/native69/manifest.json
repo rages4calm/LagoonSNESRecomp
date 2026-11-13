@@ -36,8 +36,8 @@
     "runner/src/native_blocks.h": "cb7ad310ba54a0aa4156356f4623e0dc042e974202da22d7432ab2880172a8c1"
   },
   "metadata_files": {
-    "base.keys.json": "4424afaaff9048e403e7bc9bd3ea04dea3f2c1a1634dfc1be82d2e8d27214dac",
-    "camera.keys.json": "3cc8aef85011c11b472a8ae552f886c548f335eb3a6774407ef244cd5cbd6da3",
+    "base.keys.json": "353d6424b20dd9c081fdb0544f0896269f7f900fb442d3387346ec8f0c7c1785",
+    "camera.keys.json": "cd398ab744dbde010c46d8425941b48ad59d472f7788a90b82683334b77d24ce",
     "camera.patches.json": "2c59c18ced480c4c4b38d5562580e09ab619dbc53f974c785ea79371fd7f2b87"
   },
   "profiles": [
@@ -45,7 +45,7 @@
       "id": 0,
       "symbol": "lagoon_reset69",
       "keys": "base.keys.json",
-      "count": 28488,
+      "count": 28507,
       "patches": null,
       "output": "ordinary69.generated.c"
     },
@@ -53,7 +53,7 @@
       "id": 1,
       "symbol": "lagoon_camera69",
       "keys": "camera.keys.json",
-      "count": 28474,
+      "count": 28493,
       "patches": "camera.patches.json",
       "output": "camera69.generated.c"
     }

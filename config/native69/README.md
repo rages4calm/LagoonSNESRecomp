@@ -54,3 +54,8 @@ directory with `LAGOON_NATIVE_BACKEND69=1`, `SNESRECOMP_NATIVE_ONLY=1` and
 environment; the game still uses its normal save/settings behavior. Missing
 native coverage or an incompatible build fails closed. The game's exit status,
 including strict failures, is returned unchanged.
+
+The0.5.0 Game Over End regression adds the observed00:9366 JML and its
+00:9304..932D M1/X0/E0 WRAM-clear continuation to both profiles. The original
+source/mode/mapping/deadline guards remain; the complete matched End route
+returned to Kemco with zero interpretation and exact reference outputs.

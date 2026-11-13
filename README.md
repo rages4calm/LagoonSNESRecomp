@@ -43,7 +43,8 @@ the ROM, saves or private test captures are included.
   OBS Game Capture/modern Window Capture through focus changes. OpenGL remains
   available and is used by the Linux/macOS packages.
 - **World zoom out:**1x,1.25x and1.5x reveal additional scenery horizontally
-  and vertically in qualified world scenes. The HUD remains readable over the
+  and vertically across the playable areas. All74 authored travel areas passed
+  a bounded1.5x entry/render check; this is not a new full playthrough. The HUD remains readable over the
   scenery. Original authored scenes keep their original composition.
 - **Game Over framing:** the original overlay keeps the expanded world and zoom
   instead of snapping back to a larger 4:3 image.

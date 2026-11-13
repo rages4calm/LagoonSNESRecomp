@@ -190,7 +190,7 @@ void LagoonWide_PresentationGeometry(int sw,int sh,int *w,int *h){
 }
 void LagoonWide_PresentationCompose(uint8_t *dst,size_t pitch,int w,int h,
     const uint8_t *src,size_t sp,int sw,int sh){
-  if(w==sw&&h==sh){for(int y=0;y<h;y++)memcpy(dst+y*pitch,src+y*sp,w*4);return;}
+  if(w==sw&&h==sh&&!LagoonSceneRenderer_GameOver(g_ram,g_rom,0x100000)){for(int y=0;y<h;y++)memcpy(dst+y*pitch,src+y*sp,w*4);return;}
   if(LagoonSceneRenderer_DrawView(dst,pitch,w,h,src,sp,sw,sh,RtlStateGeneration()))return;
   /* Unsupported authored scenes keep their complete original composition.
    * No old room packet, extrapolated cutscene, or partial transition is used. */

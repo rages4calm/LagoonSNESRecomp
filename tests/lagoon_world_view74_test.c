@@ -27,6 +27,16 @@ int main(void){
     assert(view[h*pitch]==0xa5);
     assert(!LagoonSceneRenderer_DrawView(view,pitch,w,h,output,400*4+16,400,224,92));
   }
+  /* Screen-owned Game Over frame must not follow an edge-clamped camera.
+   * This synthetic admitted packet tests composition, not source admission. */
+  ScenePacket *death=&s_packets[s_complete];death->gameover=1;
+  for(unsigned row=0;row<8;row++)death->vram[0x6000+row]=0xffff;
+  for(unsigned y=86;y<170;y++)for(unsigned x=46;x<208;x++) {
+    uint32_t marker=0x00aabbcc;memcpy(output+y*(400*4+16)+(72+x)*4,&marker,4);
+  }
+  assert(LagoonSceneRenderer_DrawView(view,2400,600,336,output,1616,400,224,91));
+  uint32_t panel;memcpy(&panel,view+(336/2)*2400+(600/2)*4,4);assert(panel==0x00aabbcc);
+  death->gameover=0;
   assert(view_origin(0,2048,600,256)==0);
   assert(view_origin(1792,2048,600,256)==1448);
   assert(view_origin(0,256,600,256)==-172);

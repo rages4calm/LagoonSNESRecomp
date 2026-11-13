@@ -120,3 +120,11 @@ a room transition, map/settings open and close, save/load, controller input,
 both soundtracks, quitting and reopening without lost progress. Repeat a campaign
 only when a new defect warrants it. Report OS, architecture, version/hash,
 settings and precise steps. [Bug reports](PLAYING.md#reporting-a-bug).
+
+Release0.5.0 adds D3D11 on Windows, shared EPX/MMPX presentation and detached
+world zoom. A bounded cheated door-entry sweep checked expanded rendering in
+all74 authored travel areas; the unused no-incoming descriptor3F is separate.
+Game Over Continue restored HP and movement. End now includes the original
+00:9366 restart jump and9304..932D WRAM-clear instructions in both native
+profiles; matched native/reference End replays agree on all recorded frames,
+checkpoint components and clocks. These checks do not replace the owner campaign.
