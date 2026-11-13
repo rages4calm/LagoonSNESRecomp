@@ -5,7 +5,7 @@
 #include "../src/lagoon_wide_entities.c"
 #include "../src/lagoon_scene_renderer.c"
 /* Exercise the actual shared shadow API without changing SDK source. */
-#include "../snesrecomp/runner/src/snes/ws_shadow.c"
+#include "snes/ws_shadow.c"
 int snes_frame_counter;
 static Ppu p;
 static uint8_t ram[131072],rom[1048576];

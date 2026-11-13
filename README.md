@@ -2,13 +2,13 @@
 
 <p align="center"><img src="docs/branding/lagoon-logo.png" width="680" alt="Lagoon — redrawn box-art logo contributed by DarkShadowRage"></p>
 
-[![Windows x64 download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.1/Lagoon-Companion-0.4.1-win-x64.zip)
-[![Linux x64 download](docs/badges/linux.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.1/Lagoon-Companion-0.4.1-linux-x64.tar.gz)
+[![Windows x64 download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.0/Lagoon-Companion-0.5.0-win-x64.zip)
+[![Linux x64 download](docs/badges/linux.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.0/Lagoon-Companion-0.5.0-linux-x64.tar.gz)
 
-[![macOS Apple Silicon download](docs/badges/macos-arm64.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.1/Lagoon-Companion-0.4.1-macos-arm64.tar.gz)
-[![macOS Intel download](docs/badges/macos-intel.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.1/Lagoon-Companion-0.4.1-macos-x64.tar.gz)
+[![macOS Apple Silicon download](docs/badges/macos-arm64.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.0/Lagoon-Companion-0.5.0-macos-arm64.tar.gz)
+[![macOS Intel download](docs/badges/macos-intel.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.0/Lagoon-Companion-0.5.0-macos-x64.tar.gz)
 
-[Release notes & checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.4.1) · [Screenshots](docs/screenshots/README.md) · [Controls](docs/PLAYING.md) · [Build & mod](docs/BUILDING.md)
+[Release notes & checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.5.0) · [Screenshots](docs/screenshots/README.md) · [Controls](docs/PLAYING.md) · [Build & mod](docs/BUILDING.md)
 
 **Lagoon for Windows, Linux and macOS, with 100% native execution of the game's
 main 65816 CPU.** Built with [SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp),
@@ -26,12 +26,28 @@ the ROM, saves or private test captures are included.
 
 ![Atland with Enhanced original pixels at 1920 by 1080](docs/screenshots/atland-epx-1920x1080.png)
 
+**D3D11 Enhanced pixels, 1.5x zoom out � 1920�1080**
+
+![Atland at 1.5x world extent](docs/screenshots/atland-d3d11-zoom150-1920x1080.png)
+
+![Elf Field at 1.5x world extent](docs/screenshots/elf-field-d3d11-zoom150-1920x1080.png)
+
 ## Features
 
 - **Widescreen:** 16:9, 16:10, 21:9, 32:9 and window-driven aspects, with added
   scenery and supported NPCs, enemies, boss parts, projectiles and magic effects.
-- **Enhanced original graphics:** optional EPX presentation keeps the original
-  palette and a sharp HUD, without requiring replacement artwork.
+- **Enhanced original graphics:** optional GPU EPX reconstruction with sharp
+  fractional scaling keeps pixel interiors crisp and the HUD readable. No
+  replacement artwork or whole-image blur is required.
+- **D3D11 on Windows:** GPU Enhanced pixels, borderless fullscreen and tested
+  OBS Game Capture/modern Window Capture through focus changes. OpenGL remains
+  available and is used by the Linux/macOS packages.
+- **World zoom out:**1x,1.25x and1.5x reveal additional scenery horizontally
+  and vertically in qualified world scenes. The HUD remains readable over the
+  scenery. Original authored scenes keep their original composition.
+- **Active wider world:** visible ordinary enemies continue their AI, with
+  awareness extended to the expanded view. Neutral NPC animation also extends
+  beyond the old viewport; quest scripts and conversations retain their triggers.
 - **Combat and balance options:** longer sword reach and matching sword artwork,
   modest cleave, extra hit protection, a gentler opening and stronger magic.
 - **Less repetition:** independent EXP and gold rates up to 8x, faster walking,
@@ -77,6 +93,19 @@ No compiler or first-run game recompilation is needed. Windows needs no separate
 .NET or Python installation; Linux/macOS bundle .NET and use Python 3.11+ for
 first-run ROM setup. Keep `local/` for your saves, settings, map and achievements.
 [Controls and upgrading](docs/PLAYING.md) · [Linux/macOS requirements](docs/PORTING.md) · [Soundtrack details](docs/SOUNDTRACK.md).
+
+## What's new in 0.5.0
+
+Windows now has a D3D11 flip presenter with GPU Enhanced pixels and tested OBS
+capture through focus changes. Companion adds1x,1.25x and1.5x world zoom-out
+options on all platforms. Qualified world scenes show additional terrain and
+actors in both directions, with a transparent HUD over the scenery. Visible
+ordinary enemies stay active rather than waiting for the old viewport's
+awareness range. Neutral NPC animation extends to the wider view too.
+
+The strict native CPU default and explicit interpreter reference option remain.
+Original authored scenes and unqualified visual states keep their original
+composition. See [Display and recording](docs/RECORDING.md) for settings.
 
 ## What's new in 0.4.1
 

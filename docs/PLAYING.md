@@ -7,7 +7,7 @@ uses the original Lagoon lettering and frame, with a Crono portrait. Music
 continues while the world pauses. Completing it plays a owner-selected Chrono Trigger laugh
 before the achievement chime.
 
-Use the matching v0.4.1 package from the [main page](../README.md), or build from
+Use the matching v0.5.0 package from the [main page](../README.md), or build from
 [these instructions](BUILDING.md). On first launch, choose your clean USA ROM with the file picker.
 Verification and setup run automatically; then press Play. Use Choose ROM.cmd
 or Choose ROM.command to reopen the picker later. Apply settings before starting or restart
@@ -25,8 +25,8 @@ bindings for the corresponding actions.
 
 For a 1920×1080 monitor, choose **Borderless fullscreen**, widescreen **16:9** and VSync.
 Enhanced original pixels (EPX) is optional: it treats diagonal pixel edges using
-original colors while keeping the bottom HUD sharp. It requires OpenGL and the
-bundled shader files. Turning it off restores the previous graphics selection.
+original colors while keeping the bottom HUD sharp. It uses D3D11 on Windows
+or OpenGL with the bundled shaders elsewhere. Turning it off restores the previous graphics selection.
 Linear filtering and frame blending should remain off for a sharp picture.
 The retired Smooth scaling option is no longer offered.
 
@@ -246,3 +246,16 @@ The owner and friends perform the uninterrupted campaign playtest. Include:
 For slowdown, mention the room and enemies present, and whether movement,
 animation, audio or only presentation slows down. A steady presentation counter
 alone does not prove equal gameplay cadence everywhere.
+## World view and recording
+
+Companion's Display page offers **World zoom out:1x,1.25x,1.5x**. Enable
+widescreen first, Apply and restart. This reveals more scenery vertically and
+horizontally without changing Nasir's movement or sword collision. Ordinary
+enemies in the expanded view remain active; their awareness can therefore reach
+Nasir sooner. Original cutscenes/unsupported visual states retain their authored
+composition. HUD and host menus keep their readable pixel size.
+
+On Windows, **Auto (D3D11)** is the default graphics backend. Enhanced original
+pixels runs on the GPU with the HUD and menus kept sharp. OpenGL is available
+as an alternative. Linux/macOS use OpenGL and share the world-view options.
+See [recording instructions](RECORDING.md) for OBS and borderless fullscreen.

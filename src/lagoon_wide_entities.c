@@ -175,10 +175,15 @@ int LagoonWideEntities_Pixels(const uint16_t *vram, const uint16_t *cgram,
   unsigned palette = 0x80 + ((c->tile >> 9) & 7) * 16;
   memset(pixels, 0, 256 * sizeof(*pixels));
   int opaque = 0;
+  int native_bottom=224;
+#ifndef LAGOON_WIDE_ENTITIES_DECODER_ONLY
+  if(LagoonWide_ViewExtraY())native_bottom=192;
+#endif
   for (unsigned y = 0; y < c->size; ++y)
     for (unsigned x = 0; x < c->size; ++x) {
       int screen_x = c->x + (int)x;
-      if (clip_native && screen_x >= 0 && screen_x < 256) continue;
+      if (clip_native && screen_x >= 0 && screen_x < 256 &&
+          c->y+(int)y>=0&&c->y+(int)y<native_bottom) continue;
       unsigned sx = c->tile & 0x4000 ? c->size - 1 - x : x;
       unsigned sy = c->tile & 0x8000 ? c->size - 1 - y : y;
       unsigned tile = ((((c->tile & 255) >> 4) + (sy >> 3)) << 4) |
@@ -1808,15 +1813,16 @@ void LagoonWideEntities_BeginRetained(int enabled) {
 }
 /* region0=all margin,1=seam strips,2=deep margin. Native opacity is always zero. */
 static int draw_cell(const LagoonWideCell *c,unsigned anchor,uint32_t order,int region) {
-  if (s_object_count>=kObjects || c->size>16 || c->y<=-(int)c->size || c->y>=224 ||
-      c->x>=256+g_ppu->extraRightCur || c->x+c->size<=-g_ppu->extraLeftCur ||
-      (c->x>=0 && c->x+c->size<=256)) return 0;
+  int ex=LagoonWide_ViewExtraX(g_ppu->extraRightCur),ey=LagoonWide_ViewExtraY();
+  if (s_object_count>=kObjects || c->size>16 || c->y<=-ey-(int)c->size || c->y>=224+ey ||
+      c->x>=256+ex || c->x+c->size<=-ex ||
+      (c->x>=0 && c->x+c->size<=256 && c->y>=0&&c->y+c->size<=(ey?192:224))) return 0;
   uint16_t *pixels=s_pixels[s_object_count];
   if (!LagoonWideEntities_Pixels(PpuRenderVram(g_ppu),g_ppu->cgram,
       PPU_objTileAdr1(g_ppu),PPU_objTileAdr2(g_ppu),c,pixels,1)) return 0;
   int opaque=0;
   for (unsigned y=0;y<c->size;++y) for (unsigned x=0;x<c->size;++x) {
-    int sx=c->x+(int)x,deep=sx < -16 || sx>=272;
+    int sx=c->x+(int)x,sy=c->y+(int)y,deep=sx < -16 || sx>=272 || sy<0 || sy>=(ey?192:224);
     if ((region==1 && deep)||(region==2 && !deep)) pixels[y*c->size+x]=0;
     opaque|=pixels[y*c->size+x]!=0;
   }
@@ -2085,7 +2091,8 @@ void LagoonWideEntities_BeginFrame(int enabled) {
       signed_word(ram_word(pose_ram,a+2)-ram_word(pose_ram,0x480));
     int y=produced?signed_word(ram_word(pose_ram,a+14)):
       signed_word(ram_word(pose_ram,a+4)-ram_word(pose_ram,0x482));
-    if((x>=-96 && x<352) || y < -32 || y>=288) continue;
+    int ey=LagoonWide_ViewExtraY();
+    if((x>=-96 && x<352 && y>=-32&&y<224) || y < -32-ey || y>=288+ey) continue;
     uint8_t frame;int used_current=0;
     if(produced){frame=producer_frame;used_current=2;}
     else if(!ordinary || !LagoonWideEntities_FrameForContext(g_rom,kRomSize,ram,ram+a,&s_pose[e].animation,0,&frame)) {
@@ -2102,9 +2109,9 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     int deep=1,intersects=0;
     for(int i=0;i<n;++i) {
       LagoonWideCell *c=&cells[e][i];
-      if(c->x+c->size > -16 && c->x<272) deep=0;
-      if(c->x<256+g_ppu->extraRightCur && c->x+c->size> -g_ppu->extraLeftCur &&
-          c->y<224 && c->y+c->size>0) intersects=1;
+      if(c->x+c->size > -16 && c->x<272 && c->y+c->size>0&&c->y<224) deep=0;
+      int ex=LagoonWide_ViewExtraX(g_ppu->extraRightCur);
+      if(c->x<256+ex && c->x+c->size> -ex && c->y<224+ey && c->y+c->size> -ey) intersects=1;
     }
     if(!deep || !intersects) continue;
     counts[e]=n;far[e]=1;far_frames[e]=frame;current_path[e]=used_current;any_far=1;s_last_far_entity=e*64;s_last_far_x=x;s_last_far_frame=frame;

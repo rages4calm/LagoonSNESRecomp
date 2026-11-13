@@ -2,6 +2,8 @@
 
 On Windows, select **Display → Window mode → Borderless fullscreen**, Apply,
 and restart Lagoon. This is the option previously called Desktop fullscreen.
+Select **Graphics backend → Auto (D3D11)** or **D3D11**. Enhanced original pixels
+uses a D3D11 GPU shader on Windows; OpenGL remains an explicit alternative.
 
 In OBS Studio:
 
@@ -12,12 +14,12 @@ In OBS Studio:
 5. Check moving gameplay in the preview before recording a long take.
 
 Prefer explicit-window selection over **Capture any fullscreen application**,
-particularly if other games are open. Local November 12, 2026 tests recorded
-moving 1920x1080 borderless gameplay through explicit OpenGL Game Capture.
-Automatic fullscreen selection also worked after the hook settled. Initial
-hook/reacquisition tests produced transient black or repeated frames; they do
-not establish the cause of the previously reported persistent freeze. No
-renderer or driver-wide capture fix is claimed by this launcher update.
+particularly if other games are open. Local November 12, 2026 D3D11 tests
+recorded moving 1920×1080 borderless gameplay while repeatedly switching focus
+between Lagoon and OBS32.2.2. Both specific-window Game Capture and modern
+Windows Graphics Capture continued updating. Decoded recordings had no black
+frames after hook acquisition and no low-change run longer than0.067seconds
+in the checked focus intervals. This checks one PC, not every GPU/driver.
 
 If a source still freezes, deactivate/reactivate it after the game opens and
 reselect Lagoon. As an alternative, try **Window Capture** with the modern
@@ -25,10 +27,17 @@ reselect Lagoon. As an alternative, try **Window Capture** with the modern
 is unsuitable for many GPU-rendered applications. Keep OBS and your graphics
 driver current. Minimized windows may stop updating.
 
-Game Capture directly supports OpenGL, which Lagoon's Enhanced presentation uses.
+Game Capture supports Direct3D11 and OpenGL. The Windows default uses a
+windowed DXGI flip swapchain rather than an OpenGL fullscreen presentation path.
 See the [OBS Game Capture guide](https://obsproject.com/kb/game-capture-source)
 and [Window Capture guide](https://obsproject.com/kb/window-capture-sources).
 
 You should not need to expose your entire desktop to record Lagoon. For a bug
 report, include the game release, fullscreen mode, OBS version, capture mode and
 an OBS log from the failing session. Do not include your ROM.
+
+**World zoom out** is separate from window scale and OBS resolution. Enable
+widescreen and choose1x,1.25x or1.5x in Companion's Display page, then Apply
+and restart. Larger extents show more world in both directions; menus and HUD
+retain readable source-pixel sizes. Original cutscenes and unqualified visual
+states retain their authored composition.

@@ -2,15 +2,15 @@
 
 ## Prebuilt releases
 
-The v0.3.0 release line targets Windows x64, Linux x64, Intel Mac and Apple
+The v0.5.0 release targets Windows x64, Linux x64, Intel Mac and Apple
 Silicon Mac with the actual prebuilt game, self-contained Companion and converted
 X68000 album. Check the [main page](../README.md) for publication status and downloads.
 Supply your own clean USA ROM. No game compilation or source generation is needed
 to play these packages. Windows setup needs no Python or .NET installation;
 Linux/macOS first-run setup uses Python 3.11+, with .NET bundled.
 
-Extract the whole package into a writable folder, select/Apply the ROM in
-Companion, then run Game setup. Runtime files stay under `game/`; settings,
+Extract the whole package into a writable folder and choose your ROM in
+Companion's first-run picker. Verification/setup run automatically. Runtime files stay under `game/`; settings,
 mod preferences and saves use `local/`. Setup verifies the payload and ROM,
 reads the ROM in place and preserves existing local progress. Keep the folder
 together. [Playing](PLAYING.md) · [Platform details](PORTING.md).
@@ -18,6 +18,12 @@ together. [Playing](PLAYING.md) · [Platform details](PORTING.md).
 Normal release execution is strict native for the main 65816 CPU. The interpreter
 is an explicit developer reference mode. Graphics, DMA, timers and SPC700/DSP
 audio still use the hardware runtime.
+
+Windows uses the title-owned D3D11 flip presenter by default, with GPU EPX.
+It links the Windows `d3d11`, `dxgi` and `d3dcompiler` libraries. OpenGL remains
+available; Linux/macOS use it. Detached world-view composition reads immutable
+qualified scene packets on the CPU; display scaling and Enhanced pixels run on
+the GPU. Expanding the presentation does not enlarge the guest PPU raster.
 
 ## Source checkout
 
@@ -96,7 +102,7 @@ is compile-only and cannot play Lagoon.
 
 Use explicit runtime inputs with `scripts/package_windows_preview.py` or
 `scripts/package_portable.py`. Their historical filenames do not define the
-release channel. For v0.3.0, pass `--require-native` to both packagers and
+release channel. Pass `--require-native` to both packagers and
 `--build-metadata path/to/lagoon-build.json` for the exact compiled executable.
 Windows native enforcement requires that metadata argument too. They stage
 payload hashes, licenses and runtime files, excluding ROMs, generated source,
@@ -115,3 +121,26 @@ Use isolated settings/saves and identical source, initial state and input timing
 A deliberately non-native development build also needs both
 `LAGOON_REQUIRE_NATIVE_CPU=OFF` and `LAGOON_NATIVE_RELEASE_DEFAULT=OFF`.
 [Development and verification](DEVELOPMENT.md).
+
+## Presentation design
+
+Windows uses a title-owned D3D11 windowed flip presenter; Linux/macOS retain
+OpenGL. Enhanced pixels uses the same independently implemented EPX rules in
+HLSL and GLSL, followed by sharp fractional scaling of the reconstructed 2x
+lattice. Only a one-output-pixel edge footprint blends: integer-aligned output
+remains exact. The 34-row HUD frame and the title-owned menus bypass edge
+reconstruction. D3D11 receives the footprint from the actual viewport size,
+avoiding derivatives across the HUD's divergent shader branch.
+
+This follows the useful 2D presentation approach in
+[Babel](https://github.com/mrOt4/babel-recomp) and the filtering choices in
+[EarthBound Companion](https://github.com/rages4calm/earthbound-companion).
+[Star Fox Enhanced](https://github.com/kandowontu2/starfox-enhanced) also uses
+higher-resolution 3D geometry, lighting and shadows; those do not add detail to
+Lagoon's original 2D tiles. No code from those projects was copied. The graphics
+API itself does not replace artwork or increase gameplay accuracy.
+
+`lagoon_d3d11_test` reads back actual GPU pixels and checks integer EPX, sharp
+fractional output, HUD/menu bypass, zero-alpha guest input and resize/letterbox.
+`tests/lagoon_world_view74_test.c` checks detached-world composition without ROM
+inputs; focused gameplay and OBS focus-switch recordings are separate checks.

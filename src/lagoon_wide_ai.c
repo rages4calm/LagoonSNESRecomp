@@ -1,5 +1,6 @@
 #include "lagoon_wide_ai.h"
 #include "cpu_state.h"
+#include "lagoon_widescreen.h"
 #include <string.h>
 
 typedef struct Span {unsigned pc,bytes;uint64_t hash;} Span;
@@ -10,12 +11,15 @@ static const Span source[]={
   {0x0180af,0x1b,UINT64_C(0x2fca83fd1f864bc1)},
   {0x01a7b5,0x21,UINT64_C(0x0cffe57f0d106c45)},
   {0x01ab31,7,UINT64_C(0x72fd7650e48b3ff6)},
-  {0x018b84,81,UINT64_C(0xe58d1f2c1e447da1)}
+  {0x018b84,81,UINT64_C(0xe58d1f2c1e447da1)},
+  {0x02a188,72,UINT64_C(0xf6f953abb4e25cbf)},
+  {0x02a2cd,136,UINT64_C(0x00af78af8cec9ec8)},
+  {0x01ac4f,160,UINT64_C(0x75951499cf1ec49d)}
 };
 static struct {
   const uint8_t *rom;size_t size;const CpuState *cpu;
   uint8_t descriptors[63][56];
-  uint64_t generation;int extra,enabled;
+  uint64_t generation;int extra,native_extra,enabled;
   unsigned long long ai_reads,animation_reads;
   struct {const uint8_t *ram;uint32_t pc;uint16_t x,s,y;uint8_t pb,armed;} op;
 } wide;
@@ -42,16 +46,22 @@ void LagoonWideAI_Init(const uint8_t *rom,size_t size,const CpuState *cpu){
   if(rom&&size==0x100000)memcpy(wide.descriptors,rom+0x2b2df,sizeof wide.descriptors);
 }
 void LagoonWideAI_BeginFrame(uint64_t generation,int extra,int ready){
-  wide.op.armed=0;wide.generation=generation;wide.extra=extra;
-  wide.enabled=ready&&extra>0&&extra<=272&&wide.cpu&&source_ok();
+  wide.op.armed=0;wide.generation=generation;wide.native_extra=extra;wide.extra=LagoonWide_ViewExtraX(extra);
+  wide.enabled=ready&&(wide.extra>0||LagoonWide_ViewExtraY()>0)&&wide.extra<=1024&&wide.cpu&&source_ok();
 }
 static int mode(const CpuState *c,unsigned pb){
   return c&&c==wide.cpu&&c->ram&&c->PB==pb&&c->DB==pb&&!c->D&&!c->emulation&&
     c->m_flag&&!c->x_flag&&!c->_flag_D&&(c->P&0x38)==0x20;
 }
+static int range_mode(const CpuState *c){
+  return c&&c==wide.cpu&&c->ram&&c->PB==2&&c->DB==2&&!c->D&&!c->emulation&&
+    !c->m_flag&&!c->x_flag&&!c->_flag_D&&(c->P&0x38)==0;
+}
 void LagoonWideAI_ObserveOpcode(CpuState *c,uint32_t pc,uint64_t generation){
   wide.op.armed=0;
-  if(!wide.enabled||generation!=wide.generation||(pc!=0x02973a&&pc!=0x01ab31)||!mode(c,pc>>16))return;
+  int range=(pc==0x02a30b||pc==0x02a2ec);
+  if(!wide.enabled||generation!=wide.generation||
+      (range?!range_mode(c):(pc!=0x02973a&&pc!=0x01ab31&&pc!=0x01ac4f)||!mode(c,pc>>16)))return;
   wide.op.ram=c->ram;wide.op.pc=pc;wide.op.x=c->X;wide.op.s=c->S;
   wide.op.y=c->Y;wide.op.pb=c->PB;wide.op.armed=1;
 }
@@ -68,6 +78,29 @@ static int ordinary(const uint8_t *r){
 }
 uint8_t LagoonWideAI_FilterRead(uint32_t address,uint8_t value,const CpuWramReadContext *c,
     const uint8_t *r,uint64_t generation){
+  /* These loads control ordinary enemy awareness, not attack collision/range.
+   * Extending only the visibility bit still leaves e.g. Elf Field beetles
+   * asleep at their original112px awareness boundary. Never write the shared
+   * scratch word or change a boss/NPC's scripted targeting. */
+  if(wide.enabled&&generation==wide.generation&&r&&c&&address>=0x1050&&address<=0x1051&&
+      !c->m&&!c->x&&!c->e&&c->pb==2&&c->interpreter&&wide.op.armed&&
+      (wide.op.pc==0x02a30b||wide.op.pc==0x02a2ec)&&c->instruction_pc==wide.op.pc&&
+      wide.op.ram==r&&wide.op.s==c->stack&&wide.op.y==c->y&&
+      wide.op.x<=0x7c0&&!(wide.op.x&63)&&c->stack>=0x100&&c->stack<=0x1f9&&
+      value==r[address]&&word(r,c->stack+3)==0x806e&&r[c->stack+5]==2&&ordinary(r)){
+    unsigned actor=0x540+wide.op.x;
+    int x=(int16_t)(word(r,actor+2)-word(r,0x480)),y=(int16_t)(word(r,actor+4)-word(r,0x482));
+    int ey=LagoonWide_ViewExtraY(),left,top,right,bottom;
+    LagoonWide_ViewBounds(r,wide.native_extra,&left,&top,&right,&bottom);
+    if((r[actor]&0xc1)==0xc0&&r[actor+0x18]==2&&!(r[actor+1]&7)&&!r[actor+0x1e]&&
+        x>=left&&x<right&&y>=top&&y<bottom&&
+        (word(r,c->stack+1)==0x954a||word(r,c->stack+1)==0x9572)){
+      unsigned radius=word(r,0x1050)+(unsigned)(wide.extra>ey?wide.extra:ey);
+      if(radius>2048)radius=2048;
+      if(address==0x1051)wide.op.armed=0;
+      return (uint8_t)(radius>>((address-0x1050)*8));
+    }
+  }
   if(!wide.enabled||generation!=wide.generation||!r||!c||!c->m||c->x||c->e||
      (value&8)||(c->pb!=1&&c->pb!=2))return value;
   unsigned ai=c->pb==2,base=ai?0x540:0x500;
@@ -76,14 +109,15 @@ uint8_t LagoonWideAI_FilterRead(uint32_t address,uint8_t value,const CpuWramRead
   /* Real active records end at $0D00; the AI roster is based at0540 rather
    * than0500. Never confuse its rotating X with the main actor-loop X. */
   if((ai?index>0x7c0:index<0x40||index>0x800)||s<0x100||s>(ai?0x1f9:0x1fd)||
-     (value&0xc0)!=0xc0||r[actor+0x18]!=2||(r[actor+1]&7)||r[actor+0x1e])return value;
+     (value&0xc0)!=0xc0||(r[actor+0x18]!=2&&r[actor+0x18]!=1)||(r[actor+1]&7)||r[actor+0x1e])return value;
   if(ai){
     unsigned ret=word(r,s+1),rot=word(r,0x3b0);
     if(rot>0x780||(rot&127)||(ret!=0x954a&&ret!=0x9572)||
        index!=rot+(ret==0x9572?64:0)||word(r,s+3)!=0x806e||r[s+5]!=2)return value;
   }else if(word(r,s+1)!=0x80cc)return value;
   if(c->interpreter){
-    if(!wide.op.armed||wide.op.pc!=c->instruction_pc||wide.op.pc!=(ai?0x02973a:0x01ab31)||
+    uint32_t expected=ai?0x02973a:r[actor+0x18]==1?0x01ac4f:0x01ab31;
+    if(!wide.op.armed||wide.op.pc!=c->instruction_pc||wide.op.pc!=expected||
        wide.op.ram!=r||wide.op.x!=index||wide.op.s!=s||wide.op.y!=c->y||wide.op.pb!=c->pb)return value;
     wide.op.armed=0;
   }else{
@@ -95,8 +129,10 @@ uint8_t LagoonWideAI_FilterRead(uint32_t address,uint8_t value,const CpuWramRead
   if(!ordinary(r))return value;
   int x=(int16_t)(word(r,actor+2)-word(r,0x480));
   int y=(int16_t)(word(r,actor+4)-word(r,0x482));
-  if(x>=0&&x<256)return value;
-  if(x < -wide.extra||x>=256+wide.extra||y<0||y>=224)return value;
+  int left,top,right,bottom;
+  LagoonWide_ViewBounds(r,wide.native_extra,&left,&top,&right,&bottom);
+  if(x>=0&&x<256&&y>=0&&y<224)return value;
+  if(x<left||x>=right||y<top||y>=bottom)return value;
   if(word(r,actor+2)>=word(r,0x53)*8||word(r,actor+4)>=word(r,0x55)*8)return value;
   if(ai)wide.ai_reads++;else wide.animation_reads++;
   return value|8;

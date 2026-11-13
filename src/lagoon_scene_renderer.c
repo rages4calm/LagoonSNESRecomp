@@ -20,7 +20,10 @@ enum { ARCHIVE_CP_UTF8=65001,ARCHIVE_MB_ERR_INVALID_CHARS=8,
        ARCHIVE_MOVEFILE_REPLACE_EXISTING=1,ARCHIVE_MOVEFILE_WRITE_THROUGH=8 };
 #endif
 
-enum { W=800,H=224,OBJECTS=512,OBJECT_SIDE=48 };
+enum { W=1280,H=224,OBJECTS=512,OBJECT_SIDE=48 };
+static uint64_t s_view_serial;
+static uint64_t s_view_presents,s_view_refusals;
+static unsigned s_view_width,s_view_height;
 typedef struct SceneObject {
   int32_t x,y;
   uint16_t width,height,pixels[OBJECT_SIDE*OBJECT_SIDE];
@@ -312,9 +315,11 @@ static void write_report(void) {
       m->minx,m->maxx,m->miny,m->maxy,m->wx,m->wy,m->world_width,m->world_height);
   }
   fprintf(f,"],\"mosaic_native_verified_presents\":%llu,\"mosaic_margin_presents\":%llu,"
-      "\"background_builds\":%llu,\"background_reuses\":%llu}\n",
+      "\"background_builds\":%llu,\"background_reuses\":%llu,"
+      "\"view_presents\":%llu,\"view_refusals\":%llu,\"view_width\":%u,\"view_height\":%u}\n",
       (unsigned long long)s_mosaic_verified,(unsigned long long)s_mosaic_replaced,
-      (unsigned long long)s_background_builds,(unsigned long long)s_background_reuses);
+      (unsigned long long)s_background_builds,(unsigned long long)s_background_reuses,
+      (unsigned long long)s_view_presents,(unsigned long long)s_view_refusals,s_view_width,s_view_height);
   fclose(f);
 }
 /* Diagnostics never flush from a frame/present/audio-sensitive path. */
@@ -322,6 +327,7 @@ static void report(const char *status,unsigned frame,unsigned width) {
   s_status=status;s_report_frame=frame;s_report_width=width;
 }
 void LagoonSceneRenderer_Reset(void) {
+  s_view_serial=0;
   init_tables();
   memset(s_packets,0,sizeof(s_packets));s_build=0;s_complete=1;
   s_background.valid=0;
@@ -630,10 +636,10 @@ int LagoonSceneRenderer_MapImage(unsigned room,uint64_t generation,
  * definitions. In particular its last visible row can intentionally still carry
  * the previous upload. Match that authored history using copied tile data, not
  * pixels from the reference field. Both audited maps are 64x32 eight-pixel tiles. */
-static void background_row(const ScenePacket *s,unsigned width,unsigned y,int left,
-    unsigned layer,uint8_t *depth,uint16_t *colors) {
+static void background_row_extent(const ScenePacket *s,unsigned width,int y,int left,
+    unsigned layer,uint8_t *depth,uint16_t *colors,int native_height) {
   for(unsigned x=0;x<width;) {
-    int native=(int)x>=left&&(int)x<left+256;
+    int native=(int)x>=left&&(int)x<left+256&&y>=0&&y<native_height;
     int static_bg2=s->parallax&&layer==1;
     int qx=static_bg2?(int)s->bg2_x+(int)x-left:
       native?(int)s->native_x+(int)x-left:s->wx+(int)x-left;
@@ -672,6 +678,12 @@ static void background_row(const ScenePacket *s,unsigned width,unsigned y,int le
     }
     x+=count;
   }
+}
+/* Original field verification retains its exact streamed 224-row history.
+ * Detached zoom scenery below the HUD uses world definitions instead. */
+static void background_row(const ScenePacket *s,unsigned width,int y,int left,
+    unsigned layer,uint8_t *depth,uint16_t *colors) {
+  background_row_extent(s,width,y,left,layer,depth,colors,H);
 }
 /* Native-aligned mosaic blocks extend mathematically into the margins. The
  * generic PPU's clamped native mosaicModulo table is deliberately not used.
@@ -839,6 +851,7 @@ static int same_source(const ScenePacket *a,const ScenePacket *b) {
 }
 int LagoonSceneRenderer_TryPresent(uint8_t *dst,size_t pitch,const uint8_t *ref,
     size_t ref_pitch,unsigned width,unsigned height,uint64_t generation) {
+  s_view_serial=0;
   if(!s_mode)return 0;
   ScenePacket *s=&s_packets[s_complete];
   if(!s->valid||s->generation!=generation||!dst||!ref||width<256||width>W||width%2||height!=H||pitch<width*4||ref_pitch<width*4){
@@ -869,6 +882,7 @@ int LagoonSceneRenderer_TryPresent(uint8_t *dst,size_t pitch,const uint8_t *ref,
     ++s_stats.mismatches;++s_stats.fallbacks;report("mismatch",s->frame,width);return 0;
   }
   ++s_stats.verified_presents;
+  if(!s->incoming_mosaic)s_view_serial=s->serial;
   if(s->incoming_mosaic)++s_mosaic_verified;
   if(s_mode==2){
     for(unsigned y=0;y<H;++y) {
@@ -883,6 +897,82 @@ int LagoonSceneRenderer_TryPresent(uint8_t *dst,size_t pitch,const uint8_t *ref,
       (s_mode==2?"replaced":"verified"),s->frame,width);return s_mode==2;
 }
 void LagoonSceneRenderer_GetStats(LagoonSceneRendererStats *out){if(out)*out=s_stats;}
+
+static int view_origin(int camera,int map,int extent,int native){
+  int origin=map<extent?-(extent-map)/2:camera-(extent-native)/2;
+  if(map>=extent){if(origin<0)origin=0;if(origin>map-extent)origin=map-extent;}
+  if(origin<camera+native-extent)origin=camera+native-extent;
+  if(origin>camera)origin=camera;
+  return origin;
+}
+int LagoonSceneRenderer_DrawView(uint8_t *dst,size_t pitch,unsigned width,unsigned height,
+    const uint8_t *source,size_t sp,unsigned sw,unsigned sh,uint64_t generation){
+  const ScenePacket *s=&s_packets[s_complete];
+  if(!dst||!source||width>W||width<sw||height<sh||height>336||sh!=224||
+      pitch<width*4||sp<sw*4||s_mode!=2||!s->valid||s->incoming_mosaic||
+      s->generation!=generation||!s_view_serial||s_view_serial!=s->serial){++s_view_refusals;return 0;}
+  ++s_view_presents;s_view_width=width;s_view_height=height;
+  const int left=s->wx-view_origin(s->wx,s->world_width,width,256);
+  const int top=s->wy-view_origin(s->wy,s->world_height,height,224);
+  const int source_left=(int)(sw-256)/2;
+  for(unsigned y=0;y<height;y++){
+    int ny=(int)y-top;
+    uint8_t depth[W],obj_depth[W];uint16_t colors[W],obj_color[W];uint64_t rank[W];
+    memset(depth,0,width);
+    memset(obj_depth,0,width);
+    for(unsigned x=0;x<width;x++){colors[x]=s->pal[0];rank[x]=UINT64_MAX;}
+    background_row_extent(s,width,ny,left,0,depth,colors,190);
+    background_row_extent(s,width,ny,left,1,depth,colors,190);
+    for(unsigned i=0;i<s->count;i++){
+      const SceneObject *a=&s->objects[i];int dy=ny-a->y;if(dy<0||dy>=a->height)continue;
+      for(unsigned dx=0;dx<a->width;dx++){
+        int x=a->x+(int)dx+left;if(x<0||x>=(int)width)continue;
+        uint16_t c=a->pixels[dy*a->width+dx];uint64_t order=((uint64_t)a->slot<<32)|a->order;
+        unsigned z=2+4*a->priority;
+        if((c&0x8000)&&order<rank[x]){
+          rank[x]=order;obj_depth[x]=z;obj_color[x]=c&0x7fff;
+        }
+      }
+    }
+    for(unsigned x=0;x<width;x++){
+      if(obj_depth[x]>depth[x])colors[x]=obj_color[x];
+      int wx=s->wx+(int)x-left,wy=s->wy+ny;
+      uint32_t color=(wx<0||wy<0||wx>=s->world_width||wy>=s->world_height)?0:s_rgb15[colors[x]&32767];
+      memcpy(dst+y*pitch+x*4,&color,4);
+    }
+    /* The qualified original gameplay rectangle (including title overlays)
+     * wins exactly. The HUD is relocated once below, at original pixel size. */
+    if(ny>=0&&ny<190)for(unsigned x=0;x<sw;x++){
+      int dx=left+(int)x-source_left;
+      if(dx>=0&&dx<(int)width)memcpy(dst+y*pitch+dx*4,source+ny*sp+x*4,4);
+    }
+  }
+  /* Isolate the source-owned BG3/OAM HUD, never transplant its old world
+   * underlay. Transparent corners continue the new scenery rather than
+   * leaving rectangular black gaps at the edges of the old viewport. */
+  uint8_t mask[256*34]={0};
+  for(unsigned y=0;y<34;y++)for(unsigned x=0;x<256;x++){
+    unsigned yy=191+y,t=s->vram[0x3c00+(yy/8)*32+x/8];
+    if(graphics(s,t,x&7,yy&7,0x6000,2))mask[y*256+x]=1;
+    /* Both player and corrected boss gauges own their complete eight rows. */
+    if(x>=64&&x<192&&((y>=9&&y<17)||(y>=17&&y<25)))mask[y*256+x]=1;
+  }
+  for(unsigned slot=0;slot<128;slot++){
+    const uint8_t *o=(const uint8_t*)s->oam+slot*4;
+    int oy=o[1];if(oy<190||oy>=224)continue;
+    unsigned hi=(s->high[slot/4]>>((slot%4)*2))&3,n=(hi&2)?16:8,tile=o[2]|o[3]<<8;
+    int ox=s->policy.x[slot];
+    for(unsigned dy=0;dy<n&&oy+(int)dy<224;dy++)for(unsigned dx=0;dx<n;dx++){
+      int x=ox+(int)dx;if(x<0||x>=256)continue;
+      unsigned sx=(tile&0x4000)?n-1-dx:dx,sy=(tile&0x8000)?n-1-dy:dy;
+      unsigned ch=(((((tile&255)>>4)+(sy>>3))<<4)|(((tile&15)+(sx>>3))&15));
+      if(graphics(s,ch,sx&7,sy&7,(tile&0x100)?0x5000:0x4000,4))mask[(oy+dy-190)*256+x]=1;
+    }
+  }
+  for(unsigned y=0;y<34;y++)for(unsigned x=0;x<256;x++)if(mask[y*256+x])
+    memcpy(dst+(height-34+y)*pitch+((width-256)/2+x)*4,source+(190+y)*sp+(source_left+x)*4,4);
+  return 1;
+}
 
 /* Visited-map storage is deliberately separate from both live packet admission
  * and live decoded-row caches. Records carry only terrain, never actors, CPU,

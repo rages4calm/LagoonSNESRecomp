@@ -1,4 +1,4 @@
-/* Extra-view eligibility for ORIGINAL ordinary-enemy AI and animation only.
+/* Extra-view eligibility for original ordinary enemies and neutral NPCs.
  * No host AI, global actor-flag writes, collision or original OAM queue edits. */
 #pragma once
 #include <stddef.h>
@@ -10,7 +10,8 @@ void LagoonWideAI_Init(const uint8_t *rom,size_t size,const struct CpuState *act
 /* Call before each real/speculative simulation frame, using the actual native
  * horizontal extension per side. A load/reset invalidates old read witnesses. */
 void LagoonWideAI_BeginFrame(uint64_t generation,int extra,int world_ready);
-/* Register pre-opcode hooks at02:973A and01:AB31. The bridge synchronizes the
+/* Register pre-opcode hooks at02:973A,01:AB31,01:AC4F and the two source-bound
+ * ordinary-enemy awareness loads02:A30B/02:A2EC. The bridge synchronizes the
  * actual CPU here; its public CPU container can lag between interpreter ops. */
 void LagoonWideAI_ObserveOpcode(struct CpuState *cpu,uint32_t pc,uint64_t generation);
 /* Compose through LagoonQol's existing world read filter. Does not own hooks. */

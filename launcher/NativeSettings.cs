@@ -20,6 +20,13 @@ internal static partial class NativeSettings
             OptionValue.From("0"), "Borderless fills your monitor without changing its resolution. Restart after Apply. For OBS, use Game Capture → Capture specific window → LagoonSNESRecomp.exe.", Choices: new[] {
                 new ChoiceItem("0", "Windowed"), new ChoiceItem("1", "Borderless fullscreen"), new ChoiceItem("2", "Exclusive fullscreen") })),
         Integer("video.scale", "Display", "Window scale", "Graphics", "WindowScale", 3, 1, 6),
+        new("video.presenter", "Graphics", "Renderer", new("video.presenter", "Display", "Graphics backend", OptionKind.Choice,
+            OptionValue.From("auto"), "Auto uses D3D11 on Windows and OpenGL on Linux/macOS. D3D11 supports Enhanced pixels and OBS capture. Restart after Apply.",
+            Choices: OperatingSystem.IsWindows() ? new[] { new ChoiceItem("auto","Auto (D3D11)"), new ChoiceItem("direct3d11","D3D11"), new ChoiceItem("opengl","OpenGL"),new ChoiceItem("software","Software (diagnostic)") } :
+                new[] { new ChoiceItem("auto","Auto"), new ChoiceItem("opengl","OpenGL"),new ChoiceItem("software","Software (diagnostic)") })),
+        new("video.view-extent", "Lagoon", "ViewExtent", new("video.view-extent", "Display", "World zoom out", OptionKind.Choice,
+            OptionValue.From("1"), "Requires widescreen. Reveals more world horizontally and vertically; HUD and menus keep their original pixel size. Authored scenes keep their original composition. Restart after Apply.",
+            Choices: new[] {new ChoiceItem("1","1x (original scale)"),new ChoiceItem("1.25","1.25x zoom out"),new ChoiceItem("1.5","1.5x zoom out")})),
         Boolean("video.vsync", "Display", "Vertical sync", "Graphics", "VSync", true),
         Boolean("video.widescreen", "Display", "Widescreen (experimental)", "Graphics", "Widescreen", false,
             "Expanded backgrounds; off-screen NPC/enemy rendering and some rooms remain unfinished. Unsupported scenes retain their original view."),
@@ -53,7 +60,7 @@ internal static partial class NativeSettings
             Choices: new[] { new ChoiceItem("snes", "Original SNES"), new ChoiceItem("x68000", "X68000") })
     };
     private static readonly OptionDefinition EnhancedPixels = new("video.enhanced-pixels", "Display", "Enhanced original pixels (EPX)", OptionKind.Boolean,
-        OptionValue.From(false), "Crisper diagonal edges with the original colors and readable HUD. Selects the OpenGL GPU renderer; turning it off restores previous shader/renderer settings. Restart after Apply. This does not redraw artwork or change movement.");
+        OptionValue.From(false), "Crisper diagonal edges and even pixel widths at fractional zoom, with a sharp HUD. GPU EPX uses D3D11 on Windows and OpenGL elsewhere. Turning it off restores previous graphics settings. Restart after Apply.");
     private static readonly string[] EpxKeys = { "Shader", "Renderer", "OutputMethod", "LinearFiltering" };
     private const string EpxBackupKey = "EpxPreviousGraphicsV1";
     private static string EpxPreset(IReadOnlyDictionary<string, JsonElement> values) =>
@@ -175,8 +182,8 @@ internal static partial class NativeSettings
                 var previous = EpxKeys.ToDictionary(key => key, key => ini.IniValue("Graphics", key));
                 ini.SetIni("Lagoon", EpxBackupKey, Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(previous))));
                 ini.SetIni("Graphics", "Shader", EpxPreset(values).Replace('\\', '/'));
-                ini.SetIni("Graphics", "Renderer", "opengl");
-                ini.SetIni("Graphics", "OutputMethod", "OpenGL");
+                ini.SetIni("Graphics", "Renderer", OperatingSystem.IsWindows() ? "direct3d11" : "opengl");
+                ini.SetIni("Graphics", "OutputMethod", OperatingSystem.IsWindows() ? "SDL" : "OpenGL");
                 ini.SetIni("Graphics", "LinearFiltering", "0");
             }
             else

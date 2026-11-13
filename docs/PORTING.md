@@ -2,7 +2,7 @@
 
 ## Release scope
 
-The v0.3.0 release line provides the prebuilt game and Companion for:
+The v0.5.0 release provides the prebuilt game and Companion for:
 
 | Target | Game architecture | Launcher |
 | --- | --- | --- |

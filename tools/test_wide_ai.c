@@ -11,6 +11,11 @@ static CpuState cpu;
 static CpuWramReadContext context;
 static unsigned checks,opcodes,gate_actor;
 static int use_filter;
+int LagoonWide_ViewExtraX(int extra){return extra;}
+int LagoonWide_ViewExtraY(void){return 0;}
+void LagoonWide_ViewBounds(const uint8_t *r,int extra,int *l,int *t,int *right,int *bottom){
+  (void)r;*l=-extra;*t=0;*right=256+extra;*bottom=224;
+}
 #define CHECK(x) do{assert(x);checks++;}while(0)
 static void put(unsigned a,unsigned v){ram[a]=(uint8_t)v;ram[a+1]=(uint8_t)(v>>8);}
 static void setup(int ai){
@@ -58,7 +63,7 @@ static void original_gate(int ai,int filtered){
   CHECK(ram[0x700]==0xc0);interp816_free(i);
 }
 static uint8_t result_ram[0x20000];
-static void original_kind3(int filtered,unsigned distance){
+static void original_kind3(int filtered,unsigned distance,int awareness){
   setup(1);use_filter=filtered;ram[0x700]=filtered?0xc0:0xc8;
   /* These are the four unmodified coordinate copies made by real9526 before
    * its second JSR9574. Keep the actual captured extra-view enemy in place. */
@@ -70,14 +75,14 @@ static void original_kind3(int filtered,unsigned distance){
   while(i->k!=2||i->pc!=0x9573){
     CHECK(++steps<200);sync_cpu(i);
     context=(CpuWramReadContext){((uint32_t)i->k<<16)|i->pc,i->sp,i->y,i->k,i->mf,i->xf,i->e,1};
-    if(i->pc==0x973a)LagoonWideAI_ObserveOpcode(&cpu,context.instruction_pc,9);
+    if(i->pc==0x973a||(awareness&&(i->pc==0xa30b||i->pc==0xa2ec)))LagoonWideAI_ObserveOpcode(&cpu,context.instruction_pc,9);
     interp816_runOpcode(i);opcodes++;
   }
-  CHECK(i->sp==cpu.S+2);CHECK(ram[0x73f]==(distance<=112?2:0));
+  CHECK(i->sp==cpu.S+2);CHECK(ram[0x73f]==(distance<=(awareness?325:112)?2:0));
   /* Normalize only the deliberately different original flag byte, then
    * compare every actual AI write, stack residue, scratch byte and queue. */
   ram[0x700]=0xc0;
-  if(!filtered)memcpy(result_ram,ram,sizeof ram);else CHECK(!memcmp(result_ram,ram,sizeof ram));
+  if(!awareness){if(!filtered)memcpy(result_ram,ram,sizeof ram);else CHECK(!memcmp(result_ram,ram,sizeof ram));}
   interp816_free(i);
 }
 static void centered_patch(void){
@@ -113,7 +118,7 @@ int main(int argc,char **argv){
       case 3:cpu.m_flag=0;break;case 4:cpu.x_flag=1;break;case 5:cpu._flag_D=1;break;}
     arm();refuse();
   }
-  for(int extra=-1;extra<=273;extra++)if(extra<=0||extra>272){setup(1);LagoonWideAI_BeginFrame(9,extra,1);arm();refuse();}
+  for(int extra=-1;extra<=1025;extra++)if(extra<=0||extra>1024){setup(1);LagoonWideAI_BeginFrame(9,extra,1);arm();refuse();}
   setup(1);LagoonWideAI_BeginFrame(9,213,0);arm();refuse();
   const unsigned fields[]={0x406,0x100e,0x23d,0x275,0x500,0x518,0x520,0x521,0x50,0x53,0x55,0x6c,0x78,0x88,0x8a,0x8b,0x8d,0x492,0x494,0x701,0x718,0x71e};
   for(unsigned n=0;n<sizeof fields/sizeof *fields;n++){
@@ -132,6 +137,8 @@ int main(int argc,char **argv){
   setup(1);put(0x3b0,0x1c1);arm();refuse();
   setup(1);put(0x3b0,0x200);arm();refuse();
   setup(0);put(cpu.S+1,0x80cd);arm();refuse();
+  setup(0);ram[0x718]=1;context.instruction_pc=0x01ac4f;arm();accept();
+  setup(0);ram[0x718]=1;arm();refuse(); /* NPC cannot borrow enemy animation entry. */
   setup(0);context.interpreter=0;context.instruction_pc=UINT32_MAX;cpu.X=0x240;refuse();
   const int positions[]={-214,-213,-1,0,255,256,468,469};
   for(unsigned n=0;n<sizeof positions/sizeof *positions;n++){
@@ -154,10 +161,11 @@ int main(int argc,char **argv){
   original_gate(1,0);original_gate(1,1);original_gate(0,0);original_gate(0,1);
   const unsigned distances[]={32,111,112,113,336};
   for(unsigned n=0;n<sizeof distances/sizeof *distances;n++){
-    original_kind3(0,distances[n]);original_kind3(1,distances[n]);
+    original_kind3(0,distances[n],0);original_kind3(1,distances[n],0);
   }
   /* Authored aggro remains untouched: kind3's original distance is112. */
   CHECK(rom[0x117b6]==0x70&&rom[0x117b7]==0);
+  original_kind3(1,200,1);original_kind3(1,336,1);
   centered_patch();setup(1);CHECK(source_ok());arm();accept();
   setup(0);context.interpreter=0;context.instruction_pc=UINT32_MAX;accept();
   const unsigned patched[]={0x809d,0x80cb,0x83d8,0x8408,0x8432,0x845f,0x8489};

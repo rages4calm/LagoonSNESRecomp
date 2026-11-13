@@ -260,6 +260,10 @@ target_include_directories(LagoonSNESRecomp PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/cjson
 )
 target_link_libraries(LagoonSNESRecomp PRIVATE ${SNESRECOMP_RUNNER_LIBRARIES})
+if(WIN32)
+    target_sources(LagoonSNESRecomp PRIVATE src/lagoon_d3d11.cpp)
+    target_link_libraries(LagoonSNESRecomp PRIVATE d3d11 dxgi d3dcompiler)
+endif()
 target_compile_definitions(LagoonSNESRecomp PRIVATE
     SNES_GAME_VERSION="${SNESRECOMP_BUILD_VERSION}"
     SNES_GAME_TITLE="Lagoon"
@@ -310,6 +314,15 @@ endif()
 # hooks; the host is the framework's and improves on a submodule pull.
 # Add TIER2 once this port reads the interpreter-gap manifest after each run.
 snesrecomp_target_desktop_host(LagoonSNESRecomp)
+if(WIN32 AND TARGET SDL3::SDL3)
+    add_executable(lagoon_d3d11_test EXCLUDE_FROM_ALL tests/lagoon_d3d11_test.cpp src/lagoon_d3d11.cpp)
+    target_include_directories(lagoon_d3d11_test PRIVATE src ${SNESRECOMP_ROOT}/runner/src ${SNESRECOMP_ROOT}/runner/src/desktop)
+    target_compile_definitions(lagoon_d3d11_test PRIVATE SNESRECOMP_SDL3=1 SDL_MAIN_HANDLED)
+    target_link_libraries(lagoon_d3d11_test PRIVATE SDL3::SDL3 d3d11 dxgi d3dcompiler)
+    if(MINGW)
+        target_link_options(lagoon_d3d11_test PRIVATE -static)
+    endif()
+endif()
 # rom.cfg (the ROM the wizard set this project up from; git-ignored) is
 # staged beside the executable when none is there yet, so the first launch
 # opens on that dump rather than asking for one.

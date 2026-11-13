@@ -112,8 +112,9 @@ internal static class SettingsChecks
         Assert(!controller.Snapshot.Values["video.enhanced-pixels"].GetBoolean(), "EPX Revert changed settings.");
         var modsBeforeEpx = File.ReadAllBytes(state);
         controller.SetOption("video.enhanced-pixels", OptionValue.From(true)); controller.Apply();
-        Assert(controller.Snapshot.Values["video.enhanced-pixels"].GetBoolean() && File.ReadAllText(config).Contains("Renderer = opengl") &&
-            File.ReadAllText(config).Contains("OutputMethod = OpenGL"), "EPX GPU selection failed.");
+        Assert(controller.Snapshot.Values["video.enhanced-pixels"].GetBoolean() &&
+            File.ReadAllText(config).Contains(OperatingSystem.IsWindows()?"Renderer = direct3d11":"Renderer = opengl") &&
+            File.ReadAllText(config).Contains(OperatingSystem.IsWindows()?"OutputMethod = SDL":"OutputMethod = OpenGL"), "EPX GPU selection failed.");
         Assert(modsBeforeEpx.SequenceEqual(File.ReadAllBytes(state)), "EPX changed mod state.");
         controller.SetOption("video.enhanced-pixels", OptionValue.From(false)); controller.Apply();
         Assert(!File.ReadAllText(config).Contains("Shader =") && !File.ReadAllText(config).Contains("Renderer =") &&

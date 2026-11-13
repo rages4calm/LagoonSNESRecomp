@@ -22,6 +22,7 @@
 #include <string.h>
 
 static double s_aspect = 16.0 / 9.0; /* 0 means drawable aspect */
+static unsigned s_zoom=100;
 static int s_was_active;
 static int s_native_fallback;
 static int s_present_fallback;
@@ -130,8 +131,10 @@ static void read_ini(const char *path) {
     if (sscanf(line, " [%63[^]]]", name) == 1) {
       snprintf(section, sizeof(section), "%s", name);
     } else if (!strcmp(section, "Lagoon") &&
-               sscanf(line, " %63[^= ] = %63s", name, value) == 2 &&
-               !strcmp(name, "WideAspect")) read_aspect(value);
+               sscanf(line, " %63[^= ] = %63s", name, value) == 2) {
+      if(!strcmp(name,"WideAspect"))read_aspect(value);
+      if(!strcmp(name,"ViewExtent"))s_zoom=!strcmp(value,"1.5")?150:!strcmp(value,"1.25")?125:100;
+    }
   }
   fclose(f);
 }
@@ -140,10 +143,59 @@ void LagoonWide_AfterConfig(void) {
   LagoonWideEntities_Init();
   LagoonSceneRenderer_Reset();
   s_aspect = 16.0 / 9;
+  s_zoom=100;
   read_ini(s_config_path);
   read_ini("config.local.ini");
   const char *aspect = getenv("LAGOON_WIDE_ASPECT");
   if (aspect) read_aspect(aspect);
+  const char *zoom=getenv("LAGOON_VIEW_EXTENT");
+  if(zoom)s_zoom=!strcmp(zoom,"1.5")?150:!strcmp(zoom,"1.25")?125:100;
+#ifdef _WIN32
+  /* Migrate the old EPX/auto presenter to windowed DXGI. Explicit custom
+   * OpenGL shaders retain their backend and remain available for debugging. */
+  if((!g_config.renderer[0]||!strcmp(g_config.renderer,"auto"))&&
+      (!g_config.shader||!*g_config.shader||strstr(g_config.shader,"lagoon-epx"))) {
+    snprintf(g_config.renderer,sizeof(g_config.renderer),"direct3d11");
+  }
+  const char *backend=getenv("LAGOON_PRESENTER");
+  if(backend&&(!strcmp(backend,"opengl")||!strcmp(backend,"direct3d11")))
+    snprintf(g_config.renderer,sizeof(g_config.renderer),"%s",backend);
+#endif
+}
+
+int LagoonWide_ViewExtraX(int extra){
+  if(!g_config.widescreen)return 0;
+  return s_zoom==100?extra:(256+2*extra)*(int)s_zoom/100-256;
+}
+int LagoonWide_ViewExtraY(void){return g_config.widescreen?224*(int)s_zoom/100-224:0;}
+static int view_axis(int camera,int map,int extent,int native){
+  int origin=map<extent?-(extent-map)/2:camera-(extent-native)/2;
+  if(map>=extent){if(origin<0)origin=0;if(origin>map-extent)origin=map-extent;}
+  if(origin<camera+native-extent)origin=camera+native-extent;
+  if(origin>camera)origin=camera;
+  return origin-camera;
+}
+void LagoonWide_ViewBounds(const uint8_t *r,int extra,int *l,int *t,int *right,int *bottom){
+  int w=256+2*extra,h=224;*l=-extra;*t=0;
+  if(g_config.widescreen&&s_zoom!=100&&r){
+    w=(w*(int)s_zoom/100)&~1;h=224*(int)s_zoom/100;
+    *l=view_axis(r[0x480]|r[0x481]<<8,(r[0x53]|r[0x54]<<8)*8,w,256);
+    *t=view_axis(r[0x482]|r[0x483]<<8,(r[0x55]|r[0x56]<<8)*8,h,224);
+  }
+  *right=*l+w;*bottom=*t+h;
+}
+void LagoonWide_PresentationGeometry(int sw,int sh,int *w,int *h){
+  *w=sw;*h=sh;
+  if(g_config.widescreen&&sh==224&&s_zoom!=100){*w=(sw*(int)s_zoom/100)&~1;*h=224*(int)s_zoom/100;}
+}
+void LagoonWide_PresentationCompose(uint8_t *dst,size_t pitch,int w,int h,
+    const uint8_t *src,size_t sp,int sw,int sh){
+  if(w==sw&&h==sh){for(int y=0;y<h;y++)memcpy(dst+y*pitch,src+y*sp,w*4);return;}
+  if(LagoonSceneRenderer_DrawView(dst,pitch,w,h,src,sp,sw,sh,RtlStateGeneration()))return;
+  /* Unsupported authored scenes keep their complete original composition.
+   * No old room packet, extrapolated cutscene, or partial transition is used. */
+  for(int y=0;y<h;y++)for(int x=0;x<w;x++)
+    memcpy(dst+y*pitch+x*4,src+(size_t)(y*sh/h)*sp+(x*sw/w)*4,4);
 }
 
 void LagoonWide_PrepareFrame(int drawable_w, int drawable_h, int *width, int *height) {

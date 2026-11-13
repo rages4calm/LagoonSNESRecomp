@@ -34,6 +34,7 @@
 #include "snesrecomp_rom_identity.h"  /* generated from rom_identity.txt */
 #include "lagoon_qol.h"               /* opt-in quality-of-life plugins */
 #include "lagoon_widescreen.h"
+#include "lagoon_d3d11.h"
 #include "lagoon_frame_probe.h"
 #include "lagoon_map.h"
 #include "lagoon_scene_renderer.h"
@@ -325,6 +326,9 @@ static void LagoonHost_OnRom(const uint8_t *rom,size_t size) {
     LagoonBossHud_Init(rom,size);
     interp_bridge_add_pre_opcode_hook(0x02973a,LagoonHost_WideActorOpcode);
     interp_bridge_add_pre_opcode_hook(0x01ab31,LagoonHost_WideActorOpcode);
+    interp_bridge_add_pre_opcode_hook(0x01ac4f,LagoonHost_WideActorOpcode);
+    interp_bridge_add_pre_opcode_hook(0x02a30b,LagoonHost_WideActorOpcode);
+    interp_bridge_add_pre_opcode_hook(0x02a2ec,LagoonHost_WideActorOpcode);
     LagoonEasterCollision_Init(rom,size,LagoonHost_CameoBody);
     LagoonQol_SetWorldReadFilter(LagoonHost_WorldRead);
     LagoonFollower_Reset(rom,size);
@@ -513,6 +517,13 @@ static const SnesDesktopHostGame kGameHost = {
     .begin_sim_frame     = LagoonHost_BeginFrame,
     .end_sim_frame       = LagoonHost_EndFrame,
     .draw_frame          = LagoonHost_DrawFrame,
+    .presentation_geometry = LagoonWide_PresentationGeometry,
+    .presentation_compose = LagoonWide_PresentationCompose,
+#ifdef _WIN32
+    .create_renderer = LagoonD3D11_Create,
+    .renderer_title_ui = LagoonD3D11_TitleUi,
+    .renderer_capture = LagoonD3D11_Capture,
+#endif
     .on_reset            = LagoonWide_Reset,
     .after_run_frame     = LagoonHost_AfterFrame,
     .on_shutdown         = LagoonHost_Shutdown,
