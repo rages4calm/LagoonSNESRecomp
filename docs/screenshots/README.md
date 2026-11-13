@@ -5,6 +5,20 @@ full resolution. Wide fields retain letterboxing on a 16:9 monitor; black beyond
 finite map edges is intentional. These captures are development examples,
 not a full-game rendering or performance guarantee.
 
+## D3D11 and refined pixels — 0.5.0
+
+Actual **1920×1080 D3D11 GPU readbacks**, with MMPX Enhanced pixels and **1.5x
+world zoom out**. Original artwork is reconstructed by a GPU shader; the HUD
+keeps its source-pixel size over the expanded scenery. These are hidden-window
+captures, not physical fullscreen scanout or an FPS benchmark.
+
+[![Atland, MMPX Enhanced pixels at 1.5x zoom out](atland-mmpx-zoom150-1920x1080.png)](atland-mmpx-zoom150-1920x1080.png)
+
+[![Elf Field, MMPX Enhanced pixels at 1.5x zoom out](elf-field-mmpx-zoom150-1920x1080.png)](elf-field-mmpx-zoom150-1920x1080.png)
+
+The screenshots below show retained EPX, dialogue and map options. EPX remains
+selectable alongside MMPX in Companion. [Display and recording help](../RECORDING.md).
+
 ## Atland — Enhanced pixels, 16:9
 
 ![Atland with Enhanced original pixels](atland-epx-1920x1080.png)
