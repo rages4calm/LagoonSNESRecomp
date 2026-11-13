@@ -6,8 +6,9 @@ from the game repository. The build script finds the local package feed and
 restores the pinned lock file. Developer builds need .NET 8 Windows Desktop
 Runtime. The public Windows release is self-contained and needs no .NET install.
 
-For a release package, open `Setup Lagoon.cmd`, enter your own clean USA ROM's
-absolute path on Game and Apply, then run Game setup. The game EXE is bundled
+For a release package, open `Setup Lagoon.cmd`. The first-run ROM picker verifies
+your original USA .sfc/.smc file and runs setup automatically. Use `Choose ROM.cmd`
+or `Choose ROM.command` to reopen it later. The game EXE is bundled
 under `game/`; setup needs no compiler, conversion or download. Config, shaders,
 mod preferences and saves stay under `local/`. Companion passes that config and
 an explicit local save root. Packaged files remain unchanged.

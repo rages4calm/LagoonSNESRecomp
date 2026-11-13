@@ -1,12 +1,12 @@
 # Lagoon Recomp
 
-[![Windows x64 download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.0/Lagoon-Companion-0.4.0-win-x64.zip)
-[![Linux x64 download](docs/badges/linux.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.0/Lagoon-Companion-0.4.0-linux-x64.tar.gz)
+[![Windows x64 download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.1/Lagoon-Companion-0.4.1-win-x64.zip)
+[![Linux x64 download](docs/badges/linux.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.1/Lagoon-Companion-0.4.1-linux-x64.tar.gz)
 
-[![macOS Apple Silicon download](docs/badges/macos-arm64.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.0/Lagoon-Companion-0.4.0-macos-arm64.tar.gz)
-[![macOS Intel download](docs/badges/macos-intel.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.0/Lagoon-Companion-0.4.0-macos-x64.tar.gz)
+[![macOS Apple Silicon download](docs/badges/macos-arm64.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.1/Lagoon-Companion-0.4.1-macos-arm64.tar.gz)
+[![macOS Intel download](docs/badges/macos-intel.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.1/Lagoon-Companion-0.4.1-macos-x64.tar.gz)
 
-[Release notes & checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.4.0) · [Screenshots](docs/screenshots/README.md) · [Controls](docs/PLAYING.md) · [Build & mod](docs/BUILDING.md)
+[Release notes & checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.4.1) · [Screenshots](docs/screenshots/README.md) · [Controls](docs/PLAYING.md) · [Build & mod](docs/BUILDING.md)
 
 **Lagoon for Windows, Linux and macOS, with 100% native execution of the game's
 main 65816 CPU.** Built with [SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp),
@@ -65,14 +65,25 @@ the ROM, saves or private test captures are included.
 1. Download the package for your OS and extract the entire folder somewhere writable.
 2. Open **Setup Lagoon.cmd / lagoon.Companion.exe** on Windows, or
    **Start Lagoon.command / lagoon.Companion** on Linux/macOS.
-3. Select your clean USA ROM, Apply, run Game setup, then Play.
+3. On first launch, click **Choose ROM file…** and select your original USA .sfc or .smc file. Verification and setup run automatically; then press **Play**.
+
+Choose the actual ROM file, not its folder or ZIP. You can keep it outside the game folder.
+Use **Choose ROM.cmd / Choose ROM.command** to select a different ROM later.
+For recording, use **Borderless fullscreen** and OBS **Game Capture → Capture specific window → LagoonSNESRecomp.exe**. [Recording help](docs/RECORDING.md).
 
 No compiler or first-run game recompilation is needed. Windows needs no separate
 .NET or Python installation; Linux/macOS bundle .NET and use Python 3.11+ for
 first-run ROM setup. Keep `local/` for your saves, settings, map and achievements.
 [Controls and upgrading](docs/PLAYING.md) · [Linux/macOS requirements](docs/PORTING.md) · [Soundtrack details](docs/SOUNDTRACK.md).
 
-## What's new in 0.4.0
+## What's new in 0.4.1
+
+First launch now offers a ROM file picker and automatic verification/setup, with
+clear messages for folders, archives and unsupported ROMs. Desktop fullscreen
+is now labeled **Borderless fullscreen**. OBS capture instructions cover explicit
+game-window selection. The qualified 0.4.0 game engine is retained unchanged.
+
+## Scenery maps and menus introduced in 0.4.0
 
 The map now draws complete zone terrain from the game's own scenery instead of
 using only collision-cell diagrams. It keeps the original art, including the

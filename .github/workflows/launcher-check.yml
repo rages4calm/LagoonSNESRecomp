@@ -1,0 +1,45 @@
+name: Launcher setup checks
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  launcher:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: rages4calm/companion-launcher
+          ref: fae4d7020f19c2af00319dd49e2e926d272685ac
+          path: companion-foundation
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb xauth libfontconfig1 libx11-6 libice6 libsm6
+      - name: Build and test the managed launcher
+        run: |
+          dotnet pack companion-foundation/src/Companion.Launcher.Core -c Release -o companion-foundation/packages
+          dotnet pack companion-foundation/src/Companion.Launcher.Avalonia -c Release -o companion-foundation/packages
+          export COMPANION_LAUNCHER_FEED="$PWD/companion-foundation/packages"
+          dotnet run --project launcher/tests/Lagoon.Launcher.Tests.csproj -c Release -- --settings-only "$PWD/check-settings"
+          dotnet build launcher/desktop/Game.Companion.Desktop.csproj -c Release
+          if [ '${{ runner.os }}' = 'Linux' ]; then
+            xvfb-run -a dotnet launcher/desktop/bin/Release/net8.0/lagoon.Companion.dll --smoke-setup "$PWD/check-setup"
+          else
+            dotnet launcher/desktop/bin/Release/net8.0/lagoon.Companion.dll --smoke-setup "$PWD/check-setup"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: launcher-setup-${{ matrix.os }}
+          path: check-setup/rom-setup.png
+          retention-days: 3

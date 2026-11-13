@@ -7,9 +7,10 @@ uses the original Lagoon lettering and frame, with a Crono portrait. Music
 continues while the world pauses. Completing it plays a owner-selected Chrono Trigger laugh
 before the achievement chime.
 
-Use the matching v0.4.0 package from the [main page](../README.md), or build from
-[these instructions](BUILDING.md). Select/Apply your clean USA ROM in Companion,
-run Game setup if offered, then Play. Apply settings before starting or restart
+Use the matching v0.4.1 package from the [main page](../README.md), or build from
+[these instructions](BUILDING.md). On first launch, choose your clean USA ROM with the file picker.
+Verification and setup run automatically; then press Play. Use Choose ROM.cmd
+or Choose ROM.command to reopen the picker later. Apply settings before starting or restart
 to use changes. Normal release execution is 100% native for the main game CPU;
 the interpreter is an explicit developer reference option. Graphics and audio
 hardware continue through the runtime.
@@ -22,7 +23,7 @@ bindings for the corresponding actions.
 
 ## Display
 
-For a 1920×1080 monitor, choose desktop fullscreen, widescreen **16:9** and VSync.
+For a 1920×1080 monitor, choose **Borderless fullscreen**, widescreen **16:9** and VSync.
 Enhanced original pixels (EPX) is optional: it treats diagonal pixel edges using
 original colors while keeping the bottom HUD sharp. It requires OpenGL and the
 bundled shader files. Turning it off restores the previous graphics selection.
@@ -42,6 +43,9 @@ in the expanded horizontal view can also run their original AI; rendering and
 simulation coverage are separate checks. Recent fixes preserve side margins
 while moving vertically and prevent the old doorway from flashing back during
 room loading.
+
+For OBS, use **Game Capture → Capture specific window → LagoonSNESRecomp.exe**.
+[Recording and streaming help](RECORDING.md).
 
 ## Quality of life
 

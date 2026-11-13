@@ -17,8 +17,8 @@ internal static partial class NativeSettings
         new(id, section, key, new(id, page, label, OptionKind.Integer, OptionValue.From(fallback), help, min, max));
     private static readonly Field[] Fields = {
         new("video.fullscreen", "Graphics", "Fullscreen", new("video.fullscreen", "Display", "Window mode", OptionKind.Choice,
-            OptionValue.From("0"), "Restart the game after applying settings.", Choices: new[] {
-                new ChoiceItem("0", "Windowed"), new ChoiceItem("1", "Desktop fullscreen"), new ChoiceItem("2", "Exclusive fullscreen") })),
+            OptionValue.From("0"), "Borderless fills your monitor without changing its resolution. Restart after Apply. For OBS, use Game Capture → Capture specific window → LagoonSNESRecomp.exe.", Choices: new[] {
+                new ChoiceItem("0", "Windowed"), new ChoiceItem("1", "Borderless fullscreen"), new ChoiceItem("2", "Exclusive fullscreen") })),
         Integer("video.scale", "Display", "Window scale", "Graphics", "WindowScale", 3, 1, 6),
         Boolean("video.vsync", "Display", "Vertical sync", "Graphics", "VSync", true),
         Boolean("video.widescreen", "Display", "Widescreen (experimental)", "Graphics", "Widescreen", false,

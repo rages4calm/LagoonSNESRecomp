@@ -25,7 +25,7 @@ public sealed class GameAdapter : JsonGameAdapterBase
             PreviewPackage ? "The bundled native Lagoon executable." : "The locally built Lagoon executable."),
             new OptionDefinition("rom.path", "Game", "Original USA ROM", OptionKind.Text,
             OptionValue.From(PreviewPackage ? "" : Path.GetFullPath(Path.Combine(Project, "..", "Lagoon (USA).sfc"))),
-            "Your clean ROM is checked before Play. The QoL-patched ROM is for analysis only."),
+            "Choose the actual Lagoon (USA).sfc or .smc file, not its folder or a ZIP. First launch opens a file picker and prepares the game automatically."),
             new OptionDefinition("config.path", "Game", "Native settings file", OptionKind.Text,
             OptionValue.From(Path.Combine(Project, PreviewPackage ? "local/config.ini" : "build/config.ini")),
             "After first setup, native saves and settings stay beside the game.") }.Concat(NativeSettings.Options).ToArray(), HasSetup: PreviewPackage, HasAchievements: true);
@@ -33,6 +33,35 @@ public sealed class GameAdapter : JsonGameAdapterBase
     public GameAdapter(string? dataRoot = null) : base(Game, new[] { new ProfileDescriptor("original", "Original", "original") }, dataRoot ??
         Environment.GetEnvironmentVariable("COMPANION_DATA_ROOT") ??
         (PreviewPackage ? Path.Combine(Project, "local", "companion") : CompanionDataPaths.DesktopRoot())) { NativeSettings.PreviewLayout = PreviewPackage; }
+
+    public bool NeedsRomSetup => !CheckReady(Profiles[0], ReadSettings(Profiles[0]).Values).Ready;
+
+    public static string VerifyRom(string path)
+    {
+        path = path.Trim().Trim('"');
+        if (Directory.Exists(path)) throw new InvalidDataException("Choose the ROM file inside this folder, not the folder itself.");
+        if (!File.Exists(path)) throw new InvalidDataException("ROM file not found. Choose your Lagoon USA .sfc or .smc file.");
+        if (Path.GetExtension(path).Equals(".zip", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(path).Equals(".7z", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Extract your ROM archive first, then choose the .sfc or .smc file inside it.");
+        using var stream = File.OpenRead(path);
+        if (stream.Length == 1049088) throw new InvalidDataException("This ROM has a copier header. This release requires the clean, unheadered 1 MiB Lagoon USA ROM.");
+        if (stream.Length != 1048576 || !Convert.ToHexString(SHA256.HashData(stream)).Equals("46C811F0CACFFE8F20E1D63072D25D7C47E9BB3FD5124851FD05ACA9884D21FB", StringComparison.Ordinal))
+            throw new InvalidDataException("This is not the supported clean Lagoon USA ROM. Use the original unpatched 1 MiB USA release; QoL changes are already built in.");
+        return Path.GetFullPath(path);
+    }
+
+    // The first-run picker saves only the verified source path. Setup retains
+    // the existing package integrity checks and never moves/copies the ROM.
+    public async Task ImportRomAsync(string path, IProgress<OperationProgress>? progress, CancellationToken cancellationToken)
+    {
+        var rom = await Task.Run(() => VerifyRom(path), cancellationToken);
+        var profile = Profiles[0];
+        var stored = base.ReadSettings(profile);
+        stored.Values["rom.path"] = OptionValue.From(rom);
+        Store(profile).Write(stored.Values, stored.Revision);
+        if (PreviewPackage) await SetupAsync(profile, progress, cancellationToken);
+        if (NeedsRomSetup) throw new InvalidDataException("ROM verified, but the game package is incomplete. Extract the complete release into a writable folder.");
+    }
 
     public override AchievementSnapshot ReadAchievements(ProfileDescriptor profile)
     {

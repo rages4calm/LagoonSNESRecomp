@@ -17,6 +17,7 @@
           "Companion.Launcher.Core": "0.2.0"
         }
       }
-    }
+    },
+    "net8.0-windows7.0/win-x64": {}
   }
 }

@@ -3,6 +3,21 @@ using Companion.Launcher.Core;
 using System.Text;
 
 // Explicit private inputs; no ROM fixtures or owner settings bundled.
+if (args.Length == 3 && args[0] == "--rom-picker")
+{
+    var root = Path.GetFullPath(args[2]); Directory.CreateDirectory(root);
+    if (GameAdapter.VerifyRom(" \"" + args[1] + "\" ") != Path.GetFullPath(args[1])) throw new Exception("Quoted path rejected.");
+    foreach (var row in new[] { (root, "folder"), (Path.Combine(root, "missing.sfc"), "not found"),
+        (Path.Combine(root, "rom.zip"), "Extract"), (Path.Combine(root, "wrong.sfc"), "not the supported"), (Path.Combine(root, "header.smc"), "copier header") })
+    {
+        if (row.Item1.EndsWith("rom.zip") || row.Item1.EndsWith("wrong.sfc")) File.WriteAllText(row.Item1, "synthetic");
+        if (row.Item1.EndsWith("header.smc")) { using var file = File.Create(row.Item1); file.SetLength(1049088); }
+        try { GameAdapter.VerifyRom(row.Item1); throw new Exception("Invalid input accepted."); }
+        catch (InvalidDataException error) { if (!error.Message.Contains(row.Item2)) throw; }
+    }
+    Console.WriteLine("PASS: clean/quoted ROM paths; folder, missing file, archive, wrong content and copier-header diagnostics.");
+    return;
+}
 if (args.Length == 2 && args[0] == "--achievements-only")
 {
     AchievementChecks.Run(Path.GetFullPath(args[1]));
