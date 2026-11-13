@@ -27,6 +27,9 @@ internal static partial class NativeSettings
         new("video.view-extent", "Lagoon", "ViewExtent", new("video.view-extent", "Display", "World zoom out", OptionKind.Choice,
             OptionValue.From("1"), "Requires widescreen. Reveals more world horizontally and vertically; HUD and menus keep their original pixel size. Authored scenes keep their original composition. Restart after Apply.",
             Choices: new[] {new ChoiceItem("1","1x (original scale)"),new ChoiceItem("1.25","1.25x zoom out"),new ChoiceItem("1.5","1.5x zoom out")})),
+        new("video.pixel-filter", "Lagoon", "PixelFilter", new("video.pixel-filter", "Display", "Enhanced pixel style", OptionKind.Choice,
+            OptionValue.From("epx"), "Used when Enhanced pixels is enabled. EPX keeps a crisp retro look; MMPX refines diagonal and curved sprite edges without whole-image blur. HUD and extra menus stay sharp. Restart after Apply.",
+            Choices: new[]{new ChoiceItem("epx","EPX — crisp"),new ChoiceItem("mmpx","MMPX — refined")})),
         Boolean("video.vsync", "Display", "Vertical sync", "Graphics", "VSync", true),
         Boolean("video.widescreen", "Display", "Widescreen (experimental)", "Graphics", "Widescreen", false,
             "Expanded backgrounds; off-screen NPC/enemy rendering and some rooms remain unfinished. Unsupported scenes retain their original view."),
@@ -59,17 +62,18 @@ internal static partial class NativeSettings
             "Choose the original SNES music or the bundled X68000 soundtrack. Restart after Apply. Missing or unmapped cues use SNES audio.",
             Choices: new[] { new ChoiceItem("snes", "Original SNES"), new ChoiceItem("x68000", "X68000") })
     };
-    private static readonly OptionDefinition EnhancedPixels = new("video.enhanced-pixels", "Display", "Enhanced original pixels (EPX)", OptionKind.Boolean,
-        OptionValue.From(false), "Crisper diagonal edges and even pixel widths at fractional zoom, with a sharp HUD. GPU EPX uses D3D11 on Windows and OpenGL elsewhere. Turning it off restores previous graphics settings. Restart after Apply.");
+    private static readonly OptionDefinition EnhancedPixels = new("video.enhanced-pixels", "Display", "Enhanced original pixels", OptionKind.Boolean,
+        OptionValue.From(false), "Crisper diagonal edges and even pixel widths at fractional zoom, with a sharp HUD. GPU reconstruction uses D3D11 on Windows and OpenGL elsewhere. Turning it off restores previous graphics settings. Restart after Apply.");
     private static readonly string[] EpxKeys = { "Shader", "Renderer", "OutputMethod", "LinearFiltering" };
     private const string EpxBackupKey = "EpxPreviousGraphicsV1";
     private static string EpxPreset(IReadOnlyDictionary<string, JsonElement> values) =>
-        Path.Combine(Path.GetDirectoryName(values["engine.path"].GetString()!)!, "assets", "shaders", "lagoon-epx.glslp");
+        Path.Combine(Path.GetDirectoryName(values["engine.path"].GetString()!)!, "assets", "shaders", values.TryGetValue("video.pixel-filter", out var filter) && filter.GetString() == "mmpx" ? "lagoon-mmpx.glslp" : "lagoon-epx.glslp");
     private static bool IsEpx(Document ini, IReadOnlyDictionary<string, JsonElement> values)
     {
         var shader = ini.IniValue("Graphics", "Shader")?.Replace('\\', '/');
-        return shader != null && (shader.Equals("assets/shaders/lagoon-epx.glslp", StringComparison.OrdinalIgnoreCase) ||
-            shader.Equals(EpxPreset(values).Replace('\\', '/'), StringComparison.OrdinalIgnoreCase));
+        return shader != null && new[]{"lagoon-epx.glslp","lagoon-mmpx.glslp"}.Any(name =>
+            shader.Equals("assets/shaders/"+name,StringComparison.OrdinalIgnoreCase) ||
+            shader.Equals(Path.Combine(Path.GetDirectoryName(values["engine.path"].GetString()!)!,"assets","shaders",name).Replace('\\','/'),StringComparison.OrdinalIgnoreCase));
     }
     private static byte[] GraphicsRevision(IReadOnlyDictionary<string, JsonElement> values) => Encoding.UTF8.GetBytes(
         Hash(ReadBytes(EpxPreset(values))) + Hash(ReadBytes(Path.ChangeExtension(EpxPreset(values), ".glsl"))));
@@ -111,6 +115,7 @@ internal static partial class NativeSettings
             var value = ini.IniValue(field.Section, field.Key);
             paths.Values[field.Id] = value == null ? field.Option.DefaultValue.Clone() : Parse(field.Option, value);
         }
+        if (IsEpx(ini,paths.Values)) paths.Values["video.pixel-filter"] = OptionValue.From((ini.IniValue("Graphics","Shader") ?? "").Contains("lagoon-mmpx",StringComparison.OrdinalIgnoreCase) ? "mmpx" : "epx");
         foreach (var id in Features) paths.Values["qol." + id] = OptionValue.From(mods.Feature(id) ?? false);
         ReadRewards(paths, mods); ReadInput(paths, ini, Document.Read(KeybindsPath(paths.Values)));
         paths.Values["audio.soundtrack"] = OptionValue.From(mods.Feature("x68000", "lagoon.soundtrack") == true ? "x68000" : "snes");
@@ -202,6 +207,8 @@ internal static partial class NativeSettings
                 else ini.SetIni("Graphics", "Shader", "");
             }
         }
+        if (values[EnhancedPixels.Id].GetBoolean() && values["video.pixel-filter"].GetRawText() != current.Values["video.pixel-filter"].GetRawText())
+            ini.SetIni("Graphics","Shader",EpxPreset(values).Replace('\\','/'));
         // Restore the preceding graphics profile before applying explicit edits.
         foreach (var field in Fields)
             if (values[field.Id].GetRawText() != current.Values[field.Id].GetRawText())

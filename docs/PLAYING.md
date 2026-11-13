@@ -259,3 +259,7 @@ On Windows, **Auto (D3D11)** is the default graphics backend. Enhanced original
 pixels runs on the GPU with the HUD and menus kept sharp. OpenGL is available
 as an alternative. Linux/macOS use OpenGL and share the world-view options.
 See [recording instructions](RECORDING.md) for OBS and borderless fullscreen.
+
+Enhanced pixel style selects **EPX — crisp** or **MMPX — refined** when Enhanced
+pixels is enabled. Both use sharp fractional scaling and preserve readable HUD
+text. MMPX reconstructs curves/diagonals; it does not replace the original art.

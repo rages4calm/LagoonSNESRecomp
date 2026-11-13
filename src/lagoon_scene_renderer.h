@@ -64,4 +64,7 @@ int LagoonSceneRenderer_ArchivePersistenceBlocked(void);
 int LagoonSceneRenderer_VisitedMapImage(unsigned room,
     const uint32_t **pixels,unsigned *width,unsigned *height,
     unsigned *world_width,unsigned *world_height);
+/* Read-only original Game Over backdrop identity; no execution authority. */
+int LagoonSceneRenderer_GameOver(const uint8_t *ram,const uint8_t *rom,size_t size);
+
 #endif

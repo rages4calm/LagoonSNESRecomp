@@ -202,8 +202,9 @@ def main():
         if path.name!='pack.json': audio.add(source)
     for n in ['lagoon-game.ico','lagoon-companion.ico']:
         selected[str(ROOT/'assets/icons'/n)]='icons/'+n
-    for n in ['lagoon-epx.glsl','lagoon-epx.glslp']:
+    for n in ['lagoon-epx.glsl','lagoon-epx.glslp','lagoon-mmpx.glsl','lagoon-mmpx.glslp']:
         selected[str(ROOT/'assets/shaders'/n)]='game/assets/shaders/'+n
+    selected[str(ROOT/'licenses/MMPX.txt')]='licenses/MMPX.txt'
     for package in ['lagoon.quality','lagoon.soundtrack']:
         rel=f'mods/preloaded/packages/{package}/1.0.0/manifest.toml'
         selected[str(ROOT/rel)]='game/'+rel

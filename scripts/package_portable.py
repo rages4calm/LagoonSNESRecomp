@@ -165,11 +165,12 @@ def main() -> None:
     check_binary(launcher, args.platform)
     selected = {Path(source): relative for source, relative in achievement_cameo_inputs().items()}
     selected.update({Path(source): relative for source, relative in ui_font_inputs().items()})
+    selected[ROOT / 'licenses/MMPX.txt'] = 'licenses/MMPX.txt'
     selected[args.game] = 'game/LagoonSNESRecomp'
     published = launcher_files(args.launcher)
     for source in published:
         selected[source] = source.name
-    for name in ('lagoon-epx.glsl', 'lagoon-epx.glslp'):
+    for name in ('lagoon-epx.glsl', 'lagoon-epx.glslp', 'lagoon-mmpx.glsl', 'lagoon-mmpx.glslp'):
         selected[ROOT / 'assets/shaders' / name] = 'game/assets/shaders/' + name
     for package in ('lagoon.quality', 'lagoon.soundtrack'):
         rel = f'mods/preloaded/packages/{package}/1.0.0/manifest.toml'

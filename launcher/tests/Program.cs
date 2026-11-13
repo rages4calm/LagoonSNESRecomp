@@ -116,6 +116,11 @@ internal static class SettingsChecks
             File.ReadAllText(config).Contains(OperatingSystem.IsWindows()?"Renderer = direct3d11":"Renderer = opengl") &&
             File.ReadAllText(config).Contains(OperatingSystem.IsWindows()?"OutputMethod = SDL":"OutputMethod = OpenGL"), "EPX GPU selection failed.");
         Assert(modsBeforeEpx.SequenceEqual(File.ReadAllBytes(state)), "EPX changed mod state.");
+        File.WriteAllText(Path.Combine(shaderFolder,"lagoon-mmpx.glslp"),"shader0=lagoon-mmpx.glsl\n");
+        File.WriteAllText(Path.Combine(shaderFolder,"lagoon-mmpx.glsl"),"// synthetic MMPX revision fixture\n");
+        controller.SetOption("video.pixel-filter",OptionValue.From("mmpx"));controller.Apply();
+        Assert(controller.Snapshot.Values["video.enhanced-pixels"].GetBoolean() && File.ReadAllText(config).Contains("lagoon-mmpx.glslp"),"MMPX selection was not applied.");
+        controller.SetOption("video.pixel-filter",OptionValue.From("epx"));controller.Apply();
         controller.SetOption("video.enhanced-pixels", OptionValue.From(false)); controller.Apply();
         Assert(!File.ReadAllText(config).Contains("Shader =") && !File.ReadAllText(config).Contains("Renderer =") &&
             !File.ReadAllText(config).Contains("OutputMethod ="), "EPX did not restore absent prior graphics keys.");

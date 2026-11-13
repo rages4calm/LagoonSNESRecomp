@@ -13,9 +13,13 @@ Config g_config;
 #include <string>
 #include <cmath>
 #include <algorithm>
+#include "../third_party/mmpx/mmpx.c"
+static uint32_t reconstructed[128*60];
+static bool modern;
 static uint32_t source[64*64];
 static uint32_t sample(int x,int y){if(x<0)x=0;if(x>63)x=63;if(y<0)y=0;if(y>63)y=63;return source[y*64+x];}
 static uint32_t expected(int x,int y,bool enhanced){
+  if(modern&&enhanced&&y<60)return reconstructed[y*128+x]&0xffffff;
   int qx=x/2,qy=y/2;uint32_t e=sample(qx,qy),b=sample(qx,qy-1),h=sample(qx,qy<29?qy+1:29),d=sample(qx-1,qy),f=sample(qx+1,qy);
   if(enhanced&&qy<30&&b!=h&&d!=f){
     if(!(x&1)&&!(y&1)&&d==b)e=d;
@@ -45,8 +49,10 @@ int main(int argc,char **argv){
   const uint32_t palette[]={0x00225499,0x00bb6633,0x00ffffdd,0x00336622};
   unsigned rng=12345;for(unsigned i=0;i<4096;i++){rng=rng*1664525+1013904223;source[i]=palette[rng>>30];}
   unsigned changed=0;
-  for(int mode=0;mode<4;mode++){
-    int hh=mode==3?150:128;int ww=mode==3?174:mode==2?192:128;if(mode>=2)assert(SDL_SetWindowSize(w,ww,hh));
+  for(int mode=0;mode<6;mode++){
+    modern=mode>=4;if(modern)mmpx_scale2x(source,reconstructed,64,30);
+    g_config.shader=modern?"lagoon-mmpx":"lagoon-epx";
+    int hh=(mode==3||mode==5)?150:128;int ww=(mode==3||mode==5)?174:mode==2?192:128;if(mode>=2)assert(SDL_SetWindowSize(w,ww,hh));
     SDL_PumpEvents();uint8 *p;int pitch;LagoonD3D11_TitleUi(mode==1);
     renderer.BeginDraw(64,64,&p,&pitch);assert(p);
     for(int y=0;y<64;y++)memcpy(p+y*pitch,source+y*64,256);
@@ -58,13 +64,13 @@ int main(int argc,char **argv){
     for(int y=0;y<hh;y++)for(int x=0;x<ww;x++){
       uint32_t pixel;memcpy(&pixel,(char*)image->pixels+y*image->pitch+x*4,4);
       int xx=x-(ww-hh)/2;
-      uint32_t want=xx<0||xx>=hh?0:mode==3?fractional(xx,y,hh):expected(xx,y,mode!=1);
-      bool differs=false;for(int shift=0;shift<24;shift+=8)if(std::abs(int((pixel>>shift)&255)-int((want>>shift)&255))>(mode==3?1:0))differs=true;
+      uint32_t want=xx<0||xx>=hh?0:(mode==3||mode==5)?fractional(xx,y,hh):expected(xx,y,mode!=1);
+      bool differs=false;for(int shift=0;shift<24;shift+=8)if(std::abs(int((pixel>>shift)&255)-int((want>>shift)&255))>((mode==3||mode==5)?1:0))differs=true;
       if(differs){fprintf(stderr,"GPU mismatch mode=%d x=%d y=%d actual=%06x expected=%06x\n",mode,x,y,pixel&0xffffff,want);return 2;}
       if(mode==0&&want!=(sample(x/2,y/2)&0xffffff))changed++;
     }
     SDL_DestroySurface(image);SDL_DestroySurface(raw);
   }
   assert(changed>100);renderer.Destroy();SDL_DestroyWindow(w);SDL_Quit();
-  printf("PASS D3D11 GPU EPX exact pixels, HUD bypass, UI bypass, zero-alpha opaque input, resize/letterbox, fractional sharp reconstruction (%u enhanced samples)\n",changed);
+  printf("PASS D3D11 GPU EPX exact pixels, HUD bypass, UI bypass, zero-alpha opaque input, resize/letterbox, fractional sharp reconstruction, MMPX CPU oracle (%u enhanced samples)\n",changed);
 }

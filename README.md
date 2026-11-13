@@ -36,7 +36,7 @@ the ROM, saves or private test captures are included.
 
 - **Widescreen:** 16:9, 16:10, 21:9, 32:9 and window-driven aspects, with added
   scenery and supported NPCs, enemies, boss parts, projectiles and magic effects.
-- **Enhanced original graphics:** optional GPU EPX reconstruction with sharp
+- **Enhanced original graphics:** optional GPU EPX or refined MMPX reconstruction with sharp
   fractional scaling keeps pixel interiors crisp and the HUD readable. No
   replacement artwork or whole-image blur is required.
 - **D3D11 on Windows:** GPU Enhanced pixels, borderless fullscreen and tested
@@ -45,6 +45,8 @@ the ROM, saves or private test captures are included.
 - **World zoom out:**1x,1.25x and1.5x reveal additional scenery horizontally
   and vertically in qualified world scenes. The HUD remains readable over the
   scenery. Original authored scenes keep their original composition.
+- **Game Over framing:** the original overlay keeps the expanded world and zoom
+  instead of snapping back to a larger 4:3 image.
 - **Active wider world:** visible ordinary enemies continue their AI, with
   awareness extended to the expanded view. Neutral NPC animation also extends
   beyond the old viewport; quest scripts and conversations retain their triggers.

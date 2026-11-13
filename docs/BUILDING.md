@@ -125,9 +125,11 @@ A deliberately non-native development build also needs both
 ## Presentation design
 
 Windows uses a title-owned D3D11 windowed flip presenter; Linux/macOS retain
-OpenGL. Enhanced pixels uses the same independently implemented EPX rules in
+OpenGL. Enhanced pixels offers EPX and MIT-licensed MMPX reconstruction in
 HLSL and GLSL, followed by sharp fractional scaling of the reconstructed 2x
-lattice. Only a one-output-pixel edge footprint blends: integer-aligned output
+lattice. MMPX follows the credited McGuire/Gagiu rules; its separate C99 oracle is in
+`third_party/mmpx/`, with the original port's upper-border clamp corrected. Only
+a one-output-pixel edge footprint blends: integer-aligned output
 remains exact. The 34-row HUD frame and the title-owned menus bypass edge
 reconstruction. D3D11 receives the footprint from the actual viewport size,
 avoiding derivatives across the HUD's divergent shader branch.

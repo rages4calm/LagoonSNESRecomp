@@ -292,6 +292,13 @@ static int scene_resources(const uint8_t *r,unsigned *definitions) {
   if(definitions)*definitions=((d>>16)&0x7f)*0x8000+(d&0x7fff);
   return 1;
 }
+int LagoonSceneRenderer_GameOver(const uint8_t *r,const uint8_t *rom,size_t size) {
+  if(!r||!rom||size!=0x100000||ptr(r,0x10)!=0x02f1a5||r[0x13]!=3||
+      (r[0x500]&0xc0)!=0x80||r[0x100e])return 0;
+  uint64_t hash=UINT64_C(14695981039346656037);
+  for(unsigned i=0;i<96;i++)hash=(hash^rom[0x171a5+i])*UINT64_C(1099511628211);
+  return hash==UINT64_C(0x4ae4eda2ebac4d2b)&&scene_resources(r,NULL);
+}
 int LagoonSceneRenderer_ExactRoom(const uint8_t *r) {
   return r && (word(r,0x48e)!=0 || (word(r,0x53)==192&&word(r,0x55)==192)) && scene_resources(r,NULL) &&
     r[0x50]==(LagoonSceneRenderer_ParallaxRoom(r)?(word(r,0x48e)==7?2:1):0);

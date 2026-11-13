@@ -43,6 +43,9 @@ Texture2D<float4> image:register(t0);
 struct V{float4 position:SV_POSITION;float2 uv:TEXCOORD0;};
 V vs(uint id:SV_VertexID){V v;v.uv=float2((id<<1)&2,id&2);v.position=float4(v.uv*float2(2,-2)+float2(-1,1),0,1);return v;}
 float3 load(int2 p){return image.Load(int3(clamp(p,int2(0,0),int2(width-1,height-1)),0)).rgb;}
+)"
+#include "lagoon_mmpx_shader.inc"
+R"(
 float3 epx(int2 halfcell){
  halfcell=clamp(halfcell,int2(0,0),int2(width*2-1,(height-hud)*2-1));
  float2 p=(float2(halfcell)+0.5)*0.5;int2 q=int2(p);float3 e=load(q);
@@ -68,8 +71,8 @@ float4 ps(V v):SV_TARGET{
  float2 center=floor(grid)+0.5;
  float2 at=center+clamp((grid-center)/span,-0.5,0.5)-0.5;
  int2 lo=int2(floor(at));float2 blend=frac(at);
- float3 a=lerp(epx(lo),epx(lo+int2(1,0)),blend.x);
- float3 b=lerp(epx(lo+int2(0,1)),epx(lo+int2(1,1)),blend.x);
+ float3 a=enhanced==2?lerp(mmpx(lo),mmpx(lo+int2(1,0)),blend.x):lerp(epx(lo),epx(lo+int2(1,0)),blend.x);
+ float3 b=enhanced==2?lerp(mmpx(lo+int2(0,1)),mmpx(lo+int2(1,1)),blend.x):lerp(epx(lo+int2(0,1)),epx(lo+int2(1,1)),blend.x);
  return float4(lerp(a,b,blend.y),1);
 })";
 void destroy(){
@@ -197,7 +200,7 @@ void end(){
   context->RSSetViewports(1,&viewport);context->OMSetRenderTargets(1,&target,nullptr);
   const float black[4]={0,0,0,1};context->ClearRenderTargetView(target,black);
   struct Frame {int width,height,enhanced,hud;float footprint[2],padding[2];};
-  Frame data={source_w,source_h,!title_ui&&g_config.shader&&std::strstr(g_config.shader,"lagoon-epx"),title_ui?0:34,
+  Frame data={source_w,source_h,!title_ui&&g_config.shader?(std::strstr(g_config.shader,"lagoon-mmpx")?2:std::strstr(g_config.shader,"lagoon-epx")?1:0):0,title_ui?0:34,
       {2.0f*source_w/v.width,2.0f*source_h/v.height},{0,0}};
   context->UpdateSubresource(constants,0,nullptr,&data,0,0);
   context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

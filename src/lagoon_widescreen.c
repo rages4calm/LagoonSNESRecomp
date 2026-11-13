@@ -154,7 +154,7 @@ void LagoonWide_AfterConfig(void) {
   /* Migrate the old EPX/auto presenter to windowed DXGI. Explicit custom
    * OpenGL shaders retain their backend and remain available for debugging. */
   if((!g_config.renderer[0]||!strcmp(g_config.renderer,"auto"))&&
-      (!g_config.shader||!*g_config.shader||strstr(g_config.shader,"lagoon-epx"))) {
+      (!g_config.shader||!*g_config.shader||(strstr(g_config.shader,"lagoon-epx")||strstr(g_config.shader,"lagoon-mmpx")))) {
     snprintf(g_config.renderer,sizeof(g_config.renderer),"direct3d11");
   }
   const char *backend=getenv("LAGOON_PRESENTER");
@@ -455,7 +455,7 @@ static int world_map_geometry(void) {
       PPU_bgTilemapWider(g_ppu,1) || !PPU_bgTilemapHigher(g_ppu,1) ||
       !parallax_raster(g_ppu) ||
       !LagoonWideEntities_ParallaxMapForRoom(PpuRenderVram(g_ppu),g_rom,0x100000,word(0x48e))))return 0;
-  return (g_ram[0x500]&0xC0)==0xC0 && (!g_ram[0x50] || room_parallax()) &&
+  return ((g_ram[0x500]&0xC0)==0xC0 || LagoonSceneRenderer_GameOver(g_ram,g_rom,0x100000)) && (!g_ram[0x50] || room_parallax()) &&
       (g_ppu->bgmode&7)==1 &&
       !PPU_bigTiles(g_ppu,0) && !PPU_bigTiles(g_ppu,1) &&
       PPU_bgTilemapAdr(g_ppu,0)==0x7000 && PPU_bgTilemapAdr(g_ppu,1)==0x7800 &&
