@@ -66,7 +66,7 @@ internal static partial class NativeSettings
     private static readonly string[] PadDefaults={"DpadUp","DpadDown","DpadLeft","DpadRight","Back","Start","B","A","Y","X","Lb","Rb"};
     private static readonly string[] PadButtons={"A","B","X","Y","Lb","Rb","Back","Start","L3","R3","DpadUp","DpadDown","DpadLeft","DpadRight","L1","R1","Guide"};
     private static readonly OptionDefinition[] PadOptions=PadKeys.Select((key,n)=>new OptionDefinition("pad."+key,"Controller", "SNES "+key.ToUpperInvariant(),OptionKind.Choice,OptionValue.From(PadDefaults[n]),
-        "Player one controller assignment. L2 opens the map; R2 opens in-game settings. Both triggers are reserved. Existing controller GUID selection is preserved.",
+        "Player one controller assignment. L2 opens the map, R2 opens settings, and R3 click/release cycles zoom. These controls are reserved; Select+R3 still opens rewind. Existing controller GUID selection is preserved.",
         Choices:PadButtons.Select(b=>new ChoiceItem(b,b)).ToArray())).ToArray();
     private static readonly OptionDefinition[] InputOptions=Hotkeys.Select(h=>h.Option)
         .Concat(KeyboardBindings.Select(k=>new OptionDefinition("keyboard."+k.Key,"Keyboard",k.Label,OptionKind.Text,OptionValue.From(k.Default),"SDL key name, e.g. Z, Return or Right Shift. None disables it. Apply and restart.")))

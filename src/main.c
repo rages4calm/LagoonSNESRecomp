@@ -41,6 +41,9 @@
 #include "lagoon_follower.h"
 #include "lagoon_quest_guidance.h"
 #include "lagoon_settings.h"
+#include "lagoon_zoom_controls.h"
+#include "snes_rewind.h"
+#include "snes_savestate_menu.h"
 #include "lagoon_sword_visual.h"
 #include "lagoon_journal.h"
 #include "lagoon_item_guide.h"
@@ -187,23 +190,43 @@ static int LagoonHost_GameplayReady(void) {
     return g_ppu&&g_ram[0x48f]==0&&g_ram[0x48e]<75&&!g_ram[0x100e]&&
         (g_ram[0x500]&0xc0)==0xc0&&g_ram[0x520]&&!g_ram[0x521]&&g_ppu->inidisp==15;
 }
+static LagoonZoomButton lagoon_zoom_key,lagoon_zoom_pad;
+static unsigned lagoon_zoom_pad_pending,lagoon_zoom_back_held;
+static int LagoonHost_ZoomAllowed(void){
+    return snesrecomp_host_frame_is_live()&&LagoonHost_GameplayReady()&&
+        !LagoonSettings_IsOpen()&&!LagoonMap_IsOpen()&&!LagoonAchievementUI_IsOpen()&&
+        !LagoonEasterEgg_IsOpen()&&!snes_savestate_menu_is_open()&&!snes_rewind_is_open();
+}
+static void LagoonHost_ApplyZoom(unsigned percent){
+    if(!snesrecomp_host_frame_is_live()||!LagoonWide_SetZoom(percent))return;
+    (void)LagoonSettings_SaveZoom(percent); /* failure leaves a session-only UI warning */
+    LagoonSettings_SetZoom(LagoonWide_GetZoom());
+}
+static void LagoonHost_CycleZoom(void){
+    if(LagoonHost_ZoomAllowed())LagoonHost_ApplyZoom(LagoonZoom_Next(LagoonWide_GetZoom()));
+}
+static void LagoonHost_OpenSettings(void){
+    lagoon_zoom_pad_pending=0;LagoonSettings_Open();LagoonSettings_SetZoom(LagoonWide_GetZoom());
+}
 static void LagoonHost_OpenAchievements(void) {
+    lagoon_zoom_pad_pending=0;
     LagoonMap_Command(LAGOON_MAP_CLOSE);LagoonSettings_Close();LagoonEasterEgg_Close();
     LagoonAchievementUI_Open();
 }
 /* Bounded opt-in UI integration check; the normal host/input path still opens,
  * draws and closes the panel. No guest time, progress or settings are written. */
-static unsigned menu_test_pumps;
+static unsigned menu_test_pumps,menu_test_cameo_pending;
 static void LagoonHost_ReturnSelftest(unsigned frame);
 static void LagoonHost_MenuSelftest(unsigned frame) {
     static int at=-2;
     if(at==-2){const char *v=getenv("LAGOON_MENU_SELFTEST_FRAME");at=v?atoi(v):-1;}
     if(at<0||frame<(unsigned)at||!LagoonHost_GameplayReady())return;
     at=-1;const char *value=getenv("LAGOON_MENU_SELFTEST_PAGE");int page=value?atoi(value):0;
-    if(page<0||page>6)return;
+    if(page<0||page>7)return;
     LagoonMap_Command(LAGOON_MAP_CLOSE);
-    if(page==3)LagoonHost_OpenAchievements();
-    else {LagoonSettings_Open();for(int i=0;i<(page>=5?4:page==4?3:page);i++)LagoonSettings_Command(LAGOON_SETTINGS_NEXT_TAB);
+    if(page==7){menu_test_cameo_pending=1;return;}
+    else if(page==3)LagoonHost_OpenAchievements();
+    else {LagoonHost_OpenSettings();for(int i=0;i<(page>=5?4:page==4?3:page);i++)LagoonSettings_Command(LAGOON_SETTINGS_NEXT_TAB);
         if(page>=5){LagoonReturnStatus status;LagoonReturnRuntime_GetStatus(&status);
             LagoonSettings_SetTravelStatus(status.message,status.reason==LAGOON_RETURN_READY);
             if(page==6)LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);}}
@@ -224,11 +247,14 @@ static void LagoonHost_TestObserve(unsigned frame) {
     fclose(f);
 }
 static void LagoonHost_SettingsRequest(void) {
+    if(!snesrecomp_host_frame_is_live())return;
+    if(LagoonSettings_TakeQuitRequest()){snesrecomp_request_exit();return;}
+    unsigned zoom;if(LagoonSettings_TakeZoomRequest(&zoom))LagoonHost_ApplyZoom(zoom);
     if(LagoonSettings_TakeAchievementsRequest())LagoonHost_OpenAchievements();
     if(LagoonSettings_TakeReturnRequest()){
         LagoonReturnStatus status;
         if(!LagoonReturnRuntime_Request(&status)){
-            LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_PREVIOUS_TAB);
+            LagoonHost_OpenSettings();LagoonSettings_Command(LAGOON_SETTINGS_PREVIOUS_TAB);
             LagoonSettings_SetTravelStatus(status.message,0);
         }
     }
@@ -243,7 +269,7 @@ static void LagoonHost_ReturnSelftest(unsigned frame){
     if(at<0||frame<(unsigned)at)return;at=-1;
     LagoonReturnStatus status;LagoonReturnRuntime_GetStatus(&status);
     fprintf(stderr,"[lagoon-return-test] frame=%u reason=%u %s\n",frame,status.reason,status.message);
-    LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_PREVIOUS_TAB);
+    LagoonHost_OpenSettings();LagoonSettings_Command(LAGOON_SETTINGS_PREVIOUS_TAB);
     LagoonHost_TravelStatus();LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);
     LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);LagoonHost_SettingsRequest();
     /* A refused request leaves no modal running in an unattended fixture. */
@@ -251,24 +277,44 @@ static void LagoonHost_ReturnSelftest(unsigned frame){
 }
 static void LagoonHost_AfterConfig(void) {
     LagoonWide_AfterConfig();
-    LagoonSettings_Configure(lagoon_config_path);
+    LagoonSettings_Configure(lagoon_config_path);LagoonSettings_SetZoom(LagoonWide_GetZoom());
+    memset(&lagoon_zoom_key,0,sizeof lagoon_zoom_key);memset(&lagoon_zoom_pad,0,sizeof lagoon_zoom_pad);
+    lagoon_zoom_pad_pending=lagoon_zoom_back_held=0;
 }
 static int LagoonHost_Gamepad(int button,int pressed) {
+    if(button==kGamepadBtn_Back){lagoon_zoom_back_held=pressed!=0;if(pressed)lagoon_zoom_pad_pending=0;return 0;}
+    if(button==kGamepadBtn_R3){
+        int activate=0,consume;
+        if(pressed){
+            consume=LagoonZoomButton_Update(&lagoon_zoom_pad,1,!lagoon_zoom_back_held,LagoonHost_ZoomAllowed(),&activate);
+            if(activate)lagoon_zoom_pad_pending=1;
+        }else{
+            unsigned pending=lagoon_zoom_pad_pending;lagoon_zoom_pad_pending=0;
+            consume=LagoonZoomButton_Update(&lagoon_zoom_pad,0,0,0,&activate);
+            /* Release avoids competing with the existing Select+R3 rewind
+             * gesture, including a Select press after the stick click. */
+            if(pending&&!lagoon_zoom_back_held)LagoonHost_CycleZoom();
+        }
+        return consume;
+    }
     if(button==kGamepadBtn_L2){
+        if(pressed)lagoon_zoom_pad_pending=0;
         if(pressed&&!LagoonSettings_IsOpen()&&!LagoonAchievementUI_IsOpen()&&!LagoonEasterEgg_IsOpen())LagoonMap_Command(LAGOON_MAP_TOGGLE);
         return 1;
     }
     if(button==kGamepadBtn_R2){
+        if(pressed)lagoon_zoom_pad_pending=0;
         if(pressed){
             if(LagoonAchievementUI_IsOpen())LagoonAchievementUI_Close();
             else if(LagoonEasterEgg_IsOpen())LagoonEasterEgg_Close();
             else if(LagoonSettings_IsOpen())LagoonSettings_Close();
-            else {LagoonMap_Command(LAGOON_MAP_CLOSE);LagoonSettings_Open();}
+            else {LagoonMap_Command(LAGOON_MAP_CLOSE);LagoonHost_OpenSettings();}
         }return 1;
     }return 0;
 }
 static int LagoonHost_PollOverlay(uint32_t human) {
     LagoonHost_StartSession();LagoonHost_Generation();LagoonHost_SettingsRequest();
+    if(LagoonSettings_IsOpen()||LagoonMap_IsOpen()||LagoonAchievementUI_IsOpen()||LagoonEasterEgg_IsOpen()||snes_savestate_menu_is_open()||snes_rewind_is_open())lagoon_zoom_pad_pending=0;
     if(LagoonSettings_IsOpen())LagoonHost_TravelStatus();
     LagoonEasterCollision_BeforeFrame();
     if(LagoonAchievementUI_IsOpen())return LagoonAchievementUI_PollOpen(human);
@@ -290,7 +336,7 @@ static void LagoonHost_TickOverlay(uint32_t human,uint32_t ticks) {
         cameo_laugh_until=ticks+LagoonAchievementSound_LaughDurationMs()+100;
     }
     LagoonHost_SettingsRequest();LagoonHost_TestObserve(~0u);
-    if(menu_test_pumps&&++menu_test_pumps>12){LagoonSettings_Close();LagoonAchievementUI_Close();menu_test_pumps=0;}
+    if(menu_test_pumps&&++menu_test_pumps>12){LagoonSettings_Close();LagoonAchievementUI_Close();LagoonEasterEgg_Close();menu_test_pumps=0;}
 }
 static int LagoonHost_OverlayImage(const uint32_t **pixels,int *width,int *height) {
     if(LagoonAchievementUI_IsOpen())return LagoonAchievementUI_Image(pixels,width,height);
@@ -381,6 +427,13 @@ static int LagoonHost_MapKey(int key,int modifiers,int pressed) {
     /* The framework modal callback passes key only; use SDL's live modifier
      * state there as well so the same close chord works while paused. */
     modifiers|=SDL_GetModState();
+    if(key==SDLK_Z){
+        int activate=0;
+        int consume=LagoonZoomButton_Update(&lagoon_zoom_key,pressed,
+            (modifiers&KMOD_CTRL)&&!(modifiers&(KMOD_ALT|KMOD_GUI)),LagoonHost_ZoomAllowed(),&activate);
+        if(activate)LagoonHost_CycleZoom();
+        if(consume)return 1;
+    }
     if(present("SNESRECOMP_INPUT_TRACE"))fprintf(stderr,"[lagoon-host-key] key=%x modifiers=%x pressed=%d achievements=%d\n",key,modifiers,pressed,LagoonAchievementUI_IsOpen());
     if(key==SDLK_J&&(modifiers&KMOD_CTRL)){
         if(pressed){if(LagoonAchievementUI_IsOpen())LagoonAchievementUI_Close();else LagoonHost_OpenAchievements();}return 1;
@@ -411,7 +464,7 @@ static int LagoonHost_MapKey(int key,int modifiers,int pressed) {
         if(LagoonEasterEgg_TryInteract(SNES_PAD_Y))return 1;
     }
     if(key==SDLK_COMMA&&(modifiers&KMOD_CTRL)){
-        if(pressed){if(LagoonSettings_IsOpen())LagoonSettings_Close();else {LagoonMap_Command(LAGOON_MAP_CLOSE);LagoonSettings_Open();}}return 1;
+        if(pressed){if(LagoonSettings_IsOpen())LagoonSettings_Close();else {LagoonMap_Command(LAGOON_MAP_CLOSE);LagoonHost_OpenSettings();}}return 1;
     }
     if(LagoonSettings_IsOpen()){
         if(pressed)switch(key){
@@ -428,7 +481,7 @@ static int LagoonHost_MapKey(int key,int modifiers,int pressed) {
     }
     int opened=LagoonMap_IsOpen();
     static int m_held;
-    if(key==SDLK_M){if(pressed&&!m_held)LagoonMap_Command(LAGOON_MAP_TOGGLE);m_held=pressed;return 1;}
+    if(key==SDLK_M){if(pressed&&!m_held){lagoon_zoom_pad_pending=0;LagoonMap_Command(LAGOON_MAP_TOGGLE);}m_held=pressed;return 1;}
     if(!opened||!pressed)return 0;
     switch(key){
     case SDLK_ESCAPE:case SDLK_B:LagoonMap_Command(LAGOON_MAP_CLOSE);break;
@@ -451,14 +504,32 @@ static int LagoonHost_DrawFrame(uint8_t *dst,size_t pitch,const uint8_t *field,i
     if(!LagoonWide_DrawFrame(dst,pitch,field,width,height,alpha))
         for(int y=0;y<height;y++)memcpy(dst+(size_t)y*pitch,field+(size_t)y*width*4,(size_t)width*4);
     LagoonBossHud_Draw(dst,pitch,field,(size_t)width*4,(unsigned)width,(unsigned)height,RtlStateGeneration());
-    if(!present("LAGOON_EASTER_EGG_DISABLE"))LagoonEasterEgg_Draw(dst,pitch,(unsigned)width,(unsigned)height,SDL_GetTicks(),RtlStateGeneration());
+    return 1;
+}
+static void LagoonHost_PresentationCompose(uint8_t *dst,size_t pitch,int width,int height,
+    const uint8_t *src,size_t sp,int sw,int sh){
+    LagoonWide_PresentationCompose(dst,pitch,width,height,src,sp,sw,sh);
+    int left=(width-256)/2,top=0;
+    int placed=(width!=sw||height!=sh)&&LagoonSceneRenderer_ViewPlacement(width,height,RtlStateGeneration(),&left,&top);
+    if(!present("LAGOON_EASTER_EGG_DISABLE")&&(placed||(width==sw&&height==sh)))
+        LagoonEasterEgg_DrawView(dst,pitch,width,height,SDL_GetTicks(),RtlStateGeneration(),left,top);
+    /* An opt-in dialogue fixture runs AFTER visibility was published, just
+     * like the human overlay poll between fields. It never bypasses eligibility. */
+    if(menu_test_cameo_pending){
+        LagoonEasterEgg_TryInteract(0);
+        if(LagoonEasterEgg_TryInteract(SNES_PAD_Y)){
+            menu_test_cameo_pending=0;menu_test_pumps=1;
+            uint32_t ticks=SDL_GetTicks();LagoonEasterEgg_PollOpen(0);
+            LagoonEasterEgg_Tick(0,ticks);LagoonEasterEgg_Tick(SNES_PAD_A,ticks);LagoonEasterEgg_Tick(0,ticks);
+        }
+    }
     const uint32_t *image;int iw,ih;
     if(LagoonAchievementUI_ToastImage(&image,&iw,&ih)&&iw<=width&&ih<=height){
         int x=width-iw-4,y=4;if(x<0)x=0;
         for(int row=0;row<ih;row++)memcpy(dst+(size_t)(y+row)*pitch+(size_t)x*4,image+(size_t)row*iw,(size_t)iw*4);
     }
-    return 1;
 }
+
 static void LagoonHost_EndFrame(const uint8_t *field,unsigned number) {
     LagoonWide_EndFrame(field,number);LagoonEasterEgg_EndFrame(RtlStateGeneration());
     LagoonBossHud_ObserveField(g_ppu,g_ram,RtlStateGeneration(),number,g_snesrecomp_last_hdmaen);
@@ -517,7 +588,7 @@ static const SnesDesktopHostGame kGameHost = {
     .end_sim_frame       = LagoonHost_EndFrame,
     .draw_frame          = LagoonHost_DrawFrame,
     .presentation_geometry = LagoonWide_PresentationGeometry,
-    .presentation_compose = LagoonWide_PresentationCompose,
+    .presentation_compose = LagoonHost_PresentationCompose,
 #ifdef _WIN32
     .create_renderer = LagoonD3D11_Create,
     .renderer_title_ui = LagoonD3D11_TitleUi,

@@ -3,6 +3,11 @@
 #pragma once
 void LagoonWide_SetConfigPath(const char *path);
 void LagoonWide_AfterConfig(void);
+/* Main-thread host preference only; no guest state/timing is changed.
+ * Valid extents are100,125,150 percent. Invalid values leave it unchanged. */
+unsigned LagoonWide_GetZoom(void);
+int LagoonWide_SetZoom(unsigned percent);
+
 void LagoonWide_PrepareFrame(int drawable_w, int drawable_h, int *width, int *height);
 void LagoonWide_PresentationGeometry(int sw,int sh,int *width,int *height);
 void LagoonWide_PresentationCompose(uint8_t *dst,size_t pitch,int width,int height,

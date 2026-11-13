@@ -25,7 +25,7 @@ internal static partial class NativeSettings
             Choices: OperatingSystem.IsWindows() ? new[] { new ChoiceItem("auto","Auto (D3D11)"), new ChoiceItem("direct3d11","D3D11"), new ChoiceItem("opengl","OpenGL"),new ChoiceItem("software","Software (diagnostic)") } :
                 new[] { new ChoiceItem("auto","Auto"), new ChoiceItem("opengl","OpenGL"),new ChoiceItem("software","Software (diagnostic)") })),
         new("video.view-extent", "Lagoon", "ViewExtent", new("video.view-extent", "Display", "World zoom out", OptionKind.Choice,
-            OptionValue.From("1"), "Requires widescreen. Reveals more world horizontally and vertically; HUD and menus keep their original pixel size. Authored scenes keep their original composition. Restart after Apply.",
+            OptionValue.From("1"), "Requires widescreen. Apply before launching. During play, change it live in Options → Display → World zoom out, or use R3 release / Ctrl+Z. HUD and menus retain readable pixels; authored scenes keep their composition.",
             Choices: new[] {new ChoiceItem("1","1x (original scale)"),new ChoiceItem("1.25","1.25x zoom out"),new ChoiceItem("1.5","1.5x zoom out")})),
         new("video.pixel-proportions", "Graphics", "DisplayAspect", new("video.pixel-proportions", "Display", "Pixel proportions", OptionKind.Choice,
             OptionValue.From("4:3"), "Square pixels keep original pixel widths equal to their heights. Original CRT proportions stretch pixels horizontally, as on a 4:3 television. Independent of widescreen aspect and world zoom. Restart after Apply.",

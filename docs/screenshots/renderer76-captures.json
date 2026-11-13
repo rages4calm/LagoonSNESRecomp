@@ -1,0 +1,57 @@
+{
+  "version": "0.5.2",
+  "captures": [
+    {
+      "file": "castle-square-zoom150-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "pixel_proportions": "Square pixels (8:7 source display aspect)",
+      "world_zoom": "1.5",
+      "presenter": "D3D11",
+      "shader": "MMPX",
+      "source": "Actual hidden-window GPU readback; not physical fullscreen scanout",
+      "exe_sha256": "e604d2dd44fb99fab961e07454b1f46c1397ac968ebbfa117475bb38e2f20301",
+      "image_sha256": "f570119f1936212d9e0fbb0b0546cf1d860538a21f5e927d3aecfa254564d6c5",
+      "assisted": true
+    },
+    {
+      "file": "phantom-hill-square-zoom150-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "pixel_proportions": "Square pixels (8:7 source display aspect)",
+      "world_zoom": "1.5",
+      "presenter": "D3D11",
+      "shader": "MMPX",
+      "source": "Actual hidden-window GPU readback; not physical fullscreen scanout",
+      "exe_sha256": "e604d2dd44fb99fab961e07454b1f46c1397ac968ebbfa117475bb38e2f20301",
+      "image_sha256": "526a36a60705c868f4180f134db265dcb5d9cb17a32f1307269e123171ac6fd6",
+      "assisted": true
+    },
+    {
+      "file": "atland-square-zoom150-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "pixel_proportions": "Square pixels (8:7 source display aspect)",
+      "world_zoom": "1.5",
+      "presenter": "D3D11",
+      "shader": "MMPX",
+      "source": "Actual hidden-window GPU readback; not physical fullscreen scanout",
+      "exe_sha256": "e604d2dd44fb99fab961e07454b1f46c1397ac968ebbfa117475bb38e2f20301",
+      "image_sha256": "3037fceee813161aa92503d7733a0fe621d7119e83b8103f38eed4d9f1f2e3a6",
+      "assisted": true
+    },
+    {
+      "file": "cameo-dialogue-square-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "pixel_proportions": "Square pixels",
+      "world_zoom": "1.5",
+      "presenter": "D3D11",
+      "source": "Actual hidden-window modal GPU readback after assisted arrival and walking",
+      "exe_sha256": "0831dd8c5a18e4d1eb5a2018f4f86bdcc7a3b9a149723def4e7f5ce536c5b791",
+      "image_sha256": "d55dd8247056d12dc24e3e3f1fed36b6681301bf2996a142a2a293b6d1620945",
+      "assisted": true
+    }
+  ],
+  "scope": "Focused checkpoint movement; Atland uses assisted original door-loader entry. Not a campaign or FPS benchmark."
+}

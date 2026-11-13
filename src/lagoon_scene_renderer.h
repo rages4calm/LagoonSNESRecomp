@@ -70,4 +70,5 @@ int LagoonSceneRenderer_VisitedMapImage(unsigned room,
 /* Read-only original Game Over backdrop identity; no execution authority. */
 int LagoonSceneRenderer_GameOver(const uint8_t *ram,const uint8_t *rom,size_t size);
 
+int LagoonSceneRenderer_ViewPlacement(unsigned width,unsigned height,uint64_t generation,int *left,int *top);
 #endif

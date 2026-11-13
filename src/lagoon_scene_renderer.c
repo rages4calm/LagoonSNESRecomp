@@ -3,6 +3,7 @@
 #include "lagoon_scene_renderer.h"
 #include "lagoon_wide_entities.h"
 #include "lagoon_cloud_view75.h"
+#include "lagoon_cloud_motion76.h"
 #include "snes/ppu.h"
 #include "sha256.h"
 #include "crc32.h"
@@ -46,13 +47,14 @@ typedef struct ScenePacket {
   uint16_t defs[2][1024],vram[32768],pal[256],oam[256];
   uint8_t high[32];
   SceneObject objects[OBJECTS];
-  unsigned count,lines,frame,serial,valid,room;
+  unsigned count,lines,frame,serial,valid,room,refuse_line,refuse_reason;
   uint32_t vram_writes,oam_writes;
   int wx,wy,world_width,world_height;
   unsigned map_fill,fill_meta;
   unsigned native_x,native_y,bg2_x,bg2_y,parallax,finite_clip,gameover;
   unsigned incoming_mosaic,mosaic_size,brightness,mosaic_y_phase,mosaic_backend,mosaic_y_size;
   LagoonCloudView75 cloud;
+  uint8_t cloud_tick;
   SceneOamPolicy policy;
   SceneOamPolicyInputs policy_inputs;
   uint64_t generation;
@@ -74,6 +76,15 @@ typedef struct SceneMismatch {
 static SceneMismatch s_mismatch[64];
 static unsigned s_mismatch_count;
 static uint32_t s_pixels[W*H],s_cloud_underlay[W*H];
+static LagoonCloudMotion76 s_cloud_motion;
+/* Only source-witnessed cloud patterns/palette, not the changing enemy atlas.
+ * The full current packet must still own every retained word before drawing. */
+static struct {
+  uint16_t patterns[0x2000],palette[256];
+  uint8_t used[0x2000],pal_used[256];
+  uint64_t generation;
+  unsigned room,valid;
+} s_cloud_graphics;
 /* One current-area image, not an album of extracted room art. A frozen modal
  * can reuse this image without decoding terrain on every UI presentation. */
 static uint32_t s_map_pixels[1024*1024];
@@ -331,11 +342,26 @@ static void write_report(void) {
       (unsigned long long)s_view_presents,(unsigned long long)s_view_refusals,s_view_width,s_view_height);
   fclose(f);
 }
-/* Diagnostics never flush from a frame/present/audio-sensitive path. */
+/* Summaries are deferred; the explicit temporal trace below performs I/O
+ * and must not be enabled for frame-pacing measurements. */
 static void report(const char *status,unsigned frame,unsigned width) {
   s_status=status;s_report_frame=frame;s_report_width=width;
+  const char *path=getenv("LAGOON_SCENE_RENDERER_TRACE");
+  if(path&&*path){
+    static unsigned sequence;
+    FILE *f=fopen(path,sequence?"a":"w");
+    if(f){const ScenePacket *p=&s_packets[s_complete];
+      if(!sequence)fprintf(f,"sequence\tframe\tstatus\tserial\tvalid\tlines\troom\tgeneration\tobjects\twx\twy\twidth\tcloud\trefuse_line\trefuse_reason\n");
+      fprintf(f,"%u\t%u\t%s\t%u\t%u\t%u\t%u\t%llu\t%u\t%d\t%d\t%u\t%u\t%u\t%u\n",
+        sequence++,frame,status,p->serial,p->valid,p->lines,p->room,
+        (unsigned long long)p->generation,p->count,p->wx,p->wy,width,p->cloud.valid,p->refuse_line,p->refuse_reason);
+      fclose(f);
+    }
+  }
 }
 void LagoonSceneRenderer_Reset(void) {
+  memset(&s_cloud_motion,0,sizeof s_cloud_motion);
+  memset(&s_cloud_graphics,0,sizeof s_cloud_graphics);
   s_view_serial=0;
   init_tables();
   memset(s_packets,0,sizeof(s_packets));s_build=0;s_complete=1;
@@ -488,9 +514,9 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
   map_observe_identity(p,line,r,rom,size,generation,authority);
   ScenePacket *s=&s_packets[s_build];
   if(line==1) {
-    s->valid=0;s->lines=0;s->generation=generation;
+    s->valid=0;s->lines=0;s->generation=generation;s->refuse_line=line;s->refuse_reason=1;
     if(!p||!supported(p,r,rom,size,authority))return;
-    s->valid=1;s->lines=1;s->room=word(r,0x48e);
+    s->valid=1;s->lines=1;s->room=word(r,0x48e);s->refuse_line=s->refuse_reason=0;
     s->incoming_mosaic=authority==LAGOON_SCENE_INCOMING_MOSAIC;
     s->gameover=LagoonSceneRenderer_GameOver(r,rom,size);
     s->mosaic_size=PPU_mosaicSize(p);s->brightness=p->inidisp&15;
@@ -510,6 +536,7 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
     memcpy(s->oam,p->oam,sizeof(s->oam));memcpy(s->high,p->highOam,sizeof(s->high));
     object_policy(&s->policy,p);
     LagoonCloudView75_Capture(&s->cloud,r,rom,size,(const uint8_t*)s->oam,s->high);
+    s->cloud_tick=r[0x408];
     object_policy_inputs(&s->policy_inputs,p);
     s->vram_writes=p->vramWriteCount;s->oam_writes=p->oamWriteCount;
     int x=word(r,0x480),y=word(r,0x482);
@@ -540,14 +567,19 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
         (!s->mosaic_backend&&s->mosaic_y_phase!=p->mosaicStartLine)))||
       memcmp(s->regs,&p->inidisp,sizeof(s->regs))||p->vramWriteCount!=s->vram_writes||
       p->oamWriteCount!=s->oam_writes||memcmp(s->pal,p->cgram,sizeof(s->pal))||
-      memcmp(s->oam,p->oam,sizeof(s->oam))||memcmp(s->high,p->highOam,sizeof(s->high)))s->valid=0;
+      memcmp(s->oam,p->oam,sizeof(s->oam))||memcmp(s->high,p->highOam,sizeof(s->high))){
+      s->valid=0;s->refuse_line=line;s->refuse_reason=!p?2:
+        generation!=s->generation?3:memcmp(s->regs,&p->inidisp,sizeof(s->regs))?4:
+        p->vramWriteCount!=s->vram_writes?5:p->oamWriteCount!=s->oam_writes?6:
+        memcmp(s->pal,p->cgram,sizeof(s->pal))?7:8;
+    }
     else {
       if(!object_policy_inputs_equal(&s->policy_inputs,p)) {
         SceneOamPolicy policy;object_policy(&policy,p);
-        if(memcmp(&policy,&s->policy,sizeof(policy))){s->valid=0;return;}
+        if(memcmp(&policy,&s->policy,sizeof(policy))){s->valid=0;s->refuse_line=line;s->refuse_reason=9;return;}
       }
       s->lines=line;if(line==H&&
-        (memcmp(s->vram,PpuRenderVram(p),sizeof(s->vram))||!objects_equal(s,p)))s->valid=0;
+        (memcmp(s->vram,PpuRenderVram(p),sizeof(s->vram))||!objects_equal(s,p))){s->valid=0;s->refuse_line=line;s->refuse_reason=10;}
     }
   }
 }
@@ -918,6 +950,12 @@ static int view_origin(int camera,int map,int extent,int native){
   if(origin>camera)origin=camera;
   return origin;
 }
+int LagoonSceneRenderer_ViewPlacement(unsigned width,unsigned height,uint64_t generation,int *left,int *top){
+  const ScenePacket *s=&s_packets[s_complete];
+  if(!left||!top||!s->valid||s->generation!=generation||!s_view_serial||s_view_serial!=s->serial)return 0;
+  *left=s->wx-view_origin(s->wx,s->world_width,width,256);
+  *top=s->wy-view_origin(s->wy,s->world_height,height,224);return 1;
+}
 int LagoonSceneRenderer_DrawHud(uint8_t *dst,size_t pitch,unsigned width,unsigned height,uint64_t generation){
   const ScenePacket *s=&s_packets[s_complete];
   if(!dst||width<256||width>W||height<224||height>336||pitch<width*4||!s->valid||
@@ -946,6 +984,50 @@ int LagoonSceneRenderer_DrawHud(uint8_t *dst,size_t pitch,unsigned width,unsigne
   }
   return 1;
 }
+static int cloud_graphics_match(const ScenePacket *s){
+  if(!s_cloud_graphics.valid||s_cloud_graphics.generation!=s->generation||
+      s_cloud_graphics.room!=s->room)return 0;
+  for(unsigned i=0;i<0x2000;i++)if(s_cloud_graphics.used[i]&&
+      s_cloud_graphics.patterns[i]!=s->vram[0x4000+i])return 0;
+  for(unsigned i=0;i<256;i++)if(s_cloud_graphics.pal_used[i]&&
+      s_cloud_graphics.palette[i]!=s->pal[i])return 0;
+  return 1;
+}
+static int cloud_graphics_observe(const ScenePacket *s){
+  if(s->room!=0x28||!cloud_graphics_match(s)){
+    memset(&s_cloud_motion,0,sizeof s_cloud_motion);
+    memset(&s_cloud_graphics,0,sizeof s_cloud_graphics);
+  }
+  if(s->room!=0x28)return 0;
+  if(s->cloud.valid){
+    /* Capture already bound this literal shape to the original cloud OAM
+     * producer. Learn only its referenced four-plane characters and palette;
+     * a later independently witnessed style can add its own literal cells. */
+    s_cloud_graphics.generation=s->generation;s_cloud_graphics.room=s->room;
+    for(unsigned i=0;i<s->cloud.count;i++){
+      const LagoonWideCell *c=&s->cloud.cells[i];
+      unsigned base=(c->tile&0x100)?0x5000:0x4000;
+      for(unsigned y=0;y<c->size;y+=8)for(unsigned x=0;x<c->size;x+=8){
+        unsigned ch=(((((c->tile&255)>>4)+(y>>3))<<4)|(((c->tile&15)+(x>>3))&15));
+        unsigned address=base+ch*16;
+        if(address<0x4000||address+16>0x6000){
+          memset(&s_cloud_graphics,0,sizeof s_cloud_graphics);return 0;
+        }
+        for(unsigned k=0;k<16;k++){
+          s_cloud_graphics.used[address-0x4000+k]=1;
+          s_cloud_graphics.patterns[address-0x4000+k]=s->vram[address+k];
+        }
+      }
+      unsigned palette=128+((c->tile>>9)&7)*16;
+      for(unsigned k=0;k<16;k++){
+        s_cloud_graphics.pal_used[palette+k]=1;
+        s_cloud_graphics.palette[palette+k]=s->pal[palette+k];
+      }
+    }
+    s_cloud_graphics.valid=1;
+  }
+  return cloud_graphics_match(s);
+}
 int LagoonSceneRenderer_DrawView(uint8_t *dst,size_t pitch,unsigned width,unsigned height,
     const uint8_t *source,size_t sp,unsigned sw,unsigned sh,uint64_t generation){
   const ScenePacket *s=&s_packets[s_complete];
@@ -956,10 +1038,16 @@ int LagoonSceneRenderer_DrawView(uint8_t *dst,size_t pitch,unsigned width,unsign
   const int left=s->wx-view_origin(s->wx,s->world_width,width,256);
   const int top=s->wy-view_origin(s->wy,s->world_height,height,224);
   const int source_left=(int)(sw-256)/2;
-  int cloud_dx=0,cloud_dy=0;
-  if(s->cloud.valid){int cx,cy;LagoonCloudView75_RemapAnchor(&s->cloud,-left,-top,width,height,&cx,&cy);
-    cloud_dx=cx-s->cloud.anchor_x;cloud_dy=cy-s->cloud.anchor_y;
-    render_into(s,sw,s_cloud_underlay,1);}
+  LagoonCloudMotion76Sample cloud_view;
+  int cloud_owned=cloud_graphics_observe(s);
+  int cloud_visible=LagoonCloudMotion76_Step(&s_cloud_motion,s->generation,s->room,
+      s->cloud_tick,s->wx,s->wy,-left,-top,width,height,
+      s->cloud.valid?&s->cloud:NULL,cloud_owned,&cloud_view);
+  int cloud_dx=cloud_visible?cloud_view.x-cloud_view.shape->anchor_x:0;
+  int cloud_dy=cloud_visible?cloud_view.y-cloud_view.shape->anchor_y:0;
+  /* Current native-cloud suppression is independent of the longer cosmetic
+   * lifespan. The guest may retire/reseed while the expanded cloud is visible. */
+  if(s->cloud.valid)render_into(s,sw,s_cloud_underlay,1);
   for(unsigned y=0;y<height;y++){
     int ny=(int)y-top;
     uint8_t depth[W],obj_depth[W],cloud_mask[W];uint16_t colors[W],obj_color[W];uint64_t rank[W];
@@ -1022,8 +1110,8 @@ int LagoonSceneRenderer_DrawView(uint8_t *dst,size_t pitch,unsigned width,unsign
         else memcpy(dst+y*pitch+dx*4,source+ny*sp+x*4,4);
       }
     }
-    if(s->cloud.valid&&y<height-34)for(unsigned i=0;i<s->cloud.count;i++){
-      const LagoonWideCell *c=&s->cloud.cells[i];int dy=ny-cloud_dy-c->y;
+    if(cloud_visible&&y<height-34)for(unsigned i=0;i<cloud_view.shape->count;i++){
+      const LagoonWideCell *c=&cloud_view.shape->cells[i];int dy=ny-cloud_dy-c->y;
       if(dy<0||dy>=(int)c->size)continue;
       unsigned sy=(c->tile&0x8000)?c->size-1-dy:(unsigned)dy;
       for(unsigned dx=0;dx<c->size;dx++){

@@ -88,9 +88,37 @@ static struct {
   uint8_t obsel,oam_priority;
 } s_retained_objects;
 static uint64_t s_captures, s_validated, s_rejected, s_emitted;
+static const uint8_t *s_render_packet;
+static uint64_t s_render_generation;
+static unsigned s_diag_producer,s_diag_queue,s_diag_far_candidates,s_diag_far_owned,s_diag_queued_groups,s_diag_far_groups;
+static uint64_t s_trace_sequence;
+static unsigned first_difference(const uint8_t *a,const uint8_t *b,unsigned start,unsigned length){
+  for(unsigned i=0;i<length;i++)if(a[start+i]!=b[start+i])return start+i;
+  return 0;
+}
+static void trace_entities(const char *status,unsigned entity,unsigned cell){
+  const char *base=getenv("LAGOON_WIDE_ENTITY_REPORT");if(!base)return;
+  char path[4096];if(snprintf(path,sizeof path,"%s.frames.tsv",base)>=(int)sizeof path)return;
+  FILE *f=fopen(path,"a");if(!f)return;fseek(f,0,SEEK_END);
+  if(!ftell(f))fprintf(f,"sequence\tframe\tstatus\tcapture_serial\tlast_serial\tgeneration\tcapture_generation\tvalid\tproducer_valid\tproducer_used\troom\tcapture_room\tobjects\tppu_objects\tqueue\tqueued_groups\tfar_candidates\tfar_owned\tfar_groups\tatlas_ready\tatlas_bytes\tcaptured_actor_diff\tproducer_actor_diff\tcapture_camera_diff\tproducer_camera_diff\tentity\tcell\n");
+  fprintf(f,"%llu\t%d\t%s\t%u\t%u\t%llu\t%llu\t%d\t%d\t%u\t%u\t%u\t%zu\t%zu\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n",
+    (unsigned long long)++s_trace_sequence,snes_frame_counter,status,s_frame.serial,s_last_serial,
+    (unsigned long long)RtlStateGeneration(),(unsigned long long)s_frame.generation,s_frame.valid,s_frame.producer_valid,s_diag_producer,
+    g_ram[0x48e]|g_ram[0x48f]<<8,s_frame.ram[0x48e]|s_frame.ram[0x48f]<<8,
+    s_object_count,g_ppu?g_ppu->extraObjectCount:0,s_diag_queue,s_diag_queued_groups,s_diag_far_candidates,s_diag_far_owned,s_diag_far_groups,
+    s_atlas.ready,s_atlas.completed,first_difference(s_frame.ram,g_ram,0x500,0x840),
+    s_frame.producer_valid?first_difference(s_frame.producer_ram,g_ram,0x500,0x840):0,
+    first_difference(s_frame.ram,g_ram,0x480,4),s_frame.producer_valid?first_difference(s_frame.producer_ram,g_ram,0x480,4):0,entity,cell);
+  fclose(f);
+}
+static void clear_extra_objects(const char *reason,unsigned address){
+  if(g_ppu&&g_ppu->extraObjectCount)trace_entities(reason,address,0);
+  PpuSetExtraObjects(g_ppu,NULL,0);
+}
 static void report_status(const char *status, unsigned entity, unsigned cell) {
   const char *path = getenv("LAGOON_WIDE_ENTITY_REPORT");
   if (!path) return;
+  trace_entities(status,entity,cell);
   unsigned left = 0, right = 0;
   for (size_t i = 0; i < s_object_count; ++i) {
     left += s_objects[i].x < 0;
@@ -1432,11 +1460,29 @@ int LagoonWideAtlas_RebindResident(LagoonWideAtlas *a,const uint8_t *rom,
 static unsigned ram_word(const uint8_t *ram, unsigned a) { return ram[a] | (ram[a + 1] << 8); }
 static unsigned ram_pointer(const uint8_t *ram, unsigned a) { return ram_word(ram,a) | (ram[a+2]<<16); }
 static int signed_word(unsigned v) { return (int16_t)v; }
-static int producer_context(const uint8_t *a,const uint8_t *b) {
+static int producer_resource_context(const uint8_t *a,const uint8_t *b) {
   return !a[0x100e]&&!b[0x100e]&&
-    !memcmp(a+0x50,b+0x50,56)&&!memcmp(a+0x480,b+0x480,4)&&
-    !memcmp(a+0x48e,b+0x48e,2)&&!memcmp(a+0x90,b+0x90,4)&&
+    !memcmp(a+0x50,b+0x50,56)&&!memcmp(a+0x48e,b+0x48e,2)&&!memcmp(a+0x90,b+0x90,4)&&
     a[0x4e1]==b[0x4e1]&&LagoonSceneRenderer_ExactRoom(a)&&LagoonSceneRenderer_ExactRoom(b);
+}
+static int producer_context(const uint8_t *a,const uint8_t *b) {
+  return producer_resource_context(a,b)&&!memcmp(a+0x480,b+0x480,4);
+}
+/* The original draw/queue observer and OAM-DMA handoff established this
+ * immutable producer, before a later CPU iteration could change its camera,
+ * actor positions or clocks. Current RAM still qualifies room/resource and
+ * lifetime; actual complete PPU OAM and generation still qualify display.
+ * A self-peer below is a consequence of this independent producer proof,
+ * never a substitute for the observer/OAM/source ownership checks. */
+static int completed_render_packet(const uint8_t *r) {
+  return r&&r==s_render_packet&&r==s_frame.producer_ram&&s_frame.valid&&s_frame.producer_valid&&
+    s_render_generation==s_frame.generation&&s_render_generation==RtlStateGeneration()&&
+    g_ppu&&!memcmp(s_frame.oam,g_ppu->oam,512)&&!memcmp(s_frame.oam+512,g_ppu->highOam,32)&&
+    producer_context(r,s_frame.ram)&&producer_resource_context(r,g_ram)&&s_atlas.ready&&
+    s_atlas.generation==s_render_generation&&s_atlas.room==ram_word(r,0x48e)&&s_atlas.source==ram_pointer(r,0x5d);
+}
+static const uint8_t *render_pose_peer(const uint8_t *r) {
+  return completed_render_packet(r)?r:g_ram;
 }
 static int producer_sorted_queue(const uint8_t *before,const uint8_t *after) {
   unsigned n=ram_word(before,0x48c);if(n>64||n!=ram_word(after,0x48c))return 0;
@@ -1522,7 +1568,7 @@ static int decode_queued_entity(const uint8_t *ram,unsigned entity,unsigned fram
     }
   }
   if(recovered) {
-    if(memcmp(ram+0x480,g_ram+0x480,4)||!s_atlas.ready||s_atlas.generation!=s_frame.generation||
+    if(memcmp(ram+0x480,render_pose_peer(ram)+0x480,4)||!s_atlas.ready||s_atlas.generation!=s_frame.generation||
         s_atlas.room!=ram[0x48e]||s_atlas.source!=ram_pointer(ram,0x5d))return -1;
     for(int i=0;i<n;++i)if(!LagoonWideAtlas_CellOwned(&s_atlas,
         PPU_objTileAdr1(g_ppu),PPU_objTileAdr2(g_ppu),&cells[i]))return -1;
@@ -1551,7 +1597,7 @@ static void observe_vram_byte(uint32_t adr,uint8_t value) {
   LagoonWideMagic_Write(&s_magic_atlas,adr,value);
   if(adr>=0xb800 && adr<0xc000) {
     if(s_has_magic && g_ppu) {
-      s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;PpuSetExtraObjects(g_ppu,NULL,0);
+      s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;clear_extra_objects("vram-magic-overwrite",adr);
     }
     if(s_retained_objects.has_magic)s_retained_objects.valid=0;
   }
@@ -1562,7 +1608,7 @@ static void observe_vram_byte(uint32_t adr,uint8_t value) {
   LagoonWideDeath_Write(&s_death_atlas,adr,value);
   if(death_write && s_retained_objects.has_common)s_retained_objects.valid=0;
   if(death_write && s_has_death && g_ppu) {
-    s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;PpuSetExtraObjects(g_ppu,NULL,0);
+    s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;clear_extra_objects("vram-common-overwrite",adr);
   }
   if(s_atlas.generation!=generation) {
     LagoonWideAtlas_Reset(&s_atlas);s_atlas.generation=generation;
@@ -1572,11 +1618,11 @@ static void observe_vram_byte(uint32_t adr,uint8_t value) {
   LagoonWideAtlas_Write(&s_atlas,adr);
   if(adr>=0x8800 && adr<0xb200 && s_retained_submitted) {
     s_retained_objects.valid=0;s_retained_submitted=0;
-    s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;PpuSetExtraObjects(g_ppu,NULL,0);
+    s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;clear_extra_objects("vram-retained-atlas-overwrite",adr);
   }
   /* An unrecognized same-frame overwrite must not leave cached far pixels. */
   if (was_owned && !expected && g_ppu && g_ppu->extraObjectCount) {
-    s_object_count=0; s_has_far=0; s_has_projectile=0;s_has_magic=0;s_retained_submitted=0; PpuSetExtraObjects(g_ppu,NULL,0);
+    s_object_count=0; s_has_far=0; s_has_projectile=0;s_has_magic=0;s_retained_submitted=0; clear_extra_objects("vram-unexpected-atlas-write",adr);
   }
 }
 static void observe_dma(const Dma *dma,unsigned channel,const DmaChannel *t) {
@@ -1598,7 +1644,7 @@ static void observe_dma(const Dma *dma,unsigned channel,const DmaChannel *t) {
     if (channels==1 && t->mode==1 && t->bAdr==0x18 && !t->fixed && !t->decrement &&
         g_ppu->vramIncrement==1 && g_ppu->vramIncrementOnHigh && !g_ppu->vramRemapMode) {
       if(g_ppu->vramPointer>=0x5c00 && g_ppu->vramPointer<0x6000) {
-        if(s_has_magic) {s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;PpuSetExtraObjects(g_ppu,NULL,0);}
+        if(s_has_magic) {s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;clear_extra_objects("dma-magic-replacement",g_ppu->vramPointer);}
         if(s_retained_objects.has_magic)s_retained_objects.valid=0;
         int accepted=channel==1 && LagoonWideMagic_Begin(&s_magic_atlas,RtlStateGeneration(),
             ram_word(g_ram,0x48e),g_rom,kRomSize,g_ram[0x537],t->aBank,t->aAdr,g_ppu->vramPointer,t->size);
@@ -1608,11 +1654,11 @@ static void observe_dma(const Dma *dma,unsigned channel,const DmaChannel *t) {
        * newly recognized bytes can establish a different room-atlas owner. */
       if(g_ppu->extraObjectCount && g_ppu->vramPointer>=0x4400 && g_ppu->vramPointer<0x5900) {
         if(s_retained_submitted)s_retained_objects.valid=0;
-        s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;PpuSetExtraObjects(g_ppu,NULL,0);
+        s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;clear_extra_objects("dma-atlas-replacement",g_ppu->vramPointer);
       }
       if(g_ppu->vramPointer>=0x4300 && g_ppu->vramPointer<0x4400) {
         if(s_retained_objects.has_common)s_retained_objects.valid=0;
-        if(s_has_death) {s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;PpuSetExtraObjects(g_ppu,NULL,0);}
+        if(s_has_death) {s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;clear_extra_objects("dma-common-replacement",g_ppu->vramPointer);}
         int accepted=channel==1 && LagoonWideDeath_Begin(&s_death_atlas,RtlStateGeneration(),g_rom,kRomSize,
             t->aBank,t->aAdr,g_ppu->vramPointer,t->size);
         if(!accepted)LagoonWideDeath_Reset(&s_death_atlas);
@@ -1635,13 +1681,14 @@ void LagoonWideEntities_Init(void) {
   dma_set_start_observer(observe_dma); ppu_set_vram_write_log_hook(observe_vram_byte);
 }
 void LagoonWideEntities_Reset(void) {
+  s_render_packet=NULL;s_render_generation=0;
   LagoonWideSpell3_Reset();
   s_retained_objects.valid=0;
   s_frame.valid=0; s_last_serial=0; s_object_count=0; s_has_far=0; s_has_projectile=0;s_has_magic=0;s_retained_submitted=0; s_pose_room_key=0; s_pose_generation=0;
   s_frame.producer_valid=0;memset(&s_draw_producer,0,sizeof s_draw_producer);
   memset(s_pose,0,sizeof(s_pose));memset(s_native_pose,0,sizeof(s_native_pose)); memset(s_kind_witness,0,sizeof(s_kind_witness));
   LagoonWideAtlas_Reset(&s_atlas);LagoonWideDeath_Reset(&s_death_atlas);LagoonWideMagic_Reset(&s_magic_atlas);s_has_death=0;s_has_magic=0;
-  if (g_ppu) PpuSetExtraObjects(g_ppu,NULL,0);
+  if (g_ppu) clear_extra_objects("timeline-reset",0);
 }
 void LagoonWideEntities_RebindLoaded(void) {
   /* Successful-load authority comes from the caller's one-shot scene gate.
@@ -1828,8 +1875,9 @@ int LagoonWideEntities_RetainedSceneValid(void) {
   return 1;
 }
 void LagoonWideEntities_BeginRetained(int enabled) {
+  s_render_packet=NULL;
   s_object_count=0;s_has_far=0;s_has_magic=0;s_has_death=0;s_has_projectile=0;s_retained_submitted=0;
-  PpuSetExtraObjects(g_ppu,NULL,0);
+  clear_extra_objects("retained-begin",0);
   if(enabled && LagoonWideEntities_RetainedSceneValid()) {
     if(!s_retained_objects.native_anchors)PpuSetExtraObjects(g_ppu,s_retained_objects.objects,s_retained_objects.count);
     else {
@@ -1912,13 +1960,13 @@ static int pose_centered(const uint8_t *ram,unsigned a) {
     ram_word(ram,a+14)==((ram_word(ram,a+4)-ram_word(ram,0x482))&65535);
 }
 static int native_pose_matches(const uint8_t *ram,unsigned e) {
-  const WideNativePose *w=&s_native_pose[e];unsigned a=0x500+e*64;
+  const WideNativePose *w=&s_native_pose[e];unsigned a=0x500+e*64;const uint8_t *peer=render_pose_peer(ram);
   return w->valid && LagoonSceneRenderer_ExactRoom(ram) && LagoonSceneRenderer_ExactRoom(g_ram) &&
     ram_word(ram,0x48e)==ram_word(g_ram,0x48e) && w->generation==s_frame.generation && w->room==ram_word(ram,0x48e) &&
     w->source==ram_pointer(ram,0x5d) && w->width==ram_word(ram,0x53) && w->height==ram_word(ram,0x55) &&
     w->dp90==ram_word(ram,0x90) && w->dp90==ram_word(g_ram,0x90) &&
-    pose_record_equal(w->record,ram+a) && pose_record_equal(ram+a,g_ram+a) &&
-    pose_centered(ram,a) && pose_centered(g_ram,a) &&
+    pose_record_equal(w->record,ram+a) && pose_record_equal(ram+a,peer+a) &&
+    pose_centered(ram,a) && pose_centered(peer,a) &&
     !memcmp(w->atlas,PpuRenderVram(g_ppu)+0x4400,sizeof(w->atlas)) &&
     !memcmp(w->palette,g_ppu->cgram,sizeof(w->palette));
 }
@@ -1929,19 +1977,19 @@ static int current_pose_frame(const uint8_t *ram,unsigned e,uint8_t *frame) {
     g_ppu->bgXsc[0]==0x71 && g_ppu->bgXsc[1]==(ram[0x50]?0x7a:0x79) &&
     g_ppu->bgXsc[2]==0x3c && g_ppu->bgTileAdr==0x600 && !g_ppu->mosaic &&
     !g_ppu->setini && !g_ppu->cgadsub && !g_ppu->windowsel && !(g_ppu->cgwsel&1) &&
-    LagoonWideEntities_CurrentFrame(g_rom,kRomSize,ram,g_ram,e*64,frame);
+    LagoonWideEntities_CurrentFrame(g_rom,kRomSize,ram,render_pose_peer(ram),e*64,frame);
 }
 static int producer_pose_frame(const uint8_t *ram,unsigned e,uint8_t *frame) {
   if(!s_frame.producer_valid||!producer_context(s_frame.producer_ram,ram)||
-      !producer_context(s_frame.producer_ram,g_ram))return 0;
+      !producer_resource_context(s_frame.producer_ram,g_ram))return 0;
   const uint8_t *p=s_frame.producer_ram;unsigned a=0x500+e*64;
-  const uint8_t *r=p+a,*now=g_ram+a;
+  const uint8_t *peer=render_pose_peer(p),*r=p+a,*now=peer+a;
   /* Original ordinary NPC animation at the completed draw producer only.
    * Neither a current/future pose nor an actor AI step is reconstructed.
    * The old CurrentFrame full-record equality path remains unchanged. */
   if(r[24]!=1||(r[0]&0xc8)!=0xc0||(now[0]&0xc0)!=0xc0||now[24]!=1||now[27]!=r[27]||
       !pose_centered(p,a)||!follower_record(g_rom,kRomSize,p,r)||
-      !follower_record(g_rom,kRomSize,g_ram,now)||
+      !follower_record(g_rom,kRomSize,peer,now)||
       !source_hash(g_rom,kRomSize,0x01c1c6,78,UINT64_C(0x923d6369f8f0853c)))return 0;
   LagoonWideAnimation animation={r[16],r[17]};uint8_t expected;
   if(!LagoonWideEntities_FrameForContext(g_rom,kRomSize,p,r,&animation,0,&expected)||
@@ -1950,7 +1998,7 @@ static int producer_pose_frame(const uint8_t *ram,unsigned e,uint8_t *frame) {
 }
 static int producer_prop_frame(unsigned e,uint8_t *frame) {
   if(!s_frame.producer_valid||e>=kEntities)return 0;
-  const uint8_t *p=s_frame.producer_ram,*r=p+0x500+e*64,*now=g_ram+0x500+e*64;
+  const uint8_t *p=s_frame.producer_ram,*peer=render_pose_peer(p),*r=p+0x500+e*64,*now=peer+0x500+e*64;
   /* C44E consumes the completed producer's literal0C/0E coordinates. The
    * next CPU iteration may already have advanced the camera and rewritten
    * these coordinates; it does not own the OAM being displayed. Bind the
@@ -1969,7 +2017,7 @@ static int producer_prop_frame(unsigned e,uint8_t *frame) {
       g_ppu->inidisp!=15||g_ppu->bgmode!=9||g_ppu->bgXsc[0]!=0x71||
       g_ppu->bgXsc[1]!=0x79||g_ppu->bgXsc[2]!=0x3c||g_ppu->bgTileAdr!=0x600||
       g_ppu->mosaic||g_ppu->setini||g_ppu->cgadsub||g_ppu->windowsel||(g_ppu->cgwsel&1))return 0;
-  for(unsigned layer=0;layer<2;++layer)
+  if(!completed_render_packet(p))for(unsigned layer=0;layer<2;++layer)
     if((g_ppu->hScroll[layer]&1023)!=(ram_word(p,0x480)&1023)||
        (g_ppu->vScroll[layer]&1023)!=(ram_word(p,0x482)&1023))return 0;
   *frame=0x3e;return 1;
@@ -2027,7 +2075,9 @@ static int player_packet_cells(const uint8_t *r,const uint8_t *oam,uint8_t *used
   memcpy(used,marked,sizeof marked);return count;
 }
 void LagoonWideEntities_BeginFrame(int enabled) {
-  s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;PpuSetExtraObjects(g_ppu,NULL,0);
+  s_render_packet=NULL;s_render_generation=0;
+  s_diag_producer=s_diag_queue=s_diag_far_candidates=s_diag_far_owned=s_diag_queued_groups=s_diag_far_groups=0;
+  s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;clear_extra_objects("frame-begin",0);
   if(!enabled || !s_frame.valid) {report_status("inactive-or-no-capture",0,0);return;}
   if(s_frame.generation!=RtlStateGeneration() || g_ppu->obsel!=2 || PPU_objPriority(g_ppu)) {
     report_status("unsupported-timeline-or-obj-layout",0,0);return;
@@ -2036,12 +2086,13 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     report_status("oam-fingerprint-mismatch",0,0);return;
   }
   int producer_packet=s_frame.producer_valid&&
-    producer_context(s_frame.producer_ram,s_frame.ram)&&producer_context(s_frame.producer_ram,g_ram)&&
+    producer_context(s_frame.producer_ram,s_frame.ram)&&producer_resource_context(s_frame.producer_ram,g_ram)&&
     s_atlas.ready&&s_atlas.generation==s_frame.generation&&
     s_atlas.room==ram_word(s_frame.producer_ram,0x48e)&&
     s_atlas.source==ram_pointer(s_frame.producer_ram,0x5d);
   const uint8_t *ram=producer_packet?s_frame.producer_ram:s_frame.ram;
-  if(ram_word(ram,0x48e)!=ram_word(g_ram,0x48e) || ram_word(ram,0x48c)>64) return;
+  s_diag_producer=producer_packet;s_diag_queue=ram_word(ram,0x48c);
+  if(ram_word(ram,0x48e)!=ram_word(g_ram,0x48e) || ram_word(ram,0x48c)>64) {report_status("room-or-queue-context-mismatch",0,0);return;}
   unsigned room=ram_word(ram,0x48e);int additional=room==1 || room==2 || room>=9;
   /* The OAM snapshot and current scene must independently name this exact
    * authored descriptor. Room numbers or shared OBJ art alone grant nothing. */
@@ -2052,6 +2103,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
       g_ppu->mosaic || g_ppu->setini || g_ppu->cgadsub || g_ppu->windowsel || (g_ppu->cgwsel&1))) {
     report_status("unsupported-additional-actor-scene",0,0);return;
   }
+  if(producer_packet){s_render_packet=ram;s_render_generation=s_frame.generation;}
   unsigned roomkey=ram_pointer(ram,0x5d) ^ ((unsigned)ram[0x48e]<<24);
   if(roomkey!=s_pose_room_key || s_pose_generation!=s_frame.generation) {
     memset(s_pose,0,sizeof(s_pose));memset(s_native_pose,0,sizeof(s_native_pose));memset(s_kind_witness,0,sizeof(s_kind_witness));s_pose_room_key=roomkey;s_pose_generation=s_frame.generation;
@@ -2192,6 +2244,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
   for(unsigned e=1;e<kEntities;++e) {
     unsigned a=0x500+e*64,type=ram[a+0x18],kind=ram[a+0x1b];
     if(queued[e] || !atlas_ok || !LagoonWideEntities_AllowedKind(room,type,kind))continue;
+    s_diag_far_candidates++;
     int ordinary=(type==1||type==2) && kind<(type==1?128:64) && s_pose[e].valid && s_kind_witness[type-1][kind];
     int held=native_pose_matches(ram,e);
     uint8_t producer_frame;int produced=type==5?producer_prop_frame(e,&producer_frame):
@@ -2207,15 +2260,17 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     if(produced){frame=producer_frame;used_current=2;}
     else if(!ordinary || !LagoonWideEntities_FrameForContext(g_rom,kRomSize,ram,ram+a,&s_pose[e].animation,0,&frame)) {
       uint8_t current_frame;int current=!held&&current_pose_frame(ram,e,&current_frame);
-      if(!held&&!current)continue;
+      if(!held&&!current){trace_entities("far-pose-not-owned",e*64,first_difference(ram,g_ram,a,64));continue;}
       used_current=current;frame=current?current_frame:ram[a+0x1c]; /* Exact current guest pose; no attack/AI extrapolation. */
     }
     int n=decode_entity(pose_ram,e*64,frame,!produced,cells[e]);
     if(n<=0 || !record_cells_owned(pose_ram,e*64,frame,cells[e],n)) {
+      trace_entities("far-pixels-not-owned",e*64,frame);
       if(s_far_gated<8 && getenv("LAGOON_WIDE_ENTITY_REPORT"))
         fprintf(stderr,"wide-far: unowned entity=%03X kind=%u frame=%u cells=%d x=%d\n",e*64,kind,frame,n,x);
       s_far_gated++;continue;
     }
+    s_diag_far_owned++;
     int deep=1,intersects=0;
     for(int i=0;i<n;++i) {
       LagoonWideCell *c=&cells[e][i];
@@ -2237,6 +2292,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     if((x< -16 || x+sz>272) && y<224 && y+sz>0) {
       if(s_far_gated<8 && getenv("LAGOON_WIDE_ENTITY_REPORT"))
         fprintf(stderr,"wide-far: unsupported deep native slot=%u xy=%d,%d tile=%04X\n",slot,x,y,ram_word(s_frame.oam,slot*4+2));
+      trace_entities("far-depth-unknown-oam",slot,ram_word(s_frame.oam,slot*4+2));
       any_far=0;s_far_gated++;break;
     }
   }
@@ -2246,7 +2302,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     for(unsigned e=0;e<kEntities;++e) if(counts[e]>0 && (queued[e]||far[e]))
       needed+=(unsigned)counts[e]*(queued[e]?2:1);
     for(unsigned j=0;j<16;++j)if(projectile_counts[j]>0)needed+=(unsigned)projectile_counts[j]*2;
-    if(needed>kObjects){any_far=0;s_far_gated++;}
+    if(needed>kObjects){trace_entities("far-object-capacity",needed,0);any_far=0;s_far_gated++;}
   }
   unsigned rank[kEntities]={0};
   if(any_far) for(unsigned e=0;e<kEntities;++e) if((queued[e]||far[e]) && counts[e]>0) {
@@ -2322,6 +2378,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
   }
   if(cell_report)fclose(cell_report);
   if(s_last_serial!=s_frame.serial){s_validated++;s_last_serial=s_frame.serial;}
-  PpuSetExtraObjects(g_ppu,s_objects,s_object_count);report_status("ready",0,0);
+  for(unsigned e=0;e<kEntities;e++){s_diag_queued_groups+=queued[e]&&counts[e]>0;s_diag_far_groups+=any_far&&far[e]&&counts[e]>0;}
+  PpuSetExtraObjects(g_ppu,s_objects,s_object_count);report_status("ready",0,0);s_render_packet=NULL;
 }
 #endif /* runtime */

@@ -94,6 +94,16 @@ int main(int argc,char **argv){
     CHECK(opaque>100&&changed>=opaque);
   }
   CHECK(!memcmp(before,ram,sizeof ram)&&rom_before==source_hash(rom,sizeof rom,0x008000,sizeof rom));
+  /* Expanded world placement translates the exact qualified art once. It
+   * neither scales cells nor clips against the retired224-row field. */
+  fresh();static uint32_t expanded[596*336];
+  for(unsigned i=0;i<256*224;i++)frame[i]=0x12345678;
+  CHECK(LagoonEasterEgg_Draw((uint8_t*)frame,256*4,256,224,0,1));
+  for(unsigned i=0;i<596*336;i++)expanded[i]=0x12345678;
+  CHECK(LagoonEasterEgg_DrawView((uint8_t*)expanded,596*4,596,336,0,1,170,56));
+  for(unsigned y=0;y<224;y++)for(unsigned x=0;x<256;x++)
+    CHECK(expanded[(y+56)*596+x+170]==frame[y*256+x]);
+  CHECK(!LagoonEasterEgg_DrawView((uint8_t*)expanded,596*4,596,336,0,2,170,56));
   /* A foreground player cell keeps native depth order at the visitor's feet. */
   fresh();int body_x=0,body_y=0;
   CHECK(LagoonEasterEgg_CollisionBody(ram,1,&body_x,&body_y)&&body_x==X&&body_y==Y);

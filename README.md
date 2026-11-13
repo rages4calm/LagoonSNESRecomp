@@ -2,13 +2,13 @@
 
 <p align="center"><img src="docs/branding/lagoon-logo.png" width="680" alt="Lagoon — redrawn box-art logo contributed by DarkShadowRage"></p>
 
-[![Windows x64 download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.1/Lagoon-Companion-0.5.1-win-x64.zip)
-[![Linux x64 download](docs/badges/linux.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.1/Lagoon-Companion-0.5.1-linux-x64.tar.gz)
+[![Windows x64 download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.2/Lagoon-Companion-0.5.2-win-x64.zip)
+[![Linux x64 download](docs/badges/linux.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.2/Lagoon-Companion-0.5.2-linux-x64.tar.gz)
 
-[![macOS Apple Silicon download](docs/badges/macos-arm64.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.1/Lagoon-Companion-0.5.1-macos-arm64.tar.gz)
-[![macOS Intel download](docs/badges/macos-intel.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.1/Lagoon-Companion-0.5.1-macos-x64.tar.gz)
+[![macOS Apple Silicon download](docs/badges/macos-arm64.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.2/Lagoon-Companion-0.5.2-macos-arm64.tar.gz)
+[![macOS Intel download](docs/badges/macos-intel.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.2/Lagoon-Companion-0.5.2-macos-x64.tar.gz)
 
-[Release notes & checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.5.1) · [Screenshots](docs/screenshots/README.md) · [Controls](docs/PLAYING.md) · [Build & mod](docs/BUILDING.md)
+[Release notes & checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.5.2) · [Screenshots](docs/screenshots/README.md) · [Controls](docs/PLAYING.md) · [Build & mod](docs/BUILDING.md)
 
 **Lagoon for Windows, Linux and macOS, with 100% native execution of the game's
 main 65816 CPU.** Built with [SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp),
@@ -29,7 +29,11 @@ the ROM, saves or private test captures are included.
 Square pixels, D3D11 MMPX Enhanced pixels and1.5x world zoom out at1920×1080.
 [More screenshots, maps and menus](docs/screenshots/README.md).
 
+**Community full playthrough:** [DarkShadowRage plays Lagoon Recomp](https://www.youtube.com/watch?v=YdY6WtsjzGg).
+
 ## Features
+
+0.5.2 fixes completed-frame actor/door coherence, cloud wind speed and cameo dialogue proportions. Options also includes Quit to desktop with a confirmation. The fixes use matched rendering data without changing enemy aggression or combat balance.
 
 - **Widescreen:** 16:9, 16:10, 21:9, 32:9 and window-driven aspects, with added
   scenery and supported NPCs, enemies, boss parts, projectiles and magic effects.
@@ -39,7 +43,7 @@ Square pixels, D3D11 MMPX Enhanced pixels and1.5x world zoom out at1920×1080.
 - **D3D11 on Windows:** GPU Enhanced pixels, borderless fullscreen and tested
   OBS Game Capture/modern Window Capture through focus changes. OpenGL remains
   available and is used by the Linux/macOS packages.
-- **World zoom out:**1x,1.25x and1.5x reveal additional scenery horizontally
+- **Live world zoom out:**1x,1.25x and1.5x, selectable in Options or with **R3 / Ctrl+Z**, reveal additional scenery horizontally
   and vertically across the playable areas. All74 authored travel areas passed
   a bounded1.5x entry/render check; this is not a new full playthrough. The HUD remains readable over the
   scenery. Original authored scenes keep their original composition.
@@ -95,19 +99,23 @@ No compiler or first-run game recompilation is needed. Windows needs no separate
 first-run ROM setup. Keep `local/` for your saves, settings, map and achievements.
 [Controls and upgrading](docs/PLAYING.md) · [Linux/macOS requirements](docs/PORTING.md) · [Soundtrack details](docs/SOUNDTRACK.md).
 
-## What's new in 0.5.1
+## What's new in 0.5.2
 
-The zoom renderer now restores qualified actor graphics after loading later-game
-save states, draws complete sprites across the old screen/HUD limits, and separates
-HUD glyphs from world sprites. Phantom Hill's cloud travel band follows the
-expanded view. Loading/fade fallbacks preserve world pixel scale instead of
-briefly stretching back to the original view.
+Moving actors and doors now use the camera, pose and animation from the same
+completed draw packet. Advancing game logic no longer invalidates that frame's
+extra-view actors. Cloud wind keeps the original speed independent of zoom,
+without jumping when the original narrow cloud retires or respawns.
 
-**Pixel proportions** offers **Square pixels** and **Original CRT proportions**,
-independently of widescreen and1x/1.25x/1.5x zoom. New installations use square
-pixels; existing saved preferences remain available. Source-bound moving checks
-cover the owner's six available save states, menu return and nearby transitions;
-the older74-area entry sweep is not a substitute for moving-route coverage.
+Crono's dialogue and portrait retain their proportions over the expanded frozen
+world. **Options → Display**, **R3** or **Ctrl+Z** changes zoom immediately;
+**Options → Sound → Quit to desktop** exits after confirmation. Square pixels
+and original CRT proportions remain independent of widescreen and zoom.
+
+Focused checks cover the six available checkpoints, continuous Atland/F1 walking,
+menu return, original transitions and cloud motion. Forty consecutive Atland
+frames retained a door while it crossed the old viewport edge. These checks
+are not a new campaign or a guarantee against every rendering bug. The strict
+native default and explicit interpreter debugging option remain intact.
 
 ## What's new in 0.5.0
 

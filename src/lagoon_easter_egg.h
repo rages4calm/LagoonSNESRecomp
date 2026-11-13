@@ -29,4 +29,5 @@ int LagoonEasterEgg_Image(const uint32_t **pixels,int *width,int *height);
 /* Exactly once after the final page is deliberately completed, never on open,
  * seeing the sprite, cancelling, changing rooms or loading a state. */
 int LagoonEasterEgg_TakeDiscovery(uint64_t *generation);
+int LagoonEasterEgg_DrawView(uint8_t *dst,size_t pitch,unsigned width,unsigned height,uint32_t ticks,uint64_t generation,int native_left,int native_top);
 #endif

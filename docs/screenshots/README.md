@@ -5,30 +5,23 @@ full resolution. Wide fields retain letterboxing on a 16:9 monitor; black beyond
 finite map edges is intentional. These captures are development examples,
 not a full-game rendering or performance guarantee.
 
-## Square pixels and1.5x zoom — 0.5.1
+## Square pixels and live1.5x zoom — 0.5.2
 
-[![Phantom Hill with complete sprites and expanded cloud travel](phantom-hill-square-zoom150-1920x1080.png)](phantom-hill-square-zoom150-1920x1080.png)
+[![Atland streets with coherent doors and world objects](atland-square-zoom150-1920x1080.png)](atland-square-zoom150-1920x1080.png)
+
+[![Phantom Hill with complete sprites and correctly timed cloud travel](phantom-hill-square-zoom150-1920x1080.png)](phantom-hill-square-zoom150-1920x1080.png)
 
 [![Castle movement with its door retained and a clean HUD](castle-square-zoom150-1920x1080.png)](castle-square-zoom150-1920x1080.png)
 
 Actual1920×1080 D3D11 GPU readbacks: **Square pixels + widescreen +1.5x world
-zoom out**, with MMPX. Captured after movement from the owner's late-game saves.
-These hidden-window captures do not certify physical fullscreen scanout.
-[Capture metadata](renderer75-captures.json).
+zoom out**, with MMPX. Captured after movement from checkpoints; Atland uses
+an assisted original door-loader entry. These hidden-window captures do not
+certify physical fullscreen scanout. [Capture metadata](renderer76-captures.json).
 
-## D3D11 and refined pixels — 0.5.0
+[![Visitor dialogue with an undistorted portrait and readable lettering](cameo-dialogue-square-1920x1080.png)](cameo-dialogue-square-1920x1080.png)
 
-Actual **1920×1080 D3D11 GPU readbacks**, with MMPX Enhanced pixels and **1.5x
-world zoom out**. Original artwork is reconstructed by a GPU shader; the HUD
-keeps its source-pixel size over the expanded scenery. These are hidden-window
-captures, not physical fullscreen scanout or an FPS benchmark.
-
-[![Atland, MMPX Enhanced pixels at 1.5x zoom out](atland-mmpx-zoom150-1920x1080.png)](atland-mmpx-zoom150-1920x1080.png)
-
-[![Elf Field, MMPX Enhanced pixels at 1.5x zoom out](elf-field-mmpx-zoom150-1920x1080.png)](elf-field-mmpx-zoom150-1920x1080.png)
-
-The screenshots below show retained EPX, dialogue and map options. EPX remains
-selectable alongside MMPX in Companion. [Display and recording help](../RECORDING.md).
+Change zoom live through **Options → Display**, **R3**, or **Ctrl+Z**.
+[Display and recording help](../RECORDING.md).
 
 ## Atland — Enhanced pixels, 16:9
 

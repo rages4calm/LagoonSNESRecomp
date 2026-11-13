@@ -84,6 +84,12 @@ static bool DrawScreenshotFlash(double t){(void)t;return false;}
 #include "opaque_policy.inc"
 static void clear_counts(void){custom=shader=hd=quad=swap=filter_calls=0;last_filter=999;}
 int main(void){
+  int fx,fy,fw,fh;
+  TitlePanelFit(1192,672,512,448,&fx,&fy,&fw,&fh);
+  assert(fx==212&&fy==0&&fw==768&&fh==672);
+  TitlePanelFit(512,448,512,448,&fx,&fy,&fw,&fh);
+  assert(fx==0&&fy==0&&fw==512&&fh==448);
+
  uint32_t panel[4]={0xff112233,0xff223344,0xff334455,0xff445566};
  assert(TitlePanelOpaque(panel,2,2));
  panel[3]&=0xffffff;assert(!TitlePanelOpaque(panel,2,2));
@@ -132,6 +138,9 @@ def main():
     assert 'const int draw_h = title_canvas ? ph : base_h * draw_scale;' in frozen
     assert 'panel + (size_t)y * (size_t)pw, (size_t)pw * sizeof(*panel)' in frozen
     assert 'if (panel && !title_canvas)' in frozen
+    assert '} else if (is_title)' in frozen
+    assert 'TitlePanelFit(draw_w,draw_h,pw,ph' in frozen
+    assert host.index('g_game->presentation_compose(present_buffer') < host.index('g_frozen_w = presentation_w')
     assert 'is_title && TitlePanelOpaque(panel, pw, ph)' in frozen
     assert frozen.count('snesrecomp_opengl_set_title_ui_frame(false)') == 2
     assert frozen.count('g_title_ui_frame = false;') == 2
@@ -147,7 +156,7 @@ def main():
     a.out.mkdir(parents=True, exist_ok=True)
     (a.out / 'title_setter.inc').write_text(function(gl, 'snesrecomp_opengl_set_title_ui_frame'))
     (a.out / 'end_draw.inc').write_text(function(gl, 'OpenGLRenderer_EndDraw'))
-    (a.out / 'opaque_policy.inc').write_text(function(host, 'TitlePanelOpaque'))
+    (a.out / 'opaque_policy.inc').write_text(function(host, 'TitlePanelOpaque') + function(host, 'TitlePanelFit'))
     fixture = a.out / 'title_ui_policy.c'
     fixture.write_text(FIXTURE)
     exe = a.out / ('title_ui_policy.exe' if __import__('os').name == 'nt' else 'title_ui_policy')

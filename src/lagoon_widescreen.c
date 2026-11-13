@@ -91,6 +91,13 @@ static void report_zoom_placement(int world,int left,int top,int width,int heigh
 }
 
 void LagoonWide_SetConfigPath(const char *path) { if (path) s_config_path = path; }
+unsigned LagoonWide_GetZoom(void){return s_zoom;}
+int LagoonWide_SetZoom(unsigned percent){
+  if(percent!=100&&percent!=125&&percent!=150)return 0;
+  if(s_zoom!=percent){s_zoom=percent;s_zoom_geometry.valid=0;}
+  return 1;
+}
+
 
 static unsigned word(unsigned a) { return g_ram[a] | (g_ram[a + 1] << 8); }
 static unsigned pointer(unsigned a) { return word(a) | (g_ram[a + 2] << 16); }
@@ -146,12 +153,17 @@ static void read_ini(const char *path) {
   FILE *f = fopen(path, "r");
   if (!f) return;
   char line[512], section[64] = "";
+  unsigned first_line=1;
   while (fgets(line, sizeof(line), f)) {
-    char name[64], value[64];
-    if (sscanf(line, " [%63[^]]]", name) == 1) {
+    char name[64], value[64];const char *input=line;
+    if(first_line&&(unsigned char)input[0]==0xef&&(unsigned char)input[1]==0xbb&&(unsigned char)input[2]==0xbf)input+=3;
+    first_line=0;
+    if (sscanf(input, " [%63[^]]]", name) == 1) {
       snprintf(section, sizeof(section), "%s", name);
     } else if (!strcmp(section, "Lagoon") &&
-               sscanf(line, " %63[^= ] = %63s", name, value) == 2) {
+               sscanf(input, " %63[^=] = %63s", name, value) == 2) {
+      size_t length=strlen(name);while(length&&isspace((unsigned char)name[length-1]))name[--length]=0;
+      value[strcspn(value,";#")]=0;
       if(!strcmp(name,"WideAspect"))read_aspect(value);
       if(!strcmp(name,"ViewExtent"))s_zoom=!strcmp(value,"1.5")?150:!strcmp(value,"1.25")?125:100;
     }

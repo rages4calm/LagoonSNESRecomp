@@ -177,22 +177,27 @@ void LagoonEasterEgg_EndFrame(uint64_t generation){
   if(s.build.lines==224&&s.build.valid&&generation==s.generation&&generation==s.build.generation)s.complete=s.build;
   else memset(&s.complete,0,sizeof s.complete);
 }
-int LagoonEasterEgg_Draw(uint8_t *dst,size_t pitch,unsigned width,unsigned height,
-    uint32_t ticks,uint64_t generation){
+int LagoonEasterEgg_DrawView(uint8_t *dst,size_t pitch,unsigned width,unsigned height,
+    uint32_t ticks,uint64_t generation,int native_left,int native_top){
   s.visible=0;
-  if(!dst||width<256||width>800||(width&1)||height!=224||pitch<width*4||pitch%4||pitch>64000||
+  if(!dst||width<256||width>1280||(width&1)||height<224||height>336||pitch<width*4||pitch%4||pitch>64000||
      !LagoonDialogueFont_Ready()||!s.valid||!s.complete.valid||generation!=s.generation||generation!=s.complete.generation)return 0;
-  int left=(int)(width-256)/2+X-s.complete.x-10,top=Y-s.complete.y-35;
-  if(left>= (int)width||left+20<=0||top>=224||top+35<=0)return 0;
+  int left=native_left+X-s.complete.x-10,top=native_top+Y-s.complete.y-35;
+  if(left>= (int)width||left+20<=0||top>=(int)height||top+35<=0)return 0;
   static const uint8_t steps[]={0,2,1,2};unsigned frame=steps[(ticks/180)%4],painted=0;
   for(int y=0;y<35;y++)for(int x=0;x<20;x++){
     unsigned index=cameo_frames[frame][y*20+x];int dx=left+x,dy=top+y;
-    if(index&&!s.complete.foreground[y*20+x]&&dx>=0&&dx<(int)width&&dy>=0&&dy<224){
+    if(index&&!s.complete.foreground[y*20+x]&&dx>=0&&dx<(int)width&&dy>=0&&dy<(int)height){
       ((uint32_t*)(dst+(size_t)dy*pitch))[dx]=cameo_palette[index];painted++;
     }
   }
   if(painted){s.visible=1;s.shown_generation=generation;}
   return painted!=0;
+}
+int LagoonEasterEgg_Draw(uint8_t *dst,size_t pitch,unsigned width,unsigned height,
+    uint32_t ticks,uint64_t generation){
+  if(width>800||height!=224)return 0;
+  return LagoonEasterEgg_DrawView(dst,pitch,width,height,ticks,generation,(int)(width-256)/2,0);
 }
 int LagoonEasterEgg_TryInteract(uint32_t human){
   uint32_t edge=human&~s.prior_world_input;s.prior_world_input=human;

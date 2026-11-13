@@ -50,7 +50,7 @@ int main(int argc,char**argv){
  /* The read-only browser action is a one-shot host request. Selecting it
   * never changes either volume or the owner's settings document. */
  char *unchanged=file_read(path,&n);unsigned before_music=music,before_calls=master_calls;
- LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_UP);assert(selected==2);
+ LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_UP);assert(selected==3);LagoonSettings_Command(LAGOON_SETTINGS_UP);assert(selected==2);
  LagoonSettings_Command(LAGOON_SETTINGS_LEFT);LagoonSettings_Command(LAGOON_SETTINGS_RIGHT);
  assert(music==before_music&&master_calls==before_calls&&!LagoonSettings_TakeAchievementsRequest());
  LagoonSettings_PollOpen(SNES_PAD_A);LagoonSettings_Tick(SNES_PAD_A,800);
@@ -60,7 +60,7 @@ int main(int argc,char**argv){
  result=file_read(path,&n);assert(!strcmp(result,unchanged));free(result);free(unchanged);
  LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);assert(LagoonSettings_IsOpen()&&!LagoonSettings_TakeAchievementsRequest());
  LagoonSettings_Command(LAGOON_SETTINGS_DOWN);LagoonSettings_Command(LAGOON_SETTINGS_DOWN);assert(selected==2);
- LagoonSettings_Command(LAGOON_SETTINGS_DOWN);assert(selected==0);LagoonSettings_Close();
+ LagoonSettings_Command(LAGOON_SETTINGS_DOWN);assert(selected==3);LagoonSettings_Command(LAGOON_SETTINGS_DOWN);assert(selected==0);LagoonSettings_Close();
  /* Host tabs consume copied context, never a borrowed/mutable game view. */
  unsigned char source[8192]={0},source_before[8192];source[0x4d0]=0x80;memcpy(source_before,source,sizeof source);
  LagoonSettings_Observe(source,sizeof source);assert(!memcmp(source,source_before,sizeof source)&&context_size==8192);
@@ -162,6 +162,96 @@ int main(int argc,char**argv){
  LagoonSettings_Open();assert(!LagoonSettings_TakeReturnRequest()); /* a fresh overlay cannot replay an old request */
  LagoonSettings_SetTravelStatus(NULL,0);assert(!travel_available&&!strcmp(travel_status,"Return is unavailable here."));
  LagoonSettings_Configure(path);assert(!travel_available&&!travel_confirming&&!travel_status[0]&&!LagoonSettings_TakeReturnRequest());
+ /* Quit is an explicit host request with a default-Cancel confirmation.
+  * No save, preference, guest context, or volume is changed by this panel. */
+ write_file(path,original);LagoonSettings_Configure(path);
+ unchanged=file_read(path,&n);before_music=music;before_calls=master_calls;
+ LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_UP);assert(selected==3);
+ LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);assert(opened&&quit_confirming&&!quit_selected&&!LagoonSettings_TakeQuitRequest());
+ assert(LagoonSettings_Image(&pixels,&width,&height));
+ if(argc>2){char out[1024];snprintf(out,sizeof out,"%s.quit.ppm",argv[2]);FILE*f=fopen(out,"wb");assert(f);fprintf(f,"P6\n%d %d\n255\n",width,height);for(int i=0;i<width*height;i++){unsigned c=pixels[i];fputc((c>>16)&255,f);fputc((c>>8)&255,f);fputc(c&255,f);}fclose(f);}
+ LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);assert(opened&&!quit_confirming&&!LagoonSettings_TakeQuitRequest()); /* default Cancel */
+ LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);LagoonSettings_Command(LAGOON_SETTINGS_RIGHT);assert(quit_confirming&&quit_selected);
+ LagoonSettings_Command(LAGOON_SETTINGS_CLOSE);assert(opened&&!quit_confirming&&!LagoonSettings_TakeQuitRequest());
+ LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);LagoonSettings_Command(LAGOON_SETTINGS_NEXT_TAB);assert(active_tab==TAB_JOURNAL&&!quit_confirming);
+ LagoonSettings_Close();LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_UP);
+ LagoonSettings_PollOpen(SNES_PAD_A);LagoonSettings_Tick(SNES_PAD_A,5000);assert(!quit_confirming); /* held opener */
+ LagoonSettings_Tick(0,5010);LagoonSettings_Tick(SNES_PAD_A|SNES_PAD_RIGHT,5020);assert(quit_confirming&&!quit_selected); /* activation cannot also select Quit */
+ LagoonSettings_Tick(SNES_PAD_A|SNES_PAD_RIGHT,5030);assert(quit_confirming&&!LagoonSettings_TakeQuitRequest());
+ LagoonSettings_Tick(0,5040);LagoonSettings_Tick(SNES_PAD_RIGHT,5050);assert(quit_selected);
+ LagoonSettings_Tick(SNES_PAD_RIGHT,5060);assert(opened&&!LagoonSettings_TakeQuitRequest());
+ LagoonSettings_Tick(0,5070);LagoonSettings_Tick(SNES_PAD_A,5080);assert(!opened&&!quit_confirming);
+ assert(LagoonSettings_TakeQuitRequest()&&!LagoonSettings_TakeQuitRequest()&&!LagoonSettings_TakeAchievementsRequest()&&!LagoonSettings_TakeReturnRequest());
+ LagoonSettings_Open();LagoonSettings_Command(LAGOON_SETTINGS_UP);LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);LagoonSettings_Command(LAGOON_SETTINGS_RIGHT);LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);assert(!opened);
+ LagoonSettings_Open();assert(!LagoonSettings_TakeQuitRequest()); /* cannot replay across opening */
+ assert(music==before_music&&master_calls==before_calls);
+ result=file_read(path,&n);assert(!strcmp(result,unchanged));free(result);
+ /* Live zoom edits are one-shot presentation requests; host sync and overlay
+  * cancellation never rewrite preferences or alter the sword cue. */
+ LagoonSettings_SetZoom(125);assert(view_zoom==125);LagoonSettings_SetZoom(200);assert(view_zoom==125);
+ for(unsigned tab=0;tab<3;tab++)LagoonSettings_Command(LAGOON_SETTINGS_NEXT_TAB);assert(active_tab==TAB_DISPLAY&&display_selected==0);
+ unsigned zoom=0;assert(!LagoonSettings_TakeZoomRequest(&zoom));
+ int sword_before=LagoonSettings_SwordRangeEnabled();LagoonSettings_Command(LAGOON_SETTINGS_DOWN);assert(display_selected==1);
+ LagoonSettings_Command(LAGOON_SETTINGS_RIGHT);assert(view_zoom==150&&zoom_requested&&LagoonSettings_SwordRangeEnabled()==sword_before);
+ LagoonSettings_SetZoom(100);assert(view_zoom==150);assert(!LagoonSettings_TakeZoomRequest(NULL)&&zoom_requested);
+ assert(LagoonSettings_TakeZoomRequest(&zoom)&&zoom==150&&!LagoonSettings_TakeZoomRequest(&zoom));
+ LagoonSettings_SetZoom(100);LagoonSettings_Command(LAGOON_SETTINGS_LEFT);assert(LagoonSettings_TakeZoomRequest(&zoom)&&zoom==150);
+ LagoonSettings_Command(LAGOON_SETTINGS_ACTIVATE);assert(LagoonSettings_TakeZoomRequest(&zoom)&&zoom==100);
+ LagoonSettings_PollOpen(SNES_PAD_A);LagoonSettings_Tick(SNES_PAD_A,6000);assert(!zoom_requested);LagoonSettings_Tick(0,6010);
+ LagoonSettings_Tick(SNES_PAD_A|SNES_PAD_RIGHT,6020);assert(LagoonSettings_TakeZoomRequest(&zoom)&&zoom==125);
+ LagoonSettings_Tick(SNES_PAD_A|SNES_PAD_RIGHT,6030);assert(!zoom_requested); /* held activation does not double cycle */
+ assert(LagoonSettings_Image(&pixels,&width,&height));
+ if(argc>2){char out[1024];snprintf(out,sizeof out,"%s.zoom.ppm",argv[2]);FILE*f=fopen(out,"wb");assert(f);fprintf(f,"P6\n%d %d\n255\n",width,height);for(int i=0;i<width*height;i++){unsigned c=pixels[i];fputc((c>>16)&255,f);fputc((c>>8)&255,f);fputc(c&255,f);}fclose(f);}
+ LagoonSettings_Close();assert(!zoom_requested&&LagoonSettings_SwordRangeEnabled()==sword_before);
+ result=file_read(path,&n);assert(!strcmp(result,unchanged));free(result);free(unchanged);
+ LagoonSettings_Configure(path);assert(!quit_requested&&!quit_confirming&&!zoom_requested&&view_zoom==100);
+ /* Exact live zoom INI persistence: replace only the owned value token,
+  * preserving BOM, inline comments, indentation, sections and newline style. */
+ const char *zoom_prefix="\xef\xbb\xbf# untouched preference\r\n[Graphics]\r\nDisplayAspect=8:7\r\nUnknown=keep\r\n[Lagoon] ; display settings\r\n  ViewExtent\t= ";
+ const char *zoom_suffix=" \t; retain this comment\r\nPrivate=unchanged\r\nSoundtrackVolume=60\r\n";
+ char zoom_document[512],expected_zoom[512];snprintf(zoom_document,sizeof zoom_document,"%s1.25%s",zoom_prefix,zoom_suffix);
+ write_file(path,zoom_document);LagoonSettings_Configure(path);before_music=music;before_calls=master_calls;
+ unsigned percentages[]={150,100,125};const char *extents[]={"1.5","1","1.25"};
+ for(unsigned i=0;i<3;i++){
+  assert(LagoonSettings_SaveZoom(percentages[i])&&!zoom_save_failed&&view_zoom==100);
+  snprintf(expected_zoom,sizeof expected_zoom,"%s%s%s",zoom_prefix,extents[i],zoom_suffix);
+  result=file_read(path,&n);assert(!strcmp(result,expected_zoom));free(result);
+  assert(LagoonSettings_SaveZoom(percentages[i])&&!zoom_save_failed); /* unchanged selected value */
+ }
+ assert(music==before_music&&master_calls==before_calls&&!LagoonSettings_SwordRangeEnabled());
+ assert(!LagoonSettings_SaveZoom(175)&&zoom_save_failed);result=file_read(path,&n);assert(!strcmp(result,expected_zoom));free(result);
+ write_file(path,"# keep\n[Lagoon]\nPrivate=42\n[Sound]\nVolume=73\n");LagoonSettings_Configure(path);
+ assert(LagoonSettings_SaveZoom(150));result=file_read(path,&n);assert(!strcmp(result,"# keep\n[Lagoon]\nPrivate=42\nViewExtent = 1.5\n[Sound]\nVolume=73\n"));free(result);
+ write_file(path,"[Graphics]\nUnknown=keep");LagoonSettings_Configure(path);assert(LagoonSettings_SaveZoom(125));
+ result=file_read(path,&n);assert(!strcmp(result,"[Graphics]\nUnknown=keep\n[Lagoon]\nViewExtent = 1.25\n"));free(result);
+ const char *bad_zoom[]={"[Lagoon]\nViewExtent=1.5\nViewExtent=1\n","[Lagoon]\r\nViewExtent=1.5\n","[Lagoon]\nViewExtent=1.75\n","[Lagoon]\nViewExtent=\n","[Lagoon]\nViewExtent=1.5 garbage\n","[Lagoon]\rViewExtent=1\r","[Lagoon\nViewExtent=1\n"};
+ for(unsigned i=0;i<sizeof bad_zoom/sizeof *bad_zoom;i++){
+  write_file(path,bad_zoom[i]);LagoonSettings_Configure(path);assert(!LagoonSettings_SaveZoom(150)&&zoom_save_failed);
+  result=file_read(path,&n);assert(!strcmp(result,bad_zoom[i]));free(result);
+ }
+ const char nul_zoom[]="[Lagoon]\nViewExtent=1\n\0Private=keep\n";
+ FILE*null_file=file_open(path,"wb");assert(null_file&&fwrite(nul_zoom,1,sizeof nul_zoom-1,null_file)==sizeof nul_zoom-1&&!fclose(null_file));
+ LagoonSettings_Configure(path);assert(!LagoonSettings_SaveZoom(125));result=file_read(path,&n);assert(n==sizeof nul_zoom-1&&!memcmp(result,nul_zoom,n));free(result);
+ /* The shared commit checks the entire original again immediately before its
+  * atomic replacement, rather than trampling a concurrent Companion edit. */
+ write_file(path,"[Lagoon]\nViewExtent=1\n");LagoonSettings_Configure(path);unchanged=file_read(path,&n);
+ const char *concurrent="[Lagoon]\nViewExtent=1\nPrivate=external edit\n";write_file(path,concurrent);
+ assert(!commit_setting_bytes(unchanged,n,"[Lagoon]\nViewExtent=1.5\n",24));free(unchanged);
+ result=file_read(path,&n);assert(!strcmp(result,concurrent));free(result);
+ /* Refuse an existing temp file and leave both that file and config intact. */
+ char locked_temp[1100];
+#ifdef _WIN32
+ unsigned long test_pid=GetCurrentProcessId();
+#else
+ unsigned long test_pid=(unsigned long)getpid();
+#endif
+ snprintf(locked_temp,sizeof locked_temp,"%s.lagoon-settings-%lu.tmp",path,test_pid);write_file(locked_temp,"existing temporary input");
+ assert(!LagoonSettings_SaveZoom(150)&&zoom_save_failed);result=file_read(path,&n);assert(!strcmp(result,concurrent));free(result);
+ result=file_read(locked_temp,&n);assert(!strcmp(result,"existing temporary input"));free(result);file_remove(locked_temp);
+ assert(LagoonSettings_SaveZoom(150)&&!zoom_save_failed);
+ puts("PASS zoom persistence: exact1/1.25/1.5 token edits, BOM/CRLF/LF/spacing/inline comments/unknown fields, absent key/section insertion, invalid/duplicate/mixed-newline/NUL refusal, concurrent-edit and preexisting-temp protection");
+ puts("PASS Quit UI: default Cancel, keyboard/controller selection, held opener/activation and combined-input guards, cancel/tab invalidation, one-shot host request; no save/preference/guest/audio writes");
+ puts("PASS live zoom UI:100/125/150 cycle, host sync/pending request protection, separate sword selection, held/combined activation guard, no preference writes before host integration");
  puts("PASS settings overlay: master/music5steps, heldrepeat, opener latch, close, limits; targeted atomic UTF8/BOM/newline INI persistence, unknownfields, duplicate/malformed preservation; frozen640x360 image; one-shot browser request, heldopener protection and unchanged volume/settings");
  puts("PASS Sound/Journal/Items/Display/Travel tabs: shoulder/page commands, held shoulder latch, 15/25-item wrapping/zero-item fallback, copied context/invalidation; journal/item fixtures are not progression evidence");
  puts("PASS Display sword cue: default OFF, no view/navigation writes, deliberate once-per-input toggles/held repeat, persistent reload, BOM/unknown-key preservation, independent Sound volume key, malformed/duplicate preservation with session-only warning");

@@ -7,11 +7,12 @@ uses the original Lagoon lettering and frame, with a Crono portrait. Music
 continues while the world pauses. Completing it plays a owner-selected Chrono Trigger laugh
 before the achievement chime.
 
-Use the matching v0.5.1 package from the [main page](../README.md), or build from
+Use the matching v0.5.2 package from the [main page](../README.md), or build from
 [these instructions](BUILDING.md). On first launch, choose your clean USA ROM with the file picker.
 Verification and setup run automatically; then press Play. Use Choose ROM.cmd
-or Choose ROM.command to reopen the picker later. Apply settings before starting or restart
-to use changes. Normal release execution is 100% native for the main game CPU;
+or Choose ROM.command to reopen the picker later. Apply launcher settings before
+starting, or restart to use those changes. In-game zoom and audio adjustments
+apply live. Normal release execution is 100% native for the main game CPU;
 the interpreter is an explicit developer reference option. Graphics and audio
 hardware continue through the runtime.
 
@@ -29,8 +30,13 @@ CRT proportions recreate the horizontal television correction (about17% wider).
 Choose either in **Display → Pixel proportions**. New packages use square pixels;
 existing native settings are preserved. Apply and restart after changing it.
 
-World zoom out is a separate **Display** choice:1x,1.25x or1.5x. It expands the
-playable world horizontally and vertically, while keeping the HUD readable.
+World zoom out is a separate **Display** choice: **1x**, **1.25x** or **1.5x**.
+It expands the playable world horizontally and vertically while keeping the HUD
+readable. You can also change it live in **Options → Display → World zoom out**:
+use Up/Down to select the row, then Left/Right or Enter/controller A to cycle.
+Close Options to resume with the new view. During ordinary gameplay, **Ctrl+Z**
+or clicking and releasing the right stick (**R3**) cycles the same three choices.
+**Select+R3** keeps its existing rewind gesture and does not change zoom.
 The original titles, inventory and authored UI retain their intended composition.
 
 
@@ -165,11 +171,13 @@ bindings are retained.
 | M / controller L2 | Open or close the scenery/exploration map. |
 | Ctrl+comma / controller R2 | Open or close quick settings. |
 | Ctrl+J | Open or close achievements. |
+| Ctrl+Z / controller R3 (release) | Cycle gameplay zoom: 1x → 1.25x → 1.5x. |
+| Controller Select+R3 | Open rewind; does not cycle zoom. |
 | Arrow keys / D-pad | Pan the map or navigate the selected Options tab. |
 | PageUp / PageDown, Tab / controller L or R in Options | Switch Sound, Journal, Items, Display and Travel tabs. |
 | Left/Right in Sound | Adjust the selected volume by 5%. |
 | Enter / controller A or Y on Achievements | Open the achievement browser from Sound. |
-| Escape / controller B | Close a panel; cancel Travel confirmation first. |
+| Escape / controller B | Close a panel; cancel Travel or Quit confirmation first. |
 | Keypad + / Keypad - | Raise or lower master volume during gameplay. |
 | Alt+Enter | Toggle fullscreen. |
 | F | Toggle the performance display. |
@@ -189,9 +197,17 @@ The **Items** reference has 25 consumable, equipment and quest-item entries.
 Up/Down browses their effects or purpose, whether Nasir carries them, and their
 Atland/Voloh shop prices where sold. It does not select, use, buy or grant an item.
 
-Under **Display**, **Sword range cue** defaults **Off**. Left/Right or Enter/A
-toggles a visual guide during attacks, following the active sword reach and
-cleave. It changes neither damage nor hit detection and persists with settings.
+Under **Display**, Up/Down selects **Sword range cue** or **World zoom out**.
+The sword cue defaults **Off**; Left/Right or Enter/A toggles the visual guide
+following the active reach and cleave. It changes neither damage nor hit detection.
+World zoom out cycles **1x / 1.25x / 1.5x** using the same controls and applies
+without restarting the game. Both choices persist with settings; if zoom cannot
+be written to the INI, it still applies for this session and Display shows a warning.
+
+To quit without Alt+F4, open **Options → Sound → Quit to desktop**. The
+confirmation defaults to **Cancel**. Select **Quit** with Left/Right, then press
+Enter/controller A. Escape/B cancels and leaves Options open. Save your progress
+first; confirming uses the normal application shutdown path.
 
 Under **Travel**, **Return to dungeon entrance** is available after the dungeon's
 boss is defeated in Gold Cave, Philips Castle, Dwarf Cave, Siegfried Castle,
@@ -259,11 +275,15 @@ animation, audio or only presentation slows down. A steady presentation counter
 alone does not prove equal gameplay cadence everywhere.
 ## World view and recording
 
-Companion's Display page offers **World zoom out:1x,1.25x,1.5x**. Enable
-widescreen first, Apply and restart. This reveals more scenery vertically and
-horizontally without changing Nasir's movement or sword collision. Ordinary
-enemies in the expanded view remain active; their awareness can therefore reach
-Nasir sooner. Original cutscenes/unsupported visual states retain their authored
+Companion's Display page offers **World zoom out: 1x, 1.25x, 1.5x**. Enable
+widescreen first. During play, **Options → Display**, **Ctrl+Z**, or a click and
+release of controller **R3** changes zoom live and saves the preference. The
+**Select+R3** rewind gesture remains separate.
+
+Zoom reveals more scenery vertically and horizontally without changing Nasir's
+movement or sword collision. Distant ordinary enemies wander without increasing
+attack or awareness ranges; their original behavior resumes in the original
+viewport. Original cutscenes/unsupported visual states retain their authored
 composition. HUD and host menus keep their readable pixel size.
 
 On Windows, **Auto (D3D11)** is the default graphics backend. Enhanced original

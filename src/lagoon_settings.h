@@ -24,6 +24,18 @@ int LagoonSettings_TakeAchievementsRequest(void);
 /* Two explicit confirmations queue one request. The host must revalidate it
  * against the live game state before returning to the entrance. */
 int LagoonSettings_TakeReturnRequest(void);
+/* Confirmed host exit only. The main thread must route this to its orderly
+ * quit event so the runtime flushes persistent data and closes audio normally. */
+int LagoonSettings_TakeQuitRequest(void);
+/* Live host presentation preference; percent is100,125or150. Synchronize from
+ * the active presenter on open/hotkey, then consume deliberate menu edits. */
+void LagoonSettings_SetZoom(unsigned percent);
+int LagoonSettings_TakeZoomRequest(unsigned *percent);
+/* Save only [Lagoon] ViewExtent in the configured INI using an atomic,
+ * concurrent-edit-checked replacement. A refusal leaves the document intact;
+ * the host may keep the requested zoom active for this session. */
+int LagoonSettings_SaveZoom(unsigned percent);
+
 void LagoonSettings_Command(unsigned command);
 void LagoonSettings_Tick(uint32_t human,uint32_t ticks);
 int LagoonSettings_Image(const uint32_t **pixels,int *width,int *height);
