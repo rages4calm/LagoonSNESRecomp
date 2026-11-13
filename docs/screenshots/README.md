@@ -5,6 +5,17 @@ full resolution. Wide fields retain letterboxing on a 16:9 monitor; black beyond
 finite map edges is intentional. These captures are development examples,
 not a full-game rendering or performance guarantee.
 
+## Square pixels and1.5x zoom — 0.5.1
+
+[![Phantom Hill with complete sprites and expanded cloud travel](phantom-hill-square-zoom150-1920x1080.png)](phantom-hill-square-zoom150-1920x1080.png)
+
+[![Castle movement with its door retained and a clean HUD](castle-square-zoom150-1920x1080.png)](castle-square-zoom150-1920x1080.png)
+
+Actual1920×1080 D3D11 GPU readbacks: **Square pixels + widescreen +1.5x world
+zoom out**, with MMPX. Captured after movement from the owner's late-game saves.
+These hidden-window captures do not certify physical fullscreen scanout.
+[Capture metadata](renderer75-captures.json).
+
 ## D3D11 and refined pixels — 0.5.0
 
 Actual **1920×1080 D3D11 GPU readbacks**, with MMPX Enhanced pixels and **1.5x

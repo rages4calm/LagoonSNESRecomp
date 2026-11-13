@@ -12,4 +12,6 @@ void LagoonBossHud_ObserveField(const struct Ppu *ppu,const uint8_t *ram,
  * of the centered ENEMY bar. Works at native width as well as widescreen. */
 int LagoonBossHud_Draw(uint8_t *dst,size_t pitch,const uint8_t *field,
     size_t source_pitch,unsigned width,unsigned height,uint64_t generation);
+int LagoonBossHud_DrawDetached(uint8_t *dst,size_t pitch,unsigned width,unsigned height,
+    const uint8_t *source,size_t source_pitch,unsigned source_width,uint64_t generation);
 #endif

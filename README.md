@@ -1,16 +1,14 @@
 # Lagoon Recomp
 
-> **0.5.0 is temporarily a prerelease:** reported 1.5x rendering regressions are being corrected. [Stable 0.4.1](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.4.1) remains available.
-
 <p align="center"><img src="docs/branding/lagoon-logo.png" width="680" alt="Lagoon — redrawn box-art logo contributed by DarkShadowRage"></p>
 
-[![Windows x64 download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.0/Lagoon-Companion-0.5.0-win-x64.zip)
-[![Linux x64 download](docs/badges/linux.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.0/Lagoon-Companion-0.5.0-linux-x64.tar.gz)
+[![Windows x64 download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.1/Lagoon-Companion-0.5.1-win-x64.zip)
+[![Linux x64 download](docs/badges/linux.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.1/Lagoon-Companion-0.5.1-linux-x64.tar.gz)
 
-[![macOS Apple Silicon download](docs/badges/macos-arm64.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.0/Lagoon-Companion-0.5.0-macos-arm64.tar.gz)
-[![macOS Intel download](docs/badges/macos-intel.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.0/Lagoon-Companion-0.5.0-macos-x64.tar.gz)
+[![macOS Apple Silicon download](docs/badges/macos-arm64.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.1/Lagoon-Companion-0.5.1-macos-arm64.tar.gz)
+[![macOS Intel download](docs/badges/macos-intel.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.1/Lagoon-Companion-0.5.1-macos-x64.tar.gz)
 
-[Release notes & checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.5.0) · [Screenshots](docs/screenshots/README.md) · [Controls](docs/PLAYING.md) · [Build & mod](docs/BUILDING.md)
+[Release notes & checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.5.1) · [Screenshots](docs/screenshots/README.md) · [Controls](docs/PLAYING.md) · [Build & mod](docs/BUILDING.md)
 
 **Lagoon for Windows, Linux and macOS, with 100% native execution of the game's
 main 65816 CPU.** Built with [SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp),
@@ -26,13 +24,10 @@ CPU execution does not mean every hardware component has been replaced.
 and self-contained Companion launcher. No ROM, game-code source extracted from
 the ROM, saves or private test captures are included.
 
-![Atland with Enhanced original pixels at 1920 by 1080](docs/screenshots/atland-epx-1920x1080.png)
+![Phantom Hill with square pixels, widescreen and1.5x zoom out](docs/screenshots/phantom-hill-square-zoom150-1920x1080.png)
 
-**D3D11 MMPX Enhanced pixels, 1.5x zoom out — 1920×1080**
-
-![Atland at 1.5x world extent](docs/screenshots/atland-mmpx-zoom150-1920x1080.png)
-
-![Elf Field at 1.5x world extent](docs/screenshots/elf-field-mmpx-zoom150-1920x1080.png)
+Square pixels, D3D11 MMPX Enhanced pixels and1.5x world zoom out at1920×1080.
+[More screenshots, maps and menus](docs/screenshots/README.md).
 
 ## Features
 
@@ -99,6 +94,20 @@ No compiler or first-run game recompilation is needed. Windows needs no separate
 .NET or Python installation; Linux/macOS bundle .NET and use Python 3.11+ for
 first-run ROM setup. Keep `local/` for your saves, settings, map and achievements.
 [Controls and upgrading](docs/PLAYING.md) · [Linux/macOS requirements](docs/PORTING.md) · [Soundtrack details](docs/SOUNDTRACK.md).
+
+## What's new in 0.5.1
+
+The zoom renderer now restores qualified actor graphics after loading later-game
+save states, draws complete sprites across the old screen/HUD limits, and separates
+HUD glyphs from world sprites. Phantom Hill's cloud travel band follows the
+expanded view. Loading/fade fallbacks preserve world pixel scale instead of
+briefly stretching back to the original view.
+
+**Pixel proportions** offers **Square pixels** and **Original CRT proportions**,
+independently of widescreen and1x/1.25x/1.5x zoom. New installations use square
+pixels; existing saved preferences remain available. Source-bound moving checks
+cover the owner's six available save states, menu return and nearby transitions;
+the older74-area entry sweep is not a substitute for moving-route coverage.
 
 ## What's new in 0.5.0
 

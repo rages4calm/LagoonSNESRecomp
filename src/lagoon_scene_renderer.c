@@ -2,6 +2,7 @@
  * reference field remain authoritative. No framebuffer enters the packet. */
 #include "lagoon_scene_renderer.h"
 #include "lagoon_wide_entities.h"
+#include "lagoon_cloud_view75.h"
 #include "snes/ppu.h"
 #include "sha256.h"
 #include "crc32.h"
@@ -51,6 +52,7 @@ typedef struct ScenePacket {
   unsigned map_fill,fill_meta;
   unsigned native_x,native_y,bg2_x,bg2_y,parallax,finite_clip,gameover;
   unsigned incoming_mosaic,mosaic_size,brightness,mosaic_y_phase,mosaic_backend,mosaic_y_size;
+  LagoonCloudView75 cloud;
   SceneOamPolicy policy;
   SceneOamPolicyInputs policy_inputs;
   uint64_t generation;
@@ -71,7 +73,7 @@ typedef struct SceneMismatch {
 } SceneMismatch;
 static SceneMismatch s_mismatch[64];
 static unsigned s_mismatch_count;
-static uint32_t s_pixels[W*H];
+static uint32_t s_pixels[W*H],s_cloud_underlay[W*H];
 /* One current-area image, not an album of extracted room art. A frozen modal
  * can reuse this image without decoding terrain on every UI presentation. */
 static uint32_t s_map_pixels[1024*1024];
@@ -507,6 +509,7 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
     memcpy(s->vram,PpuRenderVram(p),sizeof(s->vram));memcpy(s->pal,p->cgram,sizeof(s->pal));
     memcpy(s->oam,p->oam,sizeof(s->oam));memcpy(s->high,p->highOam,sizeof(s->high));
     object_policy(&s->policy,p);
+    LagoonCloudView75_Capture(&s->cloud,r,rom,size,(const uint8_t*)s->oam,s->high);
     object_policy_inputs(&s->policy_inputs,p);
     s->vram_writes=p->vramWriteCount;s->oam_writes=p->oamWriteCount;
     int x=word(r,0x480),y=word(r,0x482);
@@ -701,12 +704,12 @@ static int mosaic_x(int x,unsigned size) {
   int remainder=x%(int)size;if(remainder<0)remainder+=(int)size;
   return x-remainder;
 }
-static void mosaic_background_row(const ScenePacket *s,unsigned width,unsigned y,
-    int left,unsigned layer,uint8_t *depth,uint16_t *colors) {
-  unsigned my=((y+1-s->mosaic_y_phase)/s->mosaic_y_size)*s->mosaic_y_size+s->mosaic_y_phase;
+static void mosaic_background_row(const ScenePacket *s,unsigned width,int y,
+    int left,unsigned layer,uint8_t *depth,uint16_t *colors,int native_height) {
+  int my=mosaic_x(y+1-(int)s->mosaic_y_phase,s->mosaic_y_size)+(int)s->mosaic_y_phase;
   int static_bg2=s->parallax&&layer==1;
   for(unsigned x=0;x<width;++x) {
-    int mx=mosaic_x((int)x-left,s->mosaic_size),native=mx>=0&&mx<256;
+    int mx=mosaic_x((int)x-left,s->mosaic_size),native=mx>=0&&mx<256&&y>=0&&y<native_height;
     int qx=(static_bg2?(int)s->bg2_x:native?(int)s->native_x:s->wx)+mx;
     int qy=(static_bg2?(int)s->bg2_y:native?(int)s->native_y:s->wy)-1+(int)my;
     unsigned tile;
@@ -752,7 +755,7 @@ static void remember_background(const ScenePacket *s,unsigned width) {
   b->mosaic_y_phase=s->mosaic_y_phase;b->mosaic_backend=s->mosaic_backend;b->mosaic_y_size=s->mosaic_y_size;
   b->valid=1; /* Input key only until a second matching render needs these BGs. */
 }
-static void render(const ScenePacket *s,unsigned width) {
+static void render_into(const ScenePacket *s,unsigned width,uint32_t *pixels,int skip_cloud) {
   int left=(int)(width-256)/2;
   int background_match=same_background(s,width);
   int reuse_background=background_match&&s_background.valid==2;
@@ -761,6 +764,7 @@ static void render(const ScenePacket *s,unsigned width) {
     uint64_t rank[W];uint16_t obj[W];uint8_t priority[W];
     for(unsigned x=0;x<width;++x){rank[x]=UINT64_MAX;priority[x]=0;obj[x]=0;}
     for(unsigned slot=0;slot<128;++slot) {
+      if(skip_cloud&&s->cloud.native_slots[slot])continue;
       const uint8_t *o=(const uint8_t *)s->oam+slot*4;
       unsigned high=(s->high[slot/4]>>((slot%4)*2))&3,n=(high&2)?16:8;
       unsigned dy=(y-o[1])&255;if(dy>=n)continue;
@@ -795,8 +799,8 @@ static void render(const ScenePacket *s,unsigned width) {
       memset(depth,0,width);
       for(unsigned x=0;x<width;++x)colors[x]=s->pal[0];
       if(s->incoming_mosaic) {
-        mosaic_background_row(s,width,y,left,0,depth,colors);
-        mosaic_background_row(s,width,y,left,1,depth,colors);
+        mosaic_background_row(s,width,y,left,0,depth,colors,H);
+        mosaic_background_row(s,width,y,left,1,depth,colors,H);
       } else {
         background_row(s,width,y,left,0,depth,colors);
         background_row(s,width,y,left,1,depth,colors);
@@ -832,13 +836,14 @@ static void render(const ScenePacket *s,unsigned width) {
       if(s->incoming_mosaic&&s->brightness!=15)color=
           ((((color>>16)&255)*s->brightness/15)<<16)|
           ((((color>>8)&255)*s->brightness/15)<<8)|((color&255)*s->brightness/15);
-      s_pixels[y*width+x]=outside?0:color;
+      pixels[y*width+x]=outside?0:color;
     }
   }
   if(!background_match)remember_background(s,width);
   else if(!reuse_background)s_background.valid=2;
   ++s_stats.renders;s_stats.independent_pixels+=(uint64_t)width*H;
 }
+static void render(const ScenePacket *s,unsigned width){render_into(s,width,s_pixels,0);}
 static int same_source(const ScenePacket *a,const ScenePacket *b) {
   if(a->generation!=b->generation||a->room!=b->room||a->wx!=b->wx||a->wy!=b->wy||a->native_x!=b->native_x||a->native_y!=b->native_y||
     a->incoming_mosaic!=b->incoming_mosaic||a->mosaic_y_phase!=b->mosaic_y_phase||a->mosaic_backend!=b->mosaic_backend||
@@ -890,7 +895,7 @@ int LagoonSceneRenderer_TryPresent(uint8_t *dst,size_t pitch,const uint8_t *ref,
     ++s_stats.mismatches;++s_stats.fallbacks;report("mismatch",s->frame,width);return 0;
   }
   ++s_stats.verified_presents;
-  if(!s->incoming_mosaic)s_view_serial=s->serial;
+  s_view_serial=s->serial;
   if(s->incoming_mosaic)++s_mosaic_verified;
   if(s_mode==2){
     for(unsigned y=0;y<H;++y) {
@@ -913,24 +918,77 @@ static int view_origin(int camera,int map,int extent,int native){
   if(origin>camera)origin=camera;
   return origin;
 }
+int LagoonSceneRenderer_DrawHud(uint8_t *dst,size_t pitch,unsigned width,unsigned height,uint64_t generation){
+  const ScenePacket *s=&s_packets[s_complete];
+  if(!dst||width<256||width>W||height<224||height>336||pitch<width*4||!s->valid||
+      s->generation!=generation||!s_view_serial||s_view_serial!=s->serial)return 0;
+  unsigned left=(width-256)/2,top=height-34;
+  for(unsigned y=0;y<34;y++)for(unsigned x=0;x<256;x++){
+    unsigned yy=191+y,t=s->vram[0x3c00+(yy/8)*32+x/8];
+    unsigned c=graphics(s,t,x&7,yy&7,0x6000,2);
+    if(c){uint32_t color=s_rgb15[s->pal[((t>>10)&7)*4+c]&32767];
+      if(s->incoming_mosaic&&s->brightness!=15)color=
+        ((((color>>16)&255)*s->brightness/15)<<16)|((((color>>8)&255)*s->brightness/15)<<8)|((color&255)*s->brightness/15);
+      memcpy(dst+(top+y)*pitch+(left+x)*4,&color,4);}
+  }
+  for(unsigned slot=0;slot<8;slot++){
+    const uint8_t *o=(const uint8_t*)s->oam+slot*4;
+    unsigned ox=208+(slot>=4?24:0)+(slot&1)*8,oy=192+((slot&3)/2)*8;
+    unsigned tile=o[2]|o[3]<<8,hi=(s->high[slot/4]>>((slot%4)*2))&3;
+    if(o[0]!=ox||o[1]!=oy||tile!=0x3c24+slot||hi)continue;
+    for(unsigned dy=0;dy<8;dy++)for(unsigned dx=0;dx<8;dx++){
+      unsigned c=graphics(s,tile,dx,dy,0x4000,4);
+      if(c){uint32_t color=s_rgb15[s->pal[128+((tile>>9)&7)*16+c]&32767];
+        if(s->incoming_mosaic&&s->brightness!=15)color=
+          ((((color>>16)&255)*s->brightness/15)<<16)|((((color>>8)&255)*s->brightness/15)<<8)|((color&255)*s->brightness/15);
+        memcpy(dst+(top+oy-190+dy)*pitch+(left+ox+dx)*4,&color,4);}
+    }
+  }
+  return 1;
+}
 int LagoonSceneRenderer_DrawView(uint8_t *dst,size_t pitch,unsigned width,unsigned height,
     const uint8_t *source,size_t sp,unsigned sw,unsigned sh,uint64_t generation){
   const ScenePacket *s=&s_packets[s_complete];
   if(!dst||!source||width>W||width<sw||height<sh||height>336||sh!=224||
-      pitch<width*4||sp<sw*4||s_mode!=2||!s->valid||s->incoming_mosaic||
+      pitch<width*4||sp<sw*4||s_mode!=2||!s->valid||
       s->generation!=generation||!s_view_serial||s_view_serial!=s->serial){++s_view_refusals;return 0;}
   ++s_view_presents;s_view_width=width;s_view_height=height;
   const int left=s->wx-view_origin(s->wx,s->world_width,width,256);
   const int top=s->wy-view_origin(s->wy,s->world_height,height,224);
   const int source_left=(int)(sw-256)/2;
+  int cloud_dx=0,cloud_dy=0;
+  if(s->cloud.valid){int cx,cy;LagoonCloudView75_RemapAnchor(&s->cloud,-left,-top,width,height,&cx,&cy);
+    cloud_dx=cx-s->cloud.anchor_x;cloud_dy=cy-s->cloud.anchor_y;
+    render_into(s,sw,s_cloud_underlay,1);}
   for(unsigned y=0;y<height;y++){
     int ny=(int)y-top;
-    uint8_t depth[W],obj_depth[W];uint16_t colors[W],obj_color[W];uint64_t rank[W];
-    memset(depth,0,width);
+    uint8_t depth[W],obj_depth[W],cloud_mask[W];uint16_t colors[W],obj_color[W];uint64_t rank[W];
+    memset(depth,0,width);memset(cloud_mask,0,width);
     memset(obj_depth,0,width);
     for(unsigned x=0;x<width;x++){colors[x]=s->pal[0];rank[x]=UINT64_MAX;}
-    background_row_extent(s,width,ny,left,0,depth,colors,190);
-    background_row_extent(s,width,ny,left,1,depth,colors,190);
+    if(s->incoming_mosaic){
+      mosaic_background_row(s,width,ny,left,0,depth,colors,190);
+      mosaic_background_row(s,width,ny,left,1,depth,colors,190);
+    }else{
+      background_row_extent(s,width,ny,left,0,depth,colors,190);
+      background_row_extent(s,width,ny,left,1,depth,colors,190);
+    }
+    /* Remove every old cloud pixel in the original widened source strip,
+     * including cells left/right of the native256. The independently rendered
+     * same-frame underlay retains complete actors, tile priority and BG3;
+     * merely exposing bare terrain here would cut actors behind the cloud. */
+    if(s->cloud.valid&&ny>=0&&ny<190)for(unsigned i=0;i<s->cloud.count;i++){
+      const LagoonWideCell *c=&s->cloud.cells[i];
+      if(c->y < -16||c->y>=240)continue;
+      int dy=ny-c->y;if(dy<0||dy>=(int)c->size)continue;
+      unsigned sy=(c->tile&0x8000)?c->size-1-dy:(unsigned)dy;
+      for(unsigned dx=0;dx<c->size;dx++){
+        int x=c->x+(int)dx+left;if(x<0||x>=(int)width)continue;
+        unsigned sx=(c->tile&0x4000)?c->size-1-dx:dx;
+        unsigned ch=(((((c->tile&255)>>4)+(sy>>3))<<4)|(((c->tile&15)+(sx>>3))&15));
+        if(graphics(s,ch,sx&7,sy&7,(c->tile&0x100)?0x5000:0x4000,4))cloud_mask[x]=1;
+      }
+    }
     for(unsigned i=0;i<s->count;i++){
       const SceneObject *a=&s->objects[i];int dy=ny-a->y;if(dy<0||dy>=a->height)continue;
       for(unsigned dx=0;dx<a->width;dx++){
@@ -946,6 +1004,8 @@ int LagoonSceneRenderer_DrawView(uint8_t *dst,size_t pitch,unsigned width,unsign
       if(obj_depth[x]>depth[x])colors[x]=obj_color[x];
       int wx=s->wx+(int)x-left,wy=s->wy+ny;
       uint32_t color=(wx<0||wy<0||wx>=s->world_width||wy>=s->world_height)?0:s_rgb15[colors[x]&32767];
+      if(s->incoming_mosaic&&s->brightness!=15)color=
+        ((((color>>16)&255)*s->brightness/15)<<16)|((((color>>8)&255)*s->brightness/15)<<8)|((color&255)*s->brightness/15);
       memcpy(dst+y*pitch+x*4,&color,4);
     }
     /* The qualified original gameplay rectangle (including title overlays)
@@ -957,33 +1017,31 @@ int LagoonSceneRenderer_DrawView(uint8_t *dst,size_t pitch,unsigned width,unsign
         unsigned yy=(unsigned)ny+1,t=s->vram[0x3c00+(yy/8)*32+(unsigned)nx/8];
         if(graphics(s,t,(unsigned)nx&7,yy&7,0x6000,2))continue;
       }
-      if(dx>=0&&dx<(int)width)memcpy(dst+y*pitch+dx*4,source+ny*sp+x*4,4);
+      if(dx>=0&&dx<(int)width){
+        if(cloud_mask[dx]){uint32_t color=s_cloud_underlay[ny*sw+x];memcpy(dst+y*pitch+dx*4,&color,4);}
+        else memcpy(dst+y*pitch+dx*4,source+ny*sp+x*4,4);
+      }
+    }
+    if(s->cloud.valid&&y<height-34)for(unsigned i=0;i<s->cloud.count;i++){
+      const LagoonWideCell *c=&s->cloud.cells[i];int dy=ny-cloud_dy-c->y;
+      if(dy<0||dy>=(int)c->size)continue;
+      unsigned sy=(c->tile&0x8000)?c->size-1-dy:(unsigned)dy;
+      for(unsigned dx=0;dx<c->size;dx++){
+        int nx=c->x+cloud_dx+(int)dx,x=nx+left;if(x<0||x>=(int)width)continue;
+        unsigned sx=(c->tile&0x4000)?c->size-1-dx:dx;
+        unsigned ch=(((((c->tile&255)>>4)+(sy>>3))<<4)|(((c->tile&15)+(sx>>3))&15));
+        unsigned pixel=graphics(s,ch,sx&7,sy&7,(c->tile&0x100)?0x5000:0x4000,4);
+        if(!pixel||2+4*((c->tile>>12)&3)<=depth[x])continue;
+        if(ny>=0&&ny<190&&nx>=0&&nx<256){unsigned yy=(unsigned)ny+1,t=s->vram[0x3c00+(yy/8)*32+(unsigned)nx/8];
+          if((t&0x2000)&&graphics(s,t,(unsigned)nx&7,yy&7,0x6000,2))continue;}
+        uint32_t color=s_rgb15[s->pal[128+((c->tile>>9)&7)*16+pixel]&32767];
+        if(s->incoming_mosaic&&s->brightness!=15)color=
+          ((((color>>16)&255)*s->brightness/15)<<16)|((((color>>8)&255)*s->brightness/15)<<8)|((color&255)*s->brightness/15);
+        memcpy(dst+y*pitch+x*4,&color,4);
+      }
     }
   }
-  /* Isolate the source-owned BG3/OAM HUD, never transplant its old world
-   * underlay. Transparent corners continue the new scenery rather than
-   * leaving rectangular black gaps at the edges of the old viewport. */
-  uint8_t mask[256*34]={0};
-  for(unsigned y=0;y<34;y++)for(unsigned x=0;x<256;x++){
-    unsigned yy=191+y,t=s->vram[0x3c00+(yy/8)*32+x/8];
-    if(graphics(s,t,x&7,yy&7,0x6000,2))mask[y*256+x]=1;
-    /* Both player and corrected boss gauges own their complete eight rows. */
-    if(x>=64&&x<192&&((y>=9&&y<17)||(y>=17&&y<25)))mask[y*256+x]=1;
-  }
-  for(unsigned slot=0;slot<128;slot++){
-    const uint8_t *o=(const uint8_t*)s->oam+slot*4;
-    int oy=o[1];if(oy<190||oy>=224)continue;
-    unsigned hi=(s->high[slot/4]>>((slot%4)*2))&3,n=(hi&2)?16:8,tile=o[2]|o[3]<<8;
-    int ox=s->policy.x[slot];
-    for(unsigned dy=0;dy<n&&oy+(int)dy<224;dy++)for(unsigned dx=0;dx<n;dx++){
-      int x=ox+(int)dx;if(x<0||x>=256)continue;
-      unsigned sx=(tile&0x4000)?n-1-dx:dx,sy=(tile&0x8000)?n-1-dy:dy;
-      unsigned ch=(((((tile&255)>>4)+(sy>>3))<<4)|(((tile&15)+(sx>>3))&15));
-      if(graphics(s,ch,sx&7,sy&7,(tile&0x100)?0x5000:0x4000,4))mask[(oy+dy-190)*256+x]=1;
-    }
-  }
-  for(unsigned y=0;y<34;y++)for(unsigned x=0;x<256;x++)if(mask[y*256+x])
-    memcpy(dst+(height-34+y)*pitch+((width-256)/2+x)*4,source+(190+y)*sp+(source_left+x)*4,4);
+  LagoonSceneRenderer_DrawHud(dst,pitch,width,height,generation);
   if(s->gameover) {
     /* The Game Over panel belongs to the screen, never the camera/map edge.
      * Its original complete frame (including shadow) is copied unchanged. */

@@ -101,6 +101,16 @@ internal static class SettingsChecks
         controller.Reload(); Assert(!controller.HasChanges && controller.Snapshot.Values["audio.volume"].GetInt32() == 62, "Revert failed.");
         Assert(!controller.Snapshot.Values["video.widescreen"].GetBoolean(), "Experimental widescreen must default off.");
         Assert(!controller.Snapshot.Values["video.enhanced-pixels"].GetBoolean(), "Enhanced pixels must default off.");
+        Assert(controller.Snapshot.Values["video.pixel-proportions"].GetString() == "4:3" &&
+            !File.ReadAllText(config).Contains("DisplayAspect"), "Absent pixel proportions must retain the existing CRT fallback without rewriting the INI.");
+        Assert(adapter.Definition.Options.Single(x => x.Id == "video.pixel-proportions").Choices!.Select(x => (x.Value,x.Label)).SequenceEqual(new[] {
+            ("8:7", "Square pixels"), ("4:3", "Original CRT proportions") }), "Pixel proportions choices do not match the engine's square/CRT contract.");
+        controller.SetOption("video.pixel-proportions", OptionValue.From("8:7")); controller.Reload();
+        Assert(controller.Snapshot.Values["video.pixel-proportions"].GetString() == "4:3" &&
+            !File.ReadAllText(config).Contains("DisplayAspect"), "Reverting pixel proportions changed the existing native config.");
+        controller.SetOption("video.pixel-proportions", OptionValue.From("8:7")); controller.Apply(); controller.Reload();
+        Assert(controller.Snapshot.Values["video.pixel-proportions"].GetString() == "8:7" && File.ReadAllText(config).Contains("DisplayAspect = 8:7"), "Square pixel proportions failed native INI roundtrip.");
+
         controller.SetOption("video.enhanced-pixels", OptionValue.From(true));
         try { controller.Apply(); throw new Exception("Missing EPX files accepted."); } catch (InvalidDataException) { }
         controller.Reload();
@@ -124,6 +134,8 @@ internal static class SettingsChecks
         controller.SetOption("video.enhanced-pixels", OptionValue.From(false)); controller.Apply();
         Assert(!File.ReadAllText(config).Contains("Shader =") && !File.ReadAllText(config).Contains("Renderer =") &&
             !File.ReadAllText(config).Contains("OutputMethod ="), "EPX did not restore absent prior graphics keys.");
+        Assert(controller.Snapshot.Values["video.pixel-proportions"].GetString() == "8:7" && File.ReadAllText(config).Contains("DisplayAspect = 8:7"), "Enhanced shader/profile restore overwrote independently selected pixel proportions.");
+
         File.WriteAllText(config, File.ReadAllText(config).Replace("[Graphics]\r\n", "[Graphics]\r\nShader=custom-private.glslp\r\nRenderer=software\r\nOutputMethod=SDL-Software\r\n"), new UTF8Encoding(true));
         controller.Reload(); controller.SetOption("video.enhanced-pixels", OptionValue.From(true)); controller.Apply();
         controller.SetOption("video.enhanced-pixels", OptionValue.From(false)); controller.Apply();
@@ -149,6 +161,17 @@ internal static class SettingsChecks
         Assert(File.ReadAllText(state).Contains("setting = \"unknown value\""), "Unknown mod state lost.");
         Assert(File.ReadAllText(state).Contains("id = \"fast_menus\"\nenabled = true"), "Hidden legacy menu feature state was overwritten.");
         Assert(File.ReadAllText(config).Contains("Widescreen = 1") && File.ReadAllText(config).Contains("[Lagoon]\r\nWideAspect = 32:9"), "Widescreen native INI contract failed.");
+        controller.SetOption("video.view-extent", OptionValue.From("1.5")); controller.Apply();
+        Assert(controller.Snapshot.Values["video.pixel-proportions"].GetString() == "8:7" && File.ReadAllText(config).Contains("DisplayAspect = 8:7") &&
+            File.ReadAllText(config).Contains("ViewExtent = 1.5"), "Widescreen/zoom edits changed independently selected square pixels.");
+        // Existing native CRT/square values load as-is; an unrelated Apply must
+        // not turn this preference into a default-driven migration.
+        File.WriteAllText(config, File.ReadAllText(config).Replace("DisplayAspect = 8:7", "DisplayAspect = 4:3"), new UTF8Encoding(true));
+        controller.Reload();
+        Assert(controller.Snapshot.Values["video.pixel-proportions"].GetString() == "4:3", "Existing CRT proportions were not loaded from the native config.");
+        controller.SetOption("audio.volume", OptionValue.From(34)); controller.Apply();
+        Assert(File.ReadAllText(config).Contains("DisplayAspect = 4:3"), "Unrelated Apply silently changed existing CRT proportions.");
+
         Assert(pathStore.Read().Values["qol.future-option"].GetString() == "retain future preference", "Unknown launcher preference lost.");
         controller.SetOption("qol.sword_reach", OptionValue.From(true));
         try { controller.Apply(); throw new Exception("Older native package accepted new feature."); } catch (InvalidDataException) { }

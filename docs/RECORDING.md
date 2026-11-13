@@ -41,3 +41,7 @@ widescreen and choose1x,1.25x or1.5x in Companion's Display page, then Apply
 and restart. Larger extents show more world in both directions; menus and HUD
 retain readable source-pixel sizes. Original cutscenes and unqualified visual
 states retain their authored composition.
+
+Pixel proportions is independent: **Square pixels + widescreen +1.5x zoom out**
+works together. Original CRT proportions remains selectable for television-style
+proportions. Neither choice changes the OBS capture source or recording resolution.

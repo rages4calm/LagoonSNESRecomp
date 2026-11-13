@@ -1,0 +1,34 @@
+{
+  "version": "0.5.1",
+  "captures": [
+    {
+      "file": "phantom-hill-square-zoom150-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "pixel_proportions": "Square pixels (8:7 source display aspect)",
+      "world_zoom": "1.5",
+      "presenter": "D3D11",
+      "shader": "MMPX",
+      "source": "Hidden-window GPU readback; not physical fullscreen scanout",
+      "exe_sha256": "3684911e2a5f8c2d62c12c93a411a488a3c181e859e82caa8dcfbc37509faac0",
+      "route_sha256": "38e43a7a17b5a5fe78a68301da0975af74dfb9e275d176a355b20710b85f121d",
+      "image_sha256": "05a42da3fd2715d59d3b48a0df281e7f1a436bcbc2b526424ff00204ce2e4b86",
+      "assisted": true
+    },
+    {
+      "file": "castle-square-zoom150-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "pixel_proportions": "Square pixels (8:7 source display aspect)",
+      "world_zoom": "1.5",
+      "presenter": "D3D11",
+      "shader": "MMPX",
+      "source": "Hidden-window GPU readback; not physical fullscreen scanout",
+      "exe_sha256": "3684911e2a5f8c2d62c12c93a411a488a3c181e859e82caa8dcfbc37509faac0",
+      "route_sha256": "fe8b2282092385d0a8c10aa89fb2dfc8e95e4dc714929ade2c8893280f3da888",
+      "image_sha256": "c6114dcf67dcc55e63714111b4eafce57be2e9843b906738baaedd1e4e774a94",
+      "assisted": true
+    }
+  ],
+  "scope": "Focused assisted original save-state movement; not a campaign or FPS benchmark"
+}

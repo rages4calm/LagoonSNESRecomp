@@ -7,7 +7,7 @@ uses the original Lagoon lettering and frame, with a Crono portrait. Music
 continues while the world pauses. Completing it plays a owner-selected Chrono Trigger laugh
 before the achievement chime.
 
-Use the matching v0.5.0 package from the [main page](../README.md), or build from
+Use the matching v0.5.1 package from the [main page](../README.md), or build from
 [these instructions](BUILDING.md). On first launch, choose your clean USA ROM with the file picker.
 Verification and setup run automatically; then press Play. Use Choose ROM.cmd
 or Choose ROM.command to reopen the picker later. Apply settings before starting or restart
@@ -23,8 +23,19 @@ bindings for the corresponding actions.
 
 ## Display
 
+**Square pixels**, **widescreen** and **1.5x world zoom out** can all be enabled
+together. Square pixels keep equal horizontal/vertical pixel widths; Original
+CRT proportions recreate the horizontal television correction (about17% wider).
+Choose either in **Display → Pixel proportions**. New packages use square pixels;
+existing native settings are preserved. Apply and restart after changing it.
+
+World zoom out is a separate **Display** choice:1x,1.25x or1.5x. It expands the
+playable world horizontally and vertically, while keeping the HUD readable.
+The original titles, inventory and authored UI retain their intended composition.
+
+
 For a 1920×1080 monitor, choose **Borderless fullscreen**, widescreen **16:9** and VSync.
-Enhanced original pixels (EPX) is optional: it treats diagonal pixel edges using
+Enhanced original pixels (EPX or MMPX) is optional: it treats diagonal pixel edges using
 original colors while keeping the bottom HUD sharp. It uses D3D11 on Windows
 or OpenGL with the bundled shaders elsewhere. Turning it off restores the previous graphics selection.
 Linear filtering and frame blending should remain off for a sharp picture.

@@ -31,6 +31,9 @@ int LagoonSceneRenderer_TryPresent(uint8_t *dst,size_t pitch,
 void LagoonSceneRenderer_GetStats(LagoonSceneRendererStats *out);
 int LagoonSceneRenderer_DrawView(uint8_t *dst,size_t pitch,unsigned width,unsigned height,
     const uint8_t *source,size_t source_pitch,unsigned sw,unsigned sh,uint64_t generation);
+/* Fresh packet only: BG3 lettering and eight source-owned equipment cells;
+ * never copy world pixels from the original HUD rows. */
+int LagoonSceneRenderer_DrawHud(uint8_t *dst,size_t pitch,unsigned width,unsigned height,uint64_t generation);
 /* Full finite terrain from the latest immutable qualified ordinary room source. Opaque
  * ARGB, no actors/HUD, at original resolution or an integer2x reduction so
  * neither side exceeds1024. The returned image is owned here, valid until the

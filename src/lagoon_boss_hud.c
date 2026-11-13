@@ -7,7 +7,7 @@
 
 enum { BAR_X=64,BAR_Y=207,BAR_W=128,BAR_H=8 };
 static const uint8_t *image;static size_t image_size;
-static struct {uint32_t old_pixels[1024],new_pixels[1024];
+static struct {uint32_t old_pixels[1024],new_pixels[1024],hud_pixels[1024];
   uint64_t generation;unsigned frame,valid,health,maximum,phase;} packet;
 static unsigned word(const uint8_t*r,unsigned a){return r[a]|r[a+1]<<8;}
 static uint64_t hash(const uint8_t*p,unsigned n){uint64_t h=UINT64_C(14695981039346656037);
@@ -110,6 +110,7 @@ void LagoonBossHud_ObserveField(const Ppu*p,const uint8_t*r,uint64_t generation,
     unsigned now=pixel(v,t,x&7,y,0x6000,2);
     packet.old_pixels[i]=rgb(old?p->cgram[12+old]:below[i]);
     packet.new_pixels[i]=rgb(now?p->cgram[12+now]:below[i]);
+    packet.hud_pixels[i]=now?rgb(p->cgram[12+now]):0;
   }
   packet.health=health;packet.maximum=maximum;packet.phase=phase;
   packet.generation=generation;packet.frame=frame;packet.valid=1;
@@ -121,5 +122,18 @@ int LagoonBossHud_Draw(uint8_t*dst,size_t pitch,const uint8_t*field,size_t sourc
   unsigned left=(width-256)/2+BAR_X;
   for(unsigned y=0;y<8;++y)if(memcmp(field+(BAR_Y+y)*source_pitch+left*4,packet.old_pixels+y*128,128*4))return 0;
   for(unsigned y=0;y<8;++y)memcpy(dst+(BAR_Y+y)*pitch+left*4,packet.new_pixels+y*128,128*4);
+  return 1;
+}
+
+int LagoonBossHud_DrawDetached(uint8_t*dst,size_t pitch,unsigned width,unsigned height,
+    const uint8_t*source,size_t source_pitch,unsigned source_width,uint64_t generation){
+  if(!packet.valid||generation!=packet.generation||!dst||!source||width<256||height<224||
+      source_width<256||pitch<width*4||source_pitch<source_width*4)return 0;
+  unsigned old_left=(source_width-256)/2+BAR_X,left=(width-256)/2+BAR_X,top=height-224+BAR_Y;
+  for(unsigned y=0;y<8;y++)if(memcmp(source+(BAR_Y+y)*source_pitch+old_left*4,packet.new_pixels+y*128,128*4))return 0;
+  /* Only phase-health glyph pixels replace the relocated original glyphs.
+   * Zero glyph pixels clear to the original HUD's black base, never to a
+   * copied character/terrain underlay from the old camera rectangle. */
+  for(unsigned y=0;y<8;y++)memcpy(dst+(top+y)*pitch+left*4,packet.hud_pixels+y*128,128*4);
   return 1;
 }

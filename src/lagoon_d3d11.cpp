@@ -207,6 +207,11 @@ void end(){
   context->VSSetShader(vertex,nullptr,0);context->PSSetShader(pixel,nullptr,0);
   context->PSSetConstantBuffers(0,1,&constants);context->PSSetShaderResources(0,1,&resource);
   context->Draw(3,0);screenshot();
+  /* Hidden qualification windows have no desktop scanout. Some drivers block
+   * occluded Present for250ms even though GPU readback completed; do not turn
+   * a frame-stepped render check into4fps. Visible game/OBS still use Present
+   * and their configured vsync unchanged. */
+  if(SDL_GetWindowFlags(window)&SDL_WINDOW_HIDDEN){context->Flush();return;}
   hr=swapchain->Present(g_config.vsync?1:0,0);
   if(FAILED(hr)){check(hr,"present");lost=true;}
 }

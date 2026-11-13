@@ -9,6 +9,8 @@
 #include "lagoon_state.h"
 #include "lagoon_scene_renderer.h"
 #include "lagoon_transition_present.h"
+#include "lagoon_zoom_placement.h"
+#include "lagoon_boss_hud.h"
 #include "common_rtl.h"
 #include "config.h"
 #include "widescreen.h"
@@ -69,6 +71,24 @@ static struct {
 } s_retained;
 static const char *s_config_path = "config.ini";
 static int retained_scene_matches(void);
+static int world_map_geometry(void);
+static int has_modal_ui(void);
+/* Geometry only: no outgoing pixels or room resources survive a refused zoom
+ * composition. The existing source presenter separately owns loader pixels. */
+static struct {
+  uint64_t generation;
+  unsigned width,height,room,frame;
+  int left,top,valid;
+} s_zoom_geometry;
+static unsigned s_zoom_world_fallbacks,s_zoom_authored_fallbacks;
+static void report_zoom_placement(int world,int left,int top,int width,int height){
+  const char *path=getenv("LAGOON_ZOOM_PLACEMENT_REPORT");if(!path||!*path)return;
+  FILE*f=fopen(path,"ab");if(!f)return;fseek(f,0,SEEK_END);
+  if(!ftell(f))fputs("frame\troom\tloading\tbrightness\tworld_fallback\tleft\ttop\twidth\theight\tworld_refusals\tauthored_refusals\n",f);
+  fprintf(f,"%u\t%u\t%u\t%u\t%d\t%d\t%d\t%d\t%d\t%u\t%u\n",s_completed_frame,
+      (unsigned)(g_ram[0x48e]|g_ram[0x48f]<<8),g_ram[0x100e],g_ppu->inidisp,world,left,top,width,height,
+      s_zoom_world_fallbacks,s_zoom_authored_fallbacks);fclose(f);
+}
 
 void LagoonWide_SetConfigPath(const char *path) { if (path) s_config_path = path; }
 
@@ -191,9 +211,41 @@ void LagoonWide_PresentationGeometry(int sw,int sh,int *w,int *h){
 void LagoonWide_PresentationCompose(uint8_t *dst,size_t pitch,int w,int h,
     const uint8_t *src,size_t sp,int sw,int sh){
   if(w==sw&&h==sh&&!LagoonSceneRenderer_GameOver(g_ram,g_rom,0x100000)){for(int y=0;y<h;y++)memcpy(dst+y*pitch,src+y*sp,w*4);return;}
-  if(LagoonSceneRenderer_DrawView(dst,pitch,w,h,src,sp,sw,sh,RtlStateGeneration()))return;
-  /* Unsupported authored scenes keep their complete original composition.
-   * No old room packet, extrapolated cutscene, or partial transition is used. */
+  uint64_t generation=RtlStateGeneration();
+  if(LagoonSceneRenderer_DrawView(dst,pitch,w,h,src,sp,sw,sh,generation)){
+    LagoonBossHud_DrawDetached(dst,pitch,w,h,src,sp,sw,generation);
+    s_zoom_geometry.generation=generation;s_zoom_geometry.width=w;s_zoom_geometry.height=h;
+    s_zoom_geometry.left=-view_axis(word(0x480),word(0x53)*8,w,256);
+    s_zoom_geometry.top=-view_axis(word(0x482),word(0x55)*8,h,224);
+    s_zoom_geometry.room=word(0x48e);s_zoom_geometry.frame=s_completed_frame;s_zoom_geometry.valid=1;
+    return;
+  }
+  int same_geometry=s_zoom_geometry.valid&&s_zoom_geometry.generation==generation&&
+      s_zoom_geometry.width==(unsigned)w&&s_zoom_geometry.height==(unsigned)h;
+  int preloader=same_geometry&&s_zoom_geometry.room!=word(0x48e)&&
+      (unsigned)(s_completed_frame-s_zoom_geometry.frame)==1;
+  /* An inventory/menu can retain the loader flag or an old world descriptor.
+   * Its independent positive UI identity always wins; never shrink its text. */
+  int menu=g_ppu&&LagoonMenuPresentation_Identify(g_ppu,g_ram)!=LAGOON_MENU_NONE;
+  int world=g_ppu&&!menu&&!has_modal_ui()&&LagoonSceneRenderer_ExactRoom(g_ram)&&
+      (g_ram[0x100e]||s_present_incoming_mosaic||world_map_geometry()||preloader);
+  if(world&&sh==224&&w>=sw&&h>=sh){
+    int left=-view_axis(word(0x480),word(0x53)*8,w,256);
+    int top=-view_axis(word(0x482),word(0x55)*8,h,224);
+    /* Preserve only geometry through outgoing uploads. Positive incoming
+     * source authority immediately retires even this geometry-only hold. */
+    if(same_geometry&&!s_present_incoming_mosaic&&(g_ram[0x100e]||preloader)){
+      left=s_zoom_geometry.left;top=s_zoom_geometry.top;
+    }
+    if(LagoonZoomPlacement_CopyWorld(dst,pitch,w,h,src,sp,sw,sh,left,top,190)){
+      LagoonSceneRenderer_DrawHud(dst,pitch,w,h,generation);
+      ++s_zoom_world_fallbacks;report_zoom_placement(1,left,top,w,h);return;
+    }
+  }
+  /* Authored menus/cutscenes retain their complete original composition.
+   * A missing world packet above keeps its pixel footprint instead of using
+   * this authored-screen scale path and briefly zooming back into1x. */
+  ++s_zoom_authored_fallbacks;report_zoom_placement(0,0,0,w,h);
   for(int y=0;y<h;y++)for(int x=0;x<w;x++)
     memcpy(dst+y*pitch+x*4,src+(size_t)(y*sh/h)*sp+(x*sw/w)*4,4);
 }
@@ -213,6 +265,7 @@ void LagoonWide_PrepareFrame(int drawable_w, int drawable_h, int *width, int *he
 }
 
 void LagoonWide_Reset(void) {
+  s_zoom_geometry.valid=0;s_zoom_world_fallbacks=s_zoom_authored_fallbacks=0;
   s_incoming_mosaic_frame=s_present_incoming_mosaic=0;
   LagoonSceneRenderer_Reset();
   s_retained.valid=0;s_using_retained=0;
@@ -853,6 +906,7 @@ int LagoonWide_DrawFrame(uint8_t *dst,size_t pitch,const uint8_t *field,
    * let the outgoing room cache paint over either result during fade-in. */
   if(s_present_incoming_mosaic) {
     LagoonTransition_ObserveIncoming(RtlStateGeneration(),s_completed_frame);
+    s_zoom_geometry.valid=0; /* Never carry outgoing placement into a new native source. */
     return 1;
   }
   /* Loader uploads can invalidate the exact world packet halfway through a
