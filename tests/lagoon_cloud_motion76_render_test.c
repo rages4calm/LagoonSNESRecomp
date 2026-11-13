@@ -39,8 +39,19 @@ int main(void){
   }
   /* Unrelated actor palette words do not revoke this decorative source. */
   s->pal[209]^=1;s->serial++;present(s);assert(s_cloud_motion.ready);
-  /* A changed cloud palette MUST revoke retained art before any source-free
-   * presentation. Never animate arbitrary replacement bytes from an old room. */
-  s->pal[225]^=1;s->serial++;present(s);assert(!s_cloud_motion.ready&&!s_cloud_graphics.valid);
-  puts("PASS cloud76 compositor: fixed main-tick velocity, independent native retirement, repeated presents, exact cloud-only graphics revocation");
+  /* Color changes belong to the fresh raster, while source-owned character
+   * identity and cloud trajectory remain continuous. Damage/fade colors must
+   * never reset the seed or flash the cloud back to a remapped native anchor. */
+  int before_palette=s_cloud_motion.world_x;
+  s->pal[225]^=1;s->serial++;present(s);
+  assert(s_cloud_motion.ready&&s_cloud_graphics.valid&&s_cloud_motion.world_x==before_palette);
+  unsigned fresh_color_pixels=0;
+  for(unsigned y=0;y<336;y++)for(unsigned x=0;x<600;x++){
+    uint32_t pixel;memcpy(&pixel,view+y*2400+x*4,4);
+    fresh_color_pixels+=pixel==s_rgb15[s->pal[225]&32767];
+  }
+  assert(fresh_color_pixels>0);
+  /* Replacing a cloud character still revokes its retained structural owner. */
+  s->vram[0x4000]^=1;s->serial++;present(s);assert(!s_cloud_motion.ready&&!s_cloud_graphics.valid);
+  puts("PASS cloud76 compositor: fixed main-tick velocity, independent native retirement, repeated presents, fresh palette colors, exact character revocation");
 }

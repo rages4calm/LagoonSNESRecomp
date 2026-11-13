@@ -2,6 +2,7 @@
  * DMA boundary; never widen guest culling, run guest drawing again, or alter
  * the native viewport. Unsupported streams and ownership fail closed. */
 #include "lagoon_wide_entities.h"
+#include "lagoon_wide_common76.h"
 #include "lagoon_wide_multipart.h"
 #ifndef LAGOON_WIDE_ENTITIES_DECODER_ONLY
 #include "lagoon_wide_spell3.h"
@@ -48,6 +49,7 @@ static LagoonWideMagicAtlas s_magic_atlas;
 static int s_has_magic,s_retained_submitted;
 static uint64_t s_magic_emitted,s_multipart_packets,s_multipart_matched,s_multipart_emitted;
 static int s_has_death;
+static int s_has_common_npc;
 static uint64_t s_death_emitted,s_death_far,s_projectile_emitted;
 typedef struct WidePoseHistory {
   LagoonWideAnimation animation;
@@ -1481,6 +1483,16 @@ static int completed_render_packet(const uint8_t *r) {
     producer_context(r,s_frame.ram)&&producer_resource_context(r,g_ram)&&s_atlas.ready&&
     s_atlas.generation==s_render_generation&&s_atlas.room==ram_word(r,0x48e)&&s_atlas.source==ram_pointer(r,0x5d);
 }
+int LagoonWideEntities_CloudProducer(uint8_t *out,size_t bytes,uint64_t generation,
+    const uint8_t *oam,const uint8_t *high) {
+  const uint8_t *r=s_frame.producer_ram;
+  if(!out||bytes<0x500||!oam||!high||!g_ppu||!s_frame.valid||!s_frame.producer_valid||
+      generation!=s_frame.generation||generation!=RtlStateGeneration()||
+      memcmp(s_frame.oam,oam,512)||memcmp(s_frame.oam+512,high,32)||
+      memcmp(s_frame.oam,g_ppu->oam,512)||memcmp(s_frame.oam+512,g_ppu->highOam,32)||
+      !producer_context(r,s_frame.ram)||!producer_resource_context(r,g_ram))return 0;
+  memcpy(out,r,0x500);return 1;
+}
 static const uint8_t *render_pose_peer(const uint8_t *r) {
   return completed_render_packet(r)?r:g_ram;
 }
@@ -1525,6 +1537,9 @@ void LagoonWideEntities_ObserveDraw(CpuState *c,uint32_t pc24) {
   s_draw_producer.begun=0;s_draw_producer.ready=exact;
   if(exact){
     s_draw_producer.ram[0x236]=g_ram[0x236];
+    /* C026 has completed the cloud OAM pass: keep its matching motion state,
+     * rather than the state before that draw could advance cloud positions. */
+    memcpy(s_draw_producer.ram+0x390,g_ram+0x390,6);
     memcpy(s_draw_producer.ram+0xec0,g_ram+0xec0,0x180);
     memcpy(s_draw_producer.oam,g_ram+0x2000,544);s_producer_commits++;
   }
@@ -1585,6 +1600,12 @@ static int find_cell(const uint8_t *oam,const LagoonWideCell *c,const uint8_t *u
   return -1;
 }
 static void observe_vram_byte(uint32_t adr,uint8_t value) {
+  if(adr>=0xb000&&adr<0xb6e0&&s_has_common_npc) {
+    s_draw_producer.ready=s_draw_producer.begun=s_frame.producer_valid=0;
+    s_has_common_npc=0;s_object_count=0;s_has_far=0;s_has_death=0;
+    s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;
+    clear_extra_objects("vram-common-npc-overwrite",adr);
+  }
   if(adr>=0x8800&&adr<0xb200){
     s_draw_producer.ready=s_draw_producer.begun=s_frame.producer_valid=0;
   }
@@ -1781,6 +1802,9 @@ static int retained_native_current(void) {
 int LagoonWideEntities_RetainedNativeAnchors(void) {return s_retained_objects.valid && s_retained_objects.native_anchors;}
 void LagoonWideEntities_RetainScene(void) {
   s_retained_objects.valid=0;
+  /* Complete common2 authority is re-established only in a fresh producer
+   * frame. The ordinary retained atlas does not witness its5900..5B6F tail. */
+  if(s_has_common_npc)return;
   if(!g_ppu || g_ppu->extraObjectCount>kObjects)return;
   s_retained_objects.count=g_ppu->extraObjectCount;
   s_retained_objects.native_anchors=s_retained_objects.count!=0;
@@ -1911,6 +1935,15 @@ static int draw_cell_kind(const LagoonWideCell *c,unsigned anchor,uint32_t order
     opaque|=pixels[y*c->size+x]!=0;
   }
   if (!opaque) return 0;
+  /* Native-OAM-witnessed cells can also cross the room atlas boundary without
+   * entering the virtual ownership path. Their common-NPC tail is not part
+   * of the retained ordinary-atlas witness either. */
+  unsigned object_base=c->tile&0x100?PPU_objTileAdr2(g_ppu):PPU_objTileAdr1(g_ppu);
+  for(unsigned y=0;y<c->size;y+=8)for(unsigned x=0;x<c->size;x+=8) {
+    unsigned tile=((((c->tile&255)>>4)+y/8)<<4)|(((c->tile&15)+x/8)&15);
+    unsigned address=(object_base+tile*16)&0x7fff;
+    if(address>=0x5900&&address<0x5b70)s_has_common_npc=1;
+  }
   s_objects[s_object_count++]=(PpuExtraObject){c->x,c->y,c->size,c->size,c->size,
       (c->tile>>12)&3,!!(c->tile&0x800),(uint8_t)anchor,order,pixels};
   return 1;
@@ -1924,6 +1957,13 @@ static int cells_owned(const LagoonWideCell *c,int count) {
   return count>0;
 }
 static int record_cells_owned(const uint8_t *ram,unsigned entity,unsigned frame,const LagoonWideCell *cells,int n) {
+  if(ram&&entity<=0x800&&!(entity&63)&&ram[0x518+entity]==1&&ram[0x51b+entity]==0&&
+      frame==ram[0x51c+entity]&&LagoonWideEntities_CurrentSource(g_rom,kRomSize,0,frame)&&
+      completed_render_packet(ram)&&s_atlas.generation==s_frame.generation&&
+      loaded_common2(g_rom,kRomSize,ram,PpuRenderVram(g_ppu))&&
+      LagoonWideCommon2_CellsOwned(PPU_objTileAdr1(g_ppu),PPU_objTileAdr2(g_ppu),cells,n)) {
+    s_has_common_npc=1;return 1;
+  }
   if(!death_record(ram+0x500+entity,frame))return cells_owned(cells,n);
   if(n<=0 || !LagoonWideDeath_Match(&s_death_atlas,PpuRenderVram(g_ppu),g_rom,kRomSize,s_frame.generation))return 0;
   for(int i=0;i<n;++i)if(!LagoonWideDeath_CellOwned(&s_death_atlas,
@@ -2075,6 +2115,7 @@ static int player_packet_cells(const uint8_t *r,const uint8_t *oam,uint8_t *used
   memcpy(used,marked,sizeof marked);return count;
 }
 void LagoonWideEntities_BeginFrame(int enabled) {
+  s_has_common_npc=0;
   s_render_packet=NULL;s_render_generation=0;
   s_diag_producer=s_diag_queue=s_diag_far_candidates=s_diag_far_owned=s_diag_queued_groups=s_diag_far_groups=0;
   s_object_count=0;s_has_far=0;s_has_death=0;s_has_projectile=0;s_has_magic=0;s_retained_submitted=0;clear_extra_objects("frame-begin",0);
@@ -2130,7 +2171,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     unsigned offset=ram_word(ram,0xec0+q*6),type=ram[0xec4+q*6];
     if(type==4) {
       if(!LagoonSceneRenderer_ExactRoom(ram) || !LagoonSceneRenderer_ExactRoom(g_ram) ||
-          memcmp(ram+0x480,g_ram+0x480,4))continue;
+          memcmp(ram+0x480,render_pose_peer(ram)+0x480,4))continue;
       if(offset>=0x180 || offset%24)continue;
       unsigned j=offset/24;
       int magic=ram[0xd40+offset]>=1 && ram[0xd40+offset]<=8;
@@ -2170,7 +2211,7 @@ void LagoonWideEntities_BeginFrame(int enabled) {
     int n;
     if(type==3) {
       if(!atlas_ok || !LagoonSceneRenderer_ExactRoom(ram) || !LagoonSceneRenderer_ExactRoom(g_ram) ||
-          memcmp(ram+0x480,g_ram+0x480,4))continue;
+          memcmp(ram+0x480,render_pose_peer(ram)+0x480,4))continue;
       n=LagoonWideMultipart_PacketCells(g_rom,kRomSize,ram,q,cells[e],kMultipartCells);
       int owned=n>0;
       for(int i=0;i<n;++i)if(!LagoonWideAtlas_CellOwned(&s_atlas,
@@ -2193,12 +2234,19 @@ void LagoonWideEntities_BeginFrame(int enabled) {
       used[slot]=1;cell_slot[e][i]=slot;
     }
     /* A native draw packet may omit a cell wholly above/below its raster.
-     * Its siblings still match real OAM; exact same source pose plus complete
-     * atlas ownership permits only the omitted cells in detached scenery. */
+     * Keep every native-eligible cell's exact OAM match above. If the whole
+     * group is clipped, only the independently completed original producer
+     * and its source queue can supply the pose/order instead of a sibling
+     * OAM witness. Atlas ownership remains mandatory in either case. */
     if(LagoonWide_ViewExtraY()>0&&n>0){
-      int missing=0,witnessed=0;
-      for(int i=0;i<n;++i){missing|=cell_slot[e][i]<0;witnessed|=cell_slot[e][i]>=0;}
-      if(missing&&witnessed&&(multipart[e]||record_cells_owned(ram,offset,ram[a+0x1c],cells[e],n)))virtual_queued[e]=1;
+      int missing=0,witnessed=0,native_eligible=0;
+      for(int i=0;i<n;++i){
+        missing|=cell_slot[e][i]<0;witnessed|=cell_slot[e][i]>=0;
+        native_eligible|=cells[e][i].y>=-(int)cells[e][i].size&&cells[e][i].y<240;
+      }
+      int completed_clipped=!native_eligible&&producer_packet&&completed_render_packet(ram);
+      if(missing&&(witnessed||completed_clipped)&&
+          (multipart[e]||record_cells_owned(ram,offset,ram[a+0x1c],cells[e],n)))virtual_queued[e]=1;
     }
     if(multipart[e]) {
       if(s_last_serial!=s_frame.serial){s_multipart_packets++;s_multipart_matched+=n;}
@@ -2382,3 +2430,10 @@ void LagoonWideEntities_BeginFrame(int enabled) {
   PpuSetExtraObjects(g_ppu,s_objects,s_object_count);report_status("ready",0,0);s_render_packet=NULL;
 }
 #endif /* runtime */
+
+#ifdef LAGOON_WIDE_ENTITIES_DECODER_ONLY
+int LagoonWideEntities_CloudProducer(uint8_t *out,size_t bytes,uint64_t generation,
+    const uint8_t *oam,const uint8_t *high) {
+  (void)out;(void)bytes;(void)generation;(void)oam;(void)high;return 0;
+}
+#endif

@@ -77,11 +77,13 @@ static SceneMismatch s_mismatch[64];
 static unsigned s_mismatch_count;
 static uint32_t s_pixels[W*H],s_cloud_underlay[W*H];
 static LagoonCloudMotion76 s_cloud_motion;
-/* Only source-witnessed cloud patterns/palette, not the changing enemy atlas.
- * The full current packet must still own every retained word before drawing. */
+/* Only source-witnessed cloud pattern words, not the changing enemy atlas.
+ * Palette indices belong to those literal cells; colors always come from the
+ * fresh admitted raster packet, so an ordinary palette flash does not restart
+ * the decorative cloud's movement. */
 static struct {
-  uint16_t patterns[0x2000],palette[256];
-  uint8_t used[0x2000],pal_used[256];
+  uint16_t patterns[0x2000];
+  uint8_t used[0x2000];
   uint64_t generation;
   unsigned room,valid;
 } s_cloud_graphics;
@@ -535,8 +537,17 @@ void LagoonSceneRenderer_ObserveRaster(const Ppu *p,unsigned line,const uint8_t 
     memcpy(s->vram,PpuRenderVram(p),sizeof(s->vram));memcpy(s->pal,p->cgram,sizeof(s->pal));
     memcpy(s->oam,p->oam,sizeof(s->oam));memcpy(s->high,p->highOam,sizeof(s->high));
     object_policy(&s->policy,p);
-    LagoonCloudView75_Capture(&s->cloud,r,rom,size,(const uint8_t*)s->oam,s->high);
-    s->cloud_tick=r[0x408];
+    /* The OAM displayed by this raster belongs to the completed draw, not to
+     * the next mutable CPU pose/camera. Only the independently witnessed OAM
+     * producer can identify native cloud cells that may be removed/replaced.
+     * A refused producer grants no mask; never guess a moving camera phase. */
+    uint8_t cloud_ram[0x500];
+    memset(&s->cloud,0,sizeof s->cloud);
+    if(LagoonWideEntities_CloudProducer(cloud_ram,sizeof cloud_ram,generation,
+        (const uint8_t*)s->oam,s->high)){
+      LagoonCloudView75_Capture(&s->cloud,cloud_ram,rom,size,(const uint8_t*)s->oam,s->high);
+      s->cloud_tick=cloud_ram[0x408];
+    }else s->cloud_tick=r[0x408];
     object_policy_inputs(&s->policy_inputs,p);
     s->vram_writes=p->vramWriteCount;s->oam_writes=p->oamWriteCount;
     int x=word(r,0x480),y=word(r,0x482);
@@ -989,8 +1000,6 @@ static int cloud_graphics_match(const ScenePacket *s){
       s_cloud_graphics.room!=s->room)return 0;
   for(unsigned i=0;i<0x2000;i++)if(s_cloud_graphics.used[i]&&
       s_cloud_graphics.patterns[i]!=s->vram[0x4000+i])return 0;
-  for(unsigned i=0;i<256;i++)if(s_cloud_graphics.pal_used[i]&&
-      s_cloud_graphics.palette[i]!=s->pal[i])return 0;
   return 1;
 }
 static int cloud_graphics_observe(const ScenePacket *s){
@@ -1001,7 +1010,7 @@ static int cloud_graphics_observe(const ScenePacket *s){
   if(s->room!=0x28)return 0;
   if(s->cloud.valid){
     /* Capture already bound this literal shape to the original cloud OAM
-     * producer. Learn only its referenced four-plane characters and palette;
+     * producer. Learn only its referenced four-plane characters;
      * a later independently witnessed style can add its own literal cells. */
     s_cloud_graphics.generation=s->generation;s_cloud_graphics.room=s->room;
     for(unsigned i=0;i<s->cloud.count;i++){
@@ -1017,11 +1026,6 @@ static int cloud_graphics_observe(const ScenePacket *s){
           s_cloud_graphics.used[address-0x4000+k]=1;
           s_cloud_graphics.patterns[address-0x4000+k]=s->vram[address+k];
         }
-      }
-      unsigned palette=128+((c->tile>>9)&7)*16;
-      for(unsigned k=0;k<16;k++){
-        s_cloud_graphics.pal_used[palette+k]=1;
-        s_cloud_graphics.palette[palette+k]=s->pal[palette+k];
       }
     }
     s_cloud_graphics.valid=1;

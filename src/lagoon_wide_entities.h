@@ -17,6 +17,10 @@ struct CpuState;
 /* Read-only original0180F1 JSR C026 / physical0180F4 return observer.
  * Bypassed/interrupted callers provide no completed producer authority. */
 void LagoonWideEntities_ObserveDraw(struct CpuState *cpu,uint32_t pc24);
+/* Completed cloud/OAM producer only; no future mutable RAM fallback. Copies
+ * low0x500 bytes on success, leaves output untouched on refusal. */
+int LagoonWideEntities_CloudProducer(uint8_t *out,size_t bytes,uint64_t generation,
+    const uint8_t *oam,const uint8_t *high);
 int LagoonWideEntities_Pixels(const uint16_t *vram, const uint16_t *cgram,
     unsigned base1, unsigned base2, const LagoonWideCell *cell,
     uint16_t *pixels, int clip_native);

@@ -22,10 +22,13 @@
       "world_zoom": "1.5",
       "presenter": "D3D11",
       "shader": "MMPX",
-      "source": "Actual hidden-window GPU readback; not physical fullscreen scanout",
-      "exe_sha256": "e604d2dd44fb99fab961e07454b1f46c1397ac968ebbfa117475bb38e2f20301",
-      "image_sha256": "526a36a60705c868f4180f134db265dcb5d9cb17a32f1307269e123171ac6fd6",
-      "assisted": true
+      "source": "Actual hidden-window1920x1080 D3D11 GPU readback at frame650; RGB pixels unchanged by BMP-to-PNG conversion; not physical fullscreen scanout",
+      "exe_sha256": "46ae4f716ff860c725993b793208b7e840ec420071c4b7de23d24a0194df59de",
+      "image_sha256": "9c5c8b8db3699ce9ab6e1e27fc9b4f13ab966d2e8e077d52dc3834118b686b20",
+      "assisted": true,
+      "assistance": "Same genuine walking-route prefix; health and defense assistance only",
+      "route_scope": "Room28 Phantom Hill, original save2 then left150/right300/left150; screenshotframe650. Not a fresh fullroute or campaign.",
+      "cloud_revision_scope": "Captured after completed-producer cloud fix on46ae. Later0dbf candidate adds other actor-source ownership fixes; this image is not a capture of that later executable."
     },
     {
       "file": "atland-square-zoom150-1920x1080.png",
@@ -53,5 +56,5 @@
       "assisted": true
     }
   ],
-  "scope": "Focused checkpoint movement; Atland uses assisted original door-loader entry. Not a campaign or FPS benchmark."
+  "scope": "Focused checkpoint movement and bounded assisted room routes, not a campaign or FPS benchmark. Each image records its own exact capture executable; hashes are not implicitly the final release executable."
 }

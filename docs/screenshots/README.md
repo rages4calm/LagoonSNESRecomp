@@ -9,7 +9,7 @@ not a full-game rendering or performance guarantee.
 
 [![Atland streets with coherent doors and world objects](atland-square-zoom150-1920x1080.png)](atland-square-zoom150-1920x1080.png)
 
-[![Phantom Hill with complete sprites and correctly timed cloud travel](phantom-hill-square-zoom150-1920x1080.png)](phantom-hill-square-zoom150-1920x1080.png)
+[![Phantom Hill with a complete cloud and bird in the expanded view](phantom-hill-square-zoom150-1920x1080.png?v=2)](phantom-hill-square-zoom150-1920x1080.png)
 
 [![Castle movement with its door retained and a clean HUD](castle-square-zoom150-1920x1080.png)](castle-square-zoom150-1920x1080.png)
 
@@ -17,6 +17,12 @@ Actual1920×1080 D3D11 GPU readbacks: **Square pixels + widescreen +1.5x world
 zoom out**, with MMPX. Captured after movement from checkpoints; Atland uses
 an assisted original door-loader entry. These hidden-window captures do not
 certify physical fullscreen scanout. [Capture metadata](renderer76-captures.json).
+
+The Phantom Hill image was replaced after the follow-up cloud fix. It shows
+the complete decorative cloud continuing beyond its original sprite lifetime,
+with a bird in the expanded view. The capture uses the exact `46ae4f716…` build;
+later actor fixes have separate checks. Other images retain their individual
+capture-build hashes in the metadata rather than being presented as new captures.
 
 [![Visitor dialogue with an undistorted portrait and readable lettering](cameo-dialogue-square-1920x1080.png)](cameo-dialogue-square-1920x1080.png)
 

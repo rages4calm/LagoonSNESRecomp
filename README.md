@@ -24,7 +24,7 @@ CPU execution does not mean every hardware component has been replaced.
 and self-contained Companion launcher. No ROM, game-code source extracted from
 the ROM, saves or private test captures are included.
 
-![Phantom Hill with square pixels, widescreen and1.5x zoom out](docs/screenshots/phantom-hill-square-zoom150-1920x1080.png)
+![Phantom Hill with a complete cloud, moving bird and1.5x zoom out](docs/screenshots/phantom-hill-square-zoom150-1920x1080.png?v=2)
 
 Square pixels, D3D11 MMPX Enhanced pixels and1.5x world zoom out at1920×1080.
 [More screenshots, maps and menus](docs/screenshots/README.md).
@@ -33,7 +33,7 @@ Square pixels, D3D11 MMPX Enhanced pixels and1.5x world zoom out at1920×1080.
 
 ## Features
 
-0.5.2 fixes completed-frame actor/door coherence, cloud wind speed and cameo dialogue proportions. Options also includes Quit to desktop with a confirmation. The fixes use matched rendering data without changing enemy aggression or combat balance.
+0.5.2 fixes disappearing doors, actors clipped by the original viewport, shared NPC graphics and Phantom Hill cloud flashes. It also corrects cameo dialogue proportions and adds live zoom controls and a confirmed Quit to desktop option. These rendering fixes preserve enemy aggression and combat balance.
 
 - **Widescreen:** 16:9, 16:10, 21:9, 32:9 and window-driven aspects, with added
   scenery and supported NPCs, enemies, boss parts, projectiles and magic effects.
@@ -102,20 +102,34 @@ first-run ROM setup. Keep `local/` for your saves, settings, map and achievement
 ## What's new in 0.5.2
 
 Moving actors and doors now use the camera, pose and animation from the same
-completed draw packet. Advancing game logic no longer invalidates that frame's
-extra-view actors. Cloud wind keeps the original speed independent of zoom,
-without jumping when the original narrow cloud retires or respawns.
+completed draw packet. Doors remain visible after walking fully past the old
+viewport and returning. Supported actors whose entire sprite lies above or
+below that viewport can still appear in the expanded view. Shared NPC graphics,
+including wizard sprites, have their own complete graphics-source checks.
+
+Phantom Hill clouds now use their completed sprite draw, avoiding flashes of
+the original cloud over its expanded replacement. Wind keeps the original
+speed independent of zoom, continues through native cloud retirement, and
+does not restart when palette colors change.
 
 Crono's dialogue and portrait retain their proportions over the expanded frozen
 world. **Options → Display**, **R3** or **Ctrl+Z** changes zoom immediately;
 **Options → Sound → Quit to desktop** exits after confirmation. Square pixels
 and original CRT proportions remain independent of widescreen and zoom.
 
-Focused checks cover the six available checkpoints, continuous Atland/F1 walking,
-menu return, original transitions and cloud motion. Forty consecutive Atland
-frames retained a door while it crossed the old viewport edge. These checks
-are not a new campaign or a guarantee against every rendering bug. The strict
-native default and explicit interpreter debugging option remain intact.
+Focused checks include long checkpoint walking, menu return, original transitions
+and cloud motion. The F1 final-boss-door route corrected 21 disappearing-door frames
+within 120 consecutive GPU captures, with unchanged game memory. Phantom Hill
+walking retained 3,644 accepted scene frames and all 13 matched memory checkpoints;
+a separate GPU sequence shows a complete cloud moving after its native sprite
+retires. Denegul's wizard also passed a 60-frame expanded-view check with all
+eight matched memory checkpoints unchanged. These checks are not a new campaign or a guarantee against every
+rendering bug. The strict native default and explicit interpreter debugging
+option remain intact.
+
+A report of muffled Natela sound effects remains under investigation. A separate
+matched native/reference fight produced identical raw audio; that comparison
+does not establish how the streamer's audio device or OBS processed it.
 
 ## What's new in 0.5.0
 
