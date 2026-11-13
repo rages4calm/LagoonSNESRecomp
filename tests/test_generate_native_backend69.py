@@ -24,7 +24,7 @@ class NativeBuildMetadata(unittest.TestCase):
             self.assertEqual(len({tuple(k) for k in keys}), len(keys))
             self.assertTrue(all(len(k) == 4 and all(type(v) is int for v in k) for k in keys))
             self.assertTrue(all(not k[3] or k[1:3] == [1, 1] for k in keys))
-        self.assertEqual([p['count'] for p in manifest['profiles']], [28488, 28474])
+        self.assertEqual([p['count'] for p in manifest['profiles']], [28507, 28493])
 
     def test_camera_contract_matches_actual_patch_writer_and_follower(self):
         patches = generator.read_json(generator.METADATA / 'camera.patches.json')
@@ -78,7 +78,7 @@ class NativeBuildMetadata(unittest.TestCase):
                 with patch.object(generator, 'read_json', fixture_manifest), patch.object(Path, 'read_bytes', checkout_bytes):
                     accepted, _, profiles = generator.checked_inputs(rom, sdk)
                     self.assertEqual(accepted['sdk_files'], manifest['sdk_files'])
-                    self.assertEqual([len(keys) for _, keys, _ in profiles], [28488, 28474])
+                    self.assertEqual([len(keys) for _, keys, _ in profiles], [28507, 28493])
 
     def test_text_pins_preserve_every_non_crlf_byte(self):
         lf = 'é = 1  \n# lone carriage return\rEND\n'.encode('utf-8')
