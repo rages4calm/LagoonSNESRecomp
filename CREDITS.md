@@ -1,5 +1,8 @@
 # Credits
 
+- **DarkShadowRage** — contributed the redrawn box-art logo displayed in this
+  repository. The underlying Lagoon name and original logo remain the property
+  of their respective rights holders; the software license does not relicense them.
 - **ZOOM and KEMCO** — the original Lagoon games. This project does not include
   their ROMs or extracted game graphics.
 - **oipo, the Lagoon QoL hack author identified by the project owner** — the changes requested for this port

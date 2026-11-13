@@ -1,5 +1,7 @@
 # Lagoon Recomp
 
+<p align="center"><img src="docs/branding/lagoon-logo.png" width="680" alt="Lagoon — redrawn box-art logo contributed by DarkShadowRage"></p>
+
 [![Windows x64 download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.1/Lagoon-Companion-0.4.1-win-x64.zip)
 [![Linux x64 download](docs/badges/linux.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.4.1/Lagoon-Companion-0.4.1-linux-x64.tar.gz)
 
