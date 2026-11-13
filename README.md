@@ -1,5 +1,7 @@
 # Lagoon Recomp
 
+> **0.5.0 is temporarily a prerelease:** reported 1.5x rendering regressions are being corrected. [Stable 0.4.1](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.4.1) remains available.
+
 <p align="center"><img src="docs/branding/lagoon-logo.png" width="680" alt="Lagoon — redrawn box-art logo contributed by DarkShadowRage"></p>
 
 [![Windows x64 download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.0/Lagoon-Companion-0.5.0-win-x64.zip)
