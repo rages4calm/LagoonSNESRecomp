@@ -10,6 +10,7 @@
 #include "lagoon_scene_renderer.h"
 #include "lagoon_transition_present.h"
 #include "lagoon_zoom_placement.h"
+#include "lagoon_zoom_transition77.h"
 #include "lagoon_boss_hud.h"
 #include "common_rtl.h"
 #include "config.h"
@@ -73,14 +74,15 @@ static const char *s_config_path = "config.ini";
 static int retained_scene_matches(void);
 static int world_map_geometry(void);
 static int has_modal_ui(void);
-/* Geometry only: no outgoing pixels or room resources survive a refused zoom
- * composition. The existing source presenter separately owns loader pixels. */
+/* Latest completed placement. The separate outgoing zoom-canvas cache below
+ * holds presentation pixels only during an explicitly identified loader. */
 static struct {
   uint64_t generation;
   unsigned width,height,room,frame;
   int left,top,valid;
 } s_zoom_geometry;
 static unsigned s_zoom_world_fallbacks,s_zoom_authored_fallbacks;
+static LagoonZoomTransition77 s_zoom_outgoing;
 static void report_zoom_placement(int world,int left,int top,int width,int height){
   const char *path=getenv("LAGOON_ZOOM_PLACEMENT_REPORT");if(!path||!*path)return;
   FILE*f=fopen(path,"ab");if(!f)return;fseek(f,0,SEEK_END);
@@ -94,7 +96,7 @@ void LagoonWide_SetConfigPath(const char *path) { if (path) s_config_path = path
 unsigned LagoonWide_GetZoom(void){return s_zoom;}
 int LagoonWide_SetZoom(unsigned percent){
   if(percent!=100&&percent!=125&&percent!=150)return 0;
-  if(s_zoom!=percent){s_zoom=percent;s_zoom_geometry.valid=0;}
+  if(s_zoom!=percent){s_zoom=percent;s_zoom_geometry.valid=0;LagoonZoomTransition77_Reset(&s_zoom_outgoing);}
   return 1;
 }
 
@@ -226,10 +228,19 @@ void LagoonWide_PresentationCompose(uint8_t *dst,size_t pitch,int w,int h,
   uint64_t generation=RtlStateGeneration();
   if(LagoonSceneRenderer_DrawView(dst,pitch,w,h,src,sp,sw,sh,generation)){
     LagoonBossHud_DrawDetached(dst,pitch,w,h,src,sp,sw,generation);
-    s_zoom_geometry.generation=generation;s_zoom_geometry.width=w;s_zoom_geometry.height=h;
-    s_zoom_geometry.left=-view_axis(word(0x480),word(0x53)*8,w,256);
-    s_zoom_geometry.top=-view_axis(word(0x482),word(0x55)*8,h,224);
-    s_zoom_geometry.room=word(0x48e);s_zoom_geometry.frame=s_completed_frame;s_zoom_geometry.valid=1;
+    unsigned room;
+    s_zoom_geometry.valid=LagoonSceneRenderer_ViewPlacementRoom(w,h,generation,
+        &s_zoom_geometry.left,&s_zoom_geometry.top,&room);
+    if(s_zoom_geometry.valid){
+      /* A positively presented new room retires the old outgoing canvas even
+       * if the loader flag lingers and a later incoming field is refused. */
+      if(s_zoom_outgoing.valid&&(s_zoom_outgoing.generation!=generation||
+          s_zoom_outgoing.room!=room+1))LagoonZoomTransition77_Reset(&s_zoom_outgoing);
+      s_zoom_geometry.generation=generation;s_zoom_geometry.width=w;s_zoom_geometry.height=h;
+      s_zoom_geometry.room=room;s_zoom_geometry.frame=s_completed_frame;
+      if(g_ppu&&g_ppu->inidisp==15&&!g_ram[0x100e]&&!s_present_incoming_mosaic)
+        LagoonZoomTransition77_Capture(&s_zoom_outgoing,dst,pitch,w,h,generation,room+1,s_completed_frame);
+    }
     return;
   }
   int same_geometry=s_zoom_geometry.valid&&s_zoom_geometry.generation==generation&&
@@ -239,7 +250,19 @@ void LagoonWide_PresentationCompose(uint8_t *dst,size_t pitch,int w,int h,
   /* An inventory/menu can retain the loader flag or an old world descriptor.
    * Its independent positive UI identity always wins; never shrink its text. */
   int menu=g_ppu&&LagoonMenuPresentation_Identify(g_ppu,g_ram)!=LAGOON_MENU_NONE;
-  int world=g_ppu&&!menu&&!has_modal_ui()&&LagoonSceneRenderer_ExactRoom(g_ram)&&
+  int modal=has_modal_ui();
+  if(!g_ppu||menu||modal||s_present_incoming_mosaic)LagoonZoomTransition77_Reset(&s_zoom_outgoing);
+  /* Native transition holding precedes this compositor and only contains the
+   * unzoomed224-row source. Preserve the independently completed full zoom
+   * canvas through loader uploads, rather than abruptly losing its margins.
+   * Positive incoming ownership or authored UI always retires it first. */
+  if(g_ppu&&!menu&&!modal&&LagoonZoomTransition77_Apply(&s_zoom_outgoing,dst,pitch,w,h,generation,
+      !!g_ram[0x100e],g_ppu->inidisp,
+      LagoonSceneRenderer_ExactRoom(g_ram)?word(0x48e)+1:0,s_completed_frame)){
+    ++s_zoom_world_fallbacks;
+    report_zoom_placement(2,s_zoom_geometry.left,s_zoom_geometry.top,w,h);return;
+  }
+  int world=g_ppu&&!menu&&!modal&&LagoonSceneRenderer_ExactRoom(g_ram)&&
       (g_ram[0x100e]||s_present_incoming_mosaic||world_map_geometry()||preloader);
   if(world&&sh==224&&w>=sw&&h>=sh){
     int left=-view_axis(word(0x480),word(0x53)*8,w,256);
@@ -278,6 +301,7 @@ void LagoonWide_PrepareFrame(int drawable_w, int drawable_h, int *width, int *he
 
 void LagoonWide_Reset(void) {
   s_zoom_geometry.valid=0;s_zoom_world_fallbacks=s_zoom_authored_fallbacks=0;
+  LagoonZoomTransition77_Reset(&s_zoom_outgoing);
   s_incoming_mosaic_frame=s_present_incoming_mosaic=0;
   LagoonSceneRenderer_Reset();
   s_retained.valid=0;s_using_retained=0;
@@ -658,7 +682,8 @@ void LagoonWide_BeginFrame(unsigned number) {
   if (!draw_hooks_ready && g_rom) {
     int entry = interp_bridge_add_pre_opcode_hook(0x0180F1, LagoonWideEntities_ObserveDraw);
     int complete = interp_bridge_add_pre_opcode_hook(0x0180F4, LagoonWideEntities_ObserveDraw);
-    draw_hooks_ready = entry && complete;
+    int gold_complete = interp_bridge_add_pre_opcode_hook(0x0180FA, LagoonWideEntities_ObserveDraw);
+    draw_hooks_ready = entry && complete && gold_complete;
   }
   (void)number;
   /* External/debugger loads can advance the timeline without the desktop
@@ -918,6 +943,7 @@ int LagoonWide_DrawFrame(uint8_t *dst,size_t pitch,const uint8_t *field,
    * let the outgoing room cache paint over either result during fade-in. */
   if(s_present_incoming_mosaic) {
     LagoonTransition_ObserveIncoming(RtlStateGeneration(),s_completed_frame);
+    LagoonZoomTransition77_Reset(&s_zoom_outgoing);
     s_zoom_geometry.valid=0; /* Never carry outgoing placement into a new native source. */
     return 1;
   }

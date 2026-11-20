@@ -3,6 +3,17 @@ using Companion.Launcher.Core;
 using System.Text;
 
 // Explicit private inputs; no ROM fixtures or owner settings bundled.
+if (args.Length == 2 && args[0] == "--setup-child")
+{
+    if (args[1] == "delay") { await Task.Delay(TimeSpan.FromSeconds(30)); return; }
+    Console.WriteLine(args[1]);
+    return;
+}
+if (args.Length == 2 && args[0] == "--setup-tools")
+{
+    await SetupChecks.RunAsync(Path.GetFullPath(args[1]));
+    return;
+}
 if (args.Length == 3 && args[0] == "--rom-picker")
 {
     var root = Path.GetFullPath(args[2]); Directory.CreateDirectory(root);

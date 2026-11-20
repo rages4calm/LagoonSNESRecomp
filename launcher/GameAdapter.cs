@@ -197,13 +197,15 @@ public sealed class GameAdapter : JsonGameAdapterBase
                 throw new InvalidDataException("Select the clean, unheadered Lagoon USA ROM. Patched and different revisions are unsupported.");
         progress?.Report(new("Verifying your ROM and preparing local settings. No downloads are needed.", 0));
         var setup = PortablePackage
-            ? new LaunchPlan("python3", Project, new[] { Path.Combine(Project, "scripts", "setup_portable.py"), "--root", Project, "--rom", rom })
+            ? new LaunchPlan(SetupTools.ResolveExecutable("python3"), Project, new[] { Path.Combine(Project, "scripts", "setup_portable.py"), "--root", Project, "--rom", rom })
             : new LaunchPlan(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe"), Project, new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", Path.Combine(Project, "scripts", "setup_windows.ps1"), "-Rom", rom });
         if (PortablePackage) PortablePackageChecks.Validate(Project);
         var result = await SetupProcessRunner.RunAsync(setup, cancellationToken);
         if (result.ExitCode != 0) throw new InvalidOperationException("Setup failed. Existing saves and runtime were preserved.\n" + result.StandardError + "\n" + result.StandardOutput);
         cancellationToken.ThrowIfCancellationRequested();
-        using var ready = JsonDocument.Parse(File.ReadAllText(Path.Combine(Project, "local", "setup-ready.json")).TrimStart('\uFEFF'));
+        var readyPath = Path.Combine(Project, "local", "setup-ready.json");
+        if (!File.Exists(readyPath)) throw new InvalidDataException("Setup did not create local/setup-ready.json. Extract the full release into a writable folder and retry.\n" + result.StandardError + "\n" + result.StandardOutput);
+        using var ready = JsonDocument.Parse(File.ReadAllText(readyPath).TrimStart('\uFEFF'));
         var executable = ready.RootElement.GetProperty("executable").GetString()!;
         var config = ready.RootElement.GetProperty("config").GetString()!;
         if (!File.Exists(executable) || !File.Exists(config)) throw new InvalidDataException("Setup did not produce a complete playable installation.");

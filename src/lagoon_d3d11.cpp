@@ -8,6 +8,7 @@
 #include <vector>
 #include <string>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 extern "C" {
 #include "desktop/sdl_compat.h"
@@ -202,6 +203,13 @@ void end(){
   struct Frame {int width,height,enhanced,hud;float footprint[2],padding[2];};
   Frame data={source_w,source_h,!title_ui&&g_config.shader?(std::strstr(g_config.shader,"lagoon-mmpx")?2:std::strstr(g_config.shader,"lagoon-epx")?1:0):0,title_ui?0:34,
       {2.0f*source_w/v.width,2.0f*source_h/v.height},{0,0}};
+  static const bool report_filter=std::getenv("LAGOON_D3D11_FILTER_REPORT")!=nullptr;
+  static int reported_filter=-1;
+  if(report_filter&&reported_filter!=data.enhanced){
+    std::fprintf(stderr,"[d3d11] frame-filter mode=%d title-ui=%d source=%dx%d\n",
+        data.enhanced,title_ui,source_w,source_h);
+    reported_filter=data.enhanced;
+  }
   context->UpdateSubresource(constants,0,nullptr,&data,0,0);
   context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
   context->VSSetShader(vertex,nullptr,0);context->PSSetShader(pixel,nullptr,0);

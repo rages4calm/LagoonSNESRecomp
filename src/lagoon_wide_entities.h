@@ -63,6 +63,11 @@ int LagoonWideEntities_AllowedKind(unsigned room,unsigned type,unsigned kind);
 int LagoonWideEntities_CurrentSource(const uint8_t *rom,size_t size,unsigned selector,unsigned frame);
 int LagoonWideEntities_CurrentFrame(const uint8_t *rom,size_t size,const uint8_t *captured,
     const uint8_t *current,unsigned entity,uint8_t *frame);
+/* Read-only first-draw appearance for the exact untouched Gold Cave jelly
+ * spawn. Callers independently require current/completed pose/OAM/atlas proof;
+ * this does not advance native emergence, animation timers or AI. */
+int LagoonWideEntities_DormantJellyFrame(const uint8_t *rom,size_t size,
+    const uint8_t *ram,unsigned entity,uint8_t *frame);
 int LagoonWideEntities_RecordCells(const uint8_t *rom,size_t rom_size,const uint8_t *ram,
     unsigned entity,unsigned frame,int projected,LagoonWideCell *cells,size_t capacity);
 /* Actual queued enemy projectile kinds11..33, read-only original alive band.

@@ -18,6 +18,12 @@ import package_portable as package
 
 
 class PortablePackageTests(unittest.TestCase):
+    def test_old_python_explains_requirement_before_setup(self):
+        with patch.object(setup.sys, 'version_info', (3, 10, 0)), patch.object(setup, 'setup') as run:
+            with self.assertRaisesRegex(SystemExit, 'Python 3.11 or newer'):
+                setup.main()
+            run.assert_not_called()
+
     @classmethod
     def setUpClass(cls):
         # Kept in the private build tree for owner-run cleanup; no owner data or

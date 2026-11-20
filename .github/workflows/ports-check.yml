@@ -23,7 +23,7 @@ jobs:
         include:
           - os: ubuntu-24.04
             platform: linux-x64
-          - os: macos-15
+          - os: macos-26
             platform: macos-arm64
           - os: macos-15-intel
             platform: macos-x64
@@ -32,7 +32,11 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
+          repository: RetroPortingToolKit/snesrecomp
+          ref: 22c01ef12cc94767451d0b218e4fc341bc19043e
+          path: snesrecomp
           submodules: recursive
       - uses: actions/checkout@v4
         with:
@@ -87,6 +91,7 @@ jobs:
           dotnet pack companion-foundation/src/Companion.Launcher.Avalonia -c Release -o companion-foundation/packages
           export COMPANION_LAUNCHER_FEED="$PWD/companion-foundation/packages"
           dotnet run --project launcher/tests/Lagoon.Launcher.Tests.csproj -c Release -- --settings-only "$PWD/build-port-setup/settings-check"
+          dotnet run --project launcher/tests/Lagoon.Launcher.Tests.csproj -c Release -- --setup-tools "$PWD/build-port-setup/setup-tools-check"
           dotnet restore tests/launcher-portable-ui/Lagoon.Portable.UI.Tests.csproj --configfile launcher/nuget.config
           dotnet run --project tests/launcher-portable-ui/Lagoon.Portable.UI.Tests.csproj -c Release --no-restore -- "$PWD/build-port-setup/ui-check"
       - uses: actions/upload-artifact@v4

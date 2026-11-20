@@ -1,4 +1,4 @@
-snesrecomp=98f41838443a7cd7f9d56bec41387a6ebfc3bcbc
+snesrecomp=22c01ef12cc94767451d0b218e4fc341bc19043e
 snesrecomp_patch=patches/lagoon-framework.patch
 recomp-ui=af7a6d95ead6ad785fbfbc2889b8648f589d4eeb
 companion-launcher=0.2.0

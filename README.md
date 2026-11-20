@@ -2,13 +2,13 @@
 
 <p align="center"><img src="docs/branding/lagoon-logo.png" width="680" alt="Lagoon — redrawn box-art logo contributed by DarkShadowRage"></p>
 
-[![Windows x64 download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.2/Lagoon-Companion-0.5.2-win-x64.zip)
-[![Linux x64 download](docs/badges/linux.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.2/Lagoon-Companion-0.5.2-linux-x64.tar.gz)
+[![Windows x64 download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.3/Lagoon-Companion-0.5.3-win-x64.zip)
+[![Linux x64 download](docs/badges/linux.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.3/Lagoon-Companion-0.5.3-linux-x64.tar.gz)
 
-[![macOS Apple Silicon download](docs/badges/macos-arm64.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.2/Lagoon-Companion-0.5.2-macos-arm64.tar.gz)
-[![macOS Intel download](docs/badges/macos-intel.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.2/Lagoon-Companion-0.5.2-macos-x64.tar.gz)
+[![macOS Apple Silicon download](docs/badges/macos-arm64.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.3/Lagoon-Companion-0.5.3-macos-arm64.tar.gz)
+[![macOS Intel download](docs/badges/macos-intel.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.3/Lagoon-Companion-0.5.3-macos-x64.tar.gz)
 
-[Release notes & checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.5.2) · [Screenshots](docs/screenshots/README.md) · [Controls](docs/PLAYING.md) · [Build & mod](docs/BUILDING.md)
+[Release notes & checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.5.3) · [Screenshots](docs/screenshots/README.md) · [Controls](docs/PLAYING.md) · [Build & mod](docs/BUILDING.md)
 
 **Lagoon for Windows, Linux and macOS, with 100% native execution of the game's
 main 65816 CPU.** Built with [SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp),
@@ -33,7 +33,7 @@ Square pixels, D3D11 MMPX Enhanced pixels and1.5x world zoom out at1920×1080.
 
 ## Features
 
-0.5.2 fixes disappearing doors, actors clipped by the original viewport, shared NPC graphics and Phantom Hill cloud flashes. It also corrects cameo dialogue proportions and adds live zoom controls and a confirmed Quit to desktop option. These rendering fixes preserve enemy aggression and combat balance.
+0.5.3 fixes Linux Companion ROM setup, incorrect dormant jelly sprites, clipped Gold Cave clouds and zoom snapping during map-loading fades. Earlier widescreen, dialogue, live zoom and Quit to desktop fixes remain in place. Enemy activation and combat balance are preserved.
 
 - **Widescreen:** 16:9, 16:10, 21:9, 32:9 and window-driven aspects, with added
   scenery and supported NPCs, enemies, boss parts, projectiles and magic effects.
@@ -44,8 +44,8 @@ Square pixels, D3D11 MMPX Enhanced pixels and1.5x world zoom out at1920×1080.
   OBS Game Capture/modern Window Capture through focus changes. OpenGL remains
   available and is used by the Linux/macOS packages.
 - **Live world zoom out:**1x,1.25x and1.5x, selectable in Options or with **R3 / Ctrl+Z**, reveal additional scenery horizontally
-  and vertically across the playable areas. All74 authored travel areas passed
-  a bounded1.5x entry/render check; this is not a new full playthrough. The HUD remains readable over the
+  and vertically across the playable areas. Earlier qualification covered all74 authored travel areas in
+  a bounded1.5x entry/render check; updates use focused affected-route checks. The HUD remains readable over the
   scenery. Original authored scenes keep their original composition.
 - **Game Over framing:** the original overlay keeps the expanded world and zoom
   instead of snapping back to a larger 4:3 image.
@@ -99,7 +99,15 @@ No compiler or first-run game recompilation is needed. Windows needs no separate
 first-run ROM setup. Keep `local/` for your saves, settings, map and achievements.
 [Controls and upgrading](docs/PLAYING.md) · [Linux/macOS requirements](docs/PORTING.md) · [Soundtrack details](docs/SOUNDTRACK.md).
 
-## What's new in 0.5.2
+## What's new in 0.5.3
+
+- **Linux ROM setup:** Companion resolves the installed Python executable correctly. A delayed progress message can no longer hide a setup error. Missing Python or an incomplete setup now produces an actionable message.
+- **Dormant jellies:** distant Gold Cave jellies retain their original dormant appearance instead of borrowing the gargoyle sprite. Their original emergence, activation range and AI are unchanged.
+- **Giles cliffside clouds:** Gold Cave's original decorative cloud groups extend into the expanded view with their original wind, wrapping and foreground priority. Clouds no longer stop at the old screen edge when zoomed out or using the centered camera.
+- **Zoomed map transitions:** loading fades retain the completed expanded world canvas. Incoming scenes and menus release it promptly, avoiding the brief snap back to the smaller original view.
+- **Updated SNESRecomp:** the November SDK update preserves Lagoon's native CPU profiles and custom systems. The updated audio timing state requires new quick save states; normal in-game saves remain the upgrade path.
+
+## Earlier rendering improvements — 0.5.2
 
 Moving actors and doors now use the camera, pose and animation from the same
 completed draw packet. Doors remain visible after walking fully past the old

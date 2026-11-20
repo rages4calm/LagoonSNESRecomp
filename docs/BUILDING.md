@@ -2,7 +2,7 @@
 
 ## Prebuilt releases
 
-The v0.5.0 release targets Windows x64, Linux x64, Intel Mac and Apple
+The v0.5.3 release targets Windows x64, Linux x64, Intel Mac and Apple
 Silicon Mac with the actual prebuilt game, self-contained Companion and converted
 X68000 album. Check the [main page](../README.md) for publication status and downloads.
 Supply your own clean USA ROM. No game compilation or source generation is needed
@@ -32,13 +32,17 @@ required by the pinned [SNESRecomp](https://github.com/RetroPortingToolKit/snesr
 source. macOS needs the Xcode command-line tools. Commands assume the repository
 root; Windows regeneration uses Git Bash.
 
-For a fresh checkout, initialize submodules before applying the cumulative patch.
+For a fresh checkout, initialize submodules, then select the pinned SDK in a
+separate worktree before applying the cumulative patch.
 Preserve a dirty existing SDK: never reset or bootstrap it to resolve a mismatch.
 Select a separate reviewed checkout through `framework.local`,
 `LAGOON_FRAMEWORK_ROOT` or CMake's `SNESRECOMP_ROOT` when necessary.
 
 ```sh
 git submodule update --init --recursive
+git -C snesrecomp fetch origin 22c01ef12cc94767451d0b218e4fc341bc19043e
+git -C snesrecomp worktree add --detach ../../lagoon-sdk 22c01ef12cc94767451d0b218e4fc341bc19043e
+printf '../lagoon-sdk\n' > framework.local
 python -P tools/apply_framework_patch.py
 bash tools/regen.sh --rom "/absolute/path/Lagoon (USA).sfc"
 cmake -S . -B build-native -G Ninja -DCMAKE_BUILD_TYPE=Release \
@@ -57,7 +61,7 @@ stops before interpretation. Keep source, mapping, mode, stack and generation gu
 
 `framework_pins.txt` records the baseline; `patches/lagoon-framework.patch` carries
 Lagoon's cumulative changes. The selected revision is
-`98f41838443a7cd7f9d56bec41387a6ebfc3bcbc`. The patch helper refuses other
+`22c01ef12cc94767451d0b218e4fc341bc19043e`. The patch helper refuses other
 revisions; `python -P tools/apply_framework_patch.py --print-root` reports its
 selection without applying changes. A changed compiler/ABI needs review and
 qualification before native metadata pins are updated.

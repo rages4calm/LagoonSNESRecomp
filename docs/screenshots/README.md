@@ -5,6 +5,17 @@ full resolution. Wide fields retain letterboxing on a 16:9 monitor; black beyond
 finite map edges is intentional. These captures are development examples,
 not a full-game rendering or performance guarantee.
 
+## Gold Cave above Giles — 0.5.3
+
+[![Giles cliffside with complete clouds in the expanded world](gold-cave-giles-clouds-square-zoom150-1920x1080.png)](gold-cave-giles-clouds-square-zoom150-1920x1080.png)
+
+Actual **1920×1080 D3D11 GPU readback**, with square pixels, 16:9, 1.5x world
+zoom and runtime-confirmed MMPX. The original Gold Cave cloud groups extend
+beyond the old viewport and retain their foreground-cliff priority. This uses
+an assisted original Giles rescue state, a cosmetic wind-counter preset and
+ordinary controls. It is a hidden-window readback, not physical fullscreen
+scanout or a new campaign. [Capture metadata](renderer77-captures.json).
+
 ## Square pixels and live1.5x zoom — 0.5.2
 
 [![Atland streets with coherent doors and world objects](atland-square-zoom150-1920x1080.png)](atland-square-zoom150-1920x1080.png)

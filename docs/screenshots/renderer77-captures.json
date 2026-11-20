@@ -1,0 +1,27 @@
+{
+  "version": "0.5.3",
+  "captures": [
+    {
+      "file": "gold-cave-giles-clouds-square-zoom150-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "pixel_proportions": "Square pixels (8:7 source display aspect)",
+      "world_zoom": "1.5",
+      "widescreen_aspect": "16:9",
+      "presenter": "D3D11",
+      "shader": "MMPX",
+      "exe_sha256": "472e2b832e22ea4884c2248e99cd59d82701b8c207c85b4d2140e47b890261cb",
+      "image_sha256": "2100dfaf53464b3aba4af887a994d8f8f62bef56af21da6b2951fc3d6e79cea2",
+      "readback_bmp_sha256": "2c149f4c51a8f8d3f9c06409fc80456faed1e97b41e60af380eda84c339bd748",
+      "source": "Actual hidden1920x1080 GPU readback at local frame124. RGB pixels unchanged by BMP-to-PNG conversion; not physical fullscreen scanout.",
+      "assisted": true,
+      "assistance": "Fresh native New Game; original matched-door loader into Giles cliff with disclosed HP/defense and position assists; ordinary fixture walking and one-shot cosmetic wind-counter preset. Genuine SDKv11 snapshot, no snapshot conversion. Not a natural campaign.",
+      "description": "Gold Cave cliff above Giles: complete original source-owned decorative clouds extend into the zoomed world and remain behind foreground cliff geometry.",
+      "shader_runtime_confirmed": true,
+      "shader_runtime_evidence": "Actual D3D11 frame-filter mode=2 title-ui=0 acknowledgement on the captured run.",
+      "sdk_upstream_commit": "22c01ef12cc94767451d0b218e4fc341bc19043e",
+      "generated_manifest_sha256": "b87bf952a9cb03620f30bdf0aa8874ec5eec95d36ad8f01ac8a198f50ac34d6c",
+      "snapshot_layout_version": 11
+    }
+  ]
+}

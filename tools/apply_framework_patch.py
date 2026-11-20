@@ -4,7 +4,7 @@ import argparse
 import os
 import subprocess
 
-BASE='98f41838443a7cd7f9d56bec41387a6ebfc3bcbc'
+BASE='22c01ef12cc94767451d0b218e4fc341bc19043e'
 root=Path(__file__).resolve().parents[1]
 local=root/'framework.local'
 selection=os.environ.get('LAGOON_FRAMEWORK_ROOT') or (local.read_text(encoding='utf-8').strip() if local.is_file() else 'snesrecomp')

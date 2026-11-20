@@ -71,4 +71,7 @@ int LagoonSceneRenderer_VisitedMapImage(unsigned room,
 int LagoonSceneRenderer_GameOver(const uint8_t *ram,const uint8_t *rom,size_t size);
 
 int LagoonSceneRenderer_ViewPlacement(unsigned width,unsigned height,uint64_t generation,int *left,int *top);
+/* Same fresh completed packet, including its room rather than later CPU RAM. */
+int LagoonSceneRenderer_ViewPlacementRoom(unsigned width,unsigned height,uint64_t generation,
+    int *left,int *top,unsigned *room);
 #endif

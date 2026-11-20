@@ -188,6 +188,8 @@ def main() -> None:
                              (args.framework_root / 'LICENSE', 'licenses/SNESRecomp-LICENSE'),
                              (args.framework_root / 'THIRD_PARTY_ATTRIBUTION.md', 'licenses/SNESRecomp-THIRD_PARTY_ATTRIBUTION.md')]:
         selected[source] = relative
+    if (args.framework_root / 'PERMISSIONS.md').is_file():
+        selected[args.framework_root / 'PERMISSIONS.md'] = 'licenses/SNESRecomp-PERMISSIONS.md'
     # Include exact framework notices from the target runtime pack, not a Windows
     # runtime or a presumed machine-wide installation.
     runtime = json.loads((args.launcher / 'lagoon.Companion.runtimeconfig.json').read_text())['runtimeOptions']

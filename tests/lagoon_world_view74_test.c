@@ -59,6 +59,15 @@ int main(void){
   assert(view_origin(0,2048,600,256)==0);
   assert(view_origin(1792,2048,600,256)==1448);
   assert(view_origin(0,256,600,256)==-172);
+  /* Loader CPU state can advance after the completed renderer packet. Keep
+   * the outgoing origin and room from that packet, not later mutable RAM. */
+  int px,py;unsigned room;
+  assert(LagoonSceneRenderer_ViewPlacementRoom(600,336,93,&px,&py,&room));
+  int oldx=px,oldy=py;unsigned oldroom=room;
+  ram[0x480]^=127;ram[0x482]^=63;ram[0x48e]=74;
+  assert(LagoonSceneRenderer_ViewPlacementRoom(600,336,93,&px,&py,&room));
+  assert(px==oldx&&py==oldy&&room==oldroom);
+  assert(!LagoonSceneRenderer_ViewPlacementRoom(600,336,94,&px,&py,&room));
   LagoonSceneRenderer_Reset();assert(!LagoonSceneRenderer_DrawView(view,2400,600,336,output,1616,400,224,91));
   puts("PASS: zoom125/150, original center, source-owned HUD, pitch canaries, map edges, generation/reset refusal");
   return 0;

@@ -213,6 +213,8 @@ def main():
     for p in a.launcher.iterdir():
         if p.is_file() and (p.suffix.lower()=='.dll' or p.name in {'lagoon.Companion.exe','createdump.exe','lagoon.Companion.deps.json','lagoon.Companion.runtimeconfig.json'}): selected[str(p)]=p.name
     for source,rel in [(ROOT/'launcher/LICENSE','licenses/Lagoon-Companion-LICENSE'),(a.companion_root/'LICENSE','licenses/CompanionLauncher-LICENSE'),(framework/'LICENSE','licenses/SNESRecomp-LICENSE'),(framework/'THIRD_PARTY_ATTRIBUTION.md','licenses/SNESRecomp-THIRD_PARTY_ATTRIBUTION.md'),(a.toolchain/'deps/share/licenses/SDL3/LICENSE.txt','licenses/SDL3-LICENSE.txt')]: selected[str(source)]=rel
+    if (framework/'PERMISSIONS.md').is_file():
+        selected[str(framework/'PERMISSIONS.md')]='licenses/SNESRecomp-PERMISSIONS.md'
     selected[str(a.toolchain/'LICENSE.TXT')]='licenses/LLVM-LICENSE.TXT'
     for p in (a.toolchain/'x86_64-w64-mingw32/share/mingw32').glob('COPYING*'):
         if p.is_file(): selected[str(p)]='licenses/MinGW/'+p.name

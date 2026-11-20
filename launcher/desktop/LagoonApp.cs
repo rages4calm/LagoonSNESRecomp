@@ -43,7 +43,8 @@ internal sealed class LagoonApp : Application
                     busy = true; choose.IsEnabled = false;
                     try
                     {
-                        await adapter.ImportRomAsync(path, new Progress<OperationProgress>(p => status.Text = p.Detail), CancellationToken.None);
+                        using var progress = new SetupProgress(p => status.Text = p.Detail);
+                        await adapter.ImportRomAsync(path, progress, CancellationToken.None);
                         OpenLauncher();
                     }
                     catch (Exception error) { status.Text = error.Message; }

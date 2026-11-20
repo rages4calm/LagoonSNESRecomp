@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 from pathlib import Path, PurePosixPath
 
 
@@ -104,6 +105,8 @@ def setup(root: Path, rom: Path) -> dict:
 
 
 def main() -> None:
+    if sys.version_info < (3, 11):
+        raise SystemExit('Setup requires Python 3.11 or newer. Install it, then reopen Lagoon Companion and choose your ROM again.')
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path(__file__).absolute().parent.parent)
     parser.add_argument('--rom', type=Path, required=True)

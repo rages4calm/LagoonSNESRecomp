@@ -42,7 +42,8 @@ internal sealed class RomSetupForm : Form
         status.Text = "Verifying ROM and preparing Lagoon…";
         try
         {
-            await adapter.ImportRomAsync(picker.FileName, new Progress<OperationProgress>(p => status.Text = p.Detail), CancellationToken.None);
+            using var progress = new SetupProgress(p => status.Text = p.Detail);
+            await adapter.ImportRomAsync(picker.FileName, progress, CancellationToken.None);
             busy = false; DialogResult = DialogResult.OK; Close();
         }
         catch (Exception error) { status.Text = error.Message; }

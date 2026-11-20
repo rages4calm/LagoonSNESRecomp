@@ -961,11 +961,15 @@ static int view_origin(int camera,int map,int extent,int native){
   if(origin>camera)origin=camera;
   return origin;
 }
-int LagoonSceneRenderer_ViewPlacement(unsigned width,unsigned height,uint64_t generation,int *left,int *top){
+int LagoonSceneRenderer_ViewPlacementRoom(unsigned width,unsigned height,uint64_t generation,int *left,int *top,unsigned *room){
   const ScenePacket *s=&s_packets[s_complete];
   if(!left||!top||!s->valid||s->generation!=generation||!s_view_serial||s_view_serial!=s->serial)return 0;
   *left=s->wx-view_origin(s->wx,s->world_width,width,256);
-  *top=s->wy-view_origin(s->wy,s->world_height,height,224);return 1;
+  *top=s->wy-view_origin(s->wy,s->world_height,height,224);
+  if(room)*room=s->room;return 1;
+}
+int LagoonSceneRenderer_ViewPlacement(unsigned width,unsigned height,uint64_t generation,int *left,int *top){
+  return LagoonSceneRenderer_ViewPlacementRoom(width,height,generation,left,top,NULL);
 }
 int LagoonSceneRenderer_DrawHud(uint8_t *dst,size_t pitch,unsigned width,unsigned height,uint64_t generation){
   const ScenePacket *s=&s_packets[s_complete];

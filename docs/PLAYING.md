@@ -7,7 +7,7 @@ uses the original Lagoon lettering and frame, with a Crono portrait. Music
 continues while the world pauses. Completing it plays a owner-selected Chrono Trigger laugh
 before the achievement chime.
 
-Use the matching v0.5.2 package from the [main page](../README.md), or build from
+Use the matching v0.5.3 package from the [main page](../README.md), or build from
 [these instructions](BUILDING.md). On first launch, choose your clean USA ROM with the file picker.
 Verification and setup run automatically; then press Play. Use Choose ROM.cmd
 or Choose ROM.command to reopen the picker later. Apply launcher settings before
@@ -154,6 +154,10 @@ The launcher does not migrate existing saves.
 
 Development state formats can change. Incompatible or corrupt states are refused
 before changing the running guest. Use normal game saves for campaign progress.
+Version 0.5.3 updates SNESRecomp's audio timing state and requires freshly created
+quick save states. Load your normal in-game save to continue from an earlier
+release, then create new quick states. Existing incompatible state files are
+preserved; changing their version number cannot safely convert them.
 Transient extra recovery/jump timers reset on a state load, so a state saved during
 one of those effects does not reproduce its remaining optional hold exactly.
 

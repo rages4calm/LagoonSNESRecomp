@@ -48,9 +48,10 @@ static double g_screenshot_flash_start_time=-1;
 static GlTiming *g_gl_timings;
 static unsigned g_gl_timing_count,g_gl_timing_dropped;
 static unsigned custom,shader,hd,quad,swap,filter_calls,last_filter,bound_vao;
-static bool ui_attributes=true;
+static bool ui_attributes=true,hd_result;
+static int exact_nearest=-1,uniform_calls;
 static int drawable_w=1920,drawable_h=1080;
-static SnesDisplayViewport presented;
+static SnesDisplayViewport presented,nearest_viewport;
 static void CustomViewport(int a,int b,int c,int d,SnesDisplayViewport *v){
  (void)a;(void)b;(void)c;(void)d;custom++;*v=(SnesDisplayViewport){3,4,777,555};
 }
@@ -59,7 +60,7 @@ static void GlTimingInit(void){}
 static double MonotonicSeconds(void){return 0;}
 static void snesrecomp_sdl_get_drawable_size(int window,int *w,int *h){(void)window;*w=drawable_w;*h=drawable_h;}
 static void *SnesHdGpuCreate(void){return (void*)1;}
-#define SnesHdGpuRender(...) (hd++,false)
+#define SnesHdGpuRender(...) (hd++,hd_image=(SnesHdGpuImage){9,1920,1080},hd_result)
 #define glActiveTexture(...) ((void)0)
 #define glBindTexture(...) ((void)0)
 #define glTexSubImage2D(...) ((void)0)
@@ -67,6 +68,17 @@ static void *SnesHdGpuCreate(void){return (void*)1;}
 #define glClearColor(...) ((void)0)
 #define glClear(...) ((void)0)
 #define glUseProgram(...) ((void)0)
+static int glGetUniformLocation(unsigned program,const char *name){
+ assert(program==g_program);
+ if(!strcmp(name,"exactNearest"))return 1;
+ assert(!strcmp(name,"nearestViewport"));return 2;
+}
+static void glUniform1i(int location,int value){
+ assert(location==1);exact_nearest=value;uniform_calls++;
+}
+static void glUniform4i(int location,int x,int y,int w,int h){
+ assert(location==2);nearest_viewport=(SnesDisplayViewport){x,y,w,h};uniform_calls++;
+}
 #define glBindVertexArray(vao) (bound_vao=(vao))
 #define glTexParameteri(target,key,value) (filter_calls++,last_filter=(value))
 #define glViewport(x,y,w,h) (presented=(SnesDisplayViewport){x,y,w,h})
@@ -82,7 +94,7 @@ static bool DrawScreenshotFlash(double t){(void)t;return false;}
 #include "title_setter.inc"
 #include "end_draw.inc"
 #include "opaque_policy.inc"
-static void clear_counts(void){custom=shader=hd=quad=swap=filter_calls=0;last_filter=999;}
+static void clear_counts(void){custom=shader=hd=quad=swap=filter_calls=0;last_filter=999;exact_nearest=-1;uniform_calls=0;}
 int main(void){
   int fx,fy,fw,fh;
   TitlePanelFit(1192,672,512,448,&fx,&fy,&fw,&fh);
@@ -103,6 +115,8 @@ int main(void){
  clear_counts();snesrecomp_opengl_set_title_ui_frame(true);OpenGLRenderer_EndDraw();
  assert(!g_title_ui_frame&&!shader&&!custom&&!hd&&quad==1&&swap==1);
  assert(bound_vao==g_ui_VAO&&filter_calls==2&&last_filter==GL_NEAREST);
+ assert(exact_nearest==0&&uniform_calls==2);
+ assert(!memcmp(&nearest_viewport,&presented,sizeof(presented)));
  assert(presented.x==0&&presented.y==0&&presented.width==1920&&presented.height==1080);
  /* Authored16:9 UI in a4:3 window: letterbox, do not apply7:6 SNES pixels. */
  drawable_w=960;drawable_h=720;clear_counts();
@@ -118,7 +132,20 @@ int main(void){
  OpenGLRenderer_EndDraw();assert(!g_title_ui_frame&&!shader&&!quad&&!swap);
  g_screen_buffer=dummy_pixels;OpenGLRenderer_EndDraw();
  assert(shader==1&&custom==1&&hd==1&&swap==1);
- puts("PASS title GL policy: square-pixel viewport, nearest independent UI VAO, no game shader/HD, one-shot failure reset, normal game/config restoration");
+ /* The latest upstream exact-nearest HD shader stays active for ordinary
+  * enhanced game frames. A following authored UI must explicitly clear it. */
+ g_glsl_shader=NULL;g_config.linear_filtering=false;hd_result=true;clear_counts();
+ OpenGLRenderer_EndDraw();
+ assert(hd==1&&exact_nearest==1&&uniform_calls==2&&last_filter==GL_NEAREST);
+ assert(!memcmp(&nearest_viewport,&presented,sizeof(presented)));
+ clear_counts();snesrecomp_opengl_set_title_ui_frame(true);OpenGLRenderer_EndDraw();
+ assert(!hd&&exact_nearest==0&&uniform_calls==2&&last_filter==GL_NEAREST);
+ assert(bound_vao==g_ui_VAO);
+ hd_result=false;clear_counts();OpenGLRenderer_EndDraw();
+ assert(hd==1&&exact_nearest==0&&uniform_calls==2&&last_filter==GL_NEAREST);
+ hd_result=true;g_config.linear_filtering=true;clear_counts();OpenGLRenderer_EndDraw();
+ assert(hd==1&&exact_nearest==0&&uniform_calls==2&&last_filter==GL_LINEAR);
+ puts("PASS title GL policy: square-pixel viewport, nearest independent UI VAO, no game shader/HD, one-shot failure reset, normal game/config restoration, upstream HD exact-nearest uniforms with UI reset");
  return 0;
 }
 '''

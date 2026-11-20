@@ -168,6 +168,12 @@ static void LagoonHost_WaitBounce(uint32_t pc,int m,int x) {
 static void LagoonHost_StartSession(void) {
     if(achievement_session)return;
     achievement_session=1;
+    if(present("LAGOON_SNAPSHOT_LAYOUT_REPORT")){
+        uint32 version=0;size_t offset=0;
+        size_t bytes=RtlSnapshotGuestLayout(&version,&offset);
+        fprintf(stderr,"[lagoon-snapshot] version=%u guest_bytes=%zu wram_offset=%zu\n",
+            version,bytes,offset);
+    }
     achievement_diagnostic=present("SNESRECOMP_SCRIPT")||present("SNESRECOMP_RUN_FRAMES")||
         present("LAGOON_SCRIPT_FIXTURE")||present("LAGOON_CAMPAIGN_WARPS")||
         present("LAGOON_ACHIEVEMENTS_DIAGNOSTIC");
