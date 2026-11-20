@@ -1,0 +1,1 @@
+Place your four Lagoon DIM images, iplrom.dat, and cgrom.dat here. Keep them in this local folder. See README.md for setup.

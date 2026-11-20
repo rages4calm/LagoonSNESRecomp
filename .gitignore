@@ -1,0 +1,12 @@
+/Inputs/*
+!/Inputs/PLACE-FILES-HERE.txt
+/local-x68000/
+**/bin/
+**/obj/
+**/__pycache__/
+*.dim
+*.xdf
+*.bps
+*.rom
+*.vgz
+*.rrstate

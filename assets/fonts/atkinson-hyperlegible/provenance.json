@@ -1,0 +1,21 @@
+{
+  "source_commit": "95f4904fc8bcf26d3420fe315560c96417c6dec7",
+  "files": {
+    "AtkinsonHyperlegibleNext.ttf": {
+      "sha256": "5a455d1cfa099b601ab70751bb9673e8fe1854dc4500c80e1a220d0d75e31745",
+      "url": "https://raw.githubusercontent.com/google/fonts/95f4904fc8bcf26d3420fe315560c96417c6dec7/ofl/atkinsonhyperlegiblenext/AtkinsonHyperlegibleNext%5Bwght%5D.ttf",
+      "bytes": 114552
+    },
+    "OFL.txt": {
+      "sha256": "aca6a428580965d2297d1b718042dd427c2a9443ece3b0d02d758e161e0c4030",
+      "url": "https://raw.githubusercontent.com/google/fonts/95f4904fc8bcf26d3420fe315560c96417c6dec7/ofl/atkinsonhyperlegiblenext/OFL.txt",
+      "bytes": 4431,
+      "canonical_sha256": "aca6a428580965d2297d1b718042dd427c2a9443ece3b0d02d758e161e0c4030"
+    }
+  },
+  "license": "SIL Open Font License 1.1",
+  "use": "Subset grayscale glyph atlas for host UI; original font and license retained for regeneration.",
+  "text_hash_policy": "utf8-crlf-to-lf-only-v1",
+  "generated_header_sha256": "beeadcbf6c2386580231d64e70dca8a27e1be5d0f812140e1b26730289df11a1",
+  "canonical_generated_header_sha256": "ded221e88dc005cf9d12b3f18e0c72a925458bf75571e8a6108ff04676277f74"
+}
