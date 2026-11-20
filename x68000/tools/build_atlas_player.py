@@ -39,7 +39,22 @@ def write_award_catalog(path):
     path.write_text("\n".join(lines) + "\n", encoding="ascii")
 
 
-def build(report, destination, disk_dir, system, keep_diagnostics=False):
+def configure_atlas(cmake, cache, destination, log):
+    command = [cmake, "-S", cache["CMAKE_HOME_DIRECTORY"], "-B", str(destination),
+               "-G", cache["CMAKE_GENERATOR"]]
+    for key, flag in (("CMAKE_GENERATOR_PLATFORM", "-A"), ("CMAKE_GENERATOR_TOOLSET", "-T")):
+        if cache.get(key):
+            command.extend([flag, cache[key]])
+    settings = {key: value for key, value in cache.items() if key.startswith("RR_") or key in {
+        "CMAKE_PREFIX_PATH", "PX68K_DIR", "CMAKE_GENERATOR_INSTANCE", "CMAKE_TOOLCHAIN_FILE", "CMAKE_BUILD_TYPE",
+    }}
+    if not cache["CMAKE_GENERATOR"].startswith("Visual Studio"):
+        settings.update({key: cache[key] for key in ("CMAKE_C_COMPILER", "CMAKE_CXX_COMPILER", "CMAKE_MAKE_PROGRAM") if key in cache})
+    command.extend(f"-D{key}={value}" for key, value in settings.items() if value)
+    subprocess.run(command, check=True, stdout=log, stderr=subprocess.STDOUT)
+
+
+def build(report, destination, disk_dir, system, keep_diagnostics=False, opening_only=False):
     receipt = json.loads(report.read_text(encoding="utf-8"))
     if (receipt["version"], receipt["target"], receipt["status"]) != ("1.8.0", "windows-x86_64", "supported"):
         raise ValueError("The atlas build requires a retained, verified RetroRecomp 1.8.0 Windows conversion.")
@@ -51,8 +66,12 @@ def build(report, destination, disk_dir, system, keep_diagnostics=False):
     if (project.name != receipt["source_identity"][:16] or game.name != "RetroRecomp-X68000-Native.exe" or
             receipt["export_receipt"]["sha256"] != digest(stock)):
         raise ValueError("Retain the original verified build before adding the atlas.")
-    cache = (build_dir / "CMakeCache.txt").read_text(encoding="utf-8").splitlines()
-    cmake = next(line.partition("=")[2] for line in cache if line.startswith("CMAKE_COMMAND:INTERNAL="))
+    cache = {}
+    for line in (build_dir / "CMakeCache.txt").read_text(encoding="utf-8").splitlines():
+        if ":" in line and "=" in line and not line.startswith(("#", "//")):
+            key, _, setting = line.partition(":")
+            cache[key] = setting.partition("=")[2]
+    cmake = cache["CMAKE_COMMAND"]
     adapter = sdk / "hostkit/adapters/rrhk_x68k.inc"
     host = sdk / "x68000_reference/reference_host.c"
     options = sdk / "hostkit/shell/rrhk_options.c"
@@ -131,6 +150,23 @@ def build(report, destination, disk_dir, system, keep_diagnostics=False):
              "void lagoon_save_zoom(int zoom) { rr_options_store(L\"view_zoom\", zoom); }\n"
              "bool rrhk_sound_toggle_mute(void)"),
         ))
+        command = [cmake, "--build", str(build_dir), "--config", "Release",
+                   "--target", "x68000_reference_host", "--parallel", "3"]
+        built = destination / "Lagoon - Atlas.exe"
+        if opening_only:
+            # The converter must never see object files compiled with Atlas headers.
+            with tempfile.TemporaryDirectory(prefix="a-", dir=project) as atlas_build:
+                atlas_dir = Path(atlas_build)
+                with (destination / "atlas-build.log").open("wb") as log:
+                    configure_atlas(cmake, cache, atlas_dir, log)
+                    subprocess.run([cmake, "--build", str(atlas_dir), *command[3:]],
+                                   check=True, stdout=log, stderr=subprocess.STDOUT)
+                replace_file(atlas_dir / game.relative_to(build_dir), built)
+            with tempfile.TemporaryDirectory(prefix="lagoon-atlas-opening-") as checks:
+                proof = qualify(built, stock, None, Path(checks))
+            print(f"Opening matched after {proof['frames']} frames. SHA-256: {digest(built)}")
+            return built, receipt["source_identity"], areas, proof
+
         write_patch(host, (
             ('#include "hostkit/adapters/rrhk_x68k.inc"',
              '#define LAGOON_ATLAS_PREVIEW 1\n#include "hostkit/adapters/rrhk_x68k.inc"'),
@@ -185,8 +221,6 @@ def build(report, destination, disk_dir, system, keep_diagnostics=False):
              '   if(atlas_preview && (!headless || !lagoon_chart_preview(atlas_preview,atlas_tour))) {'
              ' fail("Atlas preview could not verify this route"); goto cleanup; }\n   if(capture_path[0] && !capture(capture_path))'),
         ))
-        command = [cmake, "--build", str(build_dir), "--config", "Release",
-                   "--target", "x68000_reference_host", "--parallel", "3"]
         with tempfile.TemporaryDirectory(prefix="lagoon-atlas-preview-") as scratch:
             preview = Path(scratch) / "Lagoon - Atlas Preview.exe"
             with (destination / "atlas-build.log").open("wb") as log:
@@ -196,7 +230,6 @@ def build(report, destination, disk_dir, system, keep_diagnostics=False):
                 # The delivered player only changes the presentation adapter.
                 host.write_bytes(original[host])
                 subprocess.run(command, check=True, stdout=log, stderr=subprocess.STDOUT)
-            built = destination / "Lagoon - Atlas.exe"
             replace_file(game, built)
             with tempfile.TemporaryDirectory(prefix="lagoon-atlas-check-") as checks:
                 if keep_diagnostics:
@@ -291,10 +324,11 @@ def qualify(executable, stock, preview, output):
         elif snapshot:
             args = ["--headless", "--mute", "--frames", "120", "--report", report_name,
                     "--state-slot", str(snapshot), "--state-load-start"]
-        else:
+        elif preview is not None:
             args += ["--state-slot", "quick.rrstate", "--state-save-at", "11080"]
         result = subprocess.run([str(isolated), *args], cwd=directory, capture_output=True, text=True,
                                 creationflags=subprocess.CREATE_NO_WINDOW,
+                                timeout=120 if preview is None else None,
                                 env=dict(os.environ, SDL_VIDEODRIVER="dummy") if label in ("boot", "controls") else None)
         if result.returncode:
             raise ValueError(f"{label} exited {result.returncode}: {result.stderr.strip()}")
@@ -356,7 +390,8 @@ def qualify(executable, stock, preview, output):
             if missing:
                 raise ValueError(f"The area crossing missed these captures: {', '.join(missing)}.")
         report = json.loads((directory / report_name).read_text(encoding="utf-8"))
-        if (report["core_error"] or report["media"] != {"selected": [4, 1], "ready_mask": 3} or
+        if (report["core_error"] or (preview is None and report["frames"] != frames) or
+                report["media"] != {"selected": [4, 1], "ready_mask": 3} or
                 (snapshot and (report["session"]["loaded"] != 1 or report["session"]["rejected"]))):
             raise ValueError("Opening or User Disk qualification failed.")
         return {**{key: report[key] for key in ("frames", "cpu", "ram_fnv64", "pcm_fnv64", "final_video_fnv64")}, **proof}
@@ -367,6 +402,8 @@ def qualify(executable, stock, preview, output):
         hashes = atlas.result()
         if hashes != control.result():
             raise ValueError("Atlas and unmodified player differ on the opening route.")
+        if preview is None:
+            return {**hashes, "matched_reference": True}
         old_state = output / "control/quick.rrstate"
         new_state = output / "atlas/quick.rrstate"
         resume = runs.submit(replay, "resume", executable, old_state)
@@ -435,7 +472,8 @@ def install(executable, source_identity, entries, proof, expedition):
     if not atlas.exists() or digest(atlas) != digest(executable):
         replace_file(executable, atlas)
     receipt = {
-        "format": 2, "source_identity": source_identity, "sha256": digest(executable),
+        "format": 3 if proof.get("matched_reference") else 2,
+        "source_identity": source_identity, "sha256": digest(executable),
         "terrain_areas": entries, "opening_route": proof,
     }
     with tempfile.TemporaryDirectory(prefix="lagoon-atlas-receipt-") as directory:
@@ -453,10 +491,14 @@ def main():
     parser.add_argument("--english-system", type=Path, default=PROJECT / "x68000/patched/System-EN.dim")
     parser.add_argument("--install", action="store_true", help="Install the qualified atlas in the matching local profile.")
     parser.add_argument("--keep-diagnostics", action="store_true", help="Retain the local preview player for scripted diagnostics.")
+    parser.add_argument("--opening-only", action="store_true", help="Build the playable host and compare the opening to the validated base player.")
     parser.add_argument("--expedition", action="store_true", help="Install into Enhanced Expedition instead of Enhanced Adventure.")
     args = parser.parse_args()
+    if args.opening_only and args.keep_diagnostics:
+        parser.error("--opening-only builds only the playable host.")
     output = args.output.resolve()
-    executable, source_identity, entries, proof = build(args.report.resolve(), output, args.disks, args.english_system, args.keep_diagnostics)
+    executable, source_identity, entries, proof = build(args.report.resolve(), output, args.disks, args.english_system,
+                                                        args.keep_diagnostics, args.opening_only)
     if args.install:
         install(executable, source_identity, entries, proof, args.expedition)
 

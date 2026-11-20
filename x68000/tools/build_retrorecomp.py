@@ -173,7 +173,7 @@ def staged_hashes(playlist):
     return [digest(playlist.parent / entry) for entry in playlist.read_text(encoding="ascii").splitlines()]
 
 
-def install_verified_export(report_path, ipl, cgrom, media_hashes, args):
+def verified_export(report_path, ipl, cgrom, media_hashes, installed=None):
     report_path = checked_file(report_path)
     report = json.loads(report_path.read_text(encoding="utf-8"))
     machine = report["machine"]
@@ -196,8 +196,11 @@ def install_verified_export(report_path, ipl, cgrom, media_hashes, args):
     ):
         raise ValueError(f"The converter did not verify this English X68000 player: {report_path}")
 
-    sha256 = report["export_receipt"]["sha256"]
-    export = checked_file(report_path.parents[3] / PLAYER, sha256)
+    export = checked_file(installed or report_path.parents[3] / PLAYER, report["export_receipt"]["sha256"])
+    return report, checks, export
+
+
+def edition_directory(args):
     edition = "retrorecomp-save-disk" if args.user_disk else "retrorecomp"
     if args.expedition:
         edition = "retrorecomp-expedition"
@@ -207,7 +210,13 @@ def install_verified_export(report_path, ipl, cgrom, media_hashes, args):
         edition = "retrorecomp-enhanced"
     elif (args.exp_rate, args.gold_rate) != (1, 1):
         edition = "retrorecomp-rewards"
-    destination = PROJECT / "local-x68000" / edition
+    return PROJECT / "local-x68000" / edition
+
+
+def install_verified_export(report_path, ipl, cgrom, media_hashes, args):
+    report, checks, export = verified_export(report_path, ipl, cgrom, media_hashes)
+    sha256 = report["export_receipt"]["sha256"]
+    destination = edition_directory(args)
     destination.mkdir(parents=True, exist_ok=True)
     installed = destination / PLAYER
     receipt = {
@@ -238,6 +247,38 @@ def install_verified_export(report_path, ipl, cgrom, media_hashes, args):
     print(f"Verified local player: {installed}\nSHA-256: {sha256}")
 
 
+def reusable_export(args, ipl, cgrom, media):
+    destination = edition_directory(args)
+    try:
+        report, _, _ = verified_export(destination / "conversion-report.json", ipl, cgrom, media, destination / PLAYER)
+        receipt = json.loads((destination / "lagoon-extra-install.json").read_text(encoding="utf-8"))
+        if (receipt.get("sha256") != report["export_receipt"]["sha256"] or
+                receipt.get("source_identity") != report["source_identity"]):
+            return False
+        built = checked_file(Path(report["build_executable"]))
+        checked_file(built.parents[4] / "packed-game.exe", report["export_receipt"]["sha256"])
+        return True
+    except (OSError, ValueError, KeyError, IndexError, TypeError):
+        return False
+
+
+def conversion_error(work):
+    summary = work / "Games/datas/Retro-Recomp-batch.json"
+    log = work / "conversion.log"
+    try:
+        report = json.loads(summary.read_text(encoding="utf-8"))
+        detail = next((game["message"] for game in report["games"]
+                       if game["status"] == "error" and game.get("message")), "")
+    except (OSError, ValueError, KeyError, TypeError):
+        detail = ""
+    if not detail:
+        with log.open("rb") as source:
+            source.seek(max(0, log.stat().st_size - 4096))
+            detail = source.read().decode("utf-8", errors="replace").strip()
+    excerpt = detail[:4096].rstrip() or "RetroRecomp returned an error before writing diagnostics."
+    return f"RetroRecomp could not build the English base player.\n{excerpt}\nFull log: {log}"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--converter", type=Path, help="Official portable Retro-Recomp.exe v1.8.0.")
@@ -261,6 +302,7 @@ def main():
                         help="Enhanced Adventure plus centered camera and faster Inventory/Equipment transitions.")
     parser.add_argument("--toolchain", choices=("llvm", "msvc"), default="msvc")
     parser.add_argument("--keep-build", action="store_true", help="Retain the private converter project for an Atlas build.")
+    parser.add_argument("--resume", action="store_true", help="Reuse a verified install and its retained build if the inputs still match.")
     args = parser.parse_args()
     args.adventure = args.adventure or args.expedition
     args.enhanced = args.enhanced or args.adventure
@@ -283,6 +325,13 @@ def main():
                         args.adventure, args.expedition))
             install_verified_export(args.from_report, ipl, cgrom, media, args)
             return
+        if args.resume:
+            with tempfile.TemporaryDirectory(prefix="lagoonextra-resume-") as directory:
+                media = staged_hashes(stage_disks(args, Path(directory), args.user_disk, args.exp_rate,
+                                                args.gold_rate, args.enhanced, args.adventure, args.expedition))
+                if reusable_export(args, ipl, cgrom, media):
+                    print("Verified base player and matching build cache found. Resuming at Atlas.")
+                    return
         converter = checked_file(args.converter, WINDOWS_CONVERTER)
         work = Path(tempfile.mkdtemp(prefix="lagoonextra-english-")).resolve()
         print(f"Conversion work and exit report: {work}", flush=True)
@@ -304,8 +353,11 @@ def main():
             "disk_sha256": media, "ipl_sha256": digest(ipl), "cgrom_sha256": digest(cgrom),
         }
         (work / "recipe.json").write_text(json.dumps(recipe, indent=2) + "\n", encoding="utf-8")
-        with (work / "conversion.log").open("wb") as log:
-            subprocess.run(command, cwd=converter.parent, env=env, stdout=log, stderr=subprocess.STDOUT, check=True)
+        try:
+            with (work / "conversion.log").open("wb") as log:
+                subprocess.run(command, cwd=converter.parent, env=env, stdout=log, stderr=subprocess.STDOUT, check=True)
+        except subprocess.CalledProcessError as error:
+            raise ValueError(conversion_error(work)) from error
         reports = list((work / "Games").rglob("conversion-report.json"))
         if len(reports) != 1:
             raise ValueError("Expected one conversion report. Inspect conversion.log.")

@@ -14,11 +14,11 @@ This is the English Sharp X68000 version of Lagoon with the Enhanced features bu
 
 ## First setup
 
-1. Extract **Lagoon-X68000-Enhanced-preview.1-win-x64.zip** to a folder you can write to. Open the extracted folder.
+1. Download the Windows x64 ZIP from the preview’s Assets and extract it to a folder you can write to. Open the extracted folder.
 2. Install **Python 3.11 or newer** and **Visual Studio 2022 Build Tools** with the **Desktop development with C++** workload, including MSVC x64/x86 tools, Windows SDK, and CMake. [Python downloads](https://www.python.org/downloads/windows/) · [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)
 3. Put your **four Lagoon DIM disk images**, **`iplrom.dat`** (128 KiB), and **`cgrom.dat`** (768 KiB) in the **Inputs** folder. Extract the DIMs first if you have them in an archive. Setup recognizes the supported Japanese System disk and the patched English 0.9b System disk.
 4. Run **Setup X68000.cmd**. It fetches the pinned RetroRecomp converter and, when using the Japanese System disk, applies the English 0.9b patch. Keep the window open while setup downloads compiler dependencies, builds, and verifies the game. The first run can take several minutes and caches its build tools in **`%LOCALAPPDATA%\L68`**. If GitHub downloads fail, put the official portable **`Retro-Recomp.exe`** and, if needed, the extracted English System **`.bps`** in **Inputs**, then run setup again. [RetroRecomp 1.8.0](https://github.com/ArthurReboulSalze/RetroRecomp/releases/tag/v1.8.0) · [English patch 0.9b](https://github.com/nleseul/lagoon_x68k_trans/releases/tag/0.9b)
-5. Once setup says it’s complete, open **Play X68000.cmd** and click **Play** in Companion. The ZIP includes the launcher runtime. The game and saves use the extracted preview folder.
+5. Setup builds Atlas in a separate compiler directory and compares its opening against the verified base game. When it finishes, open **Play X68000.cmd** and click **Play** in Companion. The ZIP includes the launcher runtime. The game and saves use the extracted preview folder.
 
 The download contains launcher code and build tools. Your disks, firmware, saves, and the locally generated game stay on your PC.
 
@@ -43,6 +43,8 @@ Display mode and pixel filter are in Companion. In-game Settings applies zoom an
 ## What to report
 
 This preview is for a fresh run through the ending. If anything looks wrong, note the room or boss, the zoom and display mode, and what you did just before it happened. Clips are especially helpful for briefly disappearing sprites, cloud edges, flashes during room changes, audio issues, or OBS freezing when the game gets focus. Send setup error text or a clip through [GitHub Issues](https://github.com/rages4calm/LagoonSNESRecomp/issues). Leave disk images, firmware, and saves out of reports.
+
+If setup stops, share the error it prints and the relevant lines from its log. A retry can reuse an already verified English base game when the same disks, firmware, and build cache are present. If security software interrupted setup, include the detection name, file path, and action from its event history. The generated game contains your local disks and firmware, so keep it on your PC.
 
 Thanks to **Zoom** for the original game, **nleseul** for the English translation, **Arthur Reboul-Salze** for RetroRecomp, and **DarkShadowRage** for requesting the X68000 version and helping test Lagoon.
 

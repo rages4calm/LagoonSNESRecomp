@@ -5,6 +5,7 @@ from contextlib import contextmanager
 import msvcrt
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -135,6 +136,21 @@ def seed_defaults(install):
         pass
 
 
+def repair_legacy_build_objects():
+    root = CACHE / ".build/x68/win"
+    if not root.is_dir():
+        return
+    for obj in root.glob("*/*/native/build/reference/x68000_reference_host.dir/Release/reference_host.obj"):
+        tool, game, *_ = obj.relative_to(root).parts
+        if (not re.fullmatch(r"[0-9a-f]{12}", tool) or not re.fullmatch(r"[0-9a-f]{16}", game)
+                or obj.resolve() != obj.absolute()):
+            continue
+        # Preview 1 used this object directory for the base and patched hosts.
+        # Force MSBuild to compile the source again before it uses the cache.
+        if b"lagoon_load_zoom" in obj.read_bytes():
+            obj.unlink(missing_ok=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inputs", type=Path, default=PROJECT / "Inputs")
@@ -149,12 +165,14 @@ def main():
             work = Path(scratch)
             system = prepare_disks(files, work)
             converter = converter_path(files, work)
-            print("Building X68000 Enhanced. First setup runs the opening and widescreen checks.", flush=True)
+            repair_legacy_build_objects()
+            print("Building and validating the English base player…", flush=True)
             run("build_retrorecomp.py", "--converter", converter, "--ipl", ipl, "--cgrom", font,
                 "--disks", work, "--english-system", system, "--user-disk", "--expedition",
-                "--exp-rate", 2, "--gold-rate", 2, "--keep-build")
+                "--exp-rate", 2, "--gold-rate", 2, "--keep-build", "--resume")
+            print("Building the playable Atlas and comparing its opening route…", flush=True)
             run("build_atlas_player.py", INSTALL / "conversion-report.json", work / "atlas",
-                "--disks", work, "--english-system", system, "--expedition", "--install")
+                "--disks", work, "--english-system", system, "--expedition", "--opening-only", "--install")
         seed_defaults(INSTALL)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"X68000 setup stopped: {error}\n")

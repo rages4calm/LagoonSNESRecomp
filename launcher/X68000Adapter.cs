@@ -27,7 +27,8 @@ public sealed class X68000Adapter : JsonGameAdapterBase
     private sealed record AtlasProof(bool MapFitChecked, bool ControllerMenusAndDiskRoundtrip,
         bool ControllerRemapsChecked, bool ControllerFirstBootChecked, bool WidescreenChecked,
         bool WideCrossingSpriteChecked, bool NormalDoorPacingChecked, bool WideExtendedNpcChecked,
-        int DoorBackdropFrames, int DoorRevealFrames, int DialogueBackdropFrames);
+        int DoorBackdropFrames, int DoorRevealFrames, int DialogueBackdropFrames,
+        bool MatchedReference, int Frames);
     private sealed record AtlasReceipt(int Format, string SourceIdentity, string Sha256, int TerrainAreas, AtlasProof? OpeningRoute);
 
     private readonly string project;
@@ -205,12 +206,14 @@ public sealed class X68000Adapter : JsonGameAdapterBase
         var note = Path.Combine(folder, "lagoon-atlas-install.json");
         if (!File.Exists(atlas) || !File.Exists(note) || new FileInfo(note).Length > 16384) return null;
         var info = JsonSerializer.Deserialize<AtlasReceipt>(File.ReadAllText(note), ReceiptFormat);
-        return info is { Format: 2, TerrainAreas: 49,
+        if (info is not { TerrainAreas: 49 } || info.SourceIdentity != identity || !HashMatches(atlas, info.Sha256))
+            return null;
+        if (info is { Format: 3, OpeningRoute: { MatchedReference: true, Frames: 11100 } }) return atlas;
+        return info is { Format: 2,
                 OpeningRoute: { MapFitChecked: true, ControllerMenusAndDiskRoundtrip: true, ControllerRemapsChecked: true,
                     ControllerFirstBootChecked: true, WidescreenChecked: true, WideCrossingSpriteChecked: true,
                     NormalDoorPacingChecked: true, WideExtendedNpcChecked: true, DoorBackdropFrames: >= 1, DoorRevealFrames: >= 1,
-                    DialogueBackdropFrames: >= 4 } } &&
-            info.SourceIdentity == identity && HashMatches(atlas, info.Sha256)
+                    DialogueBackdropFrames: >= 4 } }
             ? atlas : null;
     }
 
