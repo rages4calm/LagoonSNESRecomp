@@ -2,6 +2,10 @@ param([string]$Inputs = '', [string]$Ipl = '', [string]$Cgrom = '')
 # Portable, per-user setup runtime. No Python installation or administrator is needed.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+# A PowerShell 7 parent can pass its incompatible module paths to Windows
+# PowerShell 5.1. Use only the latter's own built-in modules, as SNES setup does.
+$env:PSModulePath = Join-Path $PSHOME 'Modules'
+Import-Module (Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Utility/Microsoft.PowerShell.Utility.psd1') -Force
 $env:PYTHONUTF8 = '1'
 $env:PYTHONIOENCODING = 'utf-8'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
