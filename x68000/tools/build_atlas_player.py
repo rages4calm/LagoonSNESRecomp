@@ -514,6 +514,7 @@ def install(executable, source_identity, entries, proof, expedition):
         "format": 3 if proof.get("matched_reference") else 2,
         "source_identity": source_identity, "sha256": digest(executable),
         "terrain_areas": entries, "opening_route": proof,
+        "runtime_revision": "0.6.0", "presentation_version": 2,
     }
     with tempfile.TemporaryDirectory(prefix="lagoon-atlas-receipt-") as directory:
         local = Path(directory) / "lagoon-atlas-install.json"

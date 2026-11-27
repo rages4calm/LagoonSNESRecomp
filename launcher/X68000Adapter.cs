@@ -7,6 +7,8 @@ public sealed class X68000Adapter : JsonGameAdapterBase
     private const string ReceiptName = "lagoon-extra-install.json";
     private const string AdventureEdition = "x68000-enhanced-adventure";
     private const string EnhancedDirectory = "retrorecomp-expedition";
+    private const string RuntimeRevision = "0.6.0";
+    private const int PresentationVersion = 2;
     private static readonly ProfileDescriptor EnhancedGame =
         new("enhanced-expedition", "X68000 Enhanced", "x68000-enhanced-expedition");
     private static readonly string PlayerName = OperatingSystem.IsWindows() ? "Lagoon - English.exe" : "Lagoon - English";
@@ -29,7 +31,8 @@ public sealed class X68000Adapter : JsonGameAdapterBase
         bool WideCrossingSpriteChecked, bool NormalDoorPacingChecked, bool WideExtendedNpcChecked,
         int DoorBackdropFrames, int DoorRevealFrames, int DialogueBackdropFrames,
         bool MatchedReference, int Frames);
-    private sealed record AtlasReceipt(int Format, string SourceIdentity, string Sha256, int TerrainAreas, AtlasProof? OpeningRoute);
+    private sealed record AtlasReceipt(int Format, string SourceIdentity, string Sha256, int TerrainAreas, AtlasProof? OpeningRoute,
+        string? RuntimeRevision = null, int PresentationVersion = 0);
 
     private readonly string project;
     internal string ProjectRoot => project;
@@ -171,6 +174,22 @@ public sealed class X68000Adapter : JsonGameAdapterBase
 
     internal X68000SaveDisk OpenEnhancedSaveDisk() => OpenUserDisk(EnhancedPlayer, canImport: true);
 
+    internal X68000SaveDisk OpenExternalImportSource(string folder)
+    {
+        if (string.IsNullOrWhiteSpace(folder)) throw new DirectoryNotFoundException("Choose a previous Lagoon X68000 installation.");
+        folder = Path.GetFullPath(folder);
+        var candidates = new[] {
+            Path.Combine(folder, PlayerName),
+            Path.Combine(folder, "local-x68000", EnhancedDirectory, PlayerName),
+            Path.Combine(folder, EnhancedDirectory, PlayerName),
+        };
+        var player = candidates.FirstOrDefault(File.Exists);
+        if (player == null) throw new FileNotFoundException("Choose a previous Lagoon X68000 installation, or the folder containing Lagoon - English.exe.");
+        // Import verifies the old base, conversion report and User Disk, but
+        // never permits that older runtime to become the playable edition.
+        return OpenUserDisk(player, canImport: false);
+    }
+
     private static X68000SaveDisk OpenUserDisk(string player, bool canImport)
     {
         var receipt = VerifyBase(player);
@@ -207,7 +226,8 @@ public sealed class X68000Adapter : JsonGameAdapterBase
         var note = Path.Combine(folder, "lagoon-atlas-install.json");
         if (!File.Exists(atlas) || !File.Exists(note) || new FileInfo(note).Length > 16384) return null;
         var info = JsonSerializer.Deserialize<AtlasReceipt>(File.ReadAllText(note), ReceiptFormat);
-        if (info is not { TerrainAreas: 49 } || info.SourceIdentity != identity || !HashMatches(atlas, info.Sha256))
+        if (info is not { TerrainAreas: 49 } || info.RuntimeRevision != RuntimeRevision ||
+            info.PresentationVersion != PresentationVersion || info.SourceIdentity != identity || !HashMatches(atlas, info.Sha256))
             return null;
         if (info is { Format: 3, OpeningRoute: { MatchedReference: true, Frames: 11100 } }) return atlas;
         return info is { Format: 2,

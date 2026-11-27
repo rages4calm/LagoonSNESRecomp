@@ -2,6 +2,7 @@ using System.Text.Json;
 
 internal sealed class X68000SaveForm : Form
 {
+    private sealed record ExternalSource(string Folder, string Title);
     private readonly X68000Adapter adapter;
     private readonly ComboBox source = Picker();
     private readonly ComboBox sourceSlot = Picker();
@@ -28,7 +29,7 @@ internal sealed class X68000SaveForm : Form
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 280));
         var heading = new Label { Text = "Import an in-game save", Font = new Font("Segoe UI", 16F), AutoSize = true };
         var instructions = new Label {
-            Text = "Close both games first. If X68000 Enhanced is new, start it once to create its User Disk.",
+            Text = "Close both games first. Choose your previous installation, then a saved slot and an empty destination slot. If the new game has no User Disk yet, start it once and close it.",
             AutoSize = true, MaximumSize = new Size(560, 0), Margin = new Padding(3, 8, 3, 18)
         };
         panel.Controls.Add(heading, 0, 0);
@@ -37,7 +38,12 @@ internal sealed class X68000SaveForm : Form
         panel.SetColumnSpan(instructions, 2);
         panel.Controls.Add(new Label { Text = "Copy from", AutoSize = true }, 0, 2);
         panel.Controls.Add(new Label { Text = "Copy to", AutoSize = true }, 1, 2);
-        panel.Controls.Add(source, 0, 3);
+        var sourceChoice = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false };
+        sourceChoice.Controls.Add(source);
+        var browse = new Button { Text = "Choose previous installation…", AutoSize = true, Width = 248 };
+        browse.Click += (_, _) => ChoosePreviousInstallation();
+        sourceChoice.Controls.Add(browse);
+        panel.Controls.Add(sourceChoice, 0, 3);
         panel.Controls.Add(new Label { Text = "X68000 Enhanced", AutoSize = true }, 1, 3);
         panel.Controls.Add(sourceSlot, 0, 4);
         panel.Controls.Add(destinationSlot, 1, 4);
@@ -63,7 +69,26 @@ internal sealed class X68000SaveForm : Form
 
     private static ComboBox Picker() => new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 248 };
 
-    private X68000SaveDisk SourceDisk() => adapter.OpenImportSource((X68000Adapter.SaveSource)source.SelectedItem!);
+    private X68000SaveDisk SourceDisk() => source.SelectedItem switch {
+        X68000Adapter.SaveSource legacy => adapter.OpenImportSource(legacy),
+        ExternalSource external => adapter.OpenExternalImportSource(external.Folder),
+        _ => throw new InvalidOperationException("Choose a previous saved game."),
+    };
+
+    private void ChoosePreviousInstallation()
+    {
+        using var picker = new FolderBrowserDialog {
+            Description = "Choose the previous Lagoon installation or its X68000 game folder", UseDescriptionForTitle = true,
+        };
+        if (picker.ShowDialog(this) != DialogResult.OK) return;
+        try
+        {
+            adapter.OpenExternalImportSource(picker.SelectedPath).Inspect();
+            var item = new ExternalSource(picker.SelectedPath, "Previous installation: " + Path.GetFileName(picker.SelectedPath.TrimEnd(Path.DirectorySeparatorChar)));
+            source.Items.Add(item); source.SelectedItem = item;
+        }
+        catch (Exception error) when (SaveError(error)) { status.Text = error.Message; }
+    }
 
     private void UpdateCopy() => copy.Enabled = sourceSlot.SelectedItem is X68000SaveDisk.Slot { Level: not null }
         && destinationSlot.SelectedItem is X68000SaveDisk.Slot { Level: null };

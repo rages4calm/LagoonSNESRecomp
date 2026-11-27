@@ -71,7 +71,8 @@ internal sealed class X68000SaveDisk(string root, string templateHash, bool canI
         try
         {
             // Same exclusive Windows lock as the installed RetroRecomp player.
-            return new FileStream(lockPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            return new FileStream(lockPath, FileMode.Open,
+                importDestination ? FileAccess.ReadWrite : FileAccess.Read, FileShare.None);
         }
         catch (IOException error)
         {

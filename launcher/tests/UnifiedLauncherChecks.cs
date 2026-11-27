@@ -56,6 +56,7 @@ internal static class UnifiedLauncherChecks
         };
         var atlasNote = new {
             format = 2, source_identity = identity, sha256 = Hash(atlas), terrain_areas = 49,
+            runtime_revision = "0.6.0", presentation_version = 2,
             opening_route = new {
                 map_fit_checked = true, controller_menus_and_disk_roundtrip = true, controller_remaps_checked = true,
                 controller_first_boot_checked = true, widescreen_checked = true, wide_crossing_sprite_checked = true,
@@ -77,12 +78,20 @@ internal static class UnifiedLauncherChecks
         RefuseLaunch("An older build without the NPC seam fix admitted.");
         var openingNote = new {
             format = 3, source_identity = identity, sha256 = Hash(atlas), terrain_areas = 49,
+            runtime_revision = "0.6.0", presentation_version = 2,
             opening_route = new { frames = 11100, matched_reference = true }
         };
         Receipt(atlasReceipt, openingNote with { opening_route = openingNote.opening_route with { matched_reference = false } });
         RefuseLaunch("A preview without a matched opening was admitted.");
         Receipt(atlasReceipt, openingNote with { opening_route = openingNote.opening_route with { frames = 11099 } });
         RefuseLaunch("An incomplete preview opening was admitted.");
+        Receipt(atlasReceipt, new { format = 3, source_identity = identity, sha256 = Hash(atlas), terrain_areas = 49,
+            opening_route = new { frames = 11100, matched_reference = true } });
+        RefuseLaunch("An old matching preview without runtime revision was admitted.");
+        Receipt(atlasReceipt, openingNote with { runtime_revision = "0.5.3" });
+        RefuseLaunch("An old runtime revision was admitted.");
+        Receipt(atlasReceipt, openingNote with { presentation_version = 1 });
+        RefuseLaunch("An old presentation format was admitted.");
         Receipt(atlasReceipt, openingNote);
         if (x68.BuildLaunchPlan(x68Profile, x68Values, false).Executable != atlas)
             throw new Exception("The locally verified preview did not select Atlas.");
@@ -151,6 +160,7 @@ internal static class UnifiedLauncherChecks
                 achievements.Entries.Single(entry => entry.Id == "travel.first-area").UnlockedAt != 1795194005)
                 throw new Exception("Enhanced did not retain existing achievement progress.");
         }
+        ExternalSaveImport(root, x68, executable, identity, data);
         File.AppendAllText(atlas, " modified");
         RefuseLaunch("Changed Atlas admitted.");
         Receipt(atlasReceipt, atlasNote with { sha256 = Hash(atlas) });
@@ -183,6 +193,52 @@ internal static class UnifiedLauncherChecks
             !setupPlan.Arguments.Contains("-Inputs") || !setupPlan.Arguments.Contains("-Ipl") ||
             !setupPlan.Arguments.Contains("-Cgrom")) throw new Exception("Portable X68000 bootstrap did not preserve structured path arguments.");
         Console.WriteLine("PASS: unified edition choice; guarded X68000 receipts, settings and achievements; bootstrap paths with spaces; SNES adapter retained.");
+    }
+
+    private static void ExternalSaveImport(string root, X68000Adapter current, string currentPlayer, string identity, string data)
+    {
+        string Hash(byte[] bytes) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes));
+        void WriteJson(string path, object value) => File.WriteAllText(path, JsonSerializer.Serialize(value));
+        var previous = Path.Combine(root, "previous installation with spaces");
+        var oldRuntime = Path.Combine(previous, "local-x68000", "retrorecomp-expedition");
+        Directory.CreateDirectory(oldRuntime);
+        var oldPlayer = Path.Combine(oldRuntime, "Lagoon - English.exe");
+        File.WriteAllText(oldPlayer, "fixture: previous base player");
+        var oldIdentity = new string('c', 64);
+        WriteJson(Path.Combine(oldRuntime,"lagoon-extra-install.json"),new {
+            format=1,converter_version="1.8.0",system="x68",language="en",executable=Path.GetFileName(oldPlayer),sha256=Hash(File.ReadAllBytes(oldPlayer)),
+            reference_validated=true,user_disk=true,source_identity=oldIdentity
+        });
+        var oldTemplate = new byte[1232*1024]; oldTemplate[2048] = 0x11;
+        var newTemplate = new byte[1232*1024]; newTemplate[2048] = 0x22;
+        void Report(string runtime,string player,string id,byte[] template) => WriteJson(Path.Combine(runtime,"conversion-report.json"),new {
+            export_receipt=new {sha256=Hash(File.ReadAllBytes(player))},source_identity=id,
+            machine=new { media=Enumerable.Range(0,5).Select(i=>new {format=i==4?"xdf":"dim",sha256=i==4?Hash(template):new string('0',64)}).ToArray() }
+        });
+        Report(oldRuntime,oldPlayer,oldIdentity,oldTemplate);
+        Report(Path.GetDirectoryName(currentPlayer)!,currentPlayer,identity,newTemplate);
+        var oldData = Path.Combine(oldRuntime,"datas","games","x68-"+oldIdentity);
+        Directory.CreateDirectory(Path.Combine(oldData,"media")); File.WriteAllText(Path.Combine(oldData,"session.lock"),"");
+        var oldDisk=(byte[])oldTemplate.Clone();
+        System.Text.Encoding.ASCII.GetBytes("SAVE DATA       ").CopyTo(oldDisk,6144);oldDisk[6144+0x20]=35;oldDisk[6144+0x10]=6;oldDisk[6144+0x100]=0x99;
+        var oldPath=Path.Combine(oldData,"media","disk-05.xdf");File.WriteAllBytes(oldPath,oldDisk);
+        Directory.CreateDirectory(Path.Combine(data,"media"));
+        var destination=Path.Combine(data,"media","disk-05.xdf");File.WriteAllBytes(destination,newTemplate);
+        var original=Hash(File.ReadAllBytes(oldPath));
+        var source=current.OpenExternalImportSource(previous);
+        if(source.Inspect()[0].Level!=35 || current.OpenExternalImportSource(oldRuntime).Inspect()[0].Level!=35)
+            throw new Exception("Previous installation root/runtime resolution failed.");
+        source.CopySlotTo(1,current.OpenEnhancedSaveDisk(),1);
+        var copied=File.ReadAllBytes(destination);
+        if(!copied.AsSpan(6144,1024).SequenceEqual(oldDisk.AsSpan(6144,1024)) || copied[2048]!=0x22 || Hash(File.ReadAllBytes(oldPath))!=original)
+            throw new Exception("External import overwrote engine data or source save.");
+        try { source.CopySlotTo(1,current.OpenEnhancedSaveDisk(),1); throw new Exception("An occupied destination was overwritten."); }
+        catch(InvalidOperationException error) when(error.Message.Contains("already contains")) {}
+        if(!File.ReadAllBytes(destination).SequenceEqual(copied)) throw new Exception("Refused occupied import changed destination.");
+        var malformed=(byte[])oldDisk.Clone();malformed[2048]^=1;File.WriteAllBytes(oldPath,malformed);
+        try { source.Inspect(); throw new Exception("Unrecognized external disk accepted."); }
+        catch(InvalidDataException) {}
+        Console.WriteLine("PASS: previous-installation browse roots, old read-only source validation, sector-only import, new engine preservation and occupied/malformed refusal.");
     }
 
     internal static async Task ProcessChecks()
