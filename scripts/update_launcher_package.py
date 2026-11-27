@@ -83,7 +83,9 @@ def main():
     assert dll[:2] == b'MZ' and len(dll) < 2 * 1024 * 1024
     replacements = {'lagoon.Companion.dll': dll,
                     'docs/RECORDING.md': (root / 'docs/RECORDING.md').read_bytes(),
-                    'docs/PLAYING.md': (root / 'docs/PLAYING.md').read_bytes()}
+                    'docs/PLAYING.md': (root / 'docs/PLAYING.md').read_bytes(),
+                    'docs/BUILDING.md': (root / 'docs/BUILDING.md').read_bytes(),
+                    'CREDITS.md': (root / 'CREDITS.md').read_bytes()}
     help_text = ('Lagoon Companion ' + args.version + '\n\n'
                  'Open the Companion launcher. On first launch choose your original USA\n'
                  '.sfc/.smc ROM FILE with Choose ROM file. Verification and setup are automatic.\n'
