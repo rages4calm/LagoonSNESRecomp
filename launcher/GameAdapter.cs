@@ -141,9 +141,12 @@ public sealed class GameAdapter : JsonGameAdapterBase
                 if (PortablePackage) PortablePackageChecks.Validate(Project);
                 using var ready = JsonDocument.Parse(File.ReadAllText(marker).TrimStart('\uFEFF'));
                 using var contract = JsonDocument.Parse(File.ReadAllText(Path.Combine(Project, PortablePackage ? "portable-package.json" : "windows-preview.json")));
-                foreach (var field in new[] { "package", "generated_manifest_sha256", "game_sha256" })
+                if (!PortablePackage)
+                    ValidateWindowsSetupReceipt(ready.RootElement, contract.RootElement,
+                        Path.Combine(Project, "game", EngineName), values["engine.path"].GetString() ?? "");
+                else foreach (var field in new[] { "package", "generated_manifest_sha256", "game_sha256" })
                     if (ready.RootElement.GetProperty(field).GetString() != contract.RootElement.GetProperty(field).GetString())
-                        return new(false, "Setup belongs to a different preview. Extract the new preview into a fresh folder.");
+                        return new(false, "Setup belongs to a different game build. Run Game setup with your original ROM.");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or KeyNotFoundException or InvalidOperationException)
             { return new(false, "Setup readiness is incomplete. Run Game setup from a fresh extracted preview."); }
@@ -168,6 +171,32 @@ public sealed class GameAdapter : JsonGameAdapterBase
         }
         catch (IOException ex) { return new(false, $"Cannot read ROM: {ex.Message}"); }
         catch (UnauthorizedAccessException ex) { return new(false, $"Cannot read ROM: {ex.Message}"); }
+    }
+
+    // A launcher-only package update does not invalidate an unchanged native game.
+    // Bind setup to the exact qualified engine/generation, not the outer ZIP label.
+    internal static void ValidateWindowsSetupReceipt(JsonElement ready, JsonElement contract,
+        string packagedExecutable, string selectedExecutable)
+    {
+        bool PackageName(JsonElement element) => element.TryGetProperty("package", out var name) &&
+            System.Text.RegularExpressions.Regex.IsMatch(name.GetString() ?? "", @"^Lagoon-Companion-\d+\.\d+\.\d+-win-x64$");
+        if (!PackageName(ready) || !PackageName(contract) || contract.GetProperty("format").GetInt32() != 1 ||
+            contract.GetProperty("mode").GetString() != "prebuilt-own-rom" || !contract.GetProperty("playable").GetBoolean() ||
+            !contract.GetProperty("native_cpu").GetBoolean() || !contract.GetProperty("native_only_default").GetBoolean() ||
+            !ready.GetProperty("native_cpu").GetBoolean() || !ready.GetProperty("native_only_default").GetBoolean())
+            throw new InvalidDataException("This setup does not belong to a qualified native Lagoon Windows package.");
+        foreach (var field in new[] { "generated_manifest_sha256", "game_sha256" })
+        {
+            var expected = contract.GetProperty(field).GetString() ?? "";
+            if (!System.Text.RegularExpressions.Regex.IsMatch(expected, "^[0-9a-f]{64}$") || ready.GetProperty(field).GetString() != expected)
+                throw new InvalidDataException("The native game build changed. Run Game setup with your original ROM; your saves and settings stay in place.");
+        }
+        if (!Path.IsPathFullyQualified(selectedExecutable) ||
+            !Path.GetFullPath(selectedExecutable).Equals(Path.GetFullPath(packagedExecutable), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Select this package's native Lagoon executable.");
+        using var engine = File.OpenRead(packagedExecutable);
+        if (!Convert.ToHexString(SHA256.HashData(engine)).Equals(contract.GetProperty("game_sha256").GetString(), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("The native game executable differs from its qualified package. Extract a fresh release.");
     }
 
     public override LaunchPlan BuildLaunchPlan(ProfileDescriptor profile, IReadOnlyDictionary<string, JsonElement> values, bool resume)

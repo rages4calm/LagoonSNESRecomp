@@ -44,6 +44,16 @@ internal static class UpdateChecks
     internal static async Task Run(string root)
     {
         if (Directory.Exists(root)) throw new IOException("Fresh output only."); Directory.CreateDirectory(root);
+        var engineFixture=Put(root,"setup-compat/game/LagoonSNESRecomp.exe","qualified native fixture");
+        var setup=JsonSerializer.SerializeToNode(new {package="Lagoon-Companion-0.6.0-win-x64",native_cpu=true,native_only_default=true,game_sha256=PackageUpdate.Hash(engineFixture),generated_manifest_sha256=new string('b',64)})!;
+        var contract=setup.DeepClone();contract["package"]="Lagoon-Companion-0.6.1-win-x64";contract["format"]=1;contract["mode"]="prebuilt-own-rom";contract["playable"]=true;
+        void ValidateSetup(JsonNode receipt,JsonNode incoming,string? engine=null) { using var oldDoc=JsonDocument.Parse(receipt.ToJsonString());using var newDoc=JsonDocument.Parse(incoming.ToJsonString());GameAdapter.ValidateWindowsSetupReceipt(oldDoc.RootElement,newDoc.RootElement,engineFixture,engine??engineFixture); }
+        ValidateSetup(setup,contract);checks++;
+        foreach(var field in new[]{"game_sha256","generated_manifest_sha256"}) {var altered=contract.DeepClone();altered[field]=new string('c',64);Refuse(()=>ValidateSetup(setup,altered),"Incompatible setup accepted: "+field);}
+        foreach(var field in new[]{"native_cpu","native_only_default"}) {var altered=setup.DeepClone();altered[field]=false;Refuse(()=>ValidateSetup(altered,contract),"Non-native setup accepted.");}
+        {var altered=setup.DeepClone();altered["package"]="OtherGame-0.6.0-win-x64";Refuse(()=>ValidateSetup(altered,contract),"Foreign setup accepted.");}
+        Refuse(()=>ValidateSetup(setup,contract,Path.Combine(root,"other.exe")),"Different engine source accepted.");
+        File.AppendAllText(engineFixture,"tampered");Refuse(()=>ValidateSetup(setup,contract),"Changed qualified engine accepted.");
         var metadata = JsonSerializer.SerializeToNode(new { draft = false, prerelease = false, tag_name = "v0.6.1", body = "Test notes", html_url = PackageUpdate.Repository + "/releases/tag/v0.6.1", assets = new[] { new { name = "Lagoon-Companion-0.6.1-win-x64.zip", digest = "sha256:" + new string('a',64), size = 100, browser_download_url = PackageUpdate.Repository + "/releases/download/v0.6.1/Lagoon-Companion-0.6.1-win-x64.zip" } } })!;
         byte[] Bytes(JsonNode node) => Encoding.UTF8.GetBytes(node.ToJsonString());
         Assert(PackageUpdate.ParseLatest(Bytes(metadata)).Version == new Version(0,6,1), "Stable metadata rejected.");
