@@ -54,14 +54,48 @@ static void lagoon_capture_world_epoch(void) {
 }
 
 static bool lagoon_has_wide_canvas(void) {
-    return width == LAGOON_VIEW && height == LAGOON_VIEW;
+    /* The original prologue also uses256x256. It is a square film, not a
+     * gameplay world with extra margins. Warm resets also retain old RAM. */
+    if (width != LAGOON_VIEW || height != LAGOON_VIEW || lagoon_boot.active) return false;
+    const uint8_t *ram = core.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+    size_t size = core.get_memory_size(RETRO_MEMORY_SYSTEM_RAM);
+    return ram && size > LAGOON_BASE + 0xeccc && lagoon_word(ram, 0) == 0x6100 &&
+        lagoon_word(ram, 2) == 0x5efe && lagoon_word(ram, 4) == 0x6100 &&
+        lagoon_word(ram, 6) == 0x5bd4 &&
+        (lagoon_zoom_ready || lagoon_scene_view(ram, size).area != 0);
 }
 
 static int x_height(void);
 
+static bool lagoon_default_window_size(int usable_w, int usable_h, int *w, int *h) {
+    if (usable_w <= 96 || usable_h <= 96) return false;
+    int max_w = usable_w - 64, max_h = usable_h - 64;
+    *w = SDL_min(1280, max_w);
+    *h = *w * 9 / 16;
+    if (*h > max_h) { *h = max_h; *w = *h * 16 / 9; }
+    return *w > 0 && *h > 0;
+}
+
 static void lagoon_frame_start(void *window, void *renderer) {
-    if (!ca.started) lagoon_zoom_mode = lagoon_load_zoom();
+    bool fresh = !ca.started;
+    if (fresh) lagoon_zoom_mode = lagoon_load_zoom();
+    /* A saved window is the player's preference. Never replace it, and do
+     * not change an existing fullscreen setting while improving defaults. */
+    FILE *saved = fresh ? fopen(player_config, "rb") : NULL;
+    bool has_saved_window = saved != NULL;
+    if (saved) fclose(saved);
     x_frame_start(window, renderer);
+    if (fresh && !has_saved_window && window &&
+        !(SDL_GetWindowFlags((SDL_Window *)window) & SDL_WINDOW_FULLSCREEN_DESKTOP)) {
+        SDL_Rect usable;
+        int display = SDL_GetWindowDisplayIndex((SDL_Window *)window), w, h;
+        if (display >= 0 && !SDL_GetDisplayUsableBounds(display, &usable) &&
+            lagoon_default_window_size(usable.w, usable.h, &w, &h)) {
+            SDL_SetWindowMinimumSize((SDL_Window *)window, SDL_min(400, w), SDL_min(340, h));
+            SDL_SetWindowSize((SDL_Window *)window, w, h);
+            SDL_SetWindowPosition((SDL_Window *)window, usable.x + (usable.w-w)/2, usable.y + (usable.h-h)/2);
+        }
+    }
 }
 
 static int lagoon_picture_width(void) {
@@ -72,8 +106,25 @@ static int lagoon_picture_height(void) {
     return lagoon_has_wide_canvas() ? lagoon_world_view().h : x_height();
 }
 
+static bool lagoon_opening_rect(int canvas_w, int canvas_h, int native_w, int native_h, int mode, SDL_Rect *rect) {
+    if (canvas_w < 1 || canvas_h < 1 || native_w < 1 || native_h < 1) return false;
+    int w = canvas_w, h = canvas_h;
+    if ((int64_t)w * native_h > (int64_t)h * native_w) w = (int)((int64_t)h * native_w / native_h);
+    else h = (int)((int64_t)w * native_h / native_w);
+    if (mode == 1) {
+        int scale = SDL_min(canvas_w/native_w, canvas_h/native_h);
+        if (scale >= 1) { w = native_w*scale; h = native_h*scale; }
+    }
+    *rect = (SDL_Rect){(canvas_w-w)/2, (canvas_h-h)/2, w, h};
+    return true;
+}
+
 static bool lagoon_picture_rect(int canvas_w, int canvas_h, int mode, SDL_Rect *rect) {
-    if (!lagoon_has_wide_canvas()) return x_game_rect(canvas_w, canvas_h, mode, rect);
+    if (!lagoon_has_wide_canvas()) {
+        if ((lagoon_boot.active && lagoon_boot.stage != LAGOON_BOOT_GAME) || !lagoon_zoom_ready)
+            return lagoon_opening_rect(canvas_w, canvas_h, x_width(), x_height(), mode, rect);
+        return x_game_rect(canvas_w, canvas_h, mode, rect);
+    }
     if (canvas_w < 1 || canvas_h < 1) return false;
     SDL_Rect view = lagoon_world_view();
     int scale = SDL_min(canvas_w / view.w, canvas_h / view.h);

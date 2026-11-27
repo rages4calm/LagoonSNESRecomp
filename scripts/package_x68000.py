@@ -12,13 +12,13 @@ RUNTIME = (
 )
 TOOLS = (
     "bps_apply.py", "build_atlas_player.py", "build_retrorecomp.py", "check_wide_areas.py",
-    "lagoon_atlas.py", "lagoon_qol.py", "portable_tools.py", "firmware.py", "setup_preview.py", "setup_bootstrap.ps1",
+    "lagoon_atlas.py", "lagoon_qol.py", "portable_tools.py", "firmware.py", "runtime_cache.py", "setup_preview.py", "setup_bootstrap.ps1",
 )
 
 
 def public_inputs(root: Path) -> dict[str, str]:
     root = Path(root).resolve(strict=True)
-    names = ["Setup X68000.cmd", "x68000/achievements.json", "x68000/PLAYING.md",
+    names = ["Setup X68000.cmd", "x68000/achievements.json", "x68000/PLAYING.md", "x68000/runtime-version.json",
              "src/lagoon_ui_font.generated.h", "assets/fonts/atkinson-hyperlegible/OFL.txt",
              "assets/fonts/atkinson-hyperlegible/provenance.json", "licenses/X68000-Sharp-Permission.txt"]
     names += ["x68000/runtime/" + name for name in RUNTIME]

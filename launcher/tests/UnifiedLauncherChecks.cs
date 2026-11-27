@@ -95,6 +95,11 @@ internal static class UnifiedLauncherChecks
         Receipt(atlasReceipt, openingNote);
         if (x68.BuildLaunchPlan(x68Profile, x68Values, false).Executable != atlas)
             throw new Exception("The locally verified preview did not select Atlas.");
+        Receipt(atlasReceipt, openingNote with { runtime_revision = "0.6.1", presentation_version = 3 });
+        if (x68.BuildLaunchPlan(x68Profile, x68Values, false).Executable != atlas)
+            throw new Exception("The new runtime revision did not select Atlas.");
+        Receipt(atlasReceipt, openingNote with { runtime_revision = "0.6.1", presentation_version = 2 });
+        RefuseLaunch("An unmatched runtime/presentation pair was admitted.");
         Receipt(atlasReceipt, atlasNote);
         Receipt(baseReceipt, receipt with { exp_rate = 1 });
         RefuseLaunch("A different EXP preset admitted.");

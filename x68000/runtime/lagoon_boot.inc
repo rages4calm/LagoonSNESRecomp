@@ -63,10 +63,16 @@ static void lagoon_boot_prepare(uint16_t pad) {
         lagoon_boot.skip = true;
 }
 
+static bool lagoon_boot_stage_fast_forward(LagoonBootStage stage, bool skip) {
+    /* Loading waits can run quickly. The Zoom logo and story are authored
+     * animation, and keep their original pacing unless the player skips. */
+    return skip || stage == LAGOON_BOOT_LOADING || stage == LAGOON_BOOT_GAME;
+}
+
 static bool lagoon_boot_fast_forward(void) {
     lagoon_boot_refresh();
     return x_fast_forward() || (lagoon_boot.active && ca.windowed && input_focus && !player_blocked() &&
-        !rrhk_ui()->capturing && (lagoon_boot.stage != LAGOON_BOOT_PROLOGUE || lagoon_boot.skip));
+        !rrhk_ui()->capturing && lagoon_boot_stage_fast_forward(lagoon_boot.stage, lagoon_boot.skip));
 }
 
 static int16_t lagoon_boot_input_state(unsigned port, unsigned device, unsigned index, unsigned id) {

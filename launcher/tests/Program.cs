@@ -2,6 +2,12 @@ using System.Diagnostics;
 using Companion.Launcher.Core;
 using System.Text;
 
+if (args.Length == 2 && args[0] == "--updates")
+{
+    await UpdateChecks.Run(Path.GetFullPath(args[1]));
+    return;
+}
+
 if (args.Length == 3 && args[0] == "--unified-launcher")
 {
     await UnifiedLauncherChecks.ProcessChecks();

@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build_retrorecomp import PROJECT, digest, replace_file
 from lagoon_atlas import generate
 from check_wide_areas import check_late_routes, check_wide_areas, check_zoom_routes
+from runtime_cache import read_cache, write_cache
 
 
 def write_patch(path, replacements):
@@ -55,7 +56,7 @@ def configure_atlas(cmake, cache, destination, log):
     subprocess.run(command, check=True, stdout=log, stderr=subprocess.STDOUT)
 
 
-def build(report, destination, disk_dir, system, keep_diagnostics=False, opening_only=False):
+def build(report, destination, disk_dir, system, keep_diagnostics=False, opening_only=False, cached_atlas=None):
     receipt = json.loads(report.read_text(encoding="utf-8"))
     if (receipt["version"], receipt["target"], receipt["status"]) != ("1.8.0", "windows-x86_64", "supported"):
         raise ValueError("The atlas build requires a retained, verified RetroRecomp 1.8.0 Windows conversion.")
@@ -92,7 +93,12 @@ def build(report, destination, disk_dir, system, keep_diagnostics=False, opening
     try:
         shutil.copyfile(PROJECT / "x68000/runtime/lagoon_atlas.inc", additions[0])
         shutil.copyfile(PROJECT / "x68000/runtime/lagoon_exploration.inc", additions[1])
-        areas = generate(disk_dir, system, additions[2])
+        if cached_atlas is None:
+            areas = generate(disk_dir, system, additions[2])
+        else:
+            cached_data, areas = read_cache(cached_atlas, receipt["source_identity"], receipt["export_receipt"]["sha256"])
+            additions[2].write_bytes(cached_data)
+        atlas_data = additions[2].read_bytes()
         shutil.copyfile(PROJECT / "src/lagoon_ui_font.generated.h", additions[3])
         shutil.copyfile(PROJECT / "x68000/runtime/lagoon_journal.inc", additions[4])
         write_award_catalog(additions[5])
@@ -204,6 +210,7 @@ def build(report, destination, disk_dir, system, keep_diagnostics=False, opening
             with tempfile.TemporaryDirectory(prefix="lagoon-atlas-opening-") as checks:
                 proof = qualify(built, stock, None, Path(checks))
             print(f"Opening matched after {proof['frames']} frames. SHA-256: {digest(built)}")
+            write_cache(destination, atlas_data, receipt["source_identity"], receipt["export_receipt"]["sha256"], areas)
             return built, receipt["source_identity"], areas, proof
 
         write_patch(host, (
@@ -290,6 +297,7 @@ def build(report, destination, disk_dir, system, keep_diagnostics=False, opening
                     replace_file(Path(checks) / "tour" / name, destination / name)
         print(f"Built {areas} terrain maps in {built}")
         print(f"SHA-256 {digest(built)}")
+        write_cache(destination, atlas_data, receipt["source_identity"], receipt["export_receipt"]["sha256"], areas)
         return built, receipt["source_identity"], areas, proof
     finally:
         for file, content in original.items():
@@ -508,13 +516,20 @@ def install(executable, source_identity, entries, proof, expedition):
             or digest(target / "Lagoon - English.exe") != previous.get("sha256")):
         raise ValueError("The installed profile must match the atlas gameplay data.")
     atlas = target / executable.name
+    version = json.loads((PROJECT / "x68000/runtime-version.json").read_text())
+    if version.get("schema") != 1 or version.get("snapshot_view_version") != 2:
+        raise ValueError("The X68000 runtime version descriptor is missing or incompatible.")
+    data, cached_entries = read_cache(executable.parent, source_identity, previous["sha256"])
+    if cached_entries != entries:
+        raise ValueError("The qualified runtime cache has a different map count.")
+    write_cache(target, data, source_identity, previous["sha256"], entries)
     if not atlas.exists() or digest(atlas) != digest(executable):
         replace_file(executable, atlas)
     receipt = {
         "format": 3 if proof.get("matched_reference") else 2,
         "source_identity": source_identity, "sha256": digest(executable),
         "terrain_areas": entries, "opening_route": proof,
-        "runtime_revision": "0.6.0", "presentation_version": 2,
+        "runtime_revision": version["runtime_revision"], "presentation_version": version["presentation_version"],
     }
     with tempfile.TemporaryDirectory(prefix="lagoon-atlas-receipt-") as directory:
         local = Path(directory) / "lagoon-atlas-install.json"

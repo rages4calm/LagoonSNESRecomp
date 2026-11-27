@@ -1,4 +1,4 @@
-param([string]$Inputs = '', [string]$Ipl = '', [string]$Cgrom = '')
+param([string]$Inputs = '', [string]$Ipl = '', [string]$Cgrom = '', [switch]$RebuildCached)
 # Portable, per-user setup runtime. No Python installation or administrator is needed.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -50,6 +50,7 @@ try {
     $runtimeLock.Dispose(); $runtimeLock = $null
     if (!$Inputs) { $Inputs = Join-Path $projectRoot 'Inputs\X68000' }
     $pythonArgs = @('-B', '-P', (Join-Path $PSScriptRoot 'setup_preview.py'), '--inputs', $Inputs)
+    if ($RebuildCached) { $pythonArgs += '--rebuild-cached' }
     if ($Ipl) { $pythonArgs += @('--ipl', $Ipl) }
     if ($Cgrom) { $pythonArgs += @('--cgrom', $Cgrom) }
     Write-Output 'Preparing X68000. The remaining portable tools are downloaded automatically the first time.'

@@ -162,7 +162,13 @@ Giles no longer needs a Potion; there is no escort/tablet hunt from the SNES gam
 
 See docs/PLAYING.md for the full controls, features and controller navigation.
 Keep local/ (SNES) and local-x68000/ (X68000) for your saves/settings.
-Extract updates into a fresh folder; never overwrite or delete your saves.
+Use Check for updates in Companion for future Windows package updates.
+Close both games first. The updater preserves your generated X68000 game,
+ROM selections, settings and saves. It does not rebuild the game for a
+launcher-only update. Update X68000 game is a separate action when its
+runtime changes; it reuses verified local build inputs where available.
+If an older installation no longer has those inputs, select your game ZIP
+once to restore them. Source checkouts use the documented developer workflow.
 
 Source, downloads and help: https://github.com/rages4calm/LagoonSNESRecomp
 ''').encode('utf-8')
@@ -212,7 +218,7 @@ Source, downloads and help: https://github.com/rages4calm/LagoonSNESRecomp
     print(json.dumps({'passed': True, 'version': args.version, 'archive': args.output.name,
                       'sha256': digest, 'bytes': args.output.stat().st_size,
                       'source_commit': args.source_commit, 'engine_source_commit': contract['engine_source_commit'],
-                      'game_sha256': contract['game_sha256'], 'scope': 'Audited input archive; unchanged native engine and runtime; managed launcher and setup/help update only.'}))
+                      'game_sha256': contract['game_sha256'], 'scope': 'Audited input archive; unchanged native SNES engine and bundled .NET runtime; managed launcher, generic X68000 sources and setup/help updated.'}))
 
 
 if __name__ == '__main__':

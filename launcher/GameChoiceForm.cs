@@ -64,7 +64,9 @@ internal sealed class GameChoiceForm : Form
             ForeColor = Color.FromArgb(0xA3, 0xA8, 0xBB),
         };
 
-        Controls.AddRange(new Control[] { title, subtitle, snes, x68000, saves, remember });
+        var updates = new Button { Text = "Check for updates", AutoSize = true, Location = new Point(350, 328), FlatStyle = FlatStyle.Flat, ForeColor = ForeColor };
+        updates.Click += (_, _) => { using var form = new PackageUpdateForm(PackageUpdate.FindRoot(AppContext.BaseDirectory)) { Icon = Icon }; form.ShowDialog(this); if (form.Scheduled) Close(); };
+        Controls.AddRange(new Control[] { title, subtitle, snes, x68000, saves, remember, updates });
     }
 
     private Button ChoiceCard(string heading, string detail, Color accent, Action pick)

@@ -2,12 +2,12 @@
 
 <p align="center"><img src="docs/branding/lagoon-logo.png" width="680" alt="Lagoon logo redrawn by DarkShadowRage"></p>
 
-[![Windows x64 0.6.0 - SNES and X68000](docs/badges/windows.svg?v=0.6.0)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.6.0/Lagoon-Companion-0.6.0-win-x64.zip)
+[![Windows x64 0.6.1 - SNES and X68000](docs/badges/windows.svg?v=0.6.1)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.6.1/Lagoon-Companion-0.6.1-win-x64.zip)
 
-**Windows 0.6.0: SNES Enhanced and X68000 Enhanced in one Companion launcher.**
+**Windows 0.6.1: SNES Enhanced and X68000 Enhanced in one Companion launcher.**
 Choose the version you want to play. Each has its own game files, settings, saves and achievements.
 
-[Release notes and checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.6.0) | [Controls for both editions](docs/PLAYING.md) | [Screenshots](docs/screenshots/README.md) | [Build and mod](docs/BUILDING.md)
+[Release notes and checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.6.1) | [Controls for both editions](docs/PLAYING.md) | [Screenshots](docs/screenshots/README.md) | [Build and mod](docs/BUILDING.md)
 
 **Linux and macOS downloads remain SNES-only, version 0.5.3:**
 
@@ -61,7 +61,7 @@ Gameplay options are selectable in Companion. Faster menus, Giles first aid and 
 
 This is the original Sharp X68000 game with its own story events and thrust-and-contact combat. Its gameplay improvements are **built in**, rather than split into profiles or toggles.
 
-- **English translation**, quicker startup with Start/Enter skip, and automatic disk changes with a ready-to-save User Disk.
+- **English translation**, Start/Enter opening skip, and automatic disk changes with a ready-to-save User Disk.
 - **Expanded 16:9 view with square pixels**, centered camera and live 1x / 1.25x / 1.5x zoom. Expanded scenery and supported actors; the original HUD moves to the bottom in zoomed views.
 - **38-pixel sword reach and 4 pixels of lateral cleave**, respecting walls and keeping the original sword artwork, damage rolls and enemy death behavior. Hold the sword ready while moving into enemies.
 - **Faster movement and recovery:** three pixels per walking step, eight extra jump-peak updates and sixteen extra protection updates after ordinary hits.
@@ -99,7 +99,19 @@ These are the default **PC keyboard and Xbox-style physical controller labels**.
 
 ## Saves, updating and recording
 
-Keep **local/** for SNES saves, settings, maps and achievements. Keep **local-x68000/** for X68000's generated game, settings, User Disk and progress. The editions do not share saves. Extract updates into a fresh folder and follow the [upgrade instructions](docs/PLAYING.md#upgrading-and-your-progress); do not overwrite or rename incompatible quick states.
+**Windows 0.6.1 updates:** Companion's **Check for updates** checks the official stable Windows release. A package update keeps your locally built X68000 game and both editions' saves/settings. **Update X68000 game** is separate: runtime changes require a local rebuild, reusing cached inputs and tools when available. Missing inputs may require selecting your game ZIP again. Source checkouts can check/open the release; automatic replacement is for extracted release folders.
+
+**Coming from 0.6.0?** That launcher has no updater yet. Close both games and
+Companion, extract the **entire 0.6.1 ZIP over your existing release folder**,
+and replace the packaged files. Keep **local/** and **local-x68000/**; the ZIP
+contains neither folder. Open Companion, choose **Update X68000 game → Update
+game** once for the opening fixes, then play. Future package updates use
+**Check for updates → Download and update**. If you modified the packaged source
+or application files yourself, use a fresh folder and the [save-transfer guide](docs/PLAYING.md#manual-updates).
+
+X68000's title and prologue play at normal speed until you explicitly skip with **Start / Enter**. Their original square-pixel artwork fits proportionally in the window. Windowed and Borderless fit use the available height; Borderless pixel perfect keeps integer scaling. Gameplay widescreen and world zoom are separate.
+
+Keep **local/** for SNES saves, settings, maps and achievements. Keep **local-x68000/** for X68000's generated game, settings, User Disk and progress. The editions do not share saves. Follow the [upgrade instructions](docs/PLAYING.md#upgrading-and-your-progress); do not overwrite or rename incompatible quick states.
 
 For older X68000 saves, open **Copy X68000 saves** in Companion. If your previous
 installation is not listed, click **Choose previous installation...**, select

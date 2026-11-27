@@ -1,6 +1,6 @@
 # Playing Lagoon: both editions
 
-Windows 0.6.0 opens **SNES Enhanced** or **X68000 Enhanced** in one Companion.
+Windows 0.6.1 opens **SNES Enhanced** or **X68000 Enhanced** in one Companion.
 Use **Choose edition** in its sidebar to switch. Linux/macOS 0.5.3 downloads
 contain SNES Enhanced only. The editions have separate stories, controls,
 settings and saves. [X68000 controls and saves](#x68000-enhanced).
@@ -12,7 +12,7 @@ virtual SNES button labels are identified separately in the gameplay table.
 
 ## SNES Enhanced
 
-Use the Windows 0.6.0 or portable SNES 0.5.3 package from the [main page](../README.md), or build from
+Use the Windows 0.6.1 or portable SNES 0.5.3 package from the [main page](../README.md), or build from
 [these instructions](BUILDING.md). On first launch, choose your clean USA ROM with the file picker.
 Verification and setup run automatically; then press Play. Use Choose ROM.cmd
 or Choose ROM.command to reopen the picker later. Apply launcher settings before
@@ -424,6 +424,20 @@ target. Zoomed views move the original HP/MP display to the bottom. The outer
 view draws enemies already active in the original simulation. Map visibility
 does not make every region walkable or extend combat through walls.
 
+### X68000 title and opening — Windows 0.6.1
+
+The title and prologue keep their original artwork and
+normal timing. Press **Start / Enter** to skip deliberately. They no longer use
+the gameplay widescreen canvas or automatic opening fast-forward.
+
+**Windowed** and **Borderless · fit** enlarge the original picture proportionally.
+**Borderless · pixel perfect** retains integer scaling and may leave larger
+margins. The opening also keeps its proportions in Stretch mode. Square original
+artwork naturally leaves sidebars on a wide monitor; this does not crop or redraw
+it. The gameplay **1x / 1.25x / 1.5x** zoom setting does not zoom the opening.
+New windows start at up to 1280×720, limited to the available desktop area;
+existing saved window sizes and display preferences are preserved.
+
 ### X68000 gameplay and built-in changes
 
 This edition has **38-pixel sword reach**, **4 extra pixels of cleave on each side**,
@@ -463,8 +477,46 @@ files and can undo updated scripts. Quick states cannot cross source identities.
 
 ## Upgrading and your progress
 
-Extract the full new package into a fresh writable folder. Keep the previous
-folder until the new one is working.
+### Integrated Windows updates — 0.6.1
+
+For your first update from **0.6.0**:
+
+1. Close both games and Companion.
+2. Extract the **whole 0.6.1 ZIP over your current release folder**, accepting
+   replacement of packaged files. Keep **local/** and **local-x68000/**; neither
+   is included in the ZIP.
+3. Open Companion. Choose **Update X68000 game**, then **Update game**, to apply
+   the opening fixes. Re-select your disk ZIP if asked, let it finish, then play.
+
+Version 0.6.0 has no integrated updater. After this first upgrade, choose
+**Check for updates**, then **Download and update** when a newer stable package
+is available. Companion restarts after application. Package updates replace
+the released application files while preserving **local/** and
+**local-x68000/**, including the locally compiled X68000 executable. Close both
+games before applying an update; the updater does not forcibly terminate them.
+An unavailable update server does not require repeating game setup.
+
+**Update X68000 game** is a separate operation. A launcher-only update does not
+require compiling the game again. Changes to the X68000 runtime do require a
+local rebuild; cached game inputs and tools are reused when available. If those
+inputs have been cleared, select your original game ZIP again. Your existing
+game remains available while deciding whether to rebuild. Quick states still
+need to match the runtime source/format; keep ordinary in-game saves for upgrades.
+The update window reports **Already up to date** without rebuilding when the
+installed runtime matches. An interrupted package update offers **Resume update**;
+**Official releases** opens the download page.
+
+Automatic package replacement is supported in extracted release folders. A
+source checkout can check the latest release and open its download page, but
+the updater does not replace your Git working tree. Linux/macOS retain their
+existing manual SNES-only update procedure.
+
+### Manual updates
+
+If you modified packaged application/source files, extract the full new package
+into a fresh writable folder instead of overwriting your changes. The integrated
+updater refuses to overwrite locally edited managed files. Transfer progress as
+follows; the same procedure works for a normal manual move to another folder.
 
 - **SNES:** transfer **local/** to retain normal saves, settings, map/scenery and
   achievements. The prebuilt game stays in **game/**. Source checkouts use
@@ -474,7 +526,7 @@ folder until the new one is working.
   bootable disk over a new template. Its locally compiled executable contains
   private inputs and should stay private.
 - **Quick states:** recreate them when format/source identity changes. Renaming
-  a file or editing its version bytes cannot safely convert it. Windows 0.6.0
+  a file or editing its version bytes cannot safely convert it. Windows 0.6.1
   retains the SNES 0.5.3 engine and its existing state-format requirements.
 
 SNES and X68000 saves and achievements are independent. Include the edition in

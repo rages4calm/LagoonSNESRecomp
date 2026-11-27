@@ -1,7 +1,7 @@
 """Set up X68000 Enhanced from the player's own disks and firmware."""
 
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 import msvcrt
 import os
 from pathlib import Path
@@ -21,7 +21,9 @@ from build_retrorecomp import (
     DISK_HASHES, PROJECT, WINDOWS_CONVERTER, checked_file, digest,
 )
 from portable_tools import ensure as ensure_portable_tools
+from portable_tools import installed as tool_installed, TOOLS as PORTABLE_TOOLS
 from firmware import resolve as resolve_firmware, install_notice
+from runtime_cache import CacheUnavailable, read_cache, migrate_report
 
 
 CONVERTER_URL = "https://github.com/ArthurReboulSalze/RetroRecomp/releases/download/v1.8.0/Retro-Recomp.exe"
@@ -190,6 +192,89 @@ def repair_legacy_build_objects():
             obj.unlink(missing_ok=True)
 
 
+def data_fingerprints():
+    return {str(path): (digest(path), path.stat().st_size, path.stat().st_mtime_ns)
+            for path in (INSTALL / "datas").rglob("*") if path.is_file() and path.name != "session.lock"}
+
+
+@contextmanager
+def game_session_lock(path):
+    """Hold the same share-none Windows guard as the running player."""
+    import ctypes
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    create = kernel.CreateFileW
+    create.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+                       wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE)
+    create.restype = wintypes.HANDLE
+    close = kernel.CloseHandle
+    close.argtypes = (wintypes.HANDLE,)
+    close.restype = wintypes.BOOL
+    handle = create(str(path), 0x80000000 | 0x40000000, 0, None, 4, 0x80, None)
+    if handle == ctypes.c_void_p(-1).value:
+        raise ValueError("Close the X68000 game before updating it.")
+    try:
+        yield
+    finally:
+        close(handle)
+
+
+def rebuild_cached():
+    """Compile only the host, using validated retained base and private data."""
+    from build_atlas_player import build, install
+    import json
+    report_path = INSTALL / "conversion-report.json"
+    try:
+        report = json.loads(report_path.read_text())
+        base = json.loads((INSTALL / "lagoon-extra-install.json").read_text())
+        if (report.get("version") != "1.8.0" or report.get("status") != "supported" or
+                report.get("toolchain", {}).get("kind") != "llvm" or
+                not base.get("reference_validated") or not base.get("expedition") or
+                base.get("source_identity") != report.get("source_identity") or
+                base.get("sha256") != report["export_receipt"]["sha256"]):
+            raise ValueError("The retained enhanced base receipt differs.")
+        checked_file(INSTALL / "Lagoon - English.exe", base["sha256"])
+        built = checked_file(Path(report["build_executable"]))
+        build_dir = next((path for path in list(built.parents)[:4] if (path / "CMakeCache.txt").is_file()), None)
+        if build_dir is None:
+            raise ValueError("The retained build project is missing.")
+        project = build_dir.parent.parent
+        if project.name != report["source_identity"][:16]:
+            raise ValueError("The retained build source identity differs.")
+        checked_file(project / "packed-game.exe", base["sha256"])
+        if not all(tool_installed(CACHE / "datas/tools", row) for row in PORTABLE_TOOLS):
+            raise ValueError("The portable build tools are missing.")
+    except (OSError, ValueError, KeyError) as error:
+        raise CacheUnavailable("X68000's original build cache is unavailable. Choose the Lagoon ZIP once to prepare it again.") from error
+    before = data_fingerprints()
+    with build_lock(), ExitStack() as sessions, tempfile.TemporaryDirectory(prefix="lagoon-x68000-rebuild-") as scratch:
+        for game in (INSTALL / "datas/games").glob("x68-*"):
+            if game.is_dir():
+                sessions.enter_context(game_session_lock(game / "session.lock"))
+        # Holding locks can create a previously absent empty lock file. This
+        # is synchronization metadata, never a save/settings mutation.
+        before = data_fingerprints()
+        work = Path(scratch)
+        if (INSTALL / "runtime-cache.json").is_file():
+            read_cache(INSTALL, report["source_identity"], base["sha256"])
+            cached = INSTALL
+        else:
+            print("Preparing the existing0.6 game data for future one-click updates...", flush=True)
+            cached = migrate_report(report, work / "migrated")
+        # All tools were verified present above, so this only validates their
+        # existing install and puts it on this process's PATH. No downloads.
+        ensure_portable_tools(CACHE, fetch)
+        print("Updating X68000 from its saved build data. Your saves and settings stay in place...", flush=True)
+        executable, identity, areas, proof = build(report_path, work / "atlas", None, None,
+                                                  opening_only=True, cached_atlas=cached)
+        if data_fingerprints() != before:
+            raise ValueError("Game data changed during compilation; the current engine was not replaced.")
+        install(executable, identity, areas, proof, expedition=True)
+        if data_fingerprints() != before:
+            raise ValueError("Save/settings preservation check failed after rebuilding.")
+    print("X68000 game updated. All saves and settings were preserved.", flush=True)
+
+
 def main():
     if sys.version_info < (3, 11):
         raise SystemExit("X68000 setup needs Python 3.11 or newer. Install it, then run Setup X68000.cmd again.")
@@ -199,8 +284,12 @@ def main():
     parser.add_argument("--ipl", type=Path, help="Your 128 KiB iplrom.dat firmware file.")
     parser.add_argument("--cgrom", type=Path, help="Your 768 KiB cgrom.dat font firmware file.")
     parser.add_argument("--check-inputs", action="store_true", help="Verify inputs without compiling or installing.")
+    parser.add_argument("--rebuild-cached", action="store_true", help="Update only the host from its existing verified private build cache.")
     args = parser.parse_args()
     try:
+        if args.rebuild_cached:
+            rebuild_cached()
+            return
         # RetroRecomp builds beside its own executable. MSVC's file tracker can
         # exceed its Windows path limit under a deeply nested extraction folder.
         with build_lock(), tempfile.TemporaryDirectory(prefix="lagoon-x68000-setup-") as scratch:
@@ -223,6 +312,8 @@ def main():
                 "--disks", work, "--english-system", system, "--expedition", "--opening-only", "--install")
             install_notice(INSTALL, permission)
         seed_defaults(INSTALL)
+    except CacheUnavailable as error:
+        parser.exit(3, f"X68000 setup needs its game ZIP once: {error}\n")
     except (OSError, ValueError, BadZipFile, subprocess.CalledProcessError) as error:
         parser.exit(1, f"X68000 setup stopped: {error}\n")
     print("Setup complete. Open Lagoon Companion, select X68000 Enhanced and press Play.")

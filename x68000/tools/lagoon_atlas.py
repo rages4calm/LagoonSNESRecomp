@@ -3,11 +3,13 @@
 from pathlib import Path
 import json
 import struct
+import hashlib
 
 from build_retrorecomp import checked_file, DISK_HASHES, DIM_HEADER, SECTOR, lagoon_program
 
 BLOCK_SIZES = (16384, 2048, 2048, 16384, 16384, 2048, 32768, 1280)
 END = bytes.fromhex("96b39045")
+AREA_NAMES_SHA256 = "164a3e8c5d3aaddee50a3370def78d8f9a6aca98fa239e1677c2db2662d19a98"
 
 
 def disk_files(path, sha256):
@@ -116,11 +118,14 @@ def terrain(data, palette):
     return pixels, visible_bounds(tiles, metatiles, grid, palette)
 
 
-def area_names(system):
-    image = checked_file(system, next(iter(DISK_HASHES.values())), DIM_HEADER + 1232 * SECTOR)
+def area_names(system, system_sha256=None):
+    image = checked_file(system, system_sha256 or next(iter(DISK_HASHES.values())), DIM_HEADER + 1232 * SECTOR)
     program, _, _ = lagoon_program(image.read_bytes())
     # The guest's save UI indexes the area string table by area number minus one.
-    records = program[0x194D8:0x19C35].split(b"\x00\x1c", 50)
+    table = program[0x194D8:0x19C35]
+    if hashlib.sha256(table).hexdigest() != AREA_NAMES_SHA256:
+        raise ValueError("The English0.9b area-name table differs from its pinned original.")
+    records = table.split(b"\x00\x1c", 50)
     names = {}
     for area, record in enumerate(records[:50], 1):
         if not record.startswith(b"p") or not (2 <= len(record) <= 23):
@@ -134,7 +139,7 @@ def area_names(system):
     return names
 
 
-def generate(disk_dir, system, output):
+def generate(disk_dir, system, output, *, system_sha256=None):
     files = {}
     for name, sha in list(DISK_HASHES.items())[1:]:
         for key, data in disk_files(Path(disk_dir) / name, sha).items():
@@ -145,7 +150,7 @@ def generate(disk_dir, system, output):
     for (area, extension), data in sorted(files.items()):
         if extension == b"DAT":
             maps[area] = terrain(data, files[(area, b"PAL")])
-    names = area_names(system)
+    names = area_names(system, system_sha256)
     if not maps.keys() <= names.keys():
         raise ValueError("Missing English names for the generated atlas.")
     with Path(output).open("w", encoding="ascii") as out:

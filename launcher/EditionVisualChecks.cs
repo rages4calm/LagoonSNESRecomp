@@ -1,4 +1,6 @@
 using System.Drawing.Imaging;
+using Companion.Launcher.Windows;
+using Companion.Launcher.Core;
 
 internal static class EditionVisualChecks
 {
@@ -10,6 +12,15 @@ internal static class EditionVisualChecks
         using var setup = new X68000SetupForm(new X68000Adapter(project, Path.Combine(output, "profile"))) { VisualCheck = true };
         Save(picker, Path.Combine(output, "edition-picker.png"));
         Save(setup, Path.Combine(output, "x68000-setup.png"));
+        using var updates = new PackageUpdateForm(project) { VisualCheck = true };
+        using var gameUpdate = new X68000UpdateForm(new X68000Adapter(project, Path.Combine(output, "update-profile"))) { VisualCheck = true };
+        Save(updates, Path.Combine(output,"package-updates.png"));
+        Save(gameUpdate,Path.Combine(output,"game-update.png"));
+        var adapter = new X68000Adapter(project,Path.Combine(output,"rail-profile"));
+        var controller = new LauncherController(adapter);
+        using var launcher = new LauncherForm(controller);
+        Program.AddEditionTools(launcher,adapter,()=>{},controller);
+        Save(launcher,Path.Combine(output,"launcher-update-sidebar.png"));
         Console.WriteLine("PASS: edition picker and X68000 setup form rendered offscreen without desktop activation.");
     }
 

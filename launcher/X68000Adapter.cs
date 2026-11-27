@@ -226,8 +226,8 @@ public sealed class X68000Adapter : JsonGameAdapterBase
         var note = Path.Combine(folder, "lagoon-atlas-install.json");
         if (!File.Exists(atlas) || !File.Exists(note) || new FileInfo(note).Length > 16384) return null;
         var info = JsonSerializer.Deserialize<AtlasReceipt>(File.ReadAllText(note), ReceiptFormat);
-        if (info is not { TerrainAreas: 49 } || info.RuntimeRevision != RuntimeRevision ||
-            info.PresentationVersion != PresentationVersion || info.SourceIdentity != identity || !HashMatches(atlas, info.Sha256))
+        if (info is not { TerrainAreas: 49 } || !((info.RuntimeRevision == RuntimeRevision && info.PresentationVersion == PresentationVersion) ||
+            (info.RuntimeRevision == "0.6.1" && info.PresentationVersion == 3)) || info.SourceIdentity != identity || !HashMatches(atlas, info.Sha256))
             return null;
         if (info is { Format: 3, OpeningRoute: { MatchedReference: true, Frames: 11100 } }) return atlas;
         return info is { Format: 2,

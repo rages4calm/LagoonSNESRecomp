@@ -4,6 +4,8 @@
     <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../PackageUpdate.cs" Link="PackageUpdate.cs" />
+    <Compile Include="../PackageUpdateHelper.cs" Link="PackageUpdateHelper.cs" />
     <Compile Include="../PortablePackageChecks.cs" Link="PortablePackageChecks.cs" />
     <Compile Include="../GameAdapter.cs" Link="GameAdapter.cs" />
     <Compile Include="../X68000Adapter.cs" Link="X68000Adapter.cs" />

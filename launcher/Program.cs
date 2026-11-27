@@ -72,9 +72,10 @@ internal static class Program
                     using var setup = new X68000SetupForm(x68) { Icon = icon };
                     if (setup.ShowDialog() != DialogResult.OK) { choice = GameChoice.Ask; continue; }
                 }
-                using var launcher = new LauncherForm(new LauncherController(adapter)) { Icon = icon };
+                var controller = new LauncherController(adapter);
+                using var launcher = new LauncherForm(controller) { Icon = icon };
                 bool switchEdition = false;
-                AddEditionTools(launcher, adapter, () => { switchEdition = true; launcher.Close(); });
+                AddEditionTools(launcher, adapter, () => { switchEdition = true; launcher.Close(); }, controller);
                 if (adapter is X68000Adapter) HideSingleProfileSelector(launcher);
                 Application.Run(launcher);
                 if (!switchEdition) return 0;
@@ -91,9 +92,10 @@ internal static class Program
         }
         finally { Application.Idle -= ApplyIcon; }
     }
-    private static void AddEditionTools(LauncherForm launcher, IGameAdapter adapter, Action choose)
+    internal static void AddEditionTools(LauncherForm launcher, IGameAdapter adapter, Action choose, LauncherController controller)
     {
         if (launcher.Controls.OfType<TableLayoutPanel>().FirstOrDefault()?.GetControlFromPosition(0, 0) is not FlowLayoutPanel rail) return;
+        rail.AutoScroll = true;
         void Add(string text, Action click)
         {
             var button = new Button { Text = text, Width = 170, Height = 38, FlatStyle = FlatStyle.Flat, TextAlign = ContentAlignment.MiddleLeft,
@@ -102,10 +104,17 @@ internal static class Program
             button.Click += (_, _) => click(); rail.Controls.Add(button);
         }
         Add("Choose edition", choose);
+        Add("Check for updates", () => {
+            if (controller.HasChanges) { MessageBox.Show(launcher, "Apply or revert your pending settings before updating.", "Lagoon updates"); return; }
+            using var update = new PackageUpdateForm(PackageUpdate.FindRoot(AppContext.BaseDirectory)) { Icon = launcher.Icon };
+            update.ShowDialog(launcher);
+            if (update.Scheduled) launcher.Close();
+        });
         if (adapter is X68000Adapter x68)
         {
             Add("X68000 setup", () => { using var setup = new X68000SetupForm(x68) { Icon = launcher.Icon }; setup.ShowDialog(launcher); });
             Add("Copy X68000 saves", () => { using var saves = new X68000SaveForm(x68) { Icon = launcher.Icon }; saves.ShowDialog(launcher); });
+            Add("Update X68000 game", () => { using var update = new X68000UpdateForm(x68) { Icon = launcher.Icon }; update.ShowDialog(launcher); });
         }
     }
 

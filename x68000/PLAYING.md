@@ -60,3 +60,27 @@ native main-CPU claim does not describe this version. Saves and achievements
 are separate; use Companion's ordinary-slot copy tool for older X68000 saves.
 Never replace the new bootable User Disk with a whole old disk, since it contains
 game files as well as progress. Recreate incompatible quick states.
+
+## Opening and updates — Windows 0.6.1
+
+The title/prologue play at normal speed;
+**Start / Enter** skips them. Windowed and Borderless fit enlarge the original
+picture proportionally, while Borderless pixel perfect keeps integer scaling.
+Opening artwork retains square pixels and natural sidebars, including in Stretch
+mode. Gameplay widescreen and world zoom do not squeeze or zoom the opening.
+New windows use up to 1280×720; existing window preferences are kept.
+
+**Check for updates** updates the released Companion package without discarding
+your local X68000 game, saves or settings. **Update X68000 game** handles runtime
+changes separately: it rebuilds locally using cached inputs/tools, asking for
+the game ZIP again if needed. A package update alone does not require rebuilding.
+Close the game before applying updates. Ordinary saves remain the preferred way
+to carry progress between incompatible runtime/quick-state versions.
+
+**Upgrading from 0.6.0:** close both games and Companion, extract the entire
+0.6.1 ZIP over the existing release folder and replace packaged files. Keep
+**local/** and **local-x68000/**; the ZIP contains neither. Reopen Companion,
+choose **Update X68000 game → Update game** once, and select your disk ZIP again
+if asked. Future package updates use **Check for updates → Download and update**.
+For locally modified application files, use a fresh folder and the
+[manual save-transfer instructions](../docs/PLAYING.md#manual-updates).

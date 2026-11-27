@@ -8,7 +8,7 @@ Runtime. The public Windows release is self-contained and needs no .NET install.
 
 ## Windows edition selection
 
-Windows 0.6.0 uses this same Companion executable for **SNES Enhanced** and
+Windows 0.6.1 uses this same Companion executable for **SNES Enhanced** and
 **X68000 Enhanced**. The first screen selects the edition; the sidebar's
 **Choose edition** returns to it. **Remember my choice** is optional. The
 explicit entries are `--game snes`, `--game x68000` and `--game ask`.
@@ -153,6 +153,35 @@ achievements never cross into the SNES edition.
 X68000 uses its compatibility/runtime support and is not described by the
 SNES 65816 native-CPU claim. See [player controls and saves](../docs/PLAYING.md#x68000-enhanced)
 and [local setup](../docs/BUILDING.md#x68000-local-build-and-setup).
+
+### Windows 0.6.1 updater
+
+**Check for updates** checks this repository's official stable Windows release.
+The dialog offers **Download and update**, **Resume update** for an interrupted
+apply, and **Official releases**. A failed online check leaves installed Play
+available. Version 0.6.0 users first extract the complete 0.6.1 ZIP over their
+release folder with both games/Companion closed, retaining `local/` and
+`local-x68000/`, then reopen Companion.
+Automatic application is limited to extracted release folders; source checkouts
+can check/open the release without replacing the Git working tree. The package
+update preserves both `local/` and `local-x68000/`, including the private compiled
+X68000 game. Games must be closed before application; the helper waits for
+Companion to exit and does not force-kill running programs.
+
+**Update X68000 game** is separate from package application. Runtime source
+changes need a local rebuild using cached game inputs and tools when present;
+missing inputs require selecting the game ZIP again. Launcher/docs-only changes
+do not require rebuilding the private game. Existing supported installations
+remain playable until the player chooses to update that runtime.
+The dialog's **Update game** button starts the cached rebuild, opens normal
+ZIP setup if reusable inputs are absent, or reports **Already up to date**
+without rebuilding when the installed runtime matches.
+
+The corresponding presentation change keeps the title/prologue at normal speed
+unless explicitly skipped. Windowed and Borderless fit use proportional fit;
+Borderless pixel perfect uses integer scaling. Stretch does not distort the
+opening. Existing size preferences are preserved; new windows use up to
+1280×720 within the available desktop area. Gameplay canvas/zoom remains separate.
 
 ## Linux and macOS Companion
 
