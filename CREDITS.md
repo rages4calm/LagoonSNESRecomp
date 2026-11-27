@@ -46,6 +46,20 @@
   the game; retain the renderer's own license when obtaining or distributing it.
 - **joshleaves / ghidra-snes and Ghidra contributors** — reverse-engineering tools.
 
+- **Arthur Reboul Salze / RetroRecomp and px68k contributors** - the X68000
+  conversion tools and hardware/runtime implementation. The setup downloads
+  the pinned upstream converter and retains its dependency notices.
+- **URARA-works / WebX68k** - the compatible firmware distribution and
+  public-domain Shinonome-based replacement character ROM used by automatic
+  X68000 setup. The real hardware CGROM is not downloaded. See
+  [WebX68k's bundled image terms](https://github.com/uraraworks/WebX68k#bundled-rom--disk-images).
+- **Sharp and the respective IPL rights holders** - the freely released IPL,
+  used under the separate, unchanged [permission terms](licenses/X68000-Sharp-Permission.txt).
+  Automatic setup verifies the downloaded bytes and keeps these terms with them.
+- **Python, LLVM/MinGW, CMake, Ninja and Git contributors** - the portable
+  setup tools. Their original licenses accompany the downloaded tools; these
+  tools are not installed globally and do not require administrator access.
+
 Original work and dependency licenses remain with their respective authors.
 The playable package retains the exact achievement toolkit and cJSON MIT notices
 under `licenses/`, alongside the framework and launcher license notices. The

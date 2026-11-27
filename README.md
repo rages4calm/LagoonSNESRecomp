@@ -1,246 +1,121 @@
 # Lagoon Recomp
 
-<p align="center"><img src="docs/branding/lagoon-logo.png" width="680" alt="Lagoon — redrawn box-art logo contributed by DarkShadowRage"></p>
+<p align="center"><img src="docs/branding/lagoon-logo.png" width="680" alt="Lagoon logo redrawn by DarkShadowRage"></p>
 
-[![Windows x64 download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.3/Lagoon-Companion-0.5.3-win-x64.zip)
+[![Windows x64 download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.6.0/Lagoon-Companion-0.6.0-win-x64.zip)
+
+**Windows 0.6.0: SNES Enhanced and X68000 Enhanced in one Companion launcher.**
+Choose the version you want to play. Each has its own game files, settings, saves and achievements.
+
+[Release notes and checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.6.0) | [Controls for both editions](docs/PLAYING.md) | [Screenshots](docs/screenshots/README.md) | [Build and mod](docs/BUILDING.md)
+
+**Linux and macOS downloads remain SNES-only, version 0.5.3:**
+
 [![Linux x64 download](docs/badges/linux.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.3/Lagoon-Companion-0.5.3-linux-x64.tar.gz)
-
 [![macOS Apple Silicon download](docs/badges/macos-arm64.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.3/Lagoon-Companion-0.5.3-macos-arm64.tar.gz)
 [![macOS Intel download](docs/badges/macos-intel.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.5.3/Lagoon-Companion-0.5.3-macos-x64.tar.gz)
 
-[Release notes & checksums](https://github.com/rages4calm/LagoonSNESRecomp/releases/tag/v0.5.3) · [Screenshots](docs/screenshots/README.md) · [Controls](docs/PLAYING.md) · [Build & mod](docs/BUILDING.md)
+## Start playing
 
-**Lagoon for Windows, Linux and macOS, with 100% native execution of the game's
-main 65816 CPU.** Built with [SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp),
-with widescreen, enhanced original pixels, quality-of-life improvements, an
-exploration map, achievements and an optional bundled X68000 soundtrack.
+Extract the **whole Windows ZIP** into a writable folder, then open **Setup Lagoon.cmd** or **lagoon.Companion.exe**. The launcher asks which edition to open. Use **Choose edition** in its sidebar to switch later.
 
-Normal play uses compiled game code with **no CPU interpreter fallback**.
-The interpreter is retained as an explicit debugging/reference option. SNES
-video, DMA, timers and SPC700/DSP audio hardware still use the runtime; native
-CPU execution does not mean every hardware component has been replaced.
+### SNES Enhanced
 
-**Bring your own clean Lagoon USA ROM.** Downloads include the playable game
-and self-contained Companion launcher. No ROM, game-code source extracted from
-the ROM, saves or private test captures are included.
+1. Choose **SNES Enhanced**.
+2. Click **Choose ROM file...** and select your clean, original **Lagoon USA .sfc or .smc** file. Select the file itself, not its folder or ZIP.
+3. Let verification and setup finish, then press **Play**.
 
-![Phantom Hill with a complete cloud, moving bird and1.5x zoom out](docs/screenshots/phantom-hill-square-zoom150-1920x1080.png?v=2)
+The SNES game is prebuilt: Windows needs no Python, compiler or separate .NET installation. You can keep your ROM outside the extracted folder. **Choose ROM.cmd** reopens the picker later. Linux/macOS users open **Start Lagoon.command**; [portable requirements](docs/PORTING.md) include Python 3.11+ for first setup.
 
-Square pixels, D3D11 MMPX Enhanced pixels and1.5x world zoom out at1920×1080.
-[More screenshots, maps and menus](docs/screenshots/README.md).
+### X68000 Enhanced - Windows
 
-**Community full playthrough:** [DarkShadowRage plays Lagoon Recomp](https://www.youtube.com/watch?v=YdY6WtsjzGg).
+1. Choose **X68000 Enhanced** and select your supported four-disk Lagoon **ZIP or folder**.
+2. Press **Set up game**. Setup obtains its verified portable tools and compatible firmware automatically. There is no manual Python, Visual Studio, compiler or firmware installation.
+3. Leave setup open until it finishes, then press **Play** in Companion. First setup needs internet access and space for the downloaded tools and local build.
+
+The supported game input is the four **DIM disk images**, either in a ZIP or extracted folder. Setup checks their content. It accepts the supported English 0.9b disks, or applies the English patch to the supported Japanese System disk. You can also put your ZIP under **Inputs/X68000/** and run **Setup X68000.cmd**. **X68000 setup** in Companion retries setup or selects different inputs later. Custom firmware is an optional advanced setting.
+
+**X68000 setup builds the game locally once.** It downloads and verifies RetroRecomp 1.8.0, compatible IPL/font firmware, portable build tools and, when needed, nleseul's English patch. It never downloads Lagoon disks. The resulting X68000 executable embeds your game, so it stays on your PC. The public Windows release contains the setup tools and enhanced runtime source needed to create it.
+
+The optional **X68000 soundtrack in the SNES game** and the **playable X68000 edition** are separate features. Selecting that soundtrack does not select the other game.
 
 ## Features
 
-0.5.3 fixes Linux Companion ROM setup, incorrect dormant jelly sprites, clipped Gold Cave clouds and zoom snapping during map-loading fades. Earlier widescreen, dialogue, live zoom and Quit to desktop fixes remain in place. Enemy activation and combat balance are preserved.
+### SNES Enhanced
 
-- **Widescreen:** 16:9, 16:10, 21:9, 32:9 and window-driven aspects, with added
-  scenery and supported NPCs, enemies, boss parts, projectiles and magic effects.
-- **Enhanced original graphics:** optional GPU EPX or refined MMPX reconstruction with sharp
-  fractional scaling keeps pixel interiors crisp and the HUD readable. No
-  replacement artwork or whole-image blur is required.
-- **D3D11 on Windows:** GPU Enhanced pixels, borderless fullscreen and tested
-  OBS Game Capture/modern Window Capture through focus changes. OpenGL remains
-  available and is used by the Linux/macOS packages.
-- **Live world zoom out:**1x,1.25x and1.5x, selectable in Options or with **R3 / Ctrl+Z**, reveal additional scenery horizontally
-  and vertically across the playable areas. Earlier qualification covered all74 authored travel areas in
-  a bounded1.5x entry/render check; updates use focused affected-route checks. The HUD remains readable over the
-  scenery. Original authored scenes keep their original composition.
-- **Game Over framing:** the original overlay keeps the expanded world and zoom
-  instead of snapping back to a larger 4:3 image.
-- **Active wider world:** newly revealed ordinary enemies wander with the
-  original random-walk routine, without extending aggression or attack ranges.
-  Their authored AI resumes in the original viewport. Neutral NPC animation extends
-  beyond the old viewport; quest scripts and conversations retain their triggers.
-- **Combat and balance options:** longer sword reach and matching sword artwork,
-  modest cleave, extra hit protection, a gentler opening and stronger magic.
-- **Less repetition:** independent EXP and gold rates up to 8x, faster walking,
-  quicker menus, longer jumps and a centered camera.
-- **Better escorts:** first aid for Giles without consuming a Healing Pot,
-  followers that navigate walls and stairs at Nasir's pace, and Thor's bridge
-  crossing. The cloud-to-castle landing is more forgiving too.
-- **Scenery map (0.4.0):** **M / L2** opens the current area's full terrain,
-  with pan, zoom, fit-to-area and recenter controls. Numbered discovered exits,
-  destination pages, treasure and early tablet-quest hints help with navigation.
-  Visited scenery stays available while browsing and after a restart. Older
-  exploration-only areas gain scenery on a fresh visit; unavailable scenery
-  retains the labeled explored-layout view.
-- **Readable extra menus (0.4.0):** Lagoon-style black panels, ivory frames and
-  clear lettering across the map, achievements and **R2 / Ctrl+comma** Options.
-  Five tabs cover **Sound, Journal, Items, Display and Travel**.
-- **Adventure help (0.4.0):** a journal follows your actual story progress;
-  25 item explanations include carried status and Atland/Voloh shop prices.
-- **Optional sword range cue (0.4.0):** see the active reach and cleave while
-  attacking. It defaults off and does not change combat.
-- **Dungeon return (0.4.0):** after defeating its boss, return inside a supported
-  dungeon's main entrance through **Options → Travel**. Stand safely still,
-  away from nearby threats and outside an escort; confirm before returning.
-- **26 local achievements:** bosses, exploration, the ending and a hidden guest.
-  Compact notifications and a chime; **Ctrl+J** opens the browser. Progress works offline.
-- **Two soundtracks:** choose **Original SNES** or the bundled **X68000** album
-  in Companion, with separate music-volume control and original sound effects.
-- **Companion launcher:** display, audio, keyboard/controller bindings and QoL
-  settings, plus achievement browsing. Windows and portable Linux/macOS interfaces.
+- **Native main CPU:** compiled 65816 game execution by default, with strict refusal of uncovered CPU paths. The interpreter is an explicit developer reference option; video, DMA, timers and SPC700/DSP audio use the hardware runtime.
+- **Widescreen and live zoom:** 16:9, 16:10, 21:9, 32:9 or follow-window views; 1x, 1.25x and 1.5x world zoom. Expanded scenery, supported NPCs, enemies, boss parts, projectiles and effects; centered camera option.
+- **Enhanced original pixels:** GPU EPX or refined MMPX with sharp fractional scaling, square-pixel or original CRT proportions, and a readable HUD. D3D11 on Windows; OpenGL on Linux/macOS. No replacement artwork or whole-screen blur.
+- **Combat options:** 38-pixel sword reach, modest cleave and matching blade extension, extra protection after hits, stronger magic and a gentler opening.
+- **Less repetition:** optional faster walking, longer jumps, and separate EXP/gold rates up to 8x. Menus open and close faster.
+- **Better escorts:** potion-free first aid for Giles, obstacle-aware followers at Nasir's pace, and Thor's bridge crossing. The cloud-to-castle landing is more forgiving.
+- **Scenery map:** full area terrain with pan, zoom, recenter, discovered exits and destinations, treasure markers and early tablet hints. Visited scenery stays available after restarting.
+- **Extra in-game menus:** audio, display, journal, item explanations and safe return to cleared dungeon entrances. Quit to desktop without Alt+F4.
+- **26 offline achievements:** bosses, exploration, quests, ending and a hidden guest, with compact notifications, a chime and in-game/launcher browsers.
+- **Two music choices:** original SNES audio or the included converted X68000 album, with separate music volume and original SNES effects.
+- **Companion settings:** keyboard, controller and hotkey bindings; display, audio and optional gameplay changes. Existing preferences are preserved.
 
-## Play
+Gameplay options are selectable in Companion. Faster menus, Giles first aid and follower navigation are built in. See the [exact QoL values](docs/PLAYING.md#snes-quality-of-life-options).
 
-1. Download the package for your OS and extract the entire folder somewhere writable.
-2. Open **Setup Lagoon.cmd / lagoon.Companion.exe** on Windows, or
-   **Start Lagoon.command / lagoon.Companion** on Linux/macOS.
-3. On first launch, click **Choose ROM file…** and select your original USA .sfc or .smc file. Verification and setup run automatically; then press **Play**.
+### X68000 Enhanced
 
-Choose the actual ROM file, not its folder or ZIP. You can keep it outside the game folder.
-Use **Choose ROM.cmd / Choose ROM.command** to select a different ROM later.
-For recording, use **Borderless fullscreen** and OBS **Game Capture → Capture specific window → LagoonSNESRecomp.exe**. [Recording help](docs/RECORDING.md).
+This is the original Sharp X68000 game with its own story events and thrust-and-contact combat. Its gameplay improvements are **built in**, rather than split into profiles or toggles.
 
-No compiler or first-run game recompilation is needed. Windows needs no separate
-.NET or Python installation; Linux/macOS bundle .NET and use Python 3.11+ for
-first-run ROM setup. Keep `local/` for your saves, settings, map and achievements.
-[Controls and upgrading](docs/PLAYING.md) · [Linux/macOS requirements](docs/PORTING.md) · [Soundtrack details](docs/SOUNDTRACK.md).
+- **English translation**, quicker startup with Start/Enter skip, and automatic disk changes with a ready-to-save User Disk.
+- **Expanded 16:9 view with square pixels**, centered camera and live 1x / 1.25x / 1.5x zoom. Expanded scenery and supported actors; the original HUD moves to the bottom in zoomed views.
+- **38-pixel sword reach and 4 pixels of lateral cleave**, respecting walls and keeping the original sword artwork, damage rolls and enemy death behavior. Hold the sword ready while moving into enemies.
+- **Faster movement and recovery:** three pixels per walking step, eight extra jump-peak updates and sixteen extra protection updates after ordinary hits.
+- **Gentler opening:** 18 HP and 8 base defense; level 2 maximum HP is 21.
+- **2x enemy/boss EXP and gold**, plus 50% stronger damaging magic after defense and resistance.
+- **Quicker dialogue, Items/Equipment and ordinary door waits.** Save/Load keeps the original game menu, with disk handling automatic.
+- **Potion-free Giles rescue.** He returns to town through the original event; this version has no Giles escort or SNES-style Thor tablet hunt.
+- **49-map scenery Atlas:** pan, zoom, visited-room browsing, doorway markers, recorded crossings, item help, regional journal, controls and eight offline awards.
+- **In-game audio/zoom settings and Quit**, with controller navigation. Dialogue quick states preserve the surrounding scenery. Global palette effects cover the expanded view without leaving black margins.
 
-## What's new in 0.5.3
+The X68000 edition retains RetroRecomp's X68000 hardware/runtime and compatibility support. The SNES edition's native-CPU claim does not apply to the X68000 build. [X68000 controls and saves](docs/PLAYING.md#x68000-enhanced).
 
-- **Linux ROM setup:** Companion resolves the installed Python executable correctly. A delayed progress message can no longer hide a setup error. Missing Python or an incomplete setup now produces an actionable message.
-- **Dormant jellies:** distant Gold Cave jellies retain their original dormant appearance instead of borrowing the gargoyle sprite. Their original emergence, activation range and AI are unchanged.
-- **Giles cliffside clouds:** Gold Cave's original decorative cloud groups extend into the expanded view with their original wind, wrapping and foreground priority. Clouds no longer stop at the old screen edge when zoomed out or using the centered camera.
-- **Zoomed map transitions:** loading fades retain the completed expanded world canvas. Incoming scenes and menus release it promptly, avoiding the brief snap back to the smaller original view.
-- **Updated SNESRecomp:** the November SDK update preserves Lagoon's native CPU profiles and custom systems. The updated audio timing state requires new quick save states; normal in-game saves remain the upgrade path.
+## Quick controls
 
-## Earlier rendering improvements — 0.5.2
+These are the default **PC keyboard and Xbox-style physical controller labels**. Other controller layouts may print different letters. All shortcuts are explained in the [playing guide](docs/PLAYING.md).
+**L2/R2** means **LT/RT** on an Xbox-style pad; **R3** means pressing the right stick.
 
-Moving actors and doors now use the camera, pose and animation from the same
-completed draw packet. Doors remain visible after walking fully past the old
-viewport and returning. Supported actors whose entire sprite lies above or
-below that viewport can still appear in the expanded view. Shared NPC graphics,
-including wizard sprites, have their own complete graphics-source checks.
+| Action | SNES Enhanced | X68000 Enhanced |
+| --- | --- | --- |
+| Move | Arrows / D-pad | Arrows / D-pad |
+| Sword | Z / A | Hold S / A, then move into the target |
+| Jump | X / B | D / B |
+| Talk | S / Y | D / B |
+| Map | M / L2 | Ctrl+M / R3 |
+| In-game settings | Ctrl+comma / R2 | Ctrl+comma / R2 |
+| Cycle world zoom | Ctrl+Z / R3 | Ctrl+Z / L2 |
+| Quick state | Shift+F1 saves; F1 loads slot 1 | F8 saves; F9 loads |
 
-Phantom Hill clouds now use their completed sprite draw, avoiding flashes of
-the original cloud over its expanded replacement. Wind keeps the original
-speed independent of zoom, continues through native cloud retirement, and
-does not restart when palette colors change.
+**The save-state keys differ between editions.** Normal in-game saves are separate. For X68000's original dialogue and Save/Load menu, use **B / D** to confirm; Sword cancels a yes/no choice to No.
 
-Crono's dialogue and portrait retain their proportions over the expanded frozen
-world. **Options → Display**, **R3** or **Ctrl+Z** changes zoom immediately;
-**Options → Sound → Quit to desktop** exits after confirmation. Square pixels
-and original CRT proportions remain independent of widescreen and zoom.
+## Saves, updating and recording
 
-Focused checks include long checkpoint walking, menu return, original transitions
-and cloud motion. The F1 final-boss-door route corrected 21 disappearing-door frames
-within 120 consecutive GPU captures, with unchanged game memory. Phantom Hill
-walking retained 3,644 accepted scene frames and all 13 matched memory checkpoints;
-a separate GPU sequence shows a complete cloud moving after its native sprite
-retires. Denegul's wizard also passed a 60-frame expanded-view check with all
-eight matched memory checkpoints unchanged. These checks are not a new campaign or a guarantee against every
-rendering bug. The strict native default and explicit interpreter debugging
-option remain intact.
+Keep **local/** for SNES saves, settings, maps and achievements. Keep **local-x68000/** for X68000's generated game, settings, User Disk and progress. The editions do not share saves. Extract updates into a fresh folder and follow the [upgrade instructions](docs/PLAYING.md#upgrading-and-your-progress); do not overwrite or rename incompatible quick states.
 
-A report of muffled Natela sound effects remains under investigation. A separate
-matched native/reference fight produced identical raw audio; that comparison
-does not establish how the streamer's audio device or OBS processed it.
+For SNES recording on Windows, select **Borderless fullscreen** and use OBS **Game Capture -> Capture specific window -> LagoonSNESRecomp.exe**. [Recording help](docs/RECORDING.md). The X68000 game is a separate window named **Lagoon - Atlas**; select that game's window when recording it. The SNES D3D11/OBS checks do not qualify every X68000 capture setup.
 
-## What's new in 0.5.0
+![SNES Phantom Hill with a complete cloud, moving bird and 1.5x zoom out](docs/screenshots/phantom-hill-square-zoom150-1920x1080.png?v=2)
 
-Windows now has a D3D11 flip presenter with GPU Enhanced pixels and tested OBS
-capture through focus changes. Companion adds1x,1.25x and1.5x world zoom-out
-options on all platforms. Qualified world scenes show additional terrain and
-actors in both directions, with a transparent HUD over the scenery. Visible
-ordinary enemies stay active rather than waiting for the old viewport's
-awareness range. Neutral NPC animation extends to the wider view too.
+[More screenshots](docs/screenshots/README.md) | [DarkShadowRage's SNES full playthrough](https://www.youtube.com/watch?v=YdY6WtsjzGg)
 
-The strict native CPU default and explicit interpreter reference option remain.
-Original authored scenes and unqualified visual states keep their original
-composition. See [Display and recording](docs/RECORDING.md) for settings.
+## Build, mod and testing scope
 
-## What's new in 0.4.1
+[Build instructions](docs/BUILDING.md) cover both editions. The renderer, menus, QoL hooks and source tools are available to extend. ROMs, X68000 disks/firmware, extracted assets, generated C source, saves and private validation data stay out of public source and downloads. Build your own X68000 export locally; do not redistribute its embedded game/firmware payload.
 
-First launch now offers a ROM file picker and automatic verification/setup, with
-clear messages for folders, archives and unsupported ROMs. Desktop fullscreen
-is now labeled **Borderless fullscreen**. OBS capture instructions cover explicit
-game-window selection. The qualified 0.4.0 game engine is retained unchanged.
-
-## Scenery maps and menus introduced in 0.4.0
-
-The map now draws complete zone terrain from the game's own scenery instead of
-using only collision-cell diagrams. It keeps the original art, including the
-layered backgrounds in Gold Cave, Philips Castle, Dwarf Cave, Phantom Hill and
-the Cloud. Actors and the HUD stay out of the terrain image. Seeing the terrain
-does not mark it explored, reveal an undiscovered chest or unlock a door.
-
-Pan and zoom independently of readable labels, fit the whole area, or recenter
-on Nasir. Discovered exits receive matching numbers on the map and destination
-list, with pages for busier areas. Destinations remain unnamed until visited.
-L/R browsing retains each area's last mapped scenery across room changes, state
-loads and restarts. It stores only local terrain data, without actors or progress.
-
-The new Options tabs bring story guidance, item help and optional sword-range
-display into the game. Travel supports the main entrances of **Gold Cave,
-Philips Castle, Dwarf Cave, Siegfried Castle, Ice Cave and Lagoon Castle** after
-the corresponding boss is defeated. It uses the game's normal room-loading
-sequence and checks safety again when you confirm. It does not bypass a boss,
-escort or story gate.
-
-These additions passed focused source, UI and affected-route checks.
-They do not represent another complete playthrough or a new Linux/macOS campaign.
-
-## What's new in 0.3.0
-
-- Native CPU execution is the default in every platform package, without a
-  Python test wrapper or environment setup. Unknown CPU paths stop before
-  interpretation rather than silently falling back.
-- Fixed one-frame black widescreen margins caused by briefly different
-  background-layer scroll positions.
-- Fixed the old doorway scene reappearing after fade-out while another room loads.
-- Fixed an alternate legitimate ending path missing its achievement trigger.
-
-The main CPU backend passed 95 exact native/reference test cases, with
-568 million generated instructions and zero interpreter invocations. Room
-loading checks cover all 74 nonempty original areas. State, timing, frames and
-offline DSP output matched; the two rendering fixes also preserve game state.
-The owner previously completed the Windows campaign and explored every map.
-These are finite checks, not a promise of bug-free behavior in every mod or edited save.
-
-Linux/macOS builds have target compilation, graphics, persistence and launcher
-checks. Their complete target gameplay and real controller/audio playthroughs
-remain separate from the Windows campaign. [Testing scope](docs/PORTING.md).
-Unsupported widescreen effects may still use the original view; that is a
-presentation decision, not CPU interpreter fallback.
-
-## Build and mod
-
-The native title code, renderer, UI, QoL hooks, shaders and mod manifests are
-available to extend. [Build instructions](docs/BUILDING.md) explain how to
-reproduce the game locally from your ROM and the pinned, patched framework.
-Native CPU profile generation stays local; generated ROM-derived C is never
-committed to the public repository. ROM code patches need matching native
-profiles. Incompatible code changes stop instead of reverting to interpretation.
-
-The scenery map, journal, item guide and extra-menu presentation are title-owned
-code available to extend. [Development guide](docs/DEVELOPMENT.md).
+The SNES Windows campaign was completed start to finish by the owner. X68000 qualification used assisted travel and OP stats to execute all eight boss defeats, the original ending, death/reload and major quest handovers. That is useful coverage, rather than an uninterrupted normal-difficulty playthrough. Target builds and focused checks do not guarantee every graphics driver, controller or edited save will behave identically. Report the edition, location, settings and reproduction steps in the [issue tracker](https://github.com/rages4calm/LagoonSNESRecomp/issues).
 
 ## Credits and licensing
 
-QoL ideas were inspired by **oipo's**
-[Lagoon QoL hack](https://www.romhacking.net/hacks/9856/).
-See [full credits](CREDITS.md) for the original developers and project dependencies.
+QoL ideas were inspired by **oipo's** [Lagoon QoL hack](https://www.romhacking.net/hacks/9856/). The X68000 English translation is by **nleseul**; its patch is downloaded from the [translation project](https://github.com/nleseul/lagoon_x68k_trans). X68000 conversion/runtime uses [ArthurReboulSalze's RetroRecomp](https://github.com/ArthurReboulSalze/RetroRecomp). Compatible firmware comes from the pinned [WebX68k bundled-ROM project](https://github.com/uraraworks/WebX68k#bundled-rom--disk-images), with its IPL permission notice and public-domain Shinonome font notices retained. See [full credits](CREDITS.md) for original developers and dependencies.
 
-Retain the included licenses: the SNESRecomp foundation and derivatives use
-**PolyForm Noncommercial**; Companion Launcher and the Lagoon launcher adapter
-use **MIT**, as do CompanionAchievements and cJSON under their own included
-notices. Public source availability does not remove the noncommercial terms.
-The readable extra-menu font is **Atkinson Hyperlegible Next**, under the
-separate **SIL Open Font License 1.1**; its notices accompany playable packages.
-ROMs, extracted Lagoon assets, saves and private validation captures are not
-uploaded or distributed. Generated ROM-derived code is excluded from public
-source and downloads; authorized platform builds use private build inputs.
-The tiny credited Chrono Trigger cameo has its
-own original copyright; it is not MIT-licensed artwork. The gallery contains
-selected development screenshots.
+Retain all included licenses. SNESRecomp and its derivatives use **PolyForm Noncommercial**; Companion Launcher, its Lagoon adapter, CompanionAchievements and cJSON use **MIT** under their notices. The menu font **Atkinson Hyperlegible Next** uses **SIL Open Font License 1.1**. Third-party X68000 tooling retains its own licenses. Public source availability does not remove those terms or the original games' copyrights. The credited Chrono Trigger cameo is not MIT-licensed artwork.
 
 ## Community and contact
 
 Discord: **chrono.trigger**
 
-[**R.A.I.D. — Retro AI Development**](https://discord.gg/Ad9BwSzctP) · a Discord
-for AI-assisted retro reverse-engineering, decomp & recomp. I post my work there;
-join to discuss this project and the others.
+[**R.A.I.D. — Retro AI Development**](https://discord.gg/Ad9BwSzctP) · a Discord for AI-assisted retro reverse-engineering, decomp & recomp. I post my work there; join to discuss this project and the others.

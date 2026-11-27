@@ -6,6 +6,22 @@ from the game repository. The build script finds the local package feed and
 restores the pinned lock file. Developer builds need .NET 8 Windows Desktop
 Runtime. The public Windows release is self-contained and needs no .NET install.
 
+## Windows edition selection
+
+Windows 0.6.0 uses this same Companion executable for **SNES Enhanced** and
+**X68000 Enhanced**. The first screen selects the edition; the sidebar's
+**Choose edition** returns to it. **Remember my choice** is optional. The
+explicit entries are `--game snes`, `--game x68000` and `--game ask`.
+The chooser does not redirect into a separate LagoonExtra checkout.
+
+Selecting an unconfigured SNES edition opens the existing ROM picker.
+Selecting an unbuilt X68000 edition opens its disk/firmware setup form. The
+X68000 **Set up game** action streams setup output and returns to its Companion
+page after success. **X68000 setup** retries it; **Copy X68000 saves** opens
+the ordinary-slot import tool. Editions retain separate settings and progress.
+
+## SNES adapter
+
 For a release package, open `Setup Lagoon.cmd`. The first-run ROM picker verifies
 your original USA .sfc/.smc file and runs setup automatically. Use `Choose ROM.cmd`
 or `Choose ROM.command` to reopen it later. The game EXE is bundled
@@ -28,21 +44,22 @@ changed native controls; restart the game to use them. Selecting another executa
 or INI and applying loads that source's settings without writing the previous
 source's values into it. Make further setting edits after that refresh.
 
-**Enhanced original pixels (EPX)** is optional and defaults off. It smooths diagonal
-edges using original colors while keeping the HUD sharp. Apply selects the OpenGL
-GPU renderer and the matching `assets/shaders/lagoon-epx.glslp` preset. Turning EPX
-off restores the previous shader, renderer and output method stored in native
-INI metadata. Bilinear Smooth scaling has been retired; Apply keeps
+**Enhanced original pixels** offers EPX and MMPX with sharp fractional scaling.
+Windows uses D3D11 by default, with OpenGL available; Linux/macOS use OpenGL.
+The selected shader assets must accompany the executable. New release display
+defaults come from the packaged INI; existing native preferences are preserved.
+Turning the enhancement off restores the previous shader, renderer and output
+method stored in native INI metadata. Bilinear Smooth scaling has been retired; Apply keeps
 `LinearFiltering = 0`, including when old EPX metadata previously saved smoothing.
 Other
-settings, bindings, mod selections and saves remain in place. Both EPX shader
-files must accompany the selected executable. Restart after Apply. This is a
+settings, bindings, mod selections and saves remain in place. Restart after Apply. This is a
 pixel treatment, not replacement artwork or smoother gameplay motion. See
-[display settings](../docs/PLAYING.md#display).
+[display settings](../docs/PLAYING.md#snes-display).
 
-Widescreen defaults off and offers 16:9, 16:10, 21:9, 32:9 and follow
+Widescreen offers 16:9, 16:10, 21:9, 32:9 and follow
 window choices through `[Graphics] Widescreen` and `[Lagoon] WideAspect`. It expands
-qualified scenery and actors. Unusual effects/layouts retain separate coverage
+qualified scenery and actors. The release INI enables it; existing settings are
+preserved. Unusual effects/layouts retain separate coverage
 requirements; unsupported visual content keeps its original view.
 
 Audio has one **Soundtrack** dropdown: **Original SNES** (default) or **X68000**.
@@ -80,7 +97,7 @@ same atomic-write rollback transaction. Changed
 files use atomic replacement, with rollback if a later commit fails. This does not
 provide filesystem-wide atomicity during power loss. Unreadable settings and invalid
 known values are rejected rather than replaced with defaults. Unknown launcher JSON,
-INI and mod-state fields survive. The v0.3.0 executable defaults to strict native
+INI and mod-state fields survive. The SNES executable defaults to strict native
 main-CPU execution, stopping before an uncovered instruction instead of using
 an automatic interpreter fallback. Explicit developer overrides can select
 the reference interpreter. Graphics/audio hardware still use the runtime.
@@ -98,7 +115,49 @@ tests. Screenshots and synthetic test fixtures stay outside the public repositor
 
 The shared packages and this adapter are MIT licensed; see LICENSE.
 
+## X68000 adapter and local setup
+
+X68000 is currently Windows-only. It has one fixed **X68000 Enhanced** gameplay
+edition, rather than selectable QoL profiles. Companion exposes display
+preferences; the runtime supplies live audio/zoom settings and remappable
+controls. The default new-install view is 1.25x, square pixels, with audio at
+80%; subsequent setup preserves an existing preferences file.
+
+The setup form requires only a supported four-disk ZIP/folder. Compatible
+firmware is obtained automatically; custom IPL/CGROM files are optional under
+**Use custom firmware (advanced)**.
+Portable Python and the verified LLVM-MinGW/CMake/Ninja toolchain are obtained
+automatically; players do not need to install Python or Visual Studio. Setup
+downloads the pinned official converter, compatible IPL/font firmware and
+translation patch when needed, never the Lagoon game. The CLI equivalent is:
+
+```powershell
+.\lagoon.Companion.exe --x68000-setup --inputs "C:\Games\Lagoon disks.zip"
+```
+
+The local recipe creates `local-x68000/retrorecomp-expedition/`. Play requires
+the matching verified base/Atlas receipts, executable hashes, source identity
+and 49-area catalog. The Atlas player is compared with the verified base's
+opening before installation. A missing or stale export leaves Play unavailable
+with setup guidance. Its executable embeds the supplied disks/firmware and
+must remain private; public packages contain source/setup, not that payload.
+
+User Disk data lives below the edition's `datas/games/x68-<identity>/` folder.
+The copy tool validates the source/destination format, requires an empty target
+slot and holds the runtime's exclusive session lock. It copies a 1 KiB save
+sector, not the whole bootable User Disk. That preserves updated game scripts.
+Source identity and quick-state checksum/layout checks remain in place;
+ordinary save imports do not bypass snapshot compatibility. Progress and
+achievements never cross into the SNES edition.
+
+X68000 uses its compatibility/runtime support and is not described by the
+SNES 65816 native-CPU claim. See [player controls and saves](../docs/PLAYING.md#x68000-enhanced)
+and [local setup](../docs/BUILDING.md#x68000-local-build-and-setup).
+
 ## Linux and macOS Companion
+
+These packages remain SNES-only version 0.5.3; their existing portable UI is
+unchanged by the Windows X68000 chooser.
 
 The existing Windows Forms launcher stays in Game.Companion.csproj. The portable
 Avalonia shell is desktop/Game.Companion.Desktop.csproj, sharing GameAdapter,

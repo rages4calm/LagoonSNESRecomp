@@ -2,9 +2,22 @@ using System.Diagnostics;
 using Companion.Launcher.Core;
 using System.Text;
 
+if (args.Length == 3 && args[0] == "--unified-launcher")
+{
+    await UnifiedLauncherChecks.ProcessChecks();
+    UnifiedLauncherChecks.Run(Path.GetFullPath(args[1]), Path.GetFullPath(args[2]));
+    return;
+}
+if (args.Length == 3 && args[0] == "--installed-x68000")
+{
+    UnifiedLauncherChecks.Installed(Path.GetFullPath(args[1]), Path.GetFullPath(args[2]));
+    return;
+}
+
 // Explicit private inputs; no ROM fixtures or owner settings bundled.
 if (args.Length == 2 && args[0] == "--setup-child")
 {
+    if (args[1] == "failure") { Console.Error.WriteLine("Controlled setup failure"); Environment.ExitCode = 7; return; }
     if (args[1] == "delay") { await Task.Delay(TimeSpan.FromSeconds(30)); return; }
     Console.WriteLine(args[1]);
     return;

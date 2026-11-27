@@ -7,3 +7,5 @@ assets/easter_egg/*.gif -text
 assets/easter_egg/crono_dance.generated.h -text
 assets/easter_egg/crono_portrait.generated.h -text
 assets/easter_egg/*.wav -text
+# Preserve the original permission document byte-for-byte, including its CRLFs.
+licenses/X68000-Sharp-Permission.txt -text -whitespace

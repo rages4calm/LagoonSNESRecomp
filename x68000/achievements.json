@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "gameId": "lagoon-x68000",
+  "editionId": "x68000-enhanced-adventure",
+  "catalogVersion": 1,
+  "title": "Lagoon X68000",
+  "achievements": [
+    {"id":"travel.first-area","title":"First steps","description":"Visit your first area.","event":"atlas.areas","rule":"counter","target":1},
+    {"id":"travel.first-route","title":"Into the unknown","description":"Record your first route to another area.","event":"atlas.routes","rule":"counter","target":1},
+    {"id":"travel.spread","title":"Off the beaten path","description":"Visit five different areas.","event":"atlas.areas","rule":"counter","target":5},
+    {"id":"travel.pathfinder","title":"Pathfinder","description":"Visit fifteen different areas.","event":"atlas.areas","rule":"counter","target":15},
+    {"id":"travel.cartographer","title":"Cartographer","description":"Visit thirty different areas.","event":"atlas.areas","rule":"counter","target":30},
+    {"id":"growth.first","title":"Finding your feet","description":"Reach level 2.","event":"player.level","rule":"counter","target":2},
+    {"id":"growth.veteran","title":"Seasoned adventurer","description":"Reach level 5.","event":"player.level","rule":"counter","target":5},
+    {"id":"growth.hero","title":"A hero in the making","description":"Reach level 10.","event":"player.level","rule":"counter","target":10}
+  ]
+}

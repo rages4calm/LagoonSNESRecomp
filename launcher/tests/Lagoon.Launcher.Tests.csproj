@@ -6,6 +6,12 @@
   <ItemGroup>
     <Compile Include="../PortablePackageChecks.cs" Link="PortablePackageChecks.cs" />
     <Compile Include="../GameAdapter.cs" Link="GameAdapter.cs" />
+    <Compile Include="../X68000Adapter.cs" Link="X68000Adapter.cs" />
+    <Compile Include="../X68000Preferences.cs" Link="X68000Preferences.cs" />
+    <Compile Include="../X68000SaveDisk.cs" Link="X68000SaveDisk.cs" />
+    <Compile Include="../GameChoice.cs" Link="GameChoice.cs" />
+    <Compile Include="../X68000Setup.cs" Link="X68000Setup.cs" />
+
     <Compile Include="../SetupTools.cs" Link="SetupTools.cs" />
     <Compile Include="../NativeSettings.cs" Link="NativeSettings.cs" />
     <Compile Include="../NativeInputSettings.cs" Link="NativeInputSettings.cs" />

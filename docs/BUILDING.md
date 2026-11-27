@@ -2,30 +2,91 @@
 
 ## Prebuilt releases
 
-The v0.5.3 release targets Windows x64, Linux x64, Intel Mac and Apple
-Silicon Mac with the actual prebuilt game, self-contained Companion and converted
-X68000 album. Check the [main page](../README.md) for publication status and downloads.
-Supply your own clean USA ROM. No game compilation or source generation is needed
-to play these packages. Windows setup needs no Python or .NET installation;
-Linux/macOS first-run setup uses Python 3.11+, with .NET bundled.
+Windows **0.6.0** provides one Companion for **SNES Enhanced** and **X68000
+Enhanced**. Its SNES engine is prebuilt; its X68000 engine is generated locally
+from the player's disks, with compatible firmware obtained by setup. Linux x64, Intel Mac and Apple Silicon
+downloads remain **SNES-only 0.5.3**. [Downloads](../README.md).
+
+SNES setup needs your clean original USA ROM and no game compilation. Windows
+bundles .NET and needs no Python installation for SNES. Linux/macOS first-run
+SNES setup uses Python 3.11+, with .NET bundled. X68000 setup automatically
+obtains its portable Python/compiler tools; no manual Python or Visual Studio
+installation is required.
 
 Extract the whole package into a writable folder and choose your ROM in
-Companion's first-run picker. Verification/setup run automatically. Runtime files stay under `game/`; settings,
+Companion's **SNES Enhanced** picker. Verification/setup run automatically. SNES runtime files stay under `game/`; settings,
 mod preferences and saves use `local/`. Setup verifies the payload and ROM,
 reads the ROM in place and preserves existing local progress. Keep the folder
 together. [Playing](PLAYING.md) · [Platform details](PORTING.md).
 
-Normal release execution is strict native for the main 65816 CPU. The interpreter
+SNES release execution is strict native for the main 65816 CPU. The interpreter
 is an explicit developer reference mode. Graphics, DMA, timers and SPC700/DSP
 audio still use the hardware runtime.
 
-Windows uses the title-owned D3D11 flip presenter by default, with GPU EPX.
+Windows uses the title-owned D3D11 flip presenter by default, with GPU EPX or MMPX.
 It links the Windows `d3d11`, `dxgi` and `d3dcompiler` libraries. OpenGL remains
 available; Linux/macOS use it. Detached world-view composition reads immutable
 qualified scene packets on the CPU; display scaling and Enhanced pixels run on
 the GPU. Expanding the presentation does not enlarge the guest PPU raster.
 
-## Source checkout
+## X68000 local build and setup
+
+The Windows package includes the X68000 enhanced runtime source and setup
+recipe. It cannot include a prebuilt X68000 game: RetroRecomp's exported
+executable embeds the game disks and firmware. Those inputs and the resulting
+export remain on your PC.
+
+1. Extract the full Windows release into a writable folder and open Companion.
+2. Choose **X68000 Enhanced**, then select your supported four-disk **ZIP or folder**.
+3. Click **Set up game**. Setup downloads verified portable tools, compatible
+   firmware and the English patch when needed, then builds
+   the English enhanced game. Keep the setup/log window open until it completes.
+4. Press **Play**. Future launches use the built game; changing edition does
+   not rebuild it.
+
+The required game input is four **DIM disk images**. Setup checks content,
+rather than trusting names alone. Normal setup obtains compatible IPL firmware
+and a public-domain Shinonome font from the pinned WebX68k source, with notices.
+There is no firmware-file hunt. **Use custom firmware (advanced)** optionally
+accepts **iplrom.dat (128 KiB)** and **cgrom.dat (768 KiB)** instead.
+It accepts the pinned English 0.9b System disk or applies nleseul's patch to the
+supported Japanese System disk. Lagoon game disks are never downloaded.
+The translation and official **RetroRecomp 1.8.0** converter are downloaded
+when needed and verified before use. The portable LLVM-MinGW/CMake/Ninja tools
+require internet and local disk space on first setup, without administrator
+installation. Tools are cached for later use.
+
+An alternative is to place the ZIP or extracted disks under
+**Inputs/X68000/**, then run **Setup X68000.cmd**. From an extracted package,
+the noninteractive launcher entry is:
+
+```powershell
+.\lagoon.Companion.exe --x68000-setup --inputs "C:\My Games\Lagoon disks.zip"
+```
+
+The enhanced export and receipts go under
+`local-x68000/retrorecomp-expedition/`. Keep that directory together. Saves and
+preferences live in its `datas/` tree. The public recipe uses
+`x68000/tools/build_retrorecomp.py` and `build_atlas_player.py`, with title-owned
+rendering under `x68000/runtime/` and guarded game changes in `lagoon_qol.py`.
+
+Optional CLI arguments `--ipl FILE --cgrom FILE` select custom firmware. The
+normal ZIP-only command obtains the compatible pair automatically.
+
+If setup stops, read the first error in its log. Unsupported/missing disk
+images need the supported four-image set. A custom-firmware size error needs
+the actual 128 KiB IPL and 768 KiB CGROM files, not renamed ZIPs; otherwise leave
+the advanced option off and use automatic firmware. Connection
+failures can be retried through **X68000 setup**. Close a running X68000 game
+before rebuilding it or copying its saves. Keep any existing User Disk and
+use Companion's ordinary-save import; an old bootable disk also contains old
+game files and must not replace the new patched template.
+
+No source-identity, checksum, mode or snapshot guard should be disabled to
+force a build or old state to load. X68000 retains the runtime/interpreter
+compatibility support; the SNES native-CPU claim does not describe this edition.
+
+## SNES source checkout
 
 Install Python 3.11+, Rust, CMake 3.20+, Ninja, a C/C++ compiler, SDL3 and zlib as
 required by the pinned [SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp)

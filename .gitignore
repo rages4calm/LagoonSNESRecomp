@@ -74,3 +74,13 @@ __pycache__/
 *.dll
 *.pdb
 *.nupkg
+
+# Private X68000 setup inputs and compiled embedded game exports.
+/Inputs/
+/local-x68000/
+/Lagoon_Sharp-X68000_EN/
+/x68000/patched/
+/x68000/extracted/
+*.dim
+*.xdf
+*.rrstate

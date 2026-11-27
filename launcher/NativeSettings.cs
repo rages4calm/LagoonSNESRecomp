@@ -269,7 +269,7 @@ internal static partial class NativeSettings
         if (stream.Length > 1024 * 1024) throw new InvalidDataException("Native settings exceed the 1 MiB limit.");
         var bytes = new byte[checked((int)stream.Length)]; stream.ReadExactly(bytes); return bytes;
     }
-    private sealed class Document
+    internal sealed class Document
     {
         private readonly string path;
         internal readonly byte[]? Original;
@@ -278,7 +278,7 @@ internal static partial class NativeSettings
         private readonly string newline;
         private readonly List<string> lines;
         internal bool Changed { get; private set; }
-        private Document(string path, byte[]? bytes)
+        private Document(string path, byte[]? bytes, bool acceptMixedLineEndings)
         {
             this.path = path; Original = bytes;
             encoding = new UTF8Encoding(false, true); preamble = Array.Empty<byte>();
@@ -287,13 +287,15 @@ internal static partial class NativeSettings
             else if (bytes?.AsSpan().StartsWith(new byte[] { 0xfe, 0xff }) == true) { encoding = new UnicodeEncoding(true, true, true); preamble = new byte[] { 0xfe, 0xff }; }
             var text = bytes == null ? "" : encoding.GetString(bytes, preamble.Length, bytes.Length - preamble.Length);
             if (text.Contains('\0')) throw new InvalidDataException("Native settings contain NUL bytes.");
+            var hasCrLf = text.Contains("\r\n");
             var withoutCrLf = text.Replace("\r\n", "");
-            if (withoutCrLf.Contains('\r') || (text.Contains("\r\n") && withoutCrLf.Contains('\n')))
+            if (withoutCrLf.Contains('\r') || (!acceptMixedLineEndings && hasCrLf && withoutCrLf.Contains('\n')))
                 throw new InvalidDataException("Native settings contain mixed or unsupported line endings. Normalize the file before Apply.");
-            newline = text.Contains("\r\n") ? "\r\n" : "\n";
-            lines = text.Split(newline, StringSplitOptions.None).ToList();
+            newline = hasCrLf ? "\r\n" : "\n";
+            lines = text.Replace("\r\n", "\n").Split('\n').ToList();
         }
-        internal static Document Read(string path) => new(path, ReadBytes(path));
+        internal static Document Read(string path, bool acceptMixedLineEndings = false) =>
+            new(path, ReadBytes(path), acceptMixedLineEndings);
         private static bool Assignment(string line, out string key, out string value)
         {
             var text = line.Trim(); var split = text.IndexOf('=');
