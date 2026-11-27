@@ -1,0 +1,63 @@
+{
+  "edition": "X68000 Enhanced",
+  "capture_type": "Actual expanded-compositor output, nearest-neighbor scaled and aspect-fitted to 1920x1080. Not OS fullscreen captures or native HD artwork.",
+  "images": [
+    {
+      "file": "x68000-atland-zoom125-1920x1080.png",
+      "scene": "Atland fountain and church",
+      "world_zoom": 1.25,
+      "native_compositor_canvas": [
+        568,
+        320
+      ],
+      "export_size": [
+        1920,
+        1080
+      ],
+      "sha256": "1c6475cafeea69a2a0fd3f4d23078d67cf114ff742f7474fe534caa6b9ddfb04"
+    },
+    {
+      "file": "x68000-voloh-zoom150-1920x1080.png",
+      "scene": "Voloh village",
+      "world_zoom": 1.5,
+      "native_compositor_canvas": [
+        684,
+        384
+      ],
+      "export_size": [
+        1920,
+        1080
+      ],
+      "sha256": "9a2e03868daa06b3540d9cf911b866af3aa500108052d7a3dbd10ea9ccb00831"
+    },
+    {
+      "file": "x68000-giles-cliff-zoom150-1920x1080.png",
+      "scene": "Gold Cave cliff near Giles",
+      "world_zoom": 1.5,
+      "native_compositor_canvas": [
+        684,
+        384
+      ],
+      "export_size": [
+        1920,
+        1080
+      ],
+      "sha256": "36bc6cadfe0b62e70c457f91b2d7289279b6917d194d2b5d13c2d88636401f5f"
+    },
+    {
+      "file": "x68000-castle-zoom150-1920x1080.png",
+      "scene": "Castle approach: bridge and statues",
+      "world_zoom": 1.5,
+      "native_compositor_canvas": [
+        684,
+        384
+      ],
+      "export_size": [
+        1920,
+        1080
+      ],
+      "sha256": "acb4fc8d3a8b45a6694f8059c7947fc5b348e6bf48e5c627a5116c8f0b102166"
+    }
+  ],
+  "feature_release": "0.6.0"
+}

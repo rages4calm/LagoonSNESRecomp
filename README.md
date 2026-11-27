@@ -2,7 +2,7 @@
 
 <p align="center"><img src="docs/branding/lagoon-logo.png" width="680" alt="Lagoon logo redrawn by DarkShadowRage"></p>
 
-[![Windows x64 download](docs/badges/windows.svg)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.6.0/Lagoon-Companion-0.6.0-win-x64.zip)
+[![Windows x64 0.6.0 - SNES and X68000](docs/badges/windows.svg?v=0.6.0)](https://github.com/rages4calm/LagoonSNESRecomp/releases/download/v0.6.0/Lagoon-Companion-0.6.0-win-x64.zip)
 
 **Windows 0.6.0: SNES Enhanced and X68000 Enhanced in one Companion launcher.**
 Choose the version you want to play. Each has its own game files, settings, saves and achievements.
@@ -74,6 +74,11 @@ This is the original Sharp X68000 game with its own story events and thrust-and-
 
 The X68000 edition retains RetroRecomp's X68000 hardware/runtime and compatibility support. The SNES edition's native-CPU claim does not apply to the X68000 build. [X68000 controls and saves](docs/PLAYING.md#x68000-enhanced).
 
+[![X68000 Enhanced in Atland with 1.25x world zoom](docs/screenshots/x68000-atland-zoom125-1920x1080.png)](docs/screenshots/x68000-atland-zoom125-1920x1080.png)
+
+X68000 Atland at **1.25x**. Actual expanded-compositor output, nearest-neighbor
+scaled and aspect-fitted to 1920x1080; original artwork. [More X68000 and SNES screenshots](docs/screenshots/README.md).
+
 ## Quick controls
 
 These are the default **PC keyboard and Xbox-style physical controller labels**. Other controller layouts may print different letters. All shortcuts are explained in the [playing guide](docs/PLAYING.md).
@@ -95,6 +100,11 @@ These are the default **PC keyboard and Xbox-style physical controller labels**.
 ## Saves, updating and recording
 
 Keep **local/** for SNES saves, settings, maps and achievements. Keep **local-x68000/** for X68000's generated game, settings, User Disk and progress. The editions do not share saves. Extract updates into a fresh folder and follow the [upgrade instructions](docs/PLAYING.md#upgrading-and-your-progress); do not overwrite or rename incompatible quick states.
+
+For older X68000 saves, open **Copy X68000 saves** in Companion. If your previous
+installation is not listed, click **Choose previous installation...**, select
+it, and copy an ordinary source slot into an empty destination slot. The tool
+preserves the updated game's files.
 
 For SNES recording on Windows, select **Borderless fullscreen** and use OBS **Game Capture -> Capture specific window -> LagoonSNESRecomp.exe**. [Recording help](docs/RECORDING.md). The X68000 game is a separate window named **Lagoon - Atlas**; select that game's window when recording it. The SNES D3D11/OBS checks do not qualify every X68000 capture setup.
 
